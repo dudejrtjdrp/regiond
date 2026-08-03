@@ -1,0 +1,171 @@
+{
+  "_note": "침공 스케줄 — 도착 틱·공격력·전리품·패널티. ★ 밸런스 재조정 이력(WORLD.md §11 터렛 도입, 2026-08-03): 터렛이 총전투력에 가산되면서 봇 기준 플레이의 승률이 밴드를 벗어나 적 공격력 다이얼을 다시 잡았다. 조정 전후 — 해적 140→140(유지) / 바이킹 420→458(+9.0%) / 드래곤 1000→1105(+10.5%). 근거: 봇 기준 플레이(server/sim/policy.js planTurrets)가 세우는 터렛은 해적전 0.00기, 바이킹전 평균 1.30기(+23.0 전투력), 드래곤전 평균 3.29기(+68.1 전투력)다. 해적(5일차)은 성벽 티어가 낮아 자리가 없고 다음 건물 자재를 먼저 지키므로 터렛이 서지 않는다 — 그래서 해적 공격력은 건드리지 않았다. 바이킹·드래곤은 얹힌 터렛 전투력만큼 R 이 올라간 것을 되돌리는 값이다. 전리품 gold 도 함께 올렸다(40→55 / 90→126 / 200→270): 터렛이 목재·석재·강재·골드의 새 소비처가 되면서 자동수출로 나가던 잉여가 줄어 '골드 충당률 50~65%' 체크포인트가 47~49%로 내려갔기 때문이다(막아 낸 대가로 되돌린다). 재조정 후 시뮬 200회(seed 42) 체크포인트 6/6 유지 — 해적 65.9% · 바이킹 58.9% · 드래곤 62.8% · 골드 51.9% · 성녀 격차 40.9%p — 자세한 수치는 docs/PROTOCOL.md §8 표를 볼 것.",
+  "schedule": [
+    {
+      "type": "pirate",
+      "name": "해적",
+      "arrivalTick": 5,
+      "power": 140,
+      "direction": "sea",
+      "warnLeadTicks": 7,
+      "reward": {
+        "gold": 55,
+        "buffId": "loot_pirate",
+        "text": "전리품 소량 + 2일간 자원 수집률 +15%"
+      },
+      "buff": {
+        "id": "loot_pirate",
+        "name": "해적 전리품",
+        "durationTicks": 2,
+        "gatherBonus": 0.15
+      },
+      "penalty": {
+        "resourceLoss": 0.1,
+        "populationLoss": 0.03
+      }
+    },
+    {
+      "type": "viking",
+      "name": "바이킹",
+      "arrivalTick": 9,
+      "power": 458,
+      "direction": "north",
+      "warnLeadTicks": 7,
+      "reward": {
+        "gold": 126,
+        "buffId": "loot_viking",
+        "text": "전리품 + 3일간 자원 수집률 +30%"
+      },
+      "buff": {
+        "id": "loot_viking",
+        "name": "바이킹 전리품",
+        "durationTicks": 3,
+        "gatherBonus": 0.3
+      },
+      "penalty": {
+        "resourceLoss": 0.25,
+        "populationLoss": 0.08
+      }
+    },
+    {
+      "type": "dragon",
+      "name": "드래곤",
+      "arrivalTick": 13,
+      "power": 1105,
+      "direction": "east",
+      "warnLeadTicks": 7,
+      "reward": {
+        "gold": 270,
+        "buffId": "loot_dragon",
+        "guaranteedArtifact": "crown_shard",
+        "text": "대량 전리품 + 5일간 전 부처 산출 +20% + 왕관의 조각"
+      },
+      "buff": {
+        "id": "loot_dragon",
+        "name": "용의 유산",
+        "durationTicks": 5,
+        "outputBonus": 0.2
+      },
+      "penalty": {
+        "resourceLoss": 0.2,
+        "populationLoss": 0.12,
+        "buildingDestroyTiers": [
+          1,
+          2
+        ]
+      }
+    }
+  ],
+  "referenceTable": {
+    "_note": "밸런스 문서 §6-4 검증표 원본. 기획 문서의 기록이므로 다이얼을 조정해도 이 표는 건드리지 않는다. 테스트는 이 표의 power 로 공식을 재현한다. (해적 실운영 다이얼은 QUESTIONS.md 기록대로 150→140 으로 낮춤)",
+    "pirate": {
+      "power": 150,
+      "permanent": 90,
+      "scenarios": {
+        "minimal": 156,
+        "normal": 171,
+        "total": 198
+      }
+    },
+    "viking": {
+      "power": 420,
+      "permanent": 220,
+      "scenarios": {
+        "minimal": 364,
+        "half": 454,
+        "total": 512
+      }
+    },
+    "dragon": {
+      "power": 1000,
+      "permanent": 470,
+      "scenarios": {
+        "wallOnly": 704,
+        "half": 945,
+        "total": 1141,
+        "noSaint": 806
+      }
+    }
+  },
+  "tactics": {
+    "_note": "침공 지휘(작전 회의) — docs/GAMEPLAY2.md §C-3. 판정은 기존 로지스틱 그대로이고, 여기서 나온 값은 승률에 '가산'된다(퍼센트포인트). 곱연산 금지 원칙.",
+    "options": [
+      {
+        "key": "siege",
+        "name": "농성",
+        "desc": "성문을 걸어 잠그고 성벽 뒤에서 버틴다."
+      },
+      {
+        "key": "sortie",
+        "name": "요격",
+        "desc": "성문을 열고 나가 들판에서 맞받아친다."
+      },
+      {
+        "key": "fire",
+        "name": "화공",
+        "desc": "기름과 불로 맞선다. 배와 비늘에 잘 듣는다."
+      }
+    ],
+    "default": {
+      "tactic": "siege",
+      "surgeSplit": [
+        0.34,
+        0.33,
+        0.33
+      ]
+    },
+    "matchup": {
+      "_note": "적 타입별 상성 ±8%p. 해적←화공, 바이킹←농성, 드래곤←요격 (기획 다이얼).",
+      "pirate": {
+        "fire": 0.08,
+        "siege": 0.0,
+        "sortie": -0.08
+      },
+      "viking": {
+        "siege": 0.08,
+        "fire": 0.0,
+        "sortie": -0.08
+      },
+      "dragon": {
+        "sortie": 0.08,
+        "siege": 0.0,
+        "fire": -0.08
+      }
+    },
+    "surge": {
+      "_note": "성벽 3구간 서지 배분. 약점 구간에 hitThreshold 이상을 몰아주면 +hitBonus. 약점 구간은 (seed, 침공 타입)에서 결정론적으로 뽑히며 국방부에게만 보인다.",
+      "segments": 3,
+      "segmentNames": [
+        "서쪽 성벽",
+        "정문",
+        "동쪽 성벽"
+      ],
+      "hitThreshold": 0.5,
+      "hitBonus": 0.04
+    },
+    "hint": {
+      "_note": "상성 힌트 공개 조건 — 국방대신 Lv3+ 또는 플레이어가 국방 담당. 정보 비대칭(PROTOCOL) 유지.",
+      "defenseLevelMin": 3
+    }
+  }
+}

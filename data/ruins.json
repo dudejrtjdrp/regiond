@@ -1,0 +1,74 @@
+{
+  "_note": "유적 탐사 카드 — docs/GAMEPLAY2.md §C-4. 유적 게이지가 gaugeThreshold 에 닿으면 카드 1장을 뽑아 결정 큐에 올리고 ruinEvent 를 쏜다. 응답은 기존 decide {decisionId, choice} 로 받는다. 유물 드랍은 기존 등급표(data/balance.json artifacts.gradeWeights)를 그대로 재사용한다.",
+  "gaugeThreshold": 3,
+  "decisionKind": "ruin",
+  "title": "유적 탐사",
+  "cards": [
+    {
+      "id": "altar",
+      "name": "무너진 제단",
+      "text": "돌더미 아래에 무너진 제단이 있다. 이끼 사이로 낡은 글자가 비친다.",
+      "options": [
+        { "key": "dig", "label": "파헤친다", "text": "곡괭이가 돌판을 깬다.",
+          "outcomes": [{ "op": "artifactRoll", "chance": 0.4, "successText": "제단 밑에서 유물이 나왔다.", "failText": "덫이었다. 무너진 돌을 치우는 데 값을 치렀다.", "failEffects": [{ "op": "gold", "amount": -30 }] }] },
+        { "key": "pray", "label": "기도한다", "text": "무릎을 꿇자 백성들이 따라 꿇었다.", "outcomes": [{ "op": "morale", "amount": 0.05, "text": "사기가 올랐다." }] },
+        { "key": "leave", "label": "떠난다", "text": "손대지 않기로 했다.", "outcomes": [] }
+      ]
+    },
+    {
+      "id": "well",
+      "name": "마른 우물",
+      "text": "바닥이 보이지 않는 마른 우물. 돌을 던져도 소리가 돌아오지 않는다.",
+      "options": [
+        { "key": "dig", "label": "내려가 본다", "text": "밧줄을 내리고 사람을 들여보냈다.",
+          "outcomes": [{ "op": "artifactRoll", "chance": 0.4, "successText": "바닥에서 무언가를 건져 올렸다.", "failText": "밧줄이 끊겼다. 사람을 끌어올리는 데 값을 치렀다.", "failEffects": [{ "op": "gold", "amount": -30 }] }] },
+        { "key": "pray", "label": "우물을 메운다", "text": "흙을 덮고 표석을 세웠다.", "outcomes": [{ "op": "morale", "amount": 0.05, "text": "백성이 안심했다." }] },
+        { "key": "leave", "label": "떠난다", "text": "뚜껑만 덮어 두었다.", "outcomes": [] }
+      ]
+    },
+    {
+      "id": "statue",
+      "name": "얼굴 없는 석상",
+      "text": "얼굴이 깎여 나간 석상이 들판을 보고 서 있다.",
+      "options": [
+        { "key": "dig", "label": "받침돌을 뜯는다", "text": "받침돌 아래에 빈 공간이 있었다.",
+          "outcomes": [{ "op": "artifactRoll", "chance": 0.4, "successText": "봉인된 궤가 나왔다.", "failText": "석상이 무너졌다. 치우는 데 값을 치렀다.", "failEffects": [{ "op": "gold", "amount": -30 }] }] },
+        { "key": "pray", "label": "제를 올린다", "text": "곡식을 바치고 절을 올렸다.", "outcomes": [{ "op": "morale", "amount": 0.05, "text": "사기가 올랐다." }] },
+        { "key": "leave", "label": "떠난다", "text": "석상을 그대로 두었다.", "outcomes": [] }
+      ]
+    },
+    {
+      "id": "barrow",
+      "name": "봉분",
+      "text": "이름이 지워진 봉분이다. 흙이 유난히 부드럽다.",
+      "options": [
+        { "key": "dig", "label": "봉분을 연다", "text": "삽이 관 뚜껑에 닿았다.",
+          "outcomes": [{ "op": "artifactRoll", "chance": 0.4, "successText": "부장품이 나왔다.", "failText": "썩은 공기가 올라왔다. 사람을 돌보는 데 값을 치렀다.", "failEffects": [{ "op": "gold", "amount": -30 }] }] },
+        { "key": "pray", "label": "제사를 지낸다", "text": "이름 없는 무덤에 이름을 붙여 주었다.", "outcomes": [{ "op": "morale", "amount": 0.05, "text": "사기가 올랐다." }] },
+        { "key": "leave", "label": "떠난다", "text": "흙을 다시 덮었다.", "outcomes": [] }
+      ]
+    },
+    {
+      "id": "gate",
+      "name": "선 채로 남은 문",
+      "text": "벽은 사라지고 문틀만 남았다. 문 너머로도 같은 들판이 보인다.",
+      "options": [
+        { "key": "dig", "label": "문지방을 판다", "text": "문지방 아래에 뭔가 묻혀 있었다.",
+          "outcomes": [{ "op": "artifactRoll", "chance": 0.4, "successText": "돌 상자를 찾아냈다.", "failText": "문이 무너졌다. 다친 이를 돌보는 데 값을 치렀다.", "failEffects": [{ "op": "gold", "amount": -30 }] }] },
+        { "key": "pray", "label": "문을 지나본다", "text": "왕이 앞장서 문을 지났다.", "outcomes": [{ "op": "morale", "amount": 0.05, "text": "사기가 올랐다." }] },
+        { "key": "leave", "label": "떠난다", "text": "문을 돌아서 갔다.", "outcomes": [] }
+      ]
+    },
+    {
+      "id": "furnace",
+      "name": "식은 가마",
+      "text": "누군가 오래전에 쓰던 가마가 반쯤 묻혀 있다.",
+      "options": [
+        { "key": "dig", "label": "가마를 헐어 본다", "text": "벽돌을 하나씩 들어냈다.",
+          "outcomes": [{ "op": "artifactRoll", "chance": 0.4, "successText": "가마 바닥에서 유물이 나왔다.", "failText": "묵은 재가 무너졌다. 뒷일을 치르는 데 값을 치렀다.", "failEffects": [{ "op": "gold", "amount": -30 }] }] },
+        { "key": "pray", "label": "불을 다시 지핀다", "text": "옛 장인의 이름으로 불을 올렸다.", "outcomes": [{ "op": "morale", "amount": 0.05, "text": "사기가 올랐다." }] },
+        { "key": "leave", "label": "떠난다", "text": "가마를 덮어 두었다.", "outcomes": [] }
+      ]
+    }
+  ]
+}

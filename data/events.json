@@ -1,0 +1,48 @@
+{
+  "random": {
+    "perTickChance": 0.18,
+    "pool": [
+      {
+        "id": "blight", "name": "흉작", "tags": ["blight"], "weight": 34,
+        "text": "들녘이 시들었다. 곡물 산출이 크게 떨어진다.",
+        "effect": { "kind": "outputModifier", "resource": "grain", "delta": -0.4, "durationTicks": 2 }
+      },
+      {
+        "id": "storm", "name": "악천후", "tags": ["storm"], "weight": 33,
+        "text": "폭풍이 항로를 덮쳤다. 운임이 올랐다.",
+        "effect": { "kind": "freightModifier", "delta": 0.1, "durationTicks": 2 }
+      },
+      {
+        "id": "disaster", "name": "재해", "tags": ["disaster"], "weight": 33,
+        "text": "재해가 창고를 덮쳤다. 비축 자원이 줄었다.",
+        "effect": { "kind": "resourceLoss", "ratio": 0.1 }
+      }
+    ]
+  },
+  "midShock": {
+    "windowTicks": [6, 9],
+    "leaderWeight": 1.6,
+    "pool": [
+      {
+        "id": "world_famine", "name": "대흉작", "tags": ["blight", "shock"],
+        "text": "세계 곡창이 무너졌다. 어디서도 곡물을 싸게 살 수 없다.",
+        "effect": { "kind": "globalOutputModifier", "resource": "grain", "delta": -0.4, "durationTicks": 3 }
+      },
+      {
+        "id": "oil_depletion", "name": "유전 고갈", "tags": ["shock"],
+        "text": "산유국의 유정이 마르기 시작했다.",
+        "effect": { "kind": "globalOutputModifier", "resource": "oil", "delta": -0.5, "durationTicks": 4 }
+      },
+      {
+        "id": "reinforced_invasion", "name": "강화 침공", "tags": ["shock", "invasion"],
+        "text": "정찰이 돌아왔다. 다음 침공군의 규모가 예상보다 크다.",
+        "effect": { "kind": "nextInvasionPower", "multiplier": 1.2 }
+      }
+    ]
+  },
+  "decisions": {
+    "offer": { "kind": "trade_offer", "title": "무역 제안" },
+    "invasion": { "kind": "invasion_prep", "title": "침공 대응" },
+    "budget": { "kind": "budget", "title": "예산 배분" }
+  }
+}

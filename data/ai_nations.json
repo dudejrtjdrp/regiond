@@ -1,0 +1,123 @@
+{
+  "nations": [
+    {
+      "id": "ai1",
+      "name": "동방 제국",
+      "concept": "동양풍 · 전통 중시 · 희귀 자원 보유",
+      "persona": "petro",
+      "diplomacyDifficulty": "hard",
+      "tags": [
+        "oilfield",
+        "ironvein",
+        "barren"
+      ],
+      "startingPopulation": 50,
+      "startingGold": 180,
+      "policy": {
+        "selfSufficiencyFirst": true,
+        "exportSurplus": true,
+        "importDeficit": true,
+        "priceManipulationChance": 0.15,
+        "priceManipulationRange": 0.2,
+        "preferredExports": [
+          "oil",
+          "steel",
+          "ironOre"
+        ],
+        "criticalImports": [
+          "grain"
+        ]
+      },
+      "startingResources": {
+        "grain": 120,
+        "wood": 80,
+        "stone": 40,
+        "oil": 20,
+        "fuel": 10,
+        "steel": 10,
+        "ironOre": 20
+      }
+    },
+    {
+      "id": "ai2",
+      "name": "엘프 연맹",
+      "concept": "엘프풍 · 목재와 희귀 약초",
+      "persona": "mercantile",
+      "diplomacyDifficulty": "normal",
+      "tags": [
+        "greatwood",
+        "holy"
+      ],
+      "startingPopulation": 50,
+      "startingGold": 120,
+      "policy": {
+        "selfSufficiencyFirst": true,
+        "exportSurplus": true,
+        "importDeficit": true,
+        "dumpingChance": 0.2,
+        "dumpingDiscount": 0.15,
+        "preferredExports": [
+          "wood",
+          "stone"
+        ],
+        "criticalImports": [
+          "oil",
+          "fuel"
+        ]
+      },
+      "startingResources": {
+        "grain": 90,
+        "wood": 140,
+        "stone": 50,
+        "oil": 0,
+        "fuel": 0,
+        "steel": 5,
+        "ironOre": 5
+      }
+    },
+    {
+      "id": "ai3",
+      "name": "서방 왕국",
+      "concept": "유럽풍 · 자원 풍부 · 화폐 패권국",
+      "persona": "hegemon",
+      "diplomacyDifficulty": "easy",
+      "tags": [
+        "fertile",
+        "greatwood"
+      ],
+      "startingPopulation": 50,
+      "startingGold": 260,
+      "policy": {
+        "selfSufficiencyFirst": true,
+        "exportSurplus": true,
+        "importDeficit": true,
+        "preferredExports": [
+          "grain",
+          "wood"
+        ],
+        "criticalImports": [
+          "oil",
+          "fuel"
+        ]
+      },
+      "startingResources": {
+        "grain": 150,
+        "wood": 120,
+        "stone": 50,
+        "oil": 0,
+        "fuel": 0,
+        "steel": 5,
+        "ironOre": 5
+      }
+    }
+  ],
+  "offers": {
+    "perTickChance": 0.55,
+    "amountRange": [
+      10,
+      60
+    ],
+    "priceJitter": 0.08,
+    "expiryTicks": 2
+  }
+}
