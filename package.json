@@ -1,0 +1,28 @@
+{
+  "name": "gallaemallae",
+  "version": "1.0.0",
+  "description": "갈래말래 (가제) — 엔드리스 정착지 성장 · 타워디펜스 웹게임 서버",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "simulate": "node server/sim/run.js --runs 20 --seed 42 --no-difficulty-check",
+    "test": "node --test",
+    "e2e": "node --test test/e2e.mjs",
+    "harness": "node harness/check_ui.mjs && node --test harness/client_harness.mjs",
+    "check:ui": "node harness/check_ui.mjs",
+    "smoke": "node harness/smoke_browser.mjs",
+    "simulate:full": "node server/sim/run.js --runs 20 --seed 42"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1",
+    "socket.io-client": "^4.8.3"
+  }
+}
