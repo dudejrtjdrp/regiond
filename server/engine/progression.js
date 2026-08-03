@@ -1,0 +1,525 @@
+// 진행 감독(Progression Director) — docs/GDD3.md §11. 이 파일이 게임의 모든 문을 쥔다.
+//
+// ★ 대원칙: **시간은 아무것도 열지 않는다.**
+//   감정의 날·어전 회의·조언·무역 오퍼·유물·웨이브 예고 — 전부 '그 장이 열린 뒤'에만 존재한다.
+//   장을 여는 것은 언제나 플레이어의 행동(스윙·건설·발동)이고, 게임일이 몇 번 지났는지는 조건에 들어가지 않는다.
+//
+// ★ 단일 관장: 예전에는 해금이 세 군데(티어표 unlocks · 건물 requiresTier · 기능별 하드코딩)에 흩어져 있었다.
+//   지금은 여기 하나다. tiers.js 는 반경·작업 속도·승격 연출만 맡고, 해금 목록은 **마지막 장(엔드리스)에 들어선 뒤에만**
+//   이 모듈이 합류시킨다. 그래서 "인구가 빨리 늘어 티어 3이 되는 바람에 무역이 먼저 열리는" 새치기가 원천 봉쇄된다.
+//
+// ★ 국가 단위: 장 상태는 nation.progress 에 산다 — 같은 정착지에 접속한 사람은 같은 장을 함께 본다(멀티 공유).
+import { townOf, dist, terrainNameAt } from './world.js';
+import { tierUnlockedList, settlementTier } from './tiers.js';
+
+export const chaptersCfg = (data) => data.chapters;
+export const chapterList = (data) => data.chapters.chapters;
+
+const EMPTY = { buildings: [], features: [], ui: [], commands: [] };
+
+/** 명령 별칭 — 같은 문 하나로 묶어 잠근다 */
+const COMMAND_ALIAS = {
+  placeTurret: 'placeBuilding',
+  buildStart: 'placeBuilding',
+};
+
+// ────────────────────────────────────────────────────────────────
+// 상태
+// ────────────────────────────────────────────────────────────────
+/** nation.progress 를 보장한다(구스냅샷 이관 포함) */
+export function ensureProgress(nation) {
+  const p = (nation.progress ||= {});
+  p.chapter ??= 1;
+  p.step ??= 0;
+  p.cleared ||= [];
+  p.flags ||= {};
+  p.trace ??= null;
+  p.log ||= [];
+  return p;
+}
+
+export function chapterDef(id, data) {
+  return chapterList(data).find((c) => c.id === id) ?? null;
+}
+
+/** 지금 열려 있는 장 (플레이어 국가 전용 개념) */
+export function currentChapter(nation, data) {
+  return chapterDef(ensureProgress(nation).chapter, data) ?? chapterList(data)[0];
+}
+
+export function chapterIndex(nation) {
+  return ensureProgress(nation).chapter;
+}
+
+/** 마지막 장(엔드리스)에 들어섰는가 — 이때부터 티어 해금이 합류한다 */
+export function inEndless(nation, data) {
+  const def = currentChapter(nation, data);
+  return Boolean(def?.endless);
+}
+
+// ────────────────────────────────────────────────────────────────
+// 해금 — 전부 파생값이다(저장하지 않는다). 자료 파일을 고치면 그 자리에서 반영된다.
+// ────────────────────────────────────────────────────────────────
+function mergeInto(acc, opens) {
+  if (!opens) return acc;
+  for (const k of ['buildings', 'features', 'ui', 'commands']) {
+    for (const v of opens[k] || []) acc[k].add(v);
+  }
+  return acc;
+}
+
+/**
+ * 지금까지 열린 것 전부.
+ * 규칙(하나뿐이다):
+ *   ① 현재 장까지의 `opens`
+ *   ② 이미 지나온 장의 `reward.opens`
+ *   ③ 통과한 칸(step)의 `opens`
+ *   ④ **엔드리스 장에 들어선 뒤에만** 티어 해금 합류
+ */
+export function unlockedList(nation, data) {
+  if (!nation?.isPlayer) return tierUnlockedList(nation, data);
+  const p = ensureProgress(nation);
+  const acc = { buildings: new Set(), features: new Set(), ui: new Set(), commands: new Set() };
+  const cleared = new Set(p.cleared);
+  for (const ch of chapterList(data)) {
+    if (ch.id > p.chapter) break;
+    mergeInto(acc, ch.opens);
+    if (ch.id < p.chapter) mergeInto(acc, ch.reward?.opens);
+    for (const st of ch.steps || []) {
+      if (cleared.has(stepKey(ch, st))) mergeInto(acc, st.opens);
+    }
+  }
+  if (inEndless(nation, data)) {
+    const t = tierUnlockedList(nation, data);
+    mergeInto(acc, t);
+  }
+  return {
+    buildings: [...acc.buildings],
+    features: [...acc.features],
+    ui: [...acc.ui],
+    commands: [...acc.commands],
+  };
+}
+
+export function featureUnlocked(nation, feature, data) {
+  if (!nation?.isPlayer) return true;                 // AI 3국은 이미 자리 잡은 나라다
+  return unlockedList(nation, data).features.includes(feature);
+}
+
+/** 건물 해금 — ★ requiresTier 가 아니라 '지금 장'이 정본이다 */
+export function buildingUnlocked(nation, key, data) {
+  const def = data.buildings[key];
+  if (!def || !def.tiers) return false;
+  if (!nation?.isPlayer) return settlementTier(nation) >= (def.requiresTier ?? 0);
+  return unlockedList(nation, data).buildings.includes(key);
+}
+
+/**
+ * 명령 해금 — chapters.json 의 `commands` 에 한 번이라도 적힌 명령은 그 장이 열려야 받는다.
+ * 어디에도 안 적힌 명령(이동·채팅 등 언제나 되는 것)은 그냥 통과한다 — '선언된 문'만 잠근다.
+ */
+let declaredCommandsCache = null;
+export function declaredCommands(data) {
+  if (declaredCommandsCache) return declaredCommandsCache;
+  const s = new Set();
+  for (const ch of chapterList(data)) {
+    for (const c of ch.opens?.commands || []) s.add(c);
+    for (const c of ch.reward?.opens?.commands || []) s.add(c);
+    for (const st of ch.steps || []) for (const c of st.opens?.commands || []) s.add(c);
+  }
+  declaredCommandsCache = s;
+  return s;
+}
+
+export function commandUnlocked(nation, type, data) {
+  if (!nation?.isPlayer) return true;
+  const key = COMMAND_ALIAS[type] ?? type;
+  if (!declaredCommands(data).has(key)) return true;
+  return unlockedList(nation, data).commands.includes(key);
+}
+
+/** 부처(콥더글러스)·각료가 도는가 — 감정의 날(6장) 뒤에만 */
+export function departmentsActive(nation, data) {
+  if (!nation?.isPlayer) return settlementTier(nation) >= (data.balance.production.departmentsFromTier ?? 3);
+  return featureUnlocked(nation, 'departments', data);
+}
+
+// ────────────────────────────────────────────────────────────────
+// 조건 판정
+// ────────────────────────────────────────────────────────────────
+const stepKey = (ch, st) => `${ch.id}:${st.key}`;
+
+function structureCount(nation, key) {
+  return (nation.structures || []).filter((s) => s.key === key).length;
+}
+
+function totalSwings(nation, skill) {
+  let n = 0;
+  for (const p of Object.values(nation.players || {})) {
+    n += (p.stats?.swingsBySkill?.[skill] ?? 0);
+  }
+  return n;
+}
+
+/**
+ * 조건 하나를 재어 {ok, have, need} 로 돌려준다.
+ * 목표 카드의 진행바가 이 값을 그대로 쓴다.
+ */
+export function measure(world, nation, cond, data) {
+  if (!cond) return { ok: true, have: 1, need: 1 };
+  switch (cond.type) {
+    case 'swings': {
+      const have = totalSwings(nation, cond.skill);
+      return { ok: have >= cond.count, have, need: cond.count };
+    }
+    case 'resource': {
+      const have = Math.floor(nation.resources?.[cond.resource] || 0);
+      return { ok: have >= cond.amount, have, need: cond.amount };
+    }
+    case 'structure': {
+      const have = structureCount(nation, cond.building);
+      return { ok: have >= (cond.count ?? 1), have, need: cond.count ?? 1 };
+    }
+    case 'population': {
+      const have = Math.floor(nation.population || 0);
+      return { ok: have >= cond.count, have, need: cond.count };
+    }
+    case 'fenceSegments': {
+      const have = (nation.fences || []).length;
+      return { ok: have >= cond.count, have, need: cond.count };
+    }
+    case 'wavesHeld': {
+      const have = (nation.wave?.history || []).filter((h) => h.won).length;
+      return { ok: have >= cond.count, have, need: cond.count };
+    }
+    case 'tier': {
+      const have = settlementTier(nation);
+      return { ok: have >= cond.tier, have, need: cond.tier };
+    }
+    case 'flag': {
+      const have = ensureProgress(nation).flags[cond.flag] ? 1 : 0;
+      return { ok: have === 1, have, need: 1 };
+    }
+    case 'all': {
+      const parts = (cond.of || []).map((c) => measure(world, nation, c, data));
+      const done = parts.filter((p) => p.ok).length;
+      return { ok: parts.every((p) => p.ok), have: done, need: parts.length, parts };
+    }
+    case 'any': {
+      const parts = (cond.of || []).map((c) => measure(world, nation, c, data));
+      const best = parts.reduce((a, b) => (b.have / Math.max(1, b.need) > a.have / Math.max(1, a.need) ? b : a), parts[0] ?? { have: 0, need: 1 });
+      return { ok: parts.some((p) => p.ok), have: best.have, need: best.need, parts };
+    }
+    default:
+      return { ok: false, have: 0, need: 1 };
+  }
+}
+
+// ────────────────────────────────────────────────────────────────
+// 진행 — 이 함수가 장을 넘긴다. 시간은 인자로도 받지 않는다.
+// ────────────────────────────────────────────────────────────────
+/**
+ * 조건을 다시 재고, 통과한 칸·장을 넘긴다.
+ * @returns {Array} 이벤트 목록 (`step_done` · `chapter_done` · `chapter_open`)
+ */
+export function evaluateProgress(world, nation, data) {
+  if (!nation?.isPlayer) return [];
+  const p = ensureProgress(nation);
+  const out = [];
+  let guard = 0;
+  while (guard++ < 32) {
+    const ch = chapterDef(p.chapter, data);
+    if (!ch) break;
+    const steps = ch.steps || [];
+    if (p.step >= steps.length) {
+      // 장 완료 — 보상 연출 + 다음 장
+      const next = chapterDef(ch.id + 1, data);
+      if (!next) break;
+      out.push({
+        kind: 'chapter_done', nationId: nation.id,
+        data: {
+          id: ch.id, key: ch.key, name: ch.name,
+          line: ch.reward?.line ?? null,
+          fanfare: ch.reward?.fanfare ?? null,
+          card: ch.reward?.card ?? null,
+          opened: summarizeOpens(ch.reward?.opens, data),
+          openCouncil: Boolean(ch.reward?.openCouncil),
+        },
+      });
+      p.chapter = next.id;
+      p.step = 0;
+      onChapterOpen(world, nation, next, data);
+      out.push({
+        kind: 'chapter_open', nationId: nation.id,
+        data: {
+          id: next.id, key: next.key, name: next.name, subtitle: next.subtitle ?? null,
+          opened: summarizeOpens(next.opens, data),
+        },
+      });
+      continue;
+    }
+    const st = steps[p.step];
+    const m = measure(world, nation, st.condition, data);
+    if (!m.ok) break;
+    const key = stepKey(ch, st);
+    if (!p.cleared.includes(key)) p.cleared.push(key);
+    p.step += 1;
+    out.push({
+      kind: 'step_done', nationId: nation.id,
+      data: { chapter: ch.id, step: st.key, title: st.title, opened: summarizeOpens(st.opens, data) },
+    });
+  }
+  return out;
+}
+
+function summarizeOpens(opens, data) {
+  if (!opens) return null;
+  const b = (opens.buildings || []).map((k) => ({ key: k, name: data.buildings[k]?.name ?? k }));
+  return {
+    buildings: b,
+    features: [...(opens.features || [])],
+    ui: [...(opens.ui || [])],
+  };
+}
+
+/** 장이 열릴 때 딱 한 번 — 그 장이 필요로 하는 월드 준비 */
+function onChapterOpen(world, nation, ch, data) {
+  if (ch.key === 'strange_tracks') placeTrace(world, nation, data);
+}
+
+/**
+ * 7장 정찰 지점 — 「안개 속 늑대 흔적」.
+ * 영토 바깥 조금 먼 곳에 하나 찍는다. 시간이 아니라 '가서 보는 행동'이 웨이브를 연다.
+ */
+export function placeTrace(world, nation, data) {
+  const p = ensureProgress(nation);
+  if (p.trace) return p.trace;
+  const town = townOf(world, nation.id);
+  if (!town) return null;
+  const r = (nation.territory?.radius ?? data.world.territory.baseRadius) + 7;
+  const size = world.map?.size ?? data.world.size;
+  const walkable = new Set(data.world.terrain.walkable);
+  for (let i = 0; i < 48; i += 1) {
+    const a = (Math.PI * 2 * i) / 48;
+    const x = Math.round(town.x + Math.cos(a) * r);
+    const y = Math.round(town.y + Math.sin(a) * r);
+    if (x < 1 || y < 1 || x >= size - 1 || y >= size - 1) continue;
+    const name = terrainNameAt(world.map, x, y, data);
+    if (!walkable.has(nameToCode(name, data))) continue;
+    p.trace = { x, y, radius: data.world.camps.scoutRadius ?? 6 };
+    return p.trace;
+  }
+  p.trace = { x: Math.min(size - 2, town.x + r), y: town.y, radius: 6 };
+  return p.trace;
+}
+
+function nameToCode(name, data) {
+  const names = data.world.terrain.names;
+  for (const [code, n] of Object.entries(names)) if (n === name) return code;
+  return name;
+}
+
+/** 아바타·주민이 정찰 지점에 닿았는가 — lordMove·일 틱에서 부른다 */
+export function checkTrace(world, nation, data) {
+  const p = ensureProgress(nation);
+  if (!p.trace || p.flags.traceFound) return false;
+  const r = p.trace.radius ?? 6;
+  const near = (x, y) => dist(x, y, p.trace.x, p.trace.y) <= r;
+  for (const a of Object.values(nation.avatars || {})) if (near(a.x, a.y)) { p.flags.traceFound = true; break; }
+  if (!p.flags.traceFound) {
+    for (const u of nation.villagers || []) if (near(u.x, u.y)) { p.flags.traceFound = true; break; }
+  }
+  return Boolean(p.flags.traceFound);
+}
+
+/** 깃발 하나 세우기 (appraiseLand 등) */
+export function setFlag(nation, flag) {
+  ensureProgress(nation).flags[flag] = true;
+}
+
+/**
+ * ★ 개발·테스트·시뮬 전용 — 장을 통째로 열어 둔다.
+ *   실제 플레이에서는 절대 불리지 않는다(소켓 명령이 없다). 테스트가 '7장 이후의 규칙'만
+ *   따로 확인할 수 있게, 그리고 개발 패널이 뒷장을 바로 볼 수 있게 두는 손잡이다.
+ */
+export function openChapterForDebug(world, nation, data, id) {
+  const p = ensureProgress(nation);
+  const target = Math.max(1, Math.min(chapterList(data).length, Number(id) || 1));
+  for (const ch of chapterList(data)) {
+    if (ch.id >= target) break;
+    for (const st of ch.steps || []) {
+      const k = stepKey(ch, st);
+      if (!p.cleared.includes(k)) p.cleared.push(k);
+    }
+  }
+  p.chapter = target;
+  p.step = 0;
+  if (target > 6) p.flags.appraised = true;
+  if (target > 7) p.flags.traceFound = true;
+  const ch = chapterDef(target, data);
+  if (ch && world?.map) onChapterOpen(world, nation, ch, data);
+  return p;
+}
+
+export function hasFlag(nation, flag) {
+  return Boolean(ensureProgress(nation).flags[flag]);
+}
+
+// ────────────────────────────────────────────────────────────────
+// 뷰 — state.chapter (PROTOCOL v3.1)
+// ────────────────────────────────────────────────────────────────
+/**
+ * 목표 카드가 그릴 것 전부 + **마커가 가리킬 대상 후보**.
+ * 「뭘 해야 할지 모르는 순간 제로」의 서버 몫이다 — 클라는 여기 실린 targets 로 화살표를 세운다.
+ */
+export function chapterView(world, nation, data) {
+  if (!nation?.isPlayer) return null;
+  const p = ensureProgress(nation);
+  const ch = chapterDef(p.chapter, data);
+  if (!ch) return null;
+  const total = chapterList(data).length;
+  const steps = ch.steps || [];
+  const st = steps[p.step] ?? null;
+  const m = st ? measure(world, nation, st.condition, data) : null;
+  return {
+    id: ch.id,
+    key: ch.key,
+    name: ch.name,
+    subtitle: ch.subtitle ?? null,
+    total,
+    endless: Boolean(ch.endless),
+    stepIndex: p.step,
+    stepCount: steps.length,
+    goal: st ? {
+      key: st.key,
+      title: st.title,
+      short: st.short ?? null,      // 자원 팝의 「(천막까지 6)」에 쓰이는 짧은 이름
+      sub: st.sub ?? '',
+      verb: st.verb ?? null,
+      condition: st.condition,
+      have: m.have,
+      need: m.need,
+      done: m.ok,
+      hint: st.hint ?? null,
+      hintOnFail: st.hintOnFail ?? null,
+      targets: targetsFor(world, nation, st.target, data),
+    } : null,
+    flags: { ...p.flags },
+    trace: p.trace ? { x: p.trace.x, y: p.trace.y, found: Boolean(p.flags.traceFound) } : null,
+  };
+}
+
+/**
+ * 마커 대상 후보 — 가까운 순서로 최대 3개.
+ * 노드는 **탐사된 곳만** 싣는다(안개 계약을 깨지 않는다).
+ */
+function targetsFor(world, nation, target, data) {
+  if (!target) return [];
+  const out = [];
+  const av = Object.values(nation.avatars || {})[0] ?? townOf(world, nation.id) ?? { x: 0, y: 0 };
+  const near = (a, b) => dist(a.x, a.y, av.x, av.y) - dist(b.x, b.y, av.x, av.y);
+
+  if (target.type === 'node') {
+    const types = new Set(target.nodeTypes || []);
+    const town = townOf(world, nation.id);
+    const radius = nation.territory?.radius ?? data.world.territory.baseRadius;
+    const cands = (world.map?.nodes || []).filter((n) => {
+      if (n.hidden || n.depleted || !types.has(n.type)) return false;
+      if (!town) return false;
+      return dist(n.x, n.y, town.x, town.y) <= radius + 0.001;
+    });
+    cands.sort(near);
+    for (const n of cands.slice(0, 3)) out.push({ kind: 'node', id: n.id, x: n.x, y: n.y, name: n.type });
+  } else if (target.type === 'site') {
+    for (const c of nation.construction || []) {
+      if (c.building !== target.building) continue;
+      out.push({ kind: 'site', id: c.id, x: c.x, y: c.y, name: data.buildings[c.building]?.name ?? c.building });
+    }
+  } else if (target.type === 'structure') {
+    for (const s of nation.structures || []) {
+      if (target.building && s.key !== target.building) continue;
+      out.push({ kind: 'structure', id: s.id, x: s.x, y: s.y, name: data.buildings[s.key]?.name ?? s.key });
+    }
+    out.sort(near);
+    out.length = Math.min(out.length, 3);
+  } else if (target.type === 'housing') {
+    // ★ 「사람이 더 와야 한다」의 마커. 셋 중 하나를 가리킨다:
+    //   ① 올리다 만 집이 있으면 **그 현장**(가서 두드려라)
+    //   ② 빈 잠자리가 없으면 **집 지을 자리**(배치대)
+    //   ③ 둘 다 아니면 이미 선 집(기다리면 온다)
+    //   ①을 빼먹으면 「또 놓아라」만 가리켜 공사장만 늘어난다 — 실제로 그 사고가 있었다.
+    const pending = (nation.construction || []).find((c) => HOUSING.includes(c.building) && !c.structureId);
+    const beds = housingBeds(nation, data);
+    if (pending) {
+      out.push({ kind: 'site', id: pending.id, x: pending.x, y: pending.y,
+        name: data.buildings[pending.building]?.name ?? pending.building });
+    } else if (beds.free <= 0 && beds.key) {
+      out.push({ kind: 'buildSlot', id: beds.key, sel: '#tb-build',
+        name: data.buildings[beds.key]?.name ?? beds.key, reason: 'noBeds' });
+    } else {
+      for (const s of nation.structures || []) {
+        if (!HOUSING.includes(s.key)) continue;
+        out.push({ kind: 'structure', id: s.id, x: s.x, y: s.y, name: data.buildings[s.key]?.name ?? s.key });
+      }
+      out.sort(near);
+      out.length = Math.min(out.length, 3);
+    }
+  } else if (target.type === 'point' && target.source === 'trace') {
+    const p = ensureProgress(nation);
+    if (p.trace) out.push({ kind: 'point', id: 'trace', x: p.trace.x, y: p.trace.y, name: '낯선 발자국' });
+  } else if (target.type === 'camp') {
+    for (const c of world.camps || []) {
+      if (c.nationId && c.nationId !== nation.id) continue;
+      out.push({ kind: 'camp', id: c.id, x: c.x, y: c.y, name: c.name ?? '적' });
+    }
+  }
+
+  if (!out.length && target.fallback) {
+    if (target.fallback.type === 'buildSlot') {
+      out.push({ kind: 'buildSlot', id: target.fallback.building, sel: target.fallback.sel ?? '#tb-build',
+        name: data.buildings[target.fallback.building]?.name ?? target.fallback.building });
+    } else if (target.fallback.type === 'ui') {
+      out.push({ kind: 'ui', id: target.fallback.sel, sel: target.fallback.sel, name: target.fallback.name ?? '' });
+    }
+  }
+  if (!out.length && target.type === 'ui') {
+    out.push({ kind: 'ui', id: target.sel, sel: target.sel, name: target.name ?? '' });
+  }
+  if (!out.length && target.type === 'buildSlot') {
+    out.push({ kind: 'buildSlot', id: target.building, sel: target.sel ?? '#tb-build',
+      name: data.buildings[target.building]?.name ?? target.building });
+  }
+  return out;
+}
+
+const HOUSING = ['tent', 'hut', 'house', 'manor'];
+
+/** 빈 잠자리와, 지금 지을 수 있는 가장 좋은 주거 */
+function housingBeds(nation, data) {
+  let cap = 0;
+  for (const s of nation.structures || []) {
+    const spec = data.buildings[s.key]?.tiers?.[s.tier - 1];
+    cap += spec?.residents ?? 0;
+  }
+  const open = unlockedList(nation, data).buildings;
+  let key = null;
+  for (const k of HOUSING) if (open.includes(k)) key = k;      // 뒤로 갈수록 좋은 집
+  return { free: cap - Math.floor(nation.population || 0), capacity: cap, key };
+}
+
+/** /api/config 공개본 — 규칙만 나간다(어느 장인지는 state 로만) */
+export function publicChapters(data) {
+  return {
+    chapters: chapterList(data).map((c) => ({
+      id: c.id, key: c.key, name: c.name, subtitle: c.subtitle ?? null,
+      endless: Boolean(c.endless),
+      steps: (c.steps || []).map((s) => ({ key: s.key, title: s.title, sub: s.sub ?? '', verb: s.verb ?? null })),
+      opens: {
+        buildings: [...(c.opens?.buildings || [])],
+        features: [...(c.opens?.features || [])],
+        ui: [...(c.opens?.ui || [])],
+      },
+      reward: c.reward ? { line: c.reward.line ?? null, card: c.reward.card ?? null } : null,
+    })),
+  };
+}
