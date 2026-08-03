@@ -1,0 +1,448 @@
+/* combat.js — ★ 엔드리스 웨이브 전투 (GDD3 §6).
+   경고(waveIncoming) → 개시(battleStart) → 서브틱 스트림(battleTick) 을 월드 위에 실시간으로 그린다.
+   적이 걸어와 울타리를 두드리고, 터렛이 쏘고, 민병이 붙고, **플레이어가 검을 들고 참전**한다.
+   판정은 전부 서버다 — 여기서 하는 일은 서버가 보내 주는 스냅샷을 아름답게 보여 주는 것이다. */
+(function (global) {
+  'use strict';
+  var GM = global.GM = global.GM || {};
+  var S = GM.state, U = GM.ui;
+
+  var seenEvents = 0;
+  var shots = [];
+  var interp = {};
+
+  /* ══════════ 경고 ══════════ */
+  function onIncoming(p) {
+    if (!p) return;
+    var meta = S.enemyMeta(p.type);
+    GM.sfx.play('alarm');
+    GM.fx.flash('#7d1c1c', 0.3, 0.5);
+    U.banner({ icon: meta.icon, kind: 'danger', title: (p.name || meta.name) + '이(가) 몰려온다',
+               sub: S.directionMeta(p.direction).name + '에서 ' + p.units + '이(가) 옵니다', ms: 4200 });
+    var vg = U.qs('#vignette');
+    if (vg) vg.classList.add('on');
+    GM.hud.flash({ kind: 'danger', icon: meta.icon, title: (p.name || meta.name) + '이(가) 옵니다',
+                   sub: '방어를 살펴보세요', open: openThreat }, 24000);
+  }
+
+  /* ══════════ 전투 ══════════ */
+  function onStart(p) {
+    seenEvents = 0;
+    shots = [];
+    interp = {};
+    var core = p && p.core;
+    if (core) GM.camera.moveTo(core.x, core.y);
+    GM.sfx.play('alarm');
+    U.toast('싸움이 시작됩니다. 검을 들고 직접 붙을 수 있습니다 — 죽지 않습니다.', 'warn', 6000);
+    setBattleBar(p);
+  }
+
+  function onTick(p) {
+    if (!p) return;
+    playEvents(p);
+    setBattleBar(p);
+  }
+
+  function playEvents(p) {
+    var evs = p.events || [];
+    for (var i = seenEvents; i < evs.length; i++) handleEvent(evs[i], p);
+    seenEvents = evs.length;
+  }
+
+  function findEnemy(p, id) {
+    for (var i = 0; i < (p.enemies || []).length; i++) if (p.enemies[i].id === id) return p.enemies[i];
+    return interp[id] || null;
+  }
+  function findTurret(p, id) {
+    for (var i = 0; i < (p.turrets || []).length; i++) if (p.turrets[i].id === id) return p.turrets[i];
+    return null;
+  }
+  function fenceById(id) {
+    var l = S.fences();
+    for (var i = 0; i < l.length; i++) if (l[i].id === id) return l[i];
+    return null;
+  }
+
+  function handleEvent(e, p) {
+    if (!e) return;
+    if (e.kind === 'kill') {
+      var t = findEnemy(p, e.targetId);
+      if (t) {
+        GM.fx.debris(t.x, t.y, '#bc4749', 10, 1.3);
+        GM.fx.ring(t.x, t.y, '#ff9d99', 0.2, 1.2, 0.45);
+        var src = e.by === 'turret' ? findTurret(p, e.byId) : null;
+        if (src) shots.push({ from: { x: src.x, y: src.y - 0.8 }, to: { x: t.x, y: t.y }, t: 0, dur: 0.22, color: '#f6e6a8' });
+        GM.sfx.play('kill');
+      }
+    } else if (e.kind === 'fenceBreak') {
+      GM.sfx.play('fenceBreak');
+      GM.fx.shakeScreen(4, 0.25);
+      var f = fenceById(e.targetId);
+      if (f) {
+        var mx = (f.x1 + f.x2) / 2, my = (f.y1 + f.y2) / 2;
+        GM.fx.debris(mx, my, '#8a5e33', 12, 1.4);
+        GM.fx.floatText(mx, my - 0.8, '울타리가 부서졌다', '#ff9d99', 12);
+      }
+    } else if (e.kind === 'structureHit' || e.kind === 'structureRuined') {
+      var b = S.structureById(e.targetId);
+      if (b) {
+        GM.fx.debris(b.x, b.y, '#c8a874', e.kind === 'structureRuined' ? 16 : 6, 1.2);
+        if (e.kind === 'structureRuined') {
+          GM.fx.shakeScreen(5, 0.3);
+          GM.fx.floatText(b.x, b.y - 1.2, b.name + ' 무너짐', '#ff9d99', 13);
+          GM.sfx.play('crumble');
+        }
+      }
+    } else if (e.kind === 'breach') {
+      GM.fx.flash('#7d1c1c', 0.3, 0.5);
+      GM.sfx.play('bad');
+      U.toast('울타리가 뚫렸습니다 — 안쪽을 지키세요.', 'bad', 4200);
+    } else if (e.kind === 'playerHit') {
+      GM.fx.shakeScreen(3.5, 0.2);
+      GM.sfx.play('hurt');
+      var me = GM.avatar.pos();
+      if (me) GM.fx.floatText(me.x, me.y - 1.2, '-' + U.fmt(e.amount || 0, 0), '#ff9d99', 13);
+    } else if (e.kind === 'playerDown') {
+      GM.fx.flash('#7d1c1c', 0.45, 0.7);
+      GM.sfx.play('bad');
+      U.banner({ icon: 'heart', kind: 'danger', title: '쓰러졌다', sub: '곧 모닥불 곁에서 일어납니다', ms: 3200 });
+    } else if (e.kind === 'militiaDown') {
+      var r = S.residentById(e.targetId);
+      if (r) GM.fx.debris(r.x, r.y, '#bc4749', 6, 1);
+    } else if (e.kind === 'withdraw') {
+      U.toast('남은 무리가 챙긴 것을 들고 물러갑니다.', 'warn', 4200);
+    }
+  }
+
+  function step(dt) {
+    for (var i = shots.length - 1; i >= 0; i--) {
+      shots[i].t += dt;
+      if (shots[i].t > shots[i].dur) shots.splice(i, 1);
+    }
+    /* 터렛이 쉬지 않고 쏘는 그림 — 서버 사건과 별개인 순수 연출 */
+    var b = S.battleLive();
+    if (b && b.turrets && b.turrets.length && b.enemies && b.enemies.length && Math.random() < dt * 6) {
+      var tr = b.turrets[Math.floor(Math.random() * b.turrets.length)];
+      var en = null, bd = 1e9;
+      for (var k = 0; k < b.enemies.length; k++) {
+        var d = Math.hypot(b.enemies[k].x - tr.x, b.enemies[k].y - tr.y);
+        if (d <= (tr.range || 8) && d < bd) { bd = d; en = b.enemies[k]; }
+      }
+      if (en) {
+        shots.push({ from: { x: tr.x, y: tr.y - 0.8 }, to: { x: en.x, y: en.y }, t: 0, dur: 0.2,
+                     color: tr.key === 'cannon' ? '#e08541' : (tr.key === 'ballista' ? '#c6d6e2' : '#f6e6a8') });
+        GM.sfx.play('shot');
+      }
+    }
+  }
+
+  /* ══════════ 월드 위 유닛 ══════════ */
+  function lerpPos(id, x, y) {
+    var cur = interp[id];
+    if (!cur) { interp[id] = { x: x, y: y }; return interp[id]; }
+    cur.x += (x - cur.x) * 0.22;
+    cur.y += (y - cur.y) * 0.22;
+    return cur;
+  }
+
+  function drawUnits(ctx, tile, animT) {
+    var b = S.battleLive();
+    if (!b) return;
+
+    (b.turrets || []).forEach(function (tr) {
+      if (!GM.camera.onScreen(tr.x, tr.y, tile * 8)) return;
+      var p = GM.camera.worldToScreen(tr.x, tr.y);
+      ctx.save();
+      ctx.globalAlpha = 0.10;
+      ctx.strokeStyle = '#f6e6a8';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 5]);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, (tr.range || 8) * tile, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    (b.militia || []).forEach(function (m) {
+      if (!m.alive) return;
+      var q = lerpPos('m' + m.id, m.x, m.y);
+      if (!GM.camera.onScreen(q.x, q.y, tile * 2)) return;
+      var p = GM.camera.worldToScreen(q.x - 0.36, q.y - 0.8);
+      var f = Math.floor(animT / 200 + q.x) % 2;
+      try { ctx.drawImage(GM.atlas.folk('defense', 0, f), Math.round(p.x), Math.round(p.y), Math.ceil(tile * 0.7), Math.ceil(tile * 0.9)); } catch (e) {}
+      hpBar(ctx, p.x, p.y - 5, tile * 0.7, m.hp / Math.max(1, m.maxHp), '#8dbb6d');
+    });
+
+    (b.enemies || []).forEach(function (en) {
+      if (en.hp <= 0) return;
+      var q = lerpPos(en.id, en.x, en.y);
+      if (!GM.camera.onScreen(q.x, q.y, tile * 2)) return;
+      var p = GM.camera.worldToScreen(q.x - 0.4, q.y - 0.9);
+      var f = Math.floor(animT / 170 + q.x * 2) % 2;
+      var w = tile * 0.8, h = tile * 0.95;
+      ctx.save();
+      ctx.globalAlpha = 0.24;
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      try { ctx.ellipse(p.x + w / 2, p.y + h - 1, w * 0.32, w * 0.14, 0, 0, Math.PI * 2); } catch (e1) {}
+      ctx.fill();
+      ctx.restore();
+      try { ctx.drawImage(GM.atlas.enemy(b.type, f), Math.round(p.x), Math.round(p.y), Math.ceil(w), Math.ceil(h)); } catch (e2) {}
+      hpBar(ctx, p.x, p.y - 6, w, en.hp / Math.max(1, en.maxHp), '#bc4749');
+      if (en.looting) {
+        ctx.save();
+        ctx.globalAlpha = 0.6 + 0.3 * Math.sin(animT / 200);
+        ctx.fillStyle = '#e8a33d';
+        ctx.fillRect(p.x + w - 4, p.y - 12, 5, 5);
+        ctx.restore();
+      }
+    });
+
+    ctx.save();
+    ctx.lineWidth = 2;
+    for (var i = 0; i < shots.length; i++) {
+      var sh = shots[i];
+      var kk = U.clamp(sh.t / sh.dur, 0, 1);
+      var cx = sh.from.x + (sh.to.x - sh.from.x) * kk;
+      var cy = sh.from.y + (sh.to.y - sh.from.y) * kk - Math.sin(kk * Math.PI) * 1.1;
+      var a = GM.camera.worldToScreen(sh.from.x, sh.from.y);
+      var c = GM.camera.worldToScreen(cx, cy);
+      ctx.globalAlpha = 0.8 * (1 - kk * 0.4);
+      ctx.strokeStyle = sh.color;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(c.x, c.y);
+      ctx.stroke();
+      ctx.fillStyle = '#fff6dc';
+      ctx.fillRect(c.x - 2, c.y - 2, 4, 4);
+    }
+    ctx.restore();
+  }
+
+  function hpBar(ctx, x, y, w, ratio, color) {
+    ctx.fillStyle = 'rgba(20,14,8,.72)';
+    ctx.fillRect(x, y, w, 4);
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w * U.clamp(ratio, 0, 1), 4);
+  }
+
+  /** 붉은 하늘 — 전투 중에만 */
+  function drawOverlay(ctx, W, H, animT) {
+    if (!S.battleLive()) return;
+    ctx.save();
+    ctx.globalAlpha = 0.10 + 0.05 * Math.sin(animT / 260);
+    ctx.fillStyle = '#7d1c1c';
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+
+  /* ══════════ 전투 상단 띠 ══════════ */
+  function setBattleBar(p) {
+    var bar = U.qs('#battle-bar');
+    if (!bar) return;
+    if (!p) { bar.hidden = true; return; }
+    bar.hidden = false;
+    U.clear(bar);
+    var meta = S.enemyMeta(p.type);
+    bar.appendChild(GM.icons.img(meta.icon, 24));
+    bar.appendChild(U.el('span', 'bb-n', p.name || meta.name));
+    var g = U.el('span', 'bb-gauge');
+    var fill = U.el('i');
+    var killed = p.killed || 0, total = Math.max(1, p.total || 1);
+    fill.style.width = Math.round((killed / total) * 100) + '%';
+    g.appendChild(fill);
+    bar.appendChild(g);
+    bar.appendChild(U.el('span', 'bb-c', killed + ' / ' + total));
+    var me = null;
+    (p.players || []).forEach(function (pl) { if (pl.id === S.S.avatarId) me = pl; });
+    if (me) {
+      var hp = U.el('span', 'bb-hp' + (me.down ? ' down' : ''));
+      hp.appendChild(GM.icons.img('heart', 16));
+      hp.appendChild(U.el('span', null, U.fmt(me.hp, 0) + ' / ' + U.fmt(me.maxHp, 0)));
+      bar.appendChild(hp);
+    }
+    bar.appendChild(U.el('span', 'bb-t', '남은 시간 ' + Math.max(0, Math.round((p.maxSeconds || 120) - (p.t || 0))) + '초'));
+  }
+
+  function clearBattleBar() {
+    var bar = U.qs('#battle-bar');
+    if (bar) { bar.hidden = true; U.clear(bar); }
+  }
+
+  /* ══════════ 결과 ══════════ */
+  function onResult(r) {
+    clearBattleBar();
+    interp = {}; shots = []; seenEvents = 0;
+    var vg = U.qs('#vignette');
+    if (vg) vg.classList.remove('on');
+    if (!r) return;
+    var meta = S.enemyMeta(r.type);
+    var body = U.el('div');
+
+    var head = U.el('div', 'result-head ' + (r.won ? 'won' : 'lost'));
+    head.textContent = r.won ? (r.name || meta.name) + '을(를) 모두 몰아냈다' : (r.name || meta.name) + '이(가) 챙겨 갔다';
+    body.appendChild(head);
+
+    var g = U.el('div', 'stat-grid');
+    stat(g, '쓰러뜨린 수', U.fmt(r.enemiesKilled, 0) + ' / ' + U.fmt(r.enemiesTotal, 0));
+    stat(g, '버틴 시간', U.fmt(r.duration, 1) + '초');
+    stat(g, '부서진 울타리', U.fmt(r.fencesBroken, 0) + '조각');
+    if (r.militiaDowned) stat(g, '쓰러진 민병', U.fmt(r.militiaDowned, 0) + '명', '다시 일어납니다');
+    if (r.gold) stat(g, '거둔 금화', U.fmt(r.gold, 0));
+    if (r.moraleDelta) stat(g, '사기', U.signed(r.moraleDelta, 2));
+    body.appendChild(g);
+
+    if ((r.structuresDamaged || []).length) {
+      body.appendChild(U.el('h3', 'sec-title', '상한 것'));
+      var ul = U.el('ul');
+      r.structuresDamaged.slice(0, 6).forEach(function (s) {
+        ul.appendChild(U.el('li', null, s.name + ' — ' +
+          (s.ruined ? '무너짐' : '튼튼함 ' + U.fmt(s.hp, 0) + ' / ' + U.fmt(s.maxHp, 0))));
+      });
+      body.appendChild(ul);
+      body.appendChild(U.el('p', 'hint', '건물을 눌러 [수리]하면 되돌아옵니다. 한 번에 다 무너지지는 않습니다.'));
+    }
+
+    var note = U.el('p', 'soft-note');
+    if (r.won) {
+      note.textContent = r.text || '한 놈도 남기지 않고 몰아냈습니다. 사람들이 울타리 밖으로 나와 숨을 돌립니다.';
+      body.appendChild(note);
+      body.appendChild(U.el('p', 'hint', '다음은 더 셉니다 — 울타리를 석벽으로 올리거나 화살탑을 하나 더 세워 두세요.'));
+    } else {
+      note.textContent = (r.text || '') + ' 창고가 조금 축났습니다. 다만 끝난 것은 아닙니다 — ' +
+        '사람들은 잔해를 치우고 다시 밭으로 나갑니다.';
+      body.appendChild(note);
+      body.appendChild(U.el('p', 'hint', '진 것이 아니라 덜 막은 것입니다. 울타리를 고치고 한 겹 더 두르면 눈에 띄게 달라집니다.'));
+    }
+
+    var foot = U.el('div');
+    var ok = U.btn('알겠다', 'btn-primary', function () { U.closeTopModal(); });
+    ok.id = 'wave-ok';
+    foot.appendChild(ok);
+    GM.sfx.play(r.won ? 'fanfare' : 'bad');
+    return U.openModal({ title: (r.name || meta.name) + ' 제 ' + (r.number || 1) + '차', body: body, footer: foot,
+                         width: '620px', key: 'wave', icon: GM.icons.img(meta.icon, 22) });
+  }
+
+  function stat(grid, name, val, sub) {
+    var c = U.el('div', 'stat');
+    c.appendChild(U.el('span', 's-name', name));
+    c.appendChild(U.el('span', 'num s-val', val));
+    if (sub) c.appendChild(U.el('span', 's-sub', sub));
+    grid.appendChild(c);
+  }
+
+  /* ══════════ 방어 패널 ══════════ */
+  function openThreat() {
+    if (!S.uiOn('hud.threat')) { U.toast('아직 바깥 소식이 닿지 않습니다.', 'warn'); return; }
+    var body = U.el('div');
+    body.id = 'threat-body';
+    paintThreat(body);
+    var foot = U.el('div');
+    foot.appendChild(U.btn('닫는다', 'btn-primary', function () { U.closeTopModal(); }));
+    return U.openModal({ title: '울타리 앞', body: body, footer: foot, width: '660px',
+                         key: 'threat', icon: GM.icons.img('shield', 22) });
+  }
+
+  function paintThreat(host) {
+    U.clear(host);
+    var w = S.wave(), d = S.defense();
+    if (!w || !d) { host.appendChild(U.el('p', 'empty', '아직 헤아릴 것이 없습니다.')); return; }
+
+    if (w.enemy) {
+      var meta = S.enemyMeta(w.enemy.type);
+      var card = U.el('div', 'scroll-card');
+      var t = U.el('div', 'th-enemy');
+      t.appendChild(GM.icons.img(meta.icon, 34));
+      var col = U.el('div');
+      col.appendChild(U.el('span', 'th-n', (w.enemy.name || meta.name) + ' 제 ' + (w.number || 1) + '차'));
+      var days = w.precise ? w.daysUntil : w.daysUntilMin;
+      col.appendChild(U.el('span', 'th-s',
+        (days === null || days === undefined ? '언제 올지 모릅니다'
+          : (w.precise ? days + '일 뒤' : days + '일 안쪽')) + ' · ' + S.directionMeta(w.enemy.direction).name + '에서'));
+      t.appendChild(col);
+      card.appendChild(t);
+      if (w.precise) {
+        card.appendChild(U.el('p', null, w.enemy.units + '마리 · 한 마리 체력 ' + U.fmt(w.enemy.unitHp, 0) +
+          ' · 공격력 ' + U.fmt(w.enemy.unitDps, 0)));
+      } else {
+        card.appendChild(U.el('p', 'hint', '성녀가 자리에 있어야 규모와 날을 정확히 압니다.'));
+      }
+      if (w.hint) card.appendChild(U.el('p', null, w.hint));
+      if (w.tacticHint) card.appendChild(U.el('p', 'state-good', w.tacticHint.text || ''));
+      host.appendChild(card);
+    }
+
+    var est = d.estimate || {};
+    var g = U.makeGauge({ height: 24 });
+    var ratio = est.secondsFenceHolds && est.secondsToClear
+      ? U.clamp(est.secondsFenceHolds / Math.max(1, est.secondsToClear) / 2, 0, 1) : 0.4;
+    var word = est.comfortable ? { text: '넉넉함' } : S.wordFor(ratio * 1.4);
+    g.setValue(ratio, word.text, '지금 울타리 앞은 ' + word.text,
+      '적을 다 쓸어내는 데 약 ' + U.fmt(est.secondsToClear, 0) + '초, 울타리가 버티는 시간 약 ' +
+      U.fmt(est.secondsFenceHolds, 0) + '초로 봅니다.\n' +
+      '싸움은 길어야 ' + U.fmt(est.maxSeconds, 0) + '초이고, 시간이 다 되면 남은 적이 챙긴 것을 들고 물러갑니다.');
+    host.appendChild(g);
+
+    var grid = U.el('div', 'stat-grid');
+    stat(grid, '터렛', U.fmt(d.turretCount, 0) + '기', '공격력 ' + U.fmt(d.turretDps, 0));
+    stat(grid, '민병', U.fmt(d.militiaCount, 0) + '명', '공격력 ' + U.fmt(d.militiaDps, 0));
+    stat(grid, '나', U.fmt(d.playerDps, 1), '직접 붙으면 이만큼');
+    stat(grid, '울타리', U.fmt(d.fenceSegments, 0) + '조각', '튼튼함 합 ' + U.fmt(d.fenceHp, 0));
+    host.appendChild(grid);
+
+    if ((d.turrets || []).length) {
+      host.appendChild(U.el('h3', 'sec-title', '세워 둔 것'));
+      var list = U.el('div', 'th-turrets');
+      d.turrets.forEach(function (t2) {
+        var row = U.el('button', 'th-turret');
+        row.type = 'button';
+        row.appendChild(GM.icons.img(GM.build.iconOf(t2.key), 22));
+        row.appendChild(U.el('span', null, t2.name + ' · 공격력 ' + U.fmt(t2.dps, 0) + ' · 사거리 ' + U.fmt(t2.range, 0)));
+        row.onclick = function () { GM.camera.moveTo(t2.x, t2.y); U.closeTopModal(); };
+        list.appendChild(row);
+      });
+      host.appendChild(list);
+    }
+
+    var n = S.nation();
+    var plan = n && n.battlePlan;
+    if (plan && (plan.options || []).length) {
+      host.appendChild(U.el('h3', 'sec-title', '어떻게 맞설까'));
+      var tg = U.el('div', 'tactic-grid');
+      plan.options.forEach(function (o) {
+        var b = U.el('button', 'tactic-card' + (plan.tactic === o.key ? ' on' : ''));
+        b.type = 'button';
+        b.setAttribute('data-tactic', o.key);
+        b.appendChild(GM.icons.img(o.key === 'siege' ? 'shield' : (o.key === 'sortie' ? 'sword' : 'fuel'), 28));
+        b.appendChild(U.el('span', 'tc-n', o.name));
+        b.appendChild(U.el('span', 'tc-d', o.desc));
+        b.onclick = function () {
+          GM.net.send('setBattlePlan', { tactic: o.key });
+          U.qsa('.tactic-card', tg).forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-tactic') === o.key); });
+          GM.sfx.play('tap');
+          U.toast(o.name + '(으)로 맞섭니다.', 'good');
+        };
+        tg.appendChild(b);
+      });
+      host.appendChild(tg);
+    }
+
+    host.appendChild(U.el('p', 'hint',
+      '져도 정착지가 끝나지는 않습니다. 건물이 상하고 창고가 축날 뿐, 사람들은 다시 일어섭니다.'));
+  }
+
+  function updateThreat() {
+    var host = U.qs('#threat-body');
+    if (host && U.modalOpen('threat')) paintThreat(host);
+  }
+
+  function reset() { seenEvents = 0; shots = []; interp = {}; clearBattleBar(); }
+
+  GM.combat = {
+    onIncoming: onIncoming, onStart: onStart, onTick: onTick, onResult: onResult,
+    step: step, drawUnits: drawUnits, drawOverlay: drawOverlay,
+    openThreat: openThreat, updateThreat: updateThreat,
+    reset: reset, clearBattleBar: clearBattleBar
+  };
+})(window);
