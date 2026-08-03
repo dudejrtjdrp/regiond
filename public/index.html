@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#2b1d12">
+<title>갈래말래</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+<!-- ══════ 배경 장식 (항상 맨 뒤 · 클릭 통과) ══════
+     규칙: 장식 요소는 반드시 class="decor" + pointer-events:none. harness/check_ui.mjs 가 검사한다. -->
+<canvas id="sky" class="decor sky" aria-hidden="true"></canvas>
+
+<!-- ══════ 장면 1 · 타이틀 ══════ -->
+<section id="scene-title" class="scene scene-title">
+  <div class="title-wrap">
+    <canvas id="crest" class="decor crest" aria-hidden="true" width="240" height="180"></canvas>
+    <h1 class="game-logo">갈래말래</h1>
+    <p class="game-tag">마차가 멈춘 자리에 모닥불 하나. 도끼질로 시작해 정착지를 키운다.</p>
+    <div class="title-btns">
+      <button id="btn-new" type="button" class="btn btn-xl btn-primary">새 정착지</button>
+      <button id="btn-load" type="button" class="btn btn-xl">이어하기</button>
+      <button id="btn-join" type="button" class="btn btn-xl">초대 코드로 참여</button>
+    </div>
+    <p id="title-status" class="scene-status" role="status"></p>
+    <p class="scene-foot">서버 없이 화면만 둘러보려면 주소 끝에 <code>?mock=1</code></p>
+  </div>
+</section>
+
+<!-- ══════ 장면 2 · 개척 시작 ══════ -->
+<section id="scene-found" class="scene scene-found" hidden>
+  <div class="found-wrap">
+    <div class="found-head">
+      <button id="found-back" type="button" class="btn btn-sm">← 뒤로</button>
+      <h2 class="scene-h">마차에 오릅니다</h2>
+    </div>
+
+    <div class="panel-paper found-name-box">
+      <label class="fld">
+        <span class="fld-label">그대의 이름</span>
+        <input id="found-name" type="text" maxlength="16" placeholder="예: 서온" autocomplete="off" spellcheck="false">
+      </label>
+      <p id="found-kingdom" class="kingdom-preview">이름을 적으면 정착지의 이름이 정해집니다.</p>
+    </div>
+
+    <h3 class="sec-title">어떤 길로 갈까</h3>
+    <div id="found-diff" class="diff-grid"></div>
+
+    <h3 class="sec-title">그대의 모습</h3>
+    <div id="found-char" class="panel-paper char-box"></div>
+
+    <div class="found-go">
+      <button id="found-start" type="button" class="btn btn-xl btn-primary" disabled>마차에 오른다</button>
+      <p id="found-summary" class="found-summary"></p>
+    </div>
+
+    <details id="found-custom" class="fold">
+      <summary>보조 옵션</summary>
+      <label class="switch">
+        <input id="found-assist" type="checkbox" checked>
+        <span class="sw-box"></span>
+        <span>자리를 비운 사이 정착지가 알아서 굴러가게 한다</span>
+      </label>
+      <p class="hint">역할은 마을(주민 12명)이 되는 날 「감정의 날」에 정해집니다.</p>
+    </details>
+
+    <p id="found-status" class="scene-status" role="status"></p>
+  </div>
+</section>
+
+<!-- ══════ 장면 3 · 이어하기 / 초대 코드 ══════ -->
+<section id="scene-load" class="scene scene-found" hidden>
+  <div class="found-wrap found-wrap-narrow">
+    <div class="found-head">
+      <button id="load-back" type="button" class="btn btn-sm">← 뒤로</button>
+      <h2 class="scene-h">이미 선 정착지에 들어갑니다</h2>
+    </div>
+    <div class="panel-paper">
+      <label class="fld">
+        <span class="fld-label">그대의 이름</span>
+        <input id="load-name" type="text" maxlength="16" placeholder="이름" autocomplete="off">
+      </label>
+      <label class="fld">
+        <span class="fld-label">초대 코드</span>
+        <input id="load-gameid" type="text" placeholder="예: g-3f9a2c" autocomplete="off" spellcheck="false">
+      </label>
+      <p class="hint">같은 코드를 적으면 한 정착지를 여럿이 함께 키웁니다.</p>
+      <button id="load-go" type="button" class="btn btn-xl btn-primary btn-block">들어간다</button>
+    </div>
+    <p id="load-status" class="scene-status" role="status"></p>
+  </div>
+</section>
+
+<!-- ══════ 게임 화면 ══════ -->
+<div id="shell" class="shell" hidden>
+
+  <!-- 상단 자원 바 -->
+  <header id="topbar" class="topbar">
+    <div id="res-bar" class="res-bar" aria-label="창고"></div>
+    <div class="topbar-right">
+      <span id="tb-kingdom" class="tb-kingdom"></span>
+      <button id="btn-look" type="button" class="icon-btn" aria-label="내 모습" title="내 모습">☺</button>
+      <button id="btn-chronicle" type="button" class="icon-btn" aria-label="연대기" title="연대기">✎</button>
+      <button id="btn-sound" type="button" class="icon-btn" aria-label="소리 켜기·끄기" title="소리">♪</button>
+      <button id="btn-help" type="button" class="icon-btn" aria-label="도움말" title="도움말">?</button>
+    </div>
+  </header>
+
+  <!-- 중앙 무대 — 월드 캔버스가 주인공이다 -->
+  <div id="stage" class="stage">
+    <canvas id="world-canvas" class="world-canvas" tabindex="0" aria-label="우리 땅"></canvas>
+
+    <div class="hud hud-tl">
+      <div id="badge-tier" class="tier-badge"></div>
+      <div id="badge-day" class="cal-badge"></div>
+      <button id="badge-threat" type="button" class="inv-badge" hidden></button>
+      <div id="goal-card" class="goal-card" hidden></div>
+    </div>
+
+    <div id="battle-bar" class="battle-bar" hidden></div>
+
+    <div id="notices" class="notices" aria-label="알림"></div>
+
+    <aside id="social-panel" class="social-panel" aria-label="함께 개척하는 이들"></aside>
+
+    <div id="minimap-wrap" class="minimap-wrap">
+      <canvas id="minimap" class="minimap" aria-label="축소 지도"></canvas>
+    </div>
+
+    <div id="place-bar" class="place-bar" hidden></div>
+
+    <div id="context-panel" class="ctx-panel" hidden></div>
+
+    <div id="toolbar" class="toolbar"></div>
+
+    <footer id="cabinet" class="cabinet" hidden></footer>
+
+    <div id="vignette" class="decor vignette" aria-hidden="true"></div>
+  </div>
+</div>
+
+<!-- 이펙트 층 — 자원 팝이 월드에서 상단 자원칸까지 날아간다 (항상 클릭 통과) -->
+<canvas id="fx-layer" class="decor fx-layer" aria-hidden="true"></canvas>
+
+<!-- 공용 레이어 -->
+<div id="toasts" class="toasts" aria-live="polite"></div>
+<div id="banner-root" class="banner-root" aria-live="polite"></div>
+<div id="tooltip" class="tooltip decor" role="tooltip" hidden></div>
+<div id="modal-root"></div>
+<div id="coach-root"></div>
+<div id="cutscene-root"></div>
+
+<!-- 개발 패널 (Ctrl+` 로만 열린다) -->
+<aside id="dev-panel" class="dev-panel" hidden></aside>
+
+<script src="/socket.io/socket.io.js" onerror="window.__socketIoMissing=true"></script>
+<script src="js/state.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/atlas.js"></script>
+<script src="js/sfx.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/mock.js"></script>
+<script src="js/net.js"></script>
+<script src="js/charcreate.js"></script>
+<script src="js/lobby.js"></script>
+<script src="js/camera.js"></script>
+<script src="js/world.js"></script>
+<script src="js/minimap.js"></script>
+<script src="js/avatar.js"></script>
+<script src="js/swing.js"></script>
+<script src="js/residents.js"></script>
+<script src="js/build.js"></script>
+<script src="js/structure.js"></script>
+<script src="js/combat.js"></script>
+<script src="js/social.js"></script>
+<script src="js/mandate.js"></script>
+<script src="js/input.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/quest.js"></script>
+<script src="js/opening.js"></script>
+<script src="js/tierup.js"></script>
+<script src="js/skills.js"></script>
+<script src="js/chronicle.js"></script>
+<script src="js/ministry.js"></script>
+<script src="js/orders.js"></script>
+<script src="js/artifacts.js"></script>
+<script src="js/council.js"></script>
+<script src="js/cutscene.js"></script>
+<script src="js/devpanel.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
