@@ -1,0 +1,163 @@
+{
+  "order": [
+    "farm",
+    "factory",
+    "build",
+    "defense",
+    "trade",
+    "saint"
+  ],
+  "officer": {
+    "vacant": 0.65,
+    "baseTenure": 1.0,
+    "perLevel": 0.08,
+    "max": 1.5
+  },
+  "xp": {
+    "_note": "레벨 곡선은 14틱 시즌 안에서 Lv5(스킬 해금)까지 도달 가능하도록 잡았다. 기획 §7-5의 'NPC 육성의 재미'가 시즌 내에 체감돼야 한다. TODO(기획): 지속형 서버로 갈 때 다시 늘려야 함.",
+    "perTickOnDuty": 1.4,
+    "performanceWeight": 0.5,
+    "levelCurve": [
+      0,
+      2,
+      5,
+      9,
+      14,
+      19,
+      25,
+      32,
+      40,
+      49
+    ]
+  },
+  "defs": {
+    "farm": {
+      "name": "농정관",
+      "tier": 0,
+      "department": "farm",
+      "exclusiveInfo": [
+        "soilFatigue",
+        "harvestForecast"
+      ],
+      "vacancy": {
+        "officer": 0.65,
+        "soilFatiguePerDay": 0.01,
+        "soilFatigueMax": 0.15
+      },
+      "skillLevel": 5,
+      "skill": {
+        "id": "farm_yield",
+        "name": "품종 개량",
+        "output": {
+          "grain": 0.15
+        }
+      }
+    },
+    "factory": {
+      "name": "공장장",
+      "tier": 0,
+      "department": "factory",
+      "exclusiveInfo": [
+        "bottleneck",
+        "inventoryTurnover"
+      ],
+      "vacancy": {
+        "officer": 0.65,
+        "byproductDiscarded": true
+      },
+      "skillLevel": 5,
+      "skill": {
+        "id": "factory_thrift",
+        "name": "대량 생산 전환",
+        "inputCostMultiplier": 0.9
+      }
+    },
+    "build": {
+      "name": "건축가",
+      "tier": 1,
+      "department": "build",
+      "exclusiveInfo": [
+        "durability",
+        "adjacency"
+      ],
+      "tenureBonus": {
+        "buildCostMultiplier": 0.75,
+        "buildSpeedMultiplier": 1.4,
+        "adjacencyBonus": 0.15
+      },
+      "vacancy": {
+        "officer": 0.65,
+        "lockedBuildingsAboveTier": {
+          "wall": 1,
+          "road": 1
+        }
+      },
+      "skillLevel": 5,
+      "skill": {
+        "id": "build_wall",
+        "name": "축성 숙련",
+        "wallDefenseBonus": 0.1
+      }
+    },
+    "defense": {
+      "name": "국방부",
+      "tier": 1,
+      "department": "defense",
+      "exclusiveInfo": [
+        "enemyEstimate",
+        "weakSpots"
+      ],
+      "vacancy": {
+        "officer": 0.65,
+        "surgeEfficiency": 0.6,
+        "autoDeploy": false
+      },
+      "skillLevel": 5,
+      "skill": {
+        "id": "defense_wall",
+        "name": "성벽 방어 강화",
+        "wallDefenseBonus": 0.1
+      }
+    },
+    "trade": {
+      "name": "외교관",
+      "tier": 2,
+      "department": "trade",
+      "exclusiveInfo": [
+        "foreignPrices",
+        "freight",
+        "fx"
+      ],
+      "vacancy": {
+        "officer": 0.65,
+        "infoLoss": 0.3,
+        "maskForeignPrices": true
+      },
+      "skillLevel": 5,
+      "skill": {
+        "id": "trade_info",
+        "name": "정보상",
+        "infoLoss": 0
+      }
+    },
+    "saint": {
+      "name": "성녀",
+      "tier": 2,
+      "department": "saint",
+      "exclusiveInfo": [
+        "invasionExactDate",
+        "sanctuaryRemaining"
+      ],
+      "vacancy": {
+        "officer": 0.65,
+        "invasionDateImprecise": true
+      },
+      "skillLevel": 5,
+      "skill": {
+        "id": "saint_sanctuary",
+        "name": "성역 연장",
+        "sanctuaryDurationBonus": 1
+      }
+    }
+  }
+}

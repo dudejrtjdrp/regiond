@@ -1,0 +1,734 @@
+{
+  "_note": "오픈월드 다이얼 — docs/WORLD.md §1~§10 + docs/GDD3.md. ★ v3.1(GDD3 §11-5): 월드가 256×256 으로 넓어졌다. 노드 수는 면적 4배에 맞춰 다시 뿌렸고(밀도는 거의 그대로), 도읍 간 거리는 aiDistanceRatio 0.36→0.30 으로 낮춰 실제 거리(46→77타일)가 지나치게 멀어지지 않게 눌렀다. 안개 청크(16)는 그대로라 청크 수만 64→256 으로 는다 — worldDiff 는 바뀐 청크만 실으므로 스냅샷 크기는 탐사한 만큼만 자란다. 256×256 공유 월드의 지형·자원 노드·안개·주민 배치·건물 자유 배치·울타리 조각·적 캠프 규칙을 전부 여기서 조정한다. ★ GDD3: 영토 반경은 개척령이 아니라 정착지 티어(data/tiers.json)가 정한다. baseRadius 는 티어 0 값이다.",
+  "size": 256,
+  "terrain": {
+    "_note": "시드 기반 값노이즈(coarse grid → bilinear). 같은 seed 는 같은 지형을 낸다. codes 순서가 곧 RLE 값이다 — 클라와 공유되는 계약이므로 순서를 바꾸지 말 것.",
+    "codes": [
+      "grass",
+      "forest",
+      "rock",
+      "water",
+      "fertile"
+    ],
+    "names": {
+      "grass": "풀밭",
+      "forest": "숲",
+      "rock": "바위 노두",
+      "water": "물",
+      "fertile": "기름진 땅"
+    },
+    "noiseGrid": 16,
+    "octaves": 3,
+    "seaLevel": 0.3,
+    "rockLevel": 0.74,
+    "forestMoisture": 0.6,
+    "fertileMoisture": [
+      0.42,
+      0.6
+    ],
+    "fertileElevation": [
+      0.34,
+      0.66
+    ],
+    "buildable": [
+      "grass",
+      "forest",
+      "fertile"
+    ],
+    "walkable": [
+      "grass",
+      "forest",
+      "rock",
+      "fertile"
+    ]
+  },
+  "nodes": {
+    "_note": "자원 노드. amount 는 그 자리가 품은 총량이고 regenPerTick 은 하루 재생량이다 — 이 둘이 장기 채집 속도의 진짜 상한이다(스윙 속도는 '얼마나 빨리 캐느냐'만 정한다). slots 는 한 노드에 붙을 수 있는 주민 수.",
+    "order": [
+      "forest",
+      "rock",
+      "fertile",
+      "water",
+      "iron",
+      "oil",
+      "ruin",
+      "field"
+    ],
+    "types": {
+      "forest": {
+        "name": "숲",
+        "terrain": "forest",
+        "job": "lumber",
+        "resource": "wood",
+        "count": 800,
+        "minSpacing": 2,
+        "slots": 4,
+        "amount": 45,
+        "regenPerTick": 5,
+        "drainPerWorker": 1.2,
+        "richChance": 0.18,
+        "richMultiplier": 2,
+        "regenTagMultiplier": {
+          "greatwood": 2
+        },
+        "contributes": "wood",
+        "contributionWeight": 1
+      },
+      "rock": {
+        "name": "바위 노두",
+        "terrain": "rock",
+        "job": "quarry",
+        "resource": "stone",
+        "count": 560,
+        "minSpacing": 2,
+        "slots": 4,
+        "amount": 40,
+        "regenPerTick": 3,
+        "drainPerWorker": 0.9,
+        "richChance": 0.15,
+        "richMultiplier": 2,
+        "contributes": "stone",
+        "contributionWeight": 1.8
+      },
+      "fertile": {
+        "name": "기름진 땅",
+        "terrain": "fertile",
+        "job": "farm",
+        "resource": "grain",
+        "count": 260,
+        "minSpacing": 2,
+        "slots": 4,
+        "amount": 0,
+        "regenPerTick": 0,
+        "drainPerWorker": 0,
+        "richChance": 0.25,
+        "richMultiplier": 2,
+        "harvest": true,
+        "contributes": "grain",
+        "_note": "자연 밭터. 일부러 드물게 둔다 — 농사 자리를 늘리려면 개간(reclaimField)으로 밭을 일궈야 한다(WORLD.md §3). 이 수가 곧 '가동 밭 노드 수'라 노드 기여(+1%/노드)의 출발점이고, 옛 타일 지정 8칸과 같은 자리에 오도록 맞춰 두었다.",
+        "contributionWeight": 1
+      },
+      "water": {
+        "_note": "어로 자리. amount 는 그 물목에 든 물고기다 — 아바타가 훑으면 줄고(data/skills.json nodes.water.drain) 며칠에 걸쳐 다시 몰려온다. richChance 는 0 으로 둔다(월드 생성 난수를 소비하지 않아 지도 재현성이 유지된다). 주민 어부는 두지 않는다 — 물가 노동은 아바타의 손기술이다(GDD3 §3), 배치된 백성은 농사 부처로만 잡힌다.",
+        "name": "물가",
+        "terrain": "water",
+        "job": "farm",
+        "resource": "grain",
+        "count": 170,
+        "minSpacing": 5,
+        "slots": 3,
+        "amount": 20,
+        "regenPerTick": 4,
+        "drainPerWorker": 0,
+        "richChance": 0,
+        "richMultiplier": 1,
+        "contributes": null
+      },
+      "iron": {
+        "name": "철광맥",
+        "terrain": "rock",
+        "job": "mine",
+        "resource": "ironOre",
+        "count": 110,
+        "minSpacing": 5,
+        "slots": 3,
+        "amount": 90,
+        "regenPerTick": 0,
+        "drainPerWorker": 1,
+        "richChance": 0.2,
+        "richMultiplier": 2,
+        "subsurface": true,
+        "nearTags": [
+          "ironvein"
+        ],
+        "nearTownRadius": 30,
+        "flatYield": {
+          "ironOre": 2
+        },
+        "contributes": null
+      },
+      "oil": {
+        "name": "유막",
+        "terrain": "grass",
+        "job": "mine",
+        "resource": "oil",
+        "count": 52,
+        "minSpacing": 6,
+        "slots": 3,
+        "amount": 70,
+        "regenPerTick": 0,
+        "drainPerWorker": 1,
+        "richChance": 0.1,
+        "richMultiplier": 2,
+        "subsurface": true,
+        "requiresTag": "oilfield",
+        "nearTags": [
+          "oilfield"
+        ],
+        "nearTownRadius": 26,
+        "flatYield": {
+          "oil": 1
+        },
+        "contributes": null
+      },
+      "ruin": {
+        "name": "고대 유적",
+        "terrain": null,
+        "job": "scout",
+        "resource": null,
+        "count": 88,
+        "minSpacing": 9,
+        "slots": 2,
+        "amount": 0,
+        "regenPerTick": 0,
+        "drainPerWorker": 0,
+        "richChance": 0,
+        "richMultiplier": 1,
+        "explorable": true,
+        "contributes": null
+      },
+      "field": {
+        "name": "밭",
+        "terrain": null,
+        "job": "farm",
+        "resource": "grain",
+        "count": 0,
+        "minSpacing": 2,
+        "slots": 3,
+        "amount": 0,
+        "regenPerTick": 0,
+        "drainPerWorker": 0,
+        "richChance": 0,
+        "richMultiplier": 1,
+        "harvest": true,
+        "createdBy": "reclaim",
+        "contributes": "grain",
+        "contributionWeight": 1
+      }
+    },
+    "startGuarantee": {
+      "_note": "정착지 주변 시작 자원 보장 — 티어 0 반경(baseRadius) 안에 이만큼은 반드시 있다. 마차에서 내린 자리에서 곧바로 도끼질을 시작할 수 있어야 한다(GDD3 §2).",
+      "radiusRatio": 1,
+      "counts": {
+        "forest": 6,
+        "rock": 4,
+        "fertile": 3,
+        "ruin": 1
+      }
+    },
+    "contribution": {
+      "_note": "노드 기여 — 백성이 붙어 일하는 노드 1곳당 해당 산출 +perNode×weight, rich 면 곱절, 상한 +20%. 콥더글러스에 곱하지 않고 산출 마지막에 (1+기여) 한 번만 적용한다. ★ GDD3: 부처 산출이 도는 티어(production.departmentsFromTier) 이상에서만 의미가 있다.",
+      "perNode": 0.0065,
+      "cap": 0.2,
+      "requiresEmotionDay": true,
+      "maturityTicks": 2
+    }
+  },
+  "towns": {
+    "_note": "도읍 배치. 플레이어는 중앙 부근, AI 3국은 세 모서리 방향. 프리셋 마을은 정적 레이아웃(연출용)이라 판정에 쓰지 않는다.",
+    "playerOffset": [
+      0,
+      0
+    ],
+    "jitter": 9,
+    "aiAngles": {
+      "ai1": 45,
+      "ai2": 180,
+      "ai3": 300
+    },
+    "aiDistanceRatio": 0.3,
+    "presetLayout": [
+      {
+        "key": "hall",
+        "dx": 0,
+        "dy": 0
+      },
+      {
+        "key": "house",
+        "dx": -2,
+        "dy": -1
+      },
+      {
+        "key": "house",
+        "dx": 2,
+        "dy": -1
+      },
+      {
+        "key": "house",
+        "dx": -1,
+        "dy": 2
+      },
+      {
+        "key": "house",
+        "dx": 3,
+        "dy": 2
+      },
+      {
+        "key": "market",
+        "dx": 0,
+        "dy": -3
+      },
+      {
+        "key": "shrine",
+        "dx": -3,
+        "dy": 1
+      }
+    ],
+    "caravan": {
+      "_note": "도읍 사이를 오가는 무역 마차 — 순수 연출. 서버는 경로 양끝만 준다.",
+      "enabled": true,
+      "speedTilesPerTick": 14
+    }
+  },
+  "territory": {
+    "_note": "영토 = 정착지 중심 반경. ★ GDD3 §1 — 티어가 오르면 자동으로 넓어진다(data/tiers.json levels[].radius). 개척령(expand)은 폐기됐다.",
+    "baseRadius": 6,
+    "aiBaseRadius": 10
+  },
+  "fog": {
+    "_note": "전장의 안개 — 0 미탐사 / 1 탐사됨(정적 정보만) / 2 시야. 자국 마스크만 만든다. 청크 단위(chunk×chunk)로 스탬프를 찍어 worldDiff 가 바뀐 청크만 보낸다. ★ GDD3 §12-8 — 아바타·건물의 시야 반경은 기본값 + 정착지 티어 × visionPerTier 다(영토가 클수록 세상이 넓게 보인다).",
+    "chunk": 16,
+    "vision": {
+      "town": 13,
+      "building": 6,
+      "site": 4,
+      "villager": 4,
+      "scout": 7,
+      "lord": 9
+    },
+    "nightVisionMultiplier": 0.8,
+    "startExploredRadius": 14,
+    "visionPerTier": 0.5
+  },
+  "villagers": {
+    "_note": "주민 유닛. ★ GDD3 §4 — 인구는 0에서 시작하고 주민은 실인원이다: unitCompressionFrom(60) 명까지는 1유닛=1명, 그 위로는 압축된다. 서버는 누가 어떤 노드/일자리에 배치됐나만 권위 관리하고 걷는 연출은 클라가 만든다.",
+    "maxUnits": 60,
+    "minUnits": 0,
+    "jobs": [
+      "farm",
+      "lumber",
+      "quarry",
+      "mine",
+      "factory",
+      "build",
+      "defense",
+      "trade",
+      "scout",
+      "idle"
+    ],
+    "jobNames": {
+      "farm": "농부",
+      "lumber": "나무꾼",
+      "quarry": "석공",
+      "mine": "광부",
+      "factory": "공방",
+      "build": "건설",
+      "defense": "수비",
+      "trade": "장사",
+      "scout": "정찰",
+      "idle": "대기"
+    },
+    "jobTargets": {
+      "_note": "직업이 붙을 수 있는 대상. nodeTypes 는 월드 자원 노드, posts 는 도읍·성벽·건물·건설 현장 같은 '일자리'다. 노드가 없어도 도읍(hall)이 받아 주므로 배분이 0으로 무너지지 않는다.",
+      "farm": {
+        "nodeTypes": [
+          "field",
+          "fertile",
+          "water"
+        ],
+        "posts": [
+          "hall",
+          "campfire",
+          "granary",
+          "hunter_hut",
+          "mill",
+          "shrine"
+        ]
+      },
+      "lumber": {
+        "nodeTypes": [
+          "forest"
+        ],
+        "posts": [
+          "sawmill"
+        ]
+      },
+      "quarry": {
+        "nodeTypes": [
+          "rock"
+        ],
+        "posts": [
+          "quarry_camp"
+        ]
+      },
+      "mine": {
+        "nodeTypes": [
+          "iron",
+          "oil"
+        ],
+        "posts": [
+          "hall",
+          "mine_shaft"
+        ]
+      },
+      "factory": {
+        "nodeTypes": [],
+        "posts": [
+          "hall",
+          "smelter",
+          "smithy"
+        ]
+      },
+      "build": {
+        "nodeTypes": [],
+        "posts": [
+          "site",
+          "hall",
+          "campfire"
+        ]
+      },
+      "defense": {
+        "nodeTypes": [],
+        "posts": [
+          "fence",
+          "barracks",
+          "watchpost",
+          "hall",
+          "campfire"
+        ]
+      },
+      "trade": {
+        "nodeTypes": [],
+        "posts": [
+          "trading_post",
+          "market",
+          "consulate",
+          "storage",
+          "hall"
+        ]
+      },
+      "scout": {
+        "nodeTypes": [
+          "ruin"
+        ],
+        "posts": []
+      },
+      "idle": {
+        "nodeTypes": [],
+        "posts": [
+          "hall",
+          "campfire"
+        ]
+      }
+    },
+    "postSlots": {
+      "hall": 60,
+      "campfire": 12,
+      "site": 10,
+      "granary": 3,
+      "sawmill": 3,
+      "quarry_camp": 3,
+      "hunter_hut": 2,
+      "storage": 3,
+      "smelter": 4,
+      "smithy": 3,
+      "mine_shaft": 3,
+      "mill": 2,
+      "watchpost": 2,
+      "barracks": 6,
+      "trading_post": 3,
+      "market": 4,
+      "consulate": 4,
+      "shrine": 3,
+      "fence": 20
+    },
+    "reassignOnDepletion": true,
+    "moveTilesPerTick": 12
+  },
+  "laborDerivation": {
+    "_note": "★ 매크로 접합의 핵심(WORLD.md §5). laborAlloc 은 이제 슬라이더가 아니라 '배치의 파생값'이다. referenceMix 는 60유닛의 '정확한 60분의 n'(농18·벌8·채5·광2·공7·건7·방9·무2·정2)이라 반올림 오차가 0이고, 부처별 환산 배수(defaultAlloc[dept] ÷ 그 부처의 referenceMix 합)를 곱하면 옛 balance.json labor.defaultAlloc(농40/공20/건16/방20/무역4)과 채집 계수(목재 1.8·석재 0.9)가 '정확히' 재현된다. 그래서 새 게임을 방치해도 검증된 밸런스로 굴러간다. 바꾸려면 시뮬 6/6 을 다시 확인할 것.",
+    "jobToDept": {
+      "farm": "farm",
+      "mine": "factory",
+      "factory": "factory",
+      "build": "build",
+      "defense": "defense",
+      "trade": "trade"
+    },
+    "gatherJobs": {
+      "lumber": "wood",
+      "quarry": "stone"
+    },
+    "referenceMix": {
+      "farm": 0.3,
+      "lumber": 0.13333333333333333,
+      "quarry": 0.08333333333333333,
+      "mine": 0.03333333333333333,
+      "factory": 0.11666666666666667,
+      "build": 0.11666666666666667,
+      "defense": 0.15,
+      "trade": 0.03333333333333333,
+      "scout": 0.03333333333333333,
+      "idle": 0
+    },
+    "referenceDeptSum": 0.75,
+    "gatherScaleCap": 2
+  },
+  "buildingPlacement": {
+    "_note": "건물 자유 배치. 영토 안 + 건축 가능 지형 + 다른 건물/노드와 minSpacing 이상. ★ GDD3 §12-1 — 판정 단위는 칸 하나가 아니라 건물의 풋프린트(사각형)다: 두 풋프린트 사이 간격이 minSpacing 미만이면 못 놓는다. ★ GDD3 §7 — 자동 성곽 링은 폐지됐다(ringBuildings 비었음). 방벽은 울타리 조각(fences)이다.",
+    "minSpacing": 2,
+    "nodeClearance": 1,
+    "ringBuildings": [],
+    "adjacency": {
+      "_note": "배치 인접 보너스 — 옛 '인접 보너스'(SPEC §4, 건축가 재임 시만)의 월드화. 반경 안 해당 노드 1곳당 perNode, 상한 max. ★ requiresPlacement: 왕이 손수 좌표를 찍은 건물(placeBuilding)에만 붙는다. 좌표 없이 맡긴 건설(buildStart·조언 매크로·정책 봇)은 0 — AP 액션과 같은 '접속한 사람만 얻는 보너스' 원칙이라 시뮬 체크포인트(6/6)는 이 보너스 없이 유지된다.",
+      "radius": 5,
+      "perNode": 0.02,
+      "max": 0.1,
+      "requiresArchitect": true,
+      "byBuilding": {
+        "granary": [
+          "field",
+          "fertile"
+        ],
+        "mill": [
+          "field",
+          "fertile"
+        ],
+        "hunter_hut": [
+          "forest"
+        ],
+        "storage": [
+          "field",
+          "fertile",
+          "forest"
+        ],
+        "sawmill": [
+          "forest"
+        ],
+        "quarry_camp": [
+          "rock"
+        ],
+        "mine_shaft": [
+          "iron",
+          "oil"
+        ],
+        "smelter": [
+          "iron",
+          "rock"
+        ],
+        "smithy": [
+          "rock",
+          "iron"
+        ],
+        "barracks": [
+          "rock"
+        ],
+        "trading_post": [
+          "water"
+        ],
+        "market": [
+          "water"
+        ],
+        "consulate": [
+          "water"
+        ],
+        "shrine": [
+          "ruin"
+        ],
+        "well": [
+          "water"
+        ],
+        "garden": [
+          "water",
+          "fertile"
+        ]
+      },
+      "requiresPlacement": true
+    },
+    "infraBuildings": []
+  },
+  "reclaim": {
+    "_note": "개간 — 값싼 목재로 영토 안 아무 풀밭에 밭 노드를 만든다. 밭은 수확 반짝임(§C-2)의 대상이다.",
+    "cost": {
+      "wood": 12
+    },
+    "buildPoints": 0,
+    "terrain": [
+      "grass",
+      "fertile"
+    ],
+    "minSpacing": 2,
+    "maxFields": 60
+  },
+  "camps": {
+    "_note": "웨이브 예고(GDD3 §6) — D-leadDays 에 맵 가장자리에 선발대 캠프가 보인다. 정찰(주민·아바타 시야)이 닿으면 규모 힌트가 열리고, 국방부 정보면 정확한 수치가 열린다.",
+    "leadDays": 2,
+    "edgeMargin": 10,
+    "directionAngles": {
+      "sea": 200,
+      "north": 270,
+      "east": 0,
+      "west": 180,
+      "south": 90
+    },
+    "scoutRadius": 6,
+    "sizeBuckets": [
+      {
+        "max": 200,
+        "label": "작은 무리"
+      },
+      {
+        "max": 600,
+        "label": "제법 큰 무리"
+      },
+      {
+        "max": 100000,
+        "label": "헤아릴 수 없는 대군"
+      }
+    ],
+    "marchSpeedTilesPerTick": 80
+  },
+  "combatScene": {
+    "_note": "웨이브 전투 연출 — ★ GDD3 §6 실시뮬로 대체됐다. 여기 남은 값은 클라 리플레이의 표시 단계(phases)뿐이고, 실제 유닛·타임라인은 서버 서브틱 시뮬(battle.js)이 만든다.",
+    "enemyUnitsPerPower": 0.05,
+    "enemyUnitsMax": 40,
+    "defenderUnitsMax": 30,
+    "phases": [
+      "march",
+      "clash",
+      "resolve",
+      "aftermath"
+    ],
+    "phaseNames": {
+      "march": "행군",
+      "clash": "충돌",
+      "resolve": "판정",
+      "aftermath": "여파"
+    }
+  },
+  "avatar": {
+    "_note": "군주 아바타(§10). 위치는 클라가 관리하고 서버는 안개·브로드캐스트용으로만 받는다. 행동 판정(AP·쿨다운·노드 유효성)은 기존 apAction 계약 그대로 nodeId 기반이다.",
+    "interactRadius": 3,
+    "broadcastEveryTicks": 1,
+    "dayNightCycle": true
+  },
+  "appearance": {
+    "_note": "캐릭터 커스터마이징(§12) — 에셋 파일 없이 절차 도트 스프라이트 레이어를 합성한다. 서버가 받는 값은 '레이어 인덱스'뿐이고 범위(0~count-1)만 검증한다. palette 는 팔레트 스왑용 색, styles 는 모양 이름이다. 클라가 이 표만 보고 캐릭터 생성 화면을 그린다.",
+    "fields": {
+      "skin": {
+        "name": "피부색",
+        "count": 6,
+        "palette": [
+          "#f5d6b8",
+          "#e8bb92",
+          "#d29a6c",
+          "#b4784c",
+          "#8a5836",
+          "#5f3b22"
+        ]
+      },
+      "hair": {
+        "name": "머리 모양",
+        "count": 8,
+        "styles": [
+          "short",
+          "bob",
+          "long",
+          "ponytail",
+          "braid",
+          "topknot",
+          "curly",
+          "bald"
+        ]
+      },
+      "hairColor": {
+        "name": "머리 색",
+        "count": 10,
+        "palette": [
+          "#1b1b1f",
+          "#3b2a1d",
+          "#6b4423",
+          "#a8703a",
+          "#d9a441",
+          "#e8dcc0",
+          "#9a9a9a",
+          "#7a3b3b",
+          "#3b5a7a",
+          "#5a3b6b"
+        ]
+      },
+      "outfit": {
+        "name": "의상",
+        "count": 6,
+        "styles": [
+          "tunic",
+          "robe",
+          "coat",
+          "armor",
+          "hanbok",
+          "cloak"
+        ]
+      },
+      "outfitColor": {
+        "name": "의상 색",
+        "count": 10,
+        "palette": [
+          "#7f2a2a",
+          "#2a4f7f",
+          "#2a7f4f",
+          "#7f6a2a",
+          "#5a2a7f",
+          "#2a7f7f",
+          "#7f4f2a",
+          "#3a3a44",
+          "#d8d2c2",
+          "#1f1f24"
+        ]
+      }
+    },
+    "default": {
+      "skin": 0,
+      "hair": 0,
+      "hairColor": 0,
+      "outfit": 0,
+      "outfitColor": 0
+    },
+    "nameMaxLength": 16
+  },
+  "chat": {
+    "_note": "간단 채팅(§12) — 릴레이 전용. 서버 상태(경제·전투)에 영향이 없다. 최소 새니타이즈(제어문자 제거·꺾쇠 이스케이프·공백 압축)와 길이 제한만 건다. historyMax 는 스냅샷에 남기는 최근 대화 수, joinHistory 는 접속 시 밀어 주는 수다.",
+    "maxLength": 160,
+    "historyMax": 100,
+    "joinHistory": 30,
+    "cooldownMs": 400
+  },
+  "siteWork": {
+    "_note": "건설 현장 아바타 가속(§13) — AP를 쓰지 않는다. 한 현장당 하루 1회, 그 공사의 총 건설 포인트의 boostRatio 만큼을 즉시 깎는다. 자정(틱 경계)에 기록이 초기화된다. ★ '접속한 사람만 얻는 보너스' 원칙이라 시뮬 체크포인트는 이 가속 없이 유지된다.",
+    "boostRatio": 0.1,
+    "oncePerSitePerDay": true
+  },
+  "roleTiming": {
+    "_note": "역할 선택 시점(§9). 건국에서는 역할을 고르지 않는다. 1막 전원 무역할, 감정의 날 직후 '관제 선포'에서 고른다. 방치(섭정)해도 굴러가야 하므로 감정의 날에 서버가 기본 위임을 자동으로 깔아 준다.",
+    "unlockAfterEmotionDay": true,
+    "autoDelegateOnMandate": true,
+    "defaultVacant": "trade"
+  },
+  "simulation": {
+    "_note": "시뮬 봇(server/sim/policy.js) 다이얼 — 좌표 없는 비율 배치 API(setVillagerMix)와 자동 자리 건설(buildStart)로만 움직인다. 플레이어 스윙 노동은 평균치로 근사한다(data/waves.json simulation).",
+    "botScoutShare": 0.03333333333333333,
+    "botPlayerSwingsPerDay": 90
+  },
+  "fences": {
+    "_note": "울타리·석벽 조각 배치 — placeFence {points:[{x,y}...]} 로 드래그한 선을 조각으로 쪼갠다. 조각마다 내구도(hp)가 있고 목책(tier1)→석벽(tier2)으로 올린다(upgradeFence). gate:true 조각은 문이다. 값·내구도는 data/buildings.json fence/gate 에서 온다.",
+    "maxSegments": 400,
+    "maxPointsPerRequest": 64,
+    "maxSegmentSpan": 40,
+    "minSpacingFromStructure": 0,
+    "requiresTerritory": true,
+    "blockedTerrain": [
+      "water"
+    ],
+    "repairCostRatio": 0.35,
+    "repairPerBuildPoint": 8
+  }
+}

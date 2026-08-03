@@ -1,0 +1,546 @@
+{
+  "_note": "밸런스 다이얼 원본. ★ GDD3(엔드리스 정착지) 재보정본 — 시즌 총량 기준 수치가 전부 '레이트(하루당·비율)' 기준으로 다시 정의됐다. 콥더글러스·가격·무역 공식과 그 계수(A값·탄력성·실효배수)는 한 글자도 바뀌지 않았다(GDD3 §9 유지 목록).",
+  "time": {
+    "_note": "★ GDD3 §5 시간 감속 — 1게임일 = 실시간 dayRealSeconds(기본 600초 = 10분). tickRealSeconds 는 '일 틱' 주기이고 곧 하루 길이다. 개발 패널(/api/debug/speed)이 이 값을 줄여 배속을 만든다. 실시간 이벤트(스윙·전투·이동)는 이 틱을 기다리지 않고 소켓에서 즉시 처리되며, 전투만 subtickSeconds(data/waves.json battle) 단위로 서브틱 시뮬을 돈다.",
+    "dayRealSeconds": 600,
+    "tickRealSeconds": 600,
+    "devFastTickSeconds": 2,
+    "councilEveryTicks": 7,
+    "dayPhases": [
+      "morning",
+      "day",
+      "evening",
+      "night"
+    ],
+    "nightVisionMultiplier": 0.8
+  },
+  "production": {
+    "_warning": "technologyCoefficients(A)는 역산값이다. 만지지 말 것 — 밸런싱은 태그 T와 자본 K로 한다.",
+    "_note2": "★ GDD3 §8 — 이 부처(콥더글러스) 산출은 정착지 티어 departmentsFromTier 이상에서만 돈다. 그 전에는 주민 개별 채집(residents.gather)과 플레이어 스윙이 유일한 생산원이다.",
+    "departmentsFromTier": 3,
+    "laborExponent": 0.7,
+    "capitalExponent": 0.3,
+    "technologyCoefficients": {
+      "grain": 3.078,
+      "steel": 1.283,
+      "ironOre": 2.566,
+      "fuel": 1.283,
+      "oil": 1.2,
+      "build": 1.09,
+      "defense": 1.604
+    },
+    "baselinePopulation": 50,
+    "baselineLabor": {
+      "farm": 20,
+      "factory": 10,
+      "build": 8,
+      "defense": 10,
+      "trade": 2
+    },
+    "baselineCapital": {
+      "farm": 10,
+      "factory": 8,
+      "build": 6,
+      "defense": 8,
+      "trade": 0
+    },
+    "capitalPerBuildingTier": {
+      "farm": 0,
+      "factory": 0,
+      "build": 0,
+      "defense": 0,
+      "trade": 0
+    },
+    "officerBuildingClamp": 1.8,
+    "gatherPerCapita": {
+      "wood": 1.8,
+      "stone": 0.9
+    },
+    "treasuryDeficitOutputPenalty": 0.2,
+    "offlineRegencyMultiplier": 0.7
+  },
+  "labor": {
+    "defaultAlloc": {
+      "farm": 0.4,
+      "factory": 0.2,
+      "build": 0.16,
+      "defense": 0.2,
+      "trade": 0.04
+    },
+    "maxTotal": 1
+  },
+  "morale": {
+    "min": 0.6,
+    "max": 1.25,
+    "default": 1,
+    "rationPenalty": 0.2,
+    "recoveryPerTick": 0.03,
+    "surplusBonusPerTick": 0.02,
+    "defeatPenalty": 0.15,
+    "victoryBonus": 0.1
+  },
+  "population": {
+    "_note": "★ GDD3 §4 — 인구 0에서 시작한다. 자연 증가·이주민 %는 폐기됐고, 주민은 '빈 주거 + 식량 여유 + 사기'에서 한 명씩 걸어온다(residents.arrival). floor 0 — 굶어도 마지막 한 사람까지 줄 수 있지만 전멸은 웨이브로는 일어나지 않는다.",
+    "startingPopulation": 0,
+    "baseCap": 0,
+    "grainPerCapita": 1,
+    "starvationGraceDays": 3,
+    "starvationLossPerDay": 0.12,
+    "starvationMinLoss": 1,
+    "floor": 0
+  },
+  "residents": {
+    "_note": "★ GDD3 §4 주민 유입. 수용력은 주거 건물 합(천막1/오두막2/가옥4/저택6, 티어마다 증가). 도착 간격 = baseIntervalDays ÷ 매력도, 하한 minIntervalDays (★ §12-4 로 0.5~1게임일까지 당겼다). 매력도 = 1 + 식량 잉여 + 장식/발전 건물 + 사기.",
+    "arrival": {
+      "baseIntervalDays": 1,
+      "minIntervalDays": 0.5,
+      "requiresGrainDays": 1.5,
+      "startTier": 1,
+      "surplusPerGrainDay": 0.09,
+      "surplusCap": 0.6,
+      "moraleWeight": 0.6,
+      "attractivenessMax": 2.4,
+      "firstFreeArrival": true,
+      "_note": "★ GDD3 §12-4 — 도착 주기를 0.5~1게임일로 당기고 매력도 가중을 키웠다. 실제 주기 = baseIntervalDays ÷ 매력도 × (1 + crowdingPerResident × 인구), 하한 minIntervalDays. 매력도 = 1 + 식량 잉여 + 장식·발전 건물 + 사기, 상한 attractivenessMax. crowdingPerResident(붐빔)는 \"빈 개척지에는 소문이 금세 닿지만 그득한 곳에는 올 이유가 줄어든다\"를 수치화한 것이다 — 이 항이 없으면 85일 인구가 두 배로 불어 웨이브 곡선이 무너진다(docs/PROTOCOL.md §9-3 근거).",
+      "crowdingPerResident": 0.1
+    },
+    "gather": {
+      "_note": "티어 0~2 — 부처가 아직 안 돌 때 주민 1명이 노드 하나에 붙어 하루에 내는 산출(레이트 기준). rich 노드는 배로 난다. 이 값은 '플레이어 스윙만으로는 못 미치는 자리'를 메우도록 잡혀 있다.",
+      "perResidentPerDay": {
+        "grain": 2.4,
+        "wood": 3.2,
+        "stone": 1.7,
+        "ironOre": 0.9,
+        "oil": 0.45
+      },
+      "richMultiplier": 1.6,
+      "idleGrainPerDay": 0.25,
+      "buildPointsPerResidentPerDay": 1.2
+    },
+    "unitCompressionFrom": 60,
+    "militiaMoraleFloor": 0.7,
+    "names": {
+      "given": [
+        "단이",
+        "무돌",
+        "가야",
+        "설이",
+        "바우",
+        "노루",
+        "해린",
+        "도담",
+        "새롬",
+        "여울",
+        "누리",
+        "한별",
+        "미르",
+        "아라",
+        "다솔",
+        "슬기",
+        "찬솔",
+        "은결",
+        "라온",
+        "온새",
+        "하람",
+        "여름",
+        "겨울",
+        "봄이",
+        "이든",
+        "루리",
+        "초아",
+        "선우",
+        "가온",
+        "예찬"
+      ],
+      "family": [
+        "돌",
+        "숲",
+        "들",
+        "물",
+        "언덕",
+        "바람",
+        "재",
+        "골",
+        "터",
+        "벌"
+      ],
+      "titles": [
+        "",
+        "",
+        "",
+        "젊은 ",
+        "늙은 ",
+        "말 없는 ",
+        "손 큰 "
+      ]
+    }
+  },
+  "recipes": {
+    "steel": {
+      "ironOre": 2,
+      "fuel": 0.15,
+      "woodPerFuel": 5
+    },
+    "fuel": {
+      "oil": 1
+    },
+    "_note": "제련 연료가 모자라면 목재를 숯으로 대체한다(woodPerFuel)."
+  },
+  "factoryQueue": {
+    "steel": 0.6,
+    "fuel": 0.3,
+    "weapon": 0.1
+  },
+  "price": {
+    "elasticity": 0.6,
+    "clampMin": 0.3,
+    "clampMax": 4,
+    "targetStockDays": 7,
+    "storageMultiplierByTier": [
+      3,
+      3.5,
+      4,
+      5
+    ],
+    "minStockTarget": 30,
+    "spoilagePerDay": 0.02,
+    "_note": "★ 유지 — 가격 공식(P = P_ref × clamp((S_target/S_now)^0.6, 0.30, 4.00))과 계수는 무수정. minStockTarget 만 새로 붙었다: 인구가 0~5인 초반에는 목표 재고가 0에 수렴해 상한 4배에 늘 붙어 버리므로, 인구와 무관한 바닥값을 둔다(레이트 기준 재보정, GDD3 §8)."
+  },
+  "trade": {
+    "_note": "★ 유지 — 실효배수 검증표(완비1.17/보통1.46/열악2.25)와 공식 (1+tariff)(1+freight)(1+fxSpread)(1+infoLoss) 무수정. 운임 티어는 이제 도로가 아니라 물류 건물(교역소·시장)의 logisticsTier 에서 나온다.",
+    "baseTariff": 0.15,
+    "tariffReductionPerConsulateTier": 0.01,
+    "minTariff": 0.1,
+    "freightByRoadTier": [
+      0.4,
+      0.29,
+      0.18,
+      0.08
+    ],
+    "roadTierNames": [
+      "봇짐",
+      "마차길",
+      "상단",
+      "항로"
+    ],
+    "fxSpread": {
+      "withDiplomat": 0.03,
+      "withoutDiplomat": 0.075
+    },
+    "infoLoss": {
+      "withDiplomat": 0,
+      "withoutDiplomat": 0.3
+    },
+    "exportFriction": 0.1,
+    "lastPlaceTariffExempt": true,
+    "haggleRange": 0.05,
+    "requiresTradingPost": true,
+    "referenceScenarios": {
+      "equipped": {
+        "label": "완비 — 외교관 + 항로(관세 5%)",
+        "tariff": 0.05,
+        "roadTier": 3,
+        "diplomat": true,
+        "expected": 1.17
+      },
+      "normal": {
+        "label": "보통 — 외교관 + 마차길(관세 10%)",
+        "tariff": 0.1,
+        "roadTier": 1,
+        "diplomat": true,
+        "expected": 1.46
+      },
+      "poor": {
+        "label": "열악 — 외교관 없음 + 봇짐(관세 15%)",
+        "tariff": 0.15,
+        "roadTier": 0,
+        "diplomat": false,
+        "expected": 2.25
+      }
+    },
+    "tradeFlowWindowTicks": 2,
+    "tradeRouteVolumeCap": 40
+  },
+  "gold": {
+    "startingGold": 20,
+    "autoExportDefault": true,
+    "treasuryAccrualRate": 0.15,
+    "autoExportReserveDays": 3,
+    "autoExportUsesReferencePrice": true,
+    "autoExportRequiresTradingPost": true,
+    "autoExportGoldCapPerTick": {
+      "_note": "하루에 실어 보낼 수 있는 물량의 상한(물류). 레이트 기준 재보정: 기준 95 + 물류 티어당 25.",
+      "base": 95,
+      "perRoadTier": 25
+    }
+  },
+  "combat": {
+    "_note": "★ GDD3 §6 — 로지스틱 일괄 판정은 폐기됐다(실시뮬로 대체). 여기 남은 값은 준비 창(surgeWindowDays)과 사기 보정처럼 웨이브 시스템이 그대로 쓰는 것들이다. logisticK 등은 옛 검증표 재현 테스트가 참조하는 기록값으로만 남는다.",
+    "logisticK": 4.62,
+    "winChanceMin": 0.05,
+    "winChanceMax": 0.98,
+    "surgeWindowDays": 3,
+    "surgeWithoutSaintMultiplier": 0.5,
+    "fortressTagBonus": 0.15,
+    "defenseVacancySurgePenalty": 0.4
+  },
+  "saint": {
+    "sanctuaryMultiplier": 1.25,
+    "sanctuaryDurationTicks": 3,
+    "sanctuaryCooldownTicks": 14,
+    "forbiddenTargets": [
+      "defense",
+      "weapon"
+    ]
+  },
+  "orders": {
+    "maxResourceMovesPerTick": 3,
+    "maxOrders": 20,
+    "requiresTier": 4
+  },
+  "artifacts": {
+    "chestChancePerCouncil": 0.12,
+    "gradeWeights": {
+      "common": 0.55,
+      "rare": 0.32,
+      "unique": 0.08,
+      "legendary": 0.05
+    },
+    "roleActivityWeightBonus": 2,
+    "luckyCharmBonus": 0.03,
+    "discoverChanceCap": 0.25
+  },
+  "emotionDay": {
+    "_note": "★ v3.1(GDD3 §11-4) — 감정의 날은 시간도 티어도 열지 않는다. **감정소(측량소)를 세우고 [땅을 감정한다]를 누를 때**(commands.appraiseLand)만 열린다. 아래 tier 는 더 이상 조건이 아니고 옛 기록으로만 남긴다. 하는 일: 태그 확정 + 영토 안 지하 자원 공개 + 관제 선포(역할 선택 개방).",
+    "tier": 3,
+    "tagCountMin": 2,
+    "tagCountMax": 4
+  },
+  "career": {
+    "reassignSkillLossRatio": 0.5,
+    "handoverTicks": 7,
+    "handoverOfficer": 0.8
+  },
+  "chronicle": {
+    "_note": "★ GDD3 §5 — 시즌 결산·랭킹을 대신하는 누적 기록. 티어업·첫 주민·웨이브 결과·건물 마일스톤이 여기 남는다.",
+    "maxEntries": 400,
+    "recentForView": 40
+  },
+  "simulation": {
+    "defaultRuns": 20,
+    "days": 85,
+    "checkpoints": {
+      "_note": "★ GDD3 §10 신규 체크포인트. 옛 시즌 기준(자급률·해적/바이킹/드래곤 승률·골드 충당률)은 폐기됐다. ★ v3.2 재산정(GDD3 §12-4) — 티어3 도달 밴드 25~40일 → 12~22일. 근거: 주민 도착 주기를 0.5~1게임일로 당기라는 요구를 그대로 넣자 20판 중앙값이 27일 → 15일로 당겨졌다(전 판 15일, 편차 0). 밴드의 뜻은 \"성장이 지루하지도 허무하지도 않다\"이지, \"27일\"이라는 숫자 자체가 아니다. 15일 = 실시간 약 2.5시간이며 그 사이 1~5장을 모두 지난다. 봇은 매일 최적으로 두드리므로 사람 손은 더 걸린다 — 위쪽을 22일까지 넓게 잡은 까닭이다.",
+      "tier3MedianDays": [
+        12,
+        22
+      ],
+      "wave5SurvivalRate": [
+        0.6,
+        0.8
+      ],
+      "famineRateMax": 0.05,
+      "saintWave8GapMin": 0.2
+    },
+    "_note": "시뮬 다이얼 — GDD3 §10 신규 체크포인트. days 는 한 판을 몇 게임일까지 돌리는가(웨이브 8~10까지 닿는 길이)."
+  },
+  "invasionWarn": {
+    "impreciseJitterDays": 2
+  },
+  "startingResources": {
+    "_note": "★ 마차에서 내릴 때 들고 있는 것 — 사흘치 곡물과 돌멩이 몇 개뿐이다(GDD3 §2 맨손 시작). 모닥불은 이미 피워진 채 시작하므로(state.js 가 campfire 1티어를 세워 준다) 목재는 0 이다: 첫 천막(목재 10)은 반드시 제 손으로 나무를 베어야 선다. 나무 한 그루 = 3스윙 = 목재 13 이라 '한 그루 베면 천막 하나'가 되도록 맞춰 두었다.",
+    "grain": 12,
+    "wood": 0,
+    "stone": 5,
+    "ironOre": 0,
+    "oil": 0,
+    "steel": 0,
+    "fuel": 0
+  },
+  "ai": {
+    "procureThresholdDays": 3,
+    "procureTradeMultiplier": 1.46,
+    "procureMaxPerTick": 40
+  },
+  "actionPoints": {
+    "_note": "★ GDD3 §3 — '몸소 일하기(work)'는 AP가 아니라 스윙(actionSwing)으로 완전히 이관됐고, 하루 체감 곡선(fatigue)은 폐지됐다. AP 는 큰 액션(격려 순행·유적 탐사·조사)에만 남는다. 섭정(오프라인)은 AP를 쓰지 않는다.",
+    "max": 3,
+    "regenPerDay": 3,
+    "carryOver": false,
+    "actions": {
+      "inspire": {
+        "cost": 1,
+        "outputBonus": 0.15,
+        "durationTicks": 1,
+        "oncePerDeptPerDay": true,
+        "deptByPost": {
+          "hall": "factory",
+          "campfire": "farm",
+          "granary": "farm",
+          "shrine": "farm",
+          "barracks": "defense",
+          "watchpost": "defense",
+          "storage": "trade",
+          "trading_post": "trade",
+          "market": "trade",
+          "consulate": "trade",
+          "smelter": "factory",
+          "smithy": "factory",
+          "sawmill": "build",
+          "quarry_camp": "build",
+          "site": "build"
+        },
+        "deptByNodeType": {
+          "field": "farm",
+          "fertile": "farm",
+          "water": "farm",
+          "forest": "build",
+          "rock": "factory",
+          "iron": "factory",
+          "oil": "factory",
+          "ruin": "farm"
+        },
+        "defaultDept": "farm"
+      },
+      "explore": {
+        "cost": 1,
+        "gaugeGain": 1,
+        "requiresNodeType": "ruin"
+      },
+      "survey": {
+        "cost": 0
+      }
+    }
+  },
+  "harvest": {
+    "_note": "재배 루프 — 밭 계열 노드는 readyEveryTicks(게임일) 주기로 여문다. 클릭 수확(harvestNode)은 보너스만 주고, 스윙(actionSwing)으로도 거둘 수 있다.",
+    "readyEveryTicks": 3,
+    "clickBonus": {
+      "grain": 6
+    },
+    "stages": [
+      {
+        "key": "sown",
+        "name": "파종",
+        "at": 0
+      },
+      {
+        "key": "sprout",
+        "name": "새싹",
+        "at": 0.34
+      },
+      {
+        "key": "grow",
+        "name": "성장",
+        "at": 0.67
+      },
+      {
+        "key": "ripe",
+        "name": "수확기",
+        "at": 1
+      }
+    ]
+  },
+  "advisor": {
+    "_note": "각료 조언 — 규칙 기반. 조언의 action 은 전부 '기존 프로토콜 이벤트를 그대로 쏘는 매크로'라 서버에 새 검증이 필요 없다. ★ GDD3: 성벽·개척령 규칙은 폐기되고 주거·울타리·터렛 규칙으로 대체됐다.",
+    "maxPerDay": 2,
+    "autoAssistDefault": true,
+    "rules": [
+      {
+        "id": "housing_full",
+        "role": "build",
+        "priority": 100,
+        "thresholds": {
+          "freeBedsBelow": 1
+        },
+        "text": "누울 자리가 없습니다. 집을 더 지어야 사람이 옵니다.",
+        "label": "오두막 짓기",
+        "event": "placeBuilding",
+        "params": {
+          "building": "hut"
+        }
+      },
+      {
+        "id": "grain_low",
+        "role": "farm",
+        "priority": 95,
+        "thresholds": {
+          "grainDaysBelow": 3
+        },
+        "text": "곳간이 빕니다. 백성이 사흘을 못 버팁니다.",
+        "label": "농사 배분 늘리기",
+        "event": "setLabor"
+      },
+      {
+        "id": "defense_thin",
+        "role": "defense",
+        "priority": 90,
+        "thresholds": {
+          "waveWithinDays": 3,
+          "turretsBelow": 2
+        },
+        "text": "적이 코앞인데 쏠 것이 없습니다.",
+        "label": "화살탑 세우기",
+        "event": "placeBuilding",
+        "params": {
+          "building": "arrow_tower"
+        }
+      },
+      {
+        "id": "mobilize",
+        "role": "defense",
+        "priority": 88,
+        "thresholds": {
+          "waveWithinDays": 2,
+          "militiaBelow": 3
+        },
+        "text": "성 앞에 설 사람이 모자랍니다.",
+        "label": "민병 동원",
+        "event": "setVillagerMix",
+        "params": {
+          "militia": true
+        }
+      },
+      {
+        "id": "weapon_none",
+        "role": "factory",
+        "priority": 80,
+        "thresholds": {
+          "waveWithinDays": 4,
+          "weaponTierBelow": 1,
+          "goldMargin": 20
+        },
+        "text": "창고에 쓸 만한 무기가 없습니다. 값은 치를 수 있습니다.",
+        "label": "무기 제작",
+        "event": "buyTool"
+      },
+      {
+        "id": "oil_none",
+        "role": "trade",
+        "priority": 70,
+        "thresholds": {
+          "oilBelow": 1,
+          "weaponTierBelow": 3,
+          "waveWithinDays": 6
+        },
+        "text": "무기를 벼리려면 원유가 있어야 합니다. 동방 제국에 사람을 보내시지요.",
+        "label": "동방 제국과 교역",
+        "event": "trade",
+        "params": {
+          "nationId": "ai1",
+          "resource": "oil",
+          "amount": 8
+        }
+      }
+    ],
+    "autoAssistOfflineTicks": 3,
+    "_autoAssistNote": "섭정(오프라인)으로 autoAssistOfflineTicks 틱을 방치하면 최우선 조언 1건을 서버가 대신 실행한다. 접속 중에는 절대 자동 실행하지 않는다."
+  },
+  "structureWork": {
+    "_note": "★ GDD3 §12-12 건물 철거·이전. 철거는 건설 공수의 demolishPointsRatio 만큼 일을 하면 끝나고 refundRatio 만큼 자재를 돌려받는다(진행 중 취소 가능, 낸 일은 사라진다). 이전은 해체(relocateTakedownRatio)+재건(relocateRebuildRatio) 두 마디이며 자재를 더 내지 않는다. 이전이 끝날 때까지 그 건물의 효과는 멎는다(inactive).",
+    "demolishPointsRatio": 0.4,
+    "refundRatio": 0.5,
+    "relocateTakedownRatio": 0.4,
+    "relocateRebuildRatio": 0.6
+  }
+}

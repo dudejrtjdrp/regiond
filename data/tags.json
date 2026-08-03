@@ -1,0 +1,9 @@
+{
+  "fertile":   { "name": "비옥지",  "kind": "strength", "effects": { "output": { "grain": 0.4 } } },
+  "greatwood": { "name": "대삼림",  "kind": "strength", "effects": { "gather": { "wood": 0.5 } } },
+  "ironvein":  { "name": "철광맥",  "kind": "strength", "effects": { "output": { "ironOre": 0.5 } } },
+  "oilfield":  { "name": "유전",    "kind": "strength", "effects": { "unlock": ["oil"] } },
+  "fortress":  { "name": "요새지",  "kind": "mixed",    "effects": { "defenseTotal": 0.15, "buildCost": 0.5 } },
+  "holy":      { "name": "성지",    "kind": "strength", "effects": { "populationGrowth": 0.15 } },
+  "barren":    { "name": "척박지",  "kind": "weakness", "effects": { "output": { "grain": -0.35 } } }
+}

@@ -1,0 +1,43 @@
+{
+  "_note": "난이도 프리셋 — docs/GAMEPLAY2.md §A-1. 건국 화면에서 고르고 join {difficulty} 로 넘어온다. 스냅샷에 world.difficulty 로 저장된다. 시뮬 체크포인트의 기준은 'kingdom'.",
+  "default": "kingdom",
+  "order": ["story", "kingdom", "trial"],
+  "presets": {
+    "story": {
+      "key": "story",
+      "name": "이야기",
+      "desc": "천천히 나라를 키우고 싶은 분께. 침공이 약하고 패배해도 잃는 것이 적습니다.",
+      "invasionPowerMultiplier": 0.6,
+      "defeatLossMultiplier": 0.5,
+      "startingBonus": { "grain": 100, "wood": 100 },
+      "migrationMultiplier": 1.5,
+      "hintJitterDays": 1,
+      "midShock": { "enabled": false, "intensityMultiplier": 1.0 },
+      "rubberBand": { "enabled": true, "nextInvasionPowerMultiplier": 0.9 }
+    },
+    "kingdom": {
+      "key": "kingdom",
+      "name": "왕국",
+      "desc": "설계된 그대로의 균형. 밸런스 검증표와 시뮬 체크포인트의 기준입니다.",
+      "invasionPowerMultiplier": 1.0,
+      "defeatLossMultiplier": 1.0,
+      "startingBonus": {},
+      "migrationMultiplier": 1.0,
+      "hintJitterDays": 2,
+      "midShock": { "enabled": true, "intensityMultiplier": 1.0 },
+      "rubberBand": { "enabled": true, "nextInvasionPowerMultiplier": 0.9 }
+    },
+    "trial": {
+      "key": "trial",
+      "name": "시련",
+      "desc": "한 번의 실수가 나라를 무너뜨립니다. 고무줄 보정이 없습니다.",
+      "invasionPowerMultiplier": 1.25,
+      "defeatLossMultiplier": 1.2,
+      "startingBonus": {},
+      "migrationMultiplier": 0.8,
+      "hintJitterDays": 3,
+      "midShock": { "enabled": true, "intensityMultiplier": 1.35 },
+      "rubberBand": { "enabled": false, "nextInvasionPowerMultiplier": 1.0 }
+    }
+  }
+}

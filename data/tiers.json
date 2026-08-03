@@ -1,0 +1,93 @@
+{
+  "_note": "정착지 성장 아크 — docs/GDD3.md §1. 게임의 척추다. 모든 해금(건물·기능·UI)이 이 표에 걸린다. 영토 반경은 티어가 정하고(개척령 폐지), 티어업은 큰 이벤트로 연대기에 남는다. requires 는 '전부 만족'이며, 조건이 갖춰지면 그 틱에 자동으로 오른다. speedBonus 는 전역 작업 속도(스윙 쿨 감소)에 곱해진다.",
+  "speedBonusPerTier": 0.05,
+  "maxDefinedTier": 6,
+  "levels": [
+    {
+      "tier": 0,
+      "name": "야영지",
+      "radius": 6,
+      "requires": {},
+      "unlocks": {
+        "buildings": ["campfire", "tent", "hut", "storage_crate"],
+        "features": ["gather", "swing", "reclaim", "placeBuilding", "chronicle"],
+        "ui": ["hud.resources3", "hud.questCard"]
+      },
+      "line": "마차가 멈춘 자리에 모닥불을 피웠다."
+    },
+    {
+      "tier": 1,
+      "name": "개척촌",
+      "radius": 9,
+      "requires": { "structures": { "hut": 1 }, "resources": { "grain": 20 } },
+      "unlocks": {
+        "buildings": ["well", "woodpile", "lamp"],
+        "features": ["residentArrival", "commandVillagers", "reclaimField"],
+        "ui": ["hud.population", "panel.residents"]
+      },
+      "line": "굴뚝이 하나 늘었다. 사람이 찾아오기 시작한다."
+    },
+    {
+      "tier": 2,
+      "name": "촌락",
+      "radius": 12,
+      "requires": { "population": 5 },
+      "unlocks": {
+        "buildings": ["granary", "sawmill", "quarry_camp", "hunter_hut", "storage", "house", "watchpost", "banner", "fence", "gate"],
+        "features": ["fences", "waves", "prophecyHint"],
+        "ui": ["hud.threat", "panel.build", "panel.fence"]
+      },
+      "line": "울타리를 두를 만큼은 되었다. 바깥이 우리를 알아본다."
+    },
+    {
+      "tier": 3,
+      "name": "마을",
+      "radius": 16,
+      "requires": { "population": 12 },
+      "unlocks": {
+        "buildings": ["smelter", "smithy", "mine_shaft", "trading_post", "arrow_tower", "garden"],
+        "features": ["emotionDay", "roles", "trade", "departments", "advisor"],
+        "ui": ["panel.roles", "panel.trade", "panel.skills"]
+      },
+      "line": "이름이 붙는 날이다. 저마다의 자리가 정해진다."
+    },
+    {
+      "tier": 4,
+      "name": "읍",
+      "radius": 20,
+      "requires": { "population": 25 },
+      "unlocks": {
+        "buildings": ["mill", "market", "shrine", "barracks", "ballista", "manor", "fountain"],
+        "features": ["orders", "council", "artifacts"],
+        "ui": ["panel.orders", "panel.council"]
+      },
+      "line": "장이 서고 법이 선다."
+    },
+    {
+      "tier": 5,
+      "name": "도시",
+      "radius": 25,
+      "requires": { "population": 45 },
+      "unlocks": {
+        "buildings": ["consulate", "cannon", "monument"],
+        "features": ["highTierUpgrade", "diplomacy"],
+        "ui": ["panel.diplomacy"]
+      },
+      "line": "성문 밖에서도 이 이름을 부른다."
+    },
+    {
+      "tier": 6,
+      "name": "왕도",
+      "radius": 29,
+      "requires": { "population": 70 },
+      "unlocks": { "buildings": [], "features": ["prestige"], "ui": ["panel.prestige"] },
+      "line": "끝이 없는 길에 들어섰다."
+    }
+  ],
+  "endless": {
+    "_note": "티어 7 이상은 표 없이 이어진다 — 인구 문턱은 populationStep 씩, 반경은 radiusPerTier 씩. 해금은 없고 위신(prestige) 지표만 오른다.",
+    "populationStep": 30,
+    "radiusPerTier": 4,
+    "namePattern": "왕도 {n}대"
+  }
+}

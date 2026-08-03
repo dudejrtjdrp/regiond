@@ -1,0 +1,787 @@
+{
+  "_note": "★ 콘텐츠 사슬 — docs/GDD3.md §11-2. 진행 감독(server/engine/progression.js)이 이 표 하나만 보고 게임 전체의 문을 연다. 대원칙: 「시간은 아무것도 열지 않는다」 — 여는 조건은 전부 플레이어 행동이다. 장 상태는 국가 단위(멀티 공유)이며, 티어 해금은 마지막 장(엔드리스)에 들어선 뒤에만 합류한다. 각 장은 '새 동사 하나 + 목표 + 보상 연출'이고, 목표 카드는 언제나 1장(steps 의 현재 칸)만 보인다.",
+  "disastersFromChapter": 7,
+  "_disastersNote": "재해·중간충격도 시간이 여는 것이 아니다 — 「바깥이 우리를 알아본」 7장부터만 굴린다. 갓 도끼질을 배운 사람에게 하늘이 무너지지 않는다.",
+  "markerTypes": {
+    "_note": "goal.target 이 가리키는 것 — 클라의 퀘스트 마커(월드 바운스 화살표 + 화면 밖 가장자리 화살표)가 이 힌트로 그린다. 서버가 실제 후보 ID·좌표를 state.chapter.goal.targets 에 실어 준다.",
+    "node": "자원 노드(가장 가까운 것 3개)",
+    "site": "건설 중인 현장",
+    "structure": "다 세운 건물",
+    "buildSlot": "배치대에서 고를 것 — 월드 좌표가 없다(단추를 가리킨다)",
+    "ui": "화면 단추",
+    "point": "월드 좌표 하나(정찰 지점 등)",
+    "resident": "주민"
+  },
+  "chapters": [
+    {
+      "id": 1,
+      "key": "spark",
+      "name": "불씨",
+      "subtitle": "마차가 멈춘 자리",
+      "opens": {
+        "buildings": [],
+        "features": [
+          "gather",
+          "swing",
+          "chronicle"
+        ],
+        "ui": [
+          "hud.resources3",
+          "hud.questCard"
+        ],
+        "commands": [
+          "actionSwing",
+          "lordMove",
+          "chat",
+          "setAppearance",
+          "promoteSettlement"
+        ]
+      },
+      "steps": [
+        {
+          "key": "first_swings",
+          "title": "나무를 세 번 베어 보세요",
+          "sub": "나무 곁으로 걸어가 E 를 누르고 있으면 계속 도끼질합니다.",
+          "verb": "E — 나무 베기",
+          "condition": {
+            "type": "swings",
+            "skill": "lumber",
+            "count": 3
+          },
+          "target": {
+            "type": "node",
+            "nodeTypes": [
+              "forest"
+            ]
+          },
+          "hint": {
+            "sel": "#world-canvas",
+            "text": "W A S D 로 걷고, 나무 곁에서 E 를 누르고 있으면 도끼질합니다"
+          }
+        },
+        {
+          "key": "wood10",
+          "short": "천막",
+          "title": "천막을 세울 목재 10을 모으세요",
+          "sub": "한 그루를 다 베면 큰 몫이 들어옵니다 — 한 그루면 천막 하나 값입니다.",
+          "verb": "E — 나무 베기",
+          "condition": {
+            "type": "resource",
+            "resource": "wood",
+            "amount": 10
+          },
+          "target": {
+            "type": "node",
+            "nodeTypes": [
+              "forest"
+            ]
+          }
+        }
+      ],
+      "reward": {
+        "fanfare": "campfire",
+        "line": "모닥불이 제대로 타오른다.",
+        "card": {
+          "icon": "hammer",
+          "title": "배치대가 열렸습니다",
+          "text": "이제 [세우기]로 천막 자리를 잡을 수 있습니다."
+        }
+      }
+    },
+    {
+      "id": 2,
+      "key": "first_roof",
+      "name": "첫 지붕",
+      "subtitle": "비를 피할 자리",
+      "opens": {
+        "buildings": [
+          "tent"
+        ],
+        "features": [
+          "placeBuilding"
+        ],
+        "ui": [
+          "panel.build"
+        ],
+        "commands": [
+          "placeBuilding",
+          "demolishStructure",
+          "relocateStructure",
+          "cancelStructureWork"
+        ]
+      },
+      "steps": [
+        {
+          "key": "tent_built",
+          "title": "모닥불 곁에 천막을 세우세요",
+          "sub": "[세우기]에서 천막을 고르고 땅을 누른 뒤, 현장 곁에서 E 를 눌러 지어 올립니다.",
+          "verb": "E — 짓기",
+          "condition": {
+            "type": "structure",
+            "building": "tent",
+            "count": 1
+          },
+          "target": {
+            "type": "site",
+            "building": "tent",
+            "fallback": {
+              "type": "buildSlot",
+              "building": "tent",
+              "sel": "#tb-build"
+            }
+          },
+          "hint": {
+            "sel": "#tb-build",
+            "text": "여기서 세울 것을 고르고 땅을 눌러 자리를 잡습니다"
+          }
+        }
+      ],
+      "reward": {
+        "fanfare": "build",
+        "line": "지붕 하나가 생겼다.",
+        "card": {
+          "icon": "crate",
+          "title": "저장 궤짝",
+          "text": "자재를 쌓아 둘 곳입니다. 이제 먹을 것을 찾아 나설 차례입니다."
+        }
+      }
+    },
+    {
+      "id": 3,
+      "key": "hunger",
+      "name": "허기",
+      "subtitle": "먹을 것을 찾아",
+      "opens": {
+        "buildings": [
+          "tent",
+          "storage_crate"
+        ],
+        "features": [
+          "fishing",
+          "reclaimField"
+        ],
+        "ui": [],
+        "commands": [
+          "reclaimField"
+        ]
+      },
+      "steps": [
+        {
+          "key": "grain20",
+          "short": "오두막",
+          "title": "식량 20을 모으세요",
+          "sub": "물가에서는 언제든 고기를 건집니다. 기름진 땅은 여물어야 거둘 수 있습니다.",
+          "verb": "E — 거두기",
+          "condition": {
+            "type": "resource",
+            "resource": "grain",
+            "amount": 20
+          },
+          "target": {
+            "type": "node",
+            "nodeTypes": [
+              "water",
+              "fertile",
+              "field"
+            ]
+          },
+          "opens": {
+            "buildings": [
+              "hut"
+            ]
+          }
+        },
+        {
+          "key": "hut_built",
+          "title": "오두막을 지으세요",
+          "sub": "사람이 들어와 살 자리입니다. 오두막이 서면 첫 이웃이 찾아옵니다.",
+          "verb": "E — 짓기",
+          "condition": {
+            "type": "structure",
+            "building": "hut",
+            "count": 1
+          },
+          "target": {
+            "type": "site",
+            "building": "hut",
+            "fallback": {
+              "type": "buildSlot",
+              "building": "hut",
+              "sel": "#tb-build"
+            }
+          }
+        }
+      ],
+      "reward": {
+        "fanfare": "harvest",
+        "line": "곳간에 처음으로 여유가 생겼다.",
+        "card": {
+          "icon": "person",
+          "title": "사람이 찾아옵니다",
+          "text": "빈 잠자리와 식량이 있으면 이웃이 걸어 들어옵니다."
+        }
+      }
+    },
+    {
+      "id": 4,
+      "key": "first_neighbor",
+      "name": "첫 이웃",
+      "subtitle": "혼자가 아니다",
+      "opens": {
+        "buildings": [
+          "tent",
+          "storage_crate",
+          "hut"
+        ],
+        "features": [
+          "residentArrival"
+        ],
+        "ui": [
+          "hud.population",
+          "panel.residents"
+        ],
+        "commands": []
+      },
+      "steps": [
+        {
+          "key": "resident1",
+          "title": "첫 주민을 맞이하세요",
+          "sub": "빈 잠자리와 식량이 넉넉하면 사람이 걸어 들어옵니다. 조금만 기다리세요.",
+          "condition": {
+            "type": "population",
+            "count": 1
+          },
+          "target": {
+            "type": "housing"
+          },
+          "opens": {
+            "buildings": [
+              "granary"
+            ],
+            "features": [
+              "commandVillagers"
+            ],
+            "commands": [
+              "commandVillagers",
+              "setVillagerMix",
+              "setLabor"
+            ]
+          }
+        },
+        {
+          "key": "granary_and_folk",
+          "title": "주민 3명과 곡창 하나",
+          "sub": "주민을 끌어서 고르고 오른쪽 단추로 일터를 정합니다. 곡창은 곡물을 지켜 줍니다.",
+          "verb": "E — 짓기",
+          "condition": {
+            "type": "all",
+            "of": [
+              {
+                "type": "population",
+                "count": 3
+              },
+              {
+                "type": "structure",
+                "building": "granary",
+                "count": 1
+              }
+            ]
+          },
+          "target": {
+            "type": "site",
+            "building": "granary",
+            "fallback": {
+              "type": "buildSlot",
+              "building": "granary",
+              "sel": "#tb-build"
+            }
+          }
+        }
+      ],
+      "reward": {
+        "fanfare": "resident",
+        "line": "이제 혼자가 아니다.",
+        "card": {
+          "icon": "folk",
+          "title": "주민에게 일을 시킵니다",
+          "text": "끌어서 고르고 오른쪽 단추를 누르면 그 자리로 갑니다."
+        }
+      }
+    },
+    {
+      "id": 5,
+      "key": "shape_of_town",
+      "name": "마을의 꼴",
+      "subtitle": "사람이 사람을 부른다",
+      "opens": {
+        "buildings": [
+          "tent",
+          "storage_crate",
+          "hut",
+          "granary",
+          "well",
+          "woodpile",
+          "storage",
+          "lamp"
+        ],
+        "features": [
+          "villagerLabor"
+        ],
+        "ui": [
+          "panel.skills"
+        ],
+        "commands": []
+      },
+      "steps": [
+        {
+          "key": "pop5",
+          "title": "주민 다섯이면 촌락입니다",
+          "sub": "빈 잠자리가 없으면 사람이 오지 않습니다 — 카드가 가리키는 곳에 집을 더 지으세요.",
+          "condition": {
+            "type": "population",
+            "count": 5
+          },
+          "target": {
+            "type": "housing"
+          }
+        }
+      ],
+      "reward": {
+        "fanfare": "tier",
+        "promoteTier": 2,
+        "line": "이름을 얻을 만큼은 되었다.",
+        "card": {
+          "icon": "tier",
+          "title": "촌락이 되었습니다",
+          "text": "말뚝이 새 자리에 박히고 땅이 넓어집니다."
+        }
+      }
+    },
+    {
+      "id": 6,
+      "key": "secret_of_land",
+      "name": "땅의 비밀",
+      "subtitle": "이 땅이 무엇인지 알아야 한다",
+      "opens": {
+        "buildings": [
+          "tent",
+          "storage_crate",
+          "hut",
+          "granary",
+          "well",
+          "woodpile",
+          "storage",
+          "lamp",
+          "house",
+          "sawmill",
+          "quarry_camp",
+          "hunter_hut",
+          "appraisal_post"
+        ],
+        "features": [
+          "mining",
+          "appraise"
+        ],
+        "ui": [],
+        "commands": [
+          "upgradeStructure",
+          "repairStructure"
+        ]
+      },
+      "steps": [
+        {
+          "key": "stone30",
+          "short": "감정소",
+          "title": "석재 30을 캐세요",
+          "sub": "회색 바위 노두에서 돌을 캡니다. 감정소를 세우려면 목재 60·석재 30이 듭니다.",
+          "verb": "E — 돌 캐기",
+          "condition": {
+            "type": "resource",
+            "resource": "stone",
+            "amount": 30
+          },
+          "target": {
+            "type": "node",
+            "nodeTypes": [
+              "rock"
+            ]
+          },
+          "hintOnFail": {
+            "codes": [
+              "NO_RESOURCE"
+            ],
+            "text": "석재가 필요해요 — 바위는 회색 언덕에 있습니다"
+          }
+        },
+        {
+          "key": "appraisal_built",
+          "title": "감정소를 세우세요",
+          "sub": "땅의 내력을 재는 곳입니다. [세우기] → 발전 갈래에 있습니다.",
+          "verb": "E — 짓기",
+          "condition": {
+            "type": "structure",
+            "building": "appraisal_post",
+            "count": 1
+          },
+          "target": {
+            "type": "site",
+            "building": "appraisal_post",
+            "fallback": {
+              "type": "buildSlot",
+              "building": "appraisal_post",
+              "sel": "#tb-build"
+            }
+          }
+        },
+        {
+          "key": "appraised",
+          "title": "감정소를 눌러 [땅을 감정한다]",
+          "sub": "이 땅이 무엇을 품었는지 드러납니다. 그때 저마다의 자리도 정해집니다.",
+          "condition": {
+            "type": "flag",
+            "flag": "appraised"
+          },
+          "target": {
+            "type": "structure",
+            "building": "appraisal_post"
+          },
+          "hint": {
+            "sel": "#world-canvas",
+            "text": "감정소를 누르면 [땅을 감정한다]가 뜹니다"
+          }
+        }
+      ],
+      "reward": {
+        "fanfare": "emotionDay",
+        "line": "땅이 제 내력을 드러냈다.",
+        "opens": {
+          "features": [
+            "emotionDay",
+            "roles",
+            "departments",
+            "advisor"
+          ],
+          "ui": [
+            "panel.roles"
+          ],
+          "commands": [
+            "pickRole",
+            "delegate",
+            "adviceAct",
+            "setAutoAssist",
+            "apAction",
+            "harvestNode"
+          ]
+        },
+        "card": {
+          "icon": "crown",
+          "title": "저마다의 자리",
+          "text": "각료를 세우고 하나를 손수 맡을 수 있습니다."
+        }
+      }
+    },
+    {
+      "id": 7,
+      "key": "strange_tracks",
+      "name": "낯선 발자국",
+      "subtitle": "바깥이 우리를 알아본다",
+      "opens": {
+        "buildings": [
+          "tent",
+          "storage_crate",
+          "hut",
+          "granary",
+          "well",
+          "woodpile",
+          "storage",
+          "lamp",
+          "house",
+          "sawmill",
+          "quarry_camp",
+          "hunter_hut",
+          "appraisal_post",
+          "fence",
+          "gate",
+          "watchpost",
+          "arrow_tower",
+          "banner"
+        ],
+        "features": [
+          "scout",
+          "fences"
+        ],
+        "ui": [
+          "panel.fence"
+        ],
+        "commands": [
+          "placeFence",
+          "upgradeFence",
+          "repairFence",
+          "removeFence",
+          "setBattlePlan",
+          "combatSwing"
+        ]
+      },
+      "steps": [
+        {
+          "key": "trace_found",
+          "title": "안개 속 발자국을 살피세요",
+          "sub": "정착지 바깥에 낯선 흔적이 있습니다. 그 자리까지 걸어가면 무엇인지 알 수 있습니다.",
+          "condition": {
+            "type": "flag",
+            "flag": "traceFound"
+          },
+          "target": {
+            "type": "point",
+            "source": "trace"
+          },
+          "opens": {
+            "features": [
+              "waves",
+              "prophecyHint"
+            ],
+            "ui": [
+              "hud.threat"
+            ]
+          }
+        },
+        {
+          "key": "defense_ready",
+          "title": "울타리 여덟 조각이나 화살탑 하나",
+          "sub": "F 를 누르고 지도를 끌면 선을 따라 울타리가 섭니다.",
+          "condition": {
+            "type": "any",
+            "of": [
+              {
+                "type": "fenceSegments",
+                "count": 8
+              },
+              {
+                "type": "structure",
+                "building": "arrow_tower",
+                "count": 1
+              }
+            ]
+          },
+          "target": {
+            "type": "ui",
+            "sel": "#tb-fence"
+          },
+          "hint": {
+            "sel": "#tb-fence",
+            "text": "끌어서 선을 그으면 울타리 조각이 섭니다"
+          }
+        },
+        {
+          "key": "wave_held",
+          "title": "첫 무리를 막아 내세요",
+          "sub": "언제 오는지는 위협 배지에 뜹니다. 검을 들고 직접 붙어도 됩니다 — 죽지 않습니다.",
+          "condition": {
+            "type": "wavesHeld",
+            "count": 1
+          },
+          "target": {
+            "type": "camp"
+          }
+        }
+      ],
+      "reward": {
+        "fanfare": "wave",
+        "line": "울타리 앞을 지켜 냈다.",
+        "card": {
+          "icon": "ship",
+          "title": "장사꾼의 길",
+          "text": "바깥과 값을 주고받을 때가 되었습니다 — 교역소를 세우세요."
+        }
+      }
+    },
+    {
+      "id": 8,
+      "key": "traders_road",
+      "name": "장사꾼의 길",
+      "subtitle": "바깥과 값을 주고받다",
+      "opens": {
+        "buildings": [
+          "tent",
+          "storage_crate",
+          "hut",
+          "granary",
+          "well",
+          "woodpile",
+          "storage",
+          "lamp",
+          "house",
+          "sawmill",
+          "quarry_camp",
+          "hunter_hut",
+          "appraisal_post",
+          "fence",
+          "gate",
+          "watchpost",
+          "arrow_tower",
+          "banner",
+          "trading_post",
+          "garden"
+        ],
+        "features": [],
+        "ui": [],
+        "commands": []
+      },
+      "steps": [
+        {
+          "key": "trading_post_built",
+          "title": "교역소를 세우세요",
+          "sub": "상단이 닿을 자리입니다. 물가 가까이 세우면 더 좋습니다.",
+          "verb": "E — 짓기",
+          "condition": {
+            "type": "structure",
+            "building": "trading_post",
+            "count": 1
+          },
+          "target": {
+            "type": "site",
+            "building": "trading_post",
+            "fallback": {
+              "type": "buildSlot",
+              "building": "trading_post",
+              "sel": "#tb-build"
+            }
+          }
+        }
+      ],
+      "reward": {
+        "fanfare": "caravan",
+        "line": "첫 상단이 먼지를 일으키며 다가온다.",
+        "opens": {
+          "features": [
+            "trade"
+          ],
+          "ui": [
+            "panel.trade"
+          ],
+          "commands": [
+            "trade",
+            "respondOffer",
+            "setAutoExport",
+            "setExportFloor",
+            "buyTool",
+            "sellWeapon",
+            "setQueue"
+          ]
+        },
+        "card": {
+          "icon": "ship",
+          "title": "무역",
+          "text": "외교관에게 가면 값을 흥정할 수 있습니다. 제안은 오른쪽 알림에 쌓입니다."
+        }
+      }
+    },
+    {
+      "id": 9,
+      "key": "dignity",
+      "name": "나라의 격",
+      "subtitle": "이름 있는 나라로",
+      "opens": {
+        "buildings": [
+          "tent",
+          "storage_crate",
+          "hut",
+          "granary",
+          "well",
+          "woodpile",
+          "storage",
+          "lamp",
+          "house",
+          "sawmill",
+          "quarry_camp",
+          "hunter_hut",
+          "appraisal_post",
+          "fence",
+          "gate",
+          "watchpost",
+          "arrow_tower",
+          "banner",
+          "trading_post",
+          "garden",
+          "shrine",
+          "smelter",
+          "smithy",
+          "mine_shaft",
+          "barracks",
+          "ballista",
+          "market"
+        ],
+        "features": [],
+        "ui": [],
+        "commands": [
+          "saintBuff"
+        ]
+      },
+      "steps": [
+        {
+          "key": "shrine_built",
+          "title": "성지를 세우세요",
+          "sub": "각료가 모여 앉을 자리입니다. 땅이 내어준 것도 여기로 모입니다.",
+          "verb": "E — 짓기",
+          "condition": {
+            "type": "structure",
+            "building": "shrine",
+            "count": 1
+          },
+          "target": {
+            "type": "site",
+            "building": "shrine",
+            "fallback": {
+              "type": "buildSlot",
+              "building": "shrine",
+              "sel": "#tb-build"
+            }
+          }
+        }
+      ],
+      "reward": {
+        "fanfare": "council",
+        "line": "처음으로 각료가 한자리에 모인다.",
+        "openCouncil": true,
+        "opens": {
+          "features": [
+            "council",
+            "artifacts"
+          ],
+          "ui": [
+            "panel.council"
+          ],
+          "commands": [
+            "councilAck",
+            "useArtifact",
+            "decide"
+          ]
+        },
+        "card": {
+          "icon": "gem",
+          "title": "어전 회의와 유물",
+          "text": "회의는 오른쪽 알림에 쌓입니다 — 여는 건 언제나 그대입니다."
+        }
+      }
+    },
+    {
+      "id": 10,
+      "key": "endless",
+      "name": "끝이 없는 길",
+      "subtitle": "이제부터는 티어가 장을 대신한다",
+      "endless": true,
+      "opens": {
+        "buildings": [],
+        "features": [
+          "highTierUpgrade"
+        ],
+        "ui": [],
+        "commands": [
+          "ordersSet"
+        ]
+      },
+      "steps": [],
+      "reward": null
+    }
+  ]
+}

@@ -1,0 +1,1741 @@
+{
+  "_note": "건물 도감 — docs/GDD3.md §7. 전면 재구성본. 카테고리(주거·생산·군사·발전·장식)와 **개별 건물 티어**가 정본이다: 같은 건물을 여러 채 지을 수 있고 각각 따로 업그레이드한다(upgradeStructure). 효과는 동종 건물 합산이되 그 건물의 최고 티어 값이 상한이다(effectCap — 밸런스 보호). requiresTier 는 정착지 티어 해금 조건이다. hp 는 웨이브 전투에서 깎이는 내구도이며 repairStructure 로 되돌린다. multi:false 인 건물은 정착지에 한 채만 세운다. ★ GDD3 §12-1 — footprint:[w,h] 는 그 건물이 차지하는 칸 수다: 배치 충돌·영토 판정·스프라이트 크기가 전부 이 값을 따른다(앵커는 좌상단 칸, 중심은 x+(w-1)/2·y+(h-1)/2). ★ §12-2 — hq:true 인 건물(정착지 본부)은 4×4 대형이고 티어가 정착지 티어를 그대로 따라간다(autoTier): 손으로 개축하지 않고 [승격]이 함께 키운다. immovable:true 는 이전·철거 금지다.",
+  "categories": {
+    "housing": {
+      "name": "주거",
+      "order": [
+        "tent",
+        "hut",
+        "house",
+        "manor"
+      ]
+    },
+    "production": {
+      "name": "생산",
+      "order": [
+        "storage_crate",
+        "well",
+        "woodpile",
+        "granary",
+        "sawmill",
+        "quarry_camp",
+        "hunter_hut",
+        "storage",
+        "smelter",
+        "smithy",
+        "mine_shaft",
+        "mill"
+      ]
+    },
+    "military": {
+      "name": "군사",
+      "order": [
+        "fence",
+        "gate",
+        "watchpost",
+        "arrow_tower",
+        "barracks",
+        "ballista",
+        "cannon"
+      ]
+    },
+    "civic": {
+      "name": "발전",
+      "order": [
+        "campfire",
+        "appraisal_post",
+        "trading_post",
+        "market",
+        "shrine",
+        "consulate",
+        "monument"
+      ]
+    },
+    "decor": {
+      "name": "장식",
+      "order": [
+        "lamp",
+        "banner",
+        "garden",
+        "fountain"
+      ]
+    }
+  },
+  "tent": {
+    "name": "천막",
+    "category": "housing",
+    "requiresTier": 0,
+    "maxTier": 2,
+    "multi": true,
+    "desc": "밤이슬은 막아 준다. 한 사람이 눕는다.",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 10
+        },
+        "buildPoints": 3,
+        "residents": 1,
+        "hp": 40,
+        "attractiveness": 0
+      },
+      {
+        "cost": {
+          "wood": 25,
+          "stone": 5
+        },
+        "buildPoints": 6,
+        "residents": 2,
+        "hp": 60,
+        "attractiveness": 0.02
+      }
+    ],
+    "footprint": [
+      1,
+      1
+    ]
+  },
+  "hut": {
+    "name": "오두막",
+    "category": "housing",
+    "requiresTier": 0,
+    "maxTier": 3,
+    "multi": true,
+    "desc": "굴뚝이 있는 첫 집. 두 사람이 산다.",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 45,
+          "stone": 10
+        },
+        "buildPoints": 8,
+        "residents": 2,
+        "hp": 90,
+        "attractiveness": 0.03
+      },
+      {
+        "cost": {
+          "wood": 90,
+          "stone": 30
+        },
+        "buildPoints": 15,
+        "residents": 3,
+        "hp": 140,
+        "attractiveness": 0.05
+      },
+      {
+        "cost": {
+          "wood": 160,
+          "stone": 70
+        },
+        "buildPoints": 24,
+        "residents": 4,
+        "hp": 200,
+        "attractiveness": 0.07
+      }
+    ],
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  "house": {
+    "name": "가옥",
+    "category": "housing",
+    "requiresTier": 2,
+    "maxTier": 3,
+    "multi": true,
+    "desc": "네 사람이 사는 제대로 된 집.",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 120,
+          "stone": 60
+        },
+        "buildPoints": 20,
+        "residents": 4,
+        "hp": 180,
+        "attractiveness": 0.06
+      },
+      {
+        "cost": {
+          "wood": 200,
+          "stone": 120,
+          "steel": 10
+        },
+        "buildPoints": 32,
+        "residents": 5,
+        "hp": 260,
+        "attractiveness": 0.09
+      },
+      {
+        "cost": {
+          "wood": 320,
+          "stone": 200,
+          "steel": 40
+        },
+        "buildPoints": 46,
+        "residents": 7,
+        "hp": 360,
+        "attractiveness": 0.12
+      }
+    ],
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  "manor": {
+    "name": "저택",
+    "category": "housing",
+    "requiresTier": 4,
+    "maxTier": 3,
+    "multi": true,
+    "desc": "여섯 사람과 그 살림이 들어간다.",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 260,
+          "stone": 160,
+          "steel": 30
+        },
+        "buildPoints": 36,
+        "residents": 6,
+        "hp": 300,
+        "attractiveness": 0.1
+      },
+      {
+        "cost": {
+          "wood": 400,
+          "stone": 260,
+          "steel": 80
+        },
+        "buildPoints": 52,
+        "residents": 8,
+        "hp": 420,
+        "attractiveness": 0.14
+      },
+      {
+        "cost": {
+          "wood": 600,
+          "stone": 400,
+          "steel": 160
+        },
+        "buildPoints": 72,
+        "residents": 11,
+        "hp": 560,
+        "attractiveness": 0.18
+      }
+    ],
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  "storage_crate": {
+    "name": "저장 궤짝",
+    "category": "production",
+    "requiresTier": 0,
+    "maxTier": 2,
+    "multi": true,
+    "desc": "비를 피해 자재를 쌓아 둔다.",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 20
+        },
+        "buildPoints": 4,
+        "storageBonus": 0.3,
+        "hp": 40
+      },
+      {
+        "cost": {
+          "wood": 45,
+          "stone": 15
+        },
+        "buildPoints": 8,
+        "storageBonus": 0.6,
+        "hp": 60
+      }
+    ],
+    "footprint": [
+      1,
+      1
+    ]
+  },
+  "well": {
+    "name": "우물",
+    "category": "production",
+    "requiresTier": 1,
+    "maxTier": 2,
+    "multi": true,
+    "desc": "물이 가까우면 밭이 마르지 않는다.",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 25,
+          "stone": 20
+        },
+        "buildPoints": 6,
+        "output": {
+          "grain": 0.06
+        },
+        "attractiveness": 0.04,
+        "hp": 70
+      },
+      {
+        "cost": {
+          "wood": 60,
+          "stone": 60
+        },
+        "buildPoints": 12,
+        "output": {
+          "grain": 0.12
+        },
+        "attractiveness": 0.07,
+        "hp": 110
+      }
+    ],
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  "woodpile": {
+    "name": "장작더미",
+    "category": "production",
+    "requiresTier": 1,
+    "maxTier": 2,
+    "multi": true,
+    "desc": "말린 장작은 제련에도 쓰인다.",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 30
+        },
+        "buildPoints": 5,
+        "flatOutput": {
+          "wood": 1.5
+        },
+        "hp": 40
+      },
+      {
+        "cost": {
+          "wood": 70,
+          "stone": 20
+        },
+        "buildPoints": 10,
+        "flatOutput": {
+          "wood": 3
+        },
+        "hp": 60
+      }
+    ],
+    "footprint": [
+      1,
+      1
+    ]
+  },
+  "granary": {
+    "name": "곡창",
+    "category": "production",
+    "requiresTier": 2,
+    "maxTier": 3,
+    "multi": true,
+    "role": "farm",
+    "desc": "거둔 것을 썩히지 않는다.",
+    "workSlots": 3,
+    "job": "farm",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 90,
+          "stone": 45
+        },
+        "buildPoints": 14,
+        "output": {
+          "grain": 0.15
+        },
+        "storageBonus": 0.4,
+        "hp": 130
+      },
+      {
+        "cost": {
+          "wood": 180,
+          "stone": 100
+        },
+        "buildPoints": 24,
+        "output": {
+          "grain": 0.3
+        },
+        "storageBonus": 0.8,
+        "hp": 200
+      },
+      {
+        "cost": {
+          "wood": 300,
+          "stone": 180
+        },
+        "buildPoints": 36,
+        "output": {
+          "grain": 0.5
+        },
+        "storageBonus": 1.2,
+        "hp": 290
+      }
+    ],
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  "sawmill": {
+    "name": "제재소",
+    "category": "production",
+    "requiresTier": 2,
+    "maxTier": 3,
+    "multi": true,
+    "desc": "통나무를 켠다. 나무꾼의 손이 빨라진다.",
+    "workSlots": 3,
+    "job": "lumber",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 110,
+          "stone": 40
+        },
+        "buildPoints": 16,
+        "gatherBonus": {
+          "wood": 0.15
+        },
+        "flatOutput": {
+          "wood": 2
+        },
+        "hp": 140
+      },
+      {
+        "cost": {
+          "wood": 200,
+          "stone": 90
+        },
+        "buildPoints": 26,
+        "gatherBonus": {
+          "wood": 0.3
+        },
+        "flatOutput": {
+          "wood": 4
+        },
+        "hp": 210
+      },
+      {
+        "cost": {
+          "wood": 340,
+          "stone": 170,
+          "steel": 30
+        },
+        "buildPoints": 40,
+        "gatherBonus": {
+          "wood": 0.5
+        },
+        "flatOutput": {
+          "wood": 7
+        },
+        "hp": 300
+      }
+    ],
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  "quarry_camp": {
+    "name": "채석장",
+    "category": "production",
+    "requiresTier": 2,
+    "maxTier": 3,
+    "multi": true,
+    "desc": "돌을 다듬어 쓰기 좋게 만든다.",
+    "workSlots": 3,
+    "job": "quarry",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 90,
+          "stone": 70
+        },
+        "buildPoints": 16,
+        "gatherBonus": {
+          "stone": 0.15
+        },
+        "flatOutput": {
+          "stone": 1.5
+        },
+        "hp": 140
+      },
+      {
+        "cost": {
+          "wood": 170,
+          "stone": 140
+        },
+        "buildPoints": 26,
+        "gatherBonus": {
+          "stone": 0.3
+        },
+        "flatOutput": {
+          "stone": 3
+        },
+        "hp": 210
+      },
+      {
+        "cost": {
+          "wood": 290,
+          "stone": 240,
+          "steel": 30
+        },
+        "buildPoints": 40,
+        "gatherBonus": {
+          "stone": 0.5
+        },
+        "flatOutput": {
+          "stone": 5
+        },
+        "hp": 300
+      }
+    ],
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  "hunter_hut": {
+    "name": "사냥꾼 오두막",
+    "category": "production",
+    "requiresTier": 2,
+    "maxTier": 3,
+    "multi": true,
+    "desc": "숲이 곳간을 대신하는 계절이 있다.",
+    "workSlots": 2,
+    "job": "farm",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 80,
+          "stone": 20
+        },
+        "buildPoints": 12,
+        "flatOutput": {
+          "grain": 3
+        },
+        "hp": 100
+      },
+      {
+        "cost": {
+          "wood": 150,
+          "stone": 60
+        },
+        "buildPoints": 20,
+        "flatOutput": {
+          "grain": 6
+        },
+        "hp": 150
+      },
+      {
+        "cost": {
+          "wood": 250,
+          "stone": 120,
+          "steel": 20
+        },
+        "buildPoints": 30,
+        "flatOutput": {
+          "grain": 10
+        },
+        "hp": 220
+      }
+    ],
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  "storage": {
+    "name": "저장고",
+    "category": "production",
+    "requiresTier": 2,
+    "maxTier": 3,
+    "multi": true,
+    "role": "build",
+    "desc": "창고가 크면 잉여가 썩지 않는다.",
+    "workSlots": 3,
+    "job": "trade",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 70,
+          "stone": 40
+        },
+        "buildPoints": 12,
+        "storageMultiplier": 3.5,
+        "storageBonus": 0.5,
+        "hp": 120
+      },
+      {
+        "cost": {
+          "wood": 150,
+          "stone": 90
+        },
+        "buildPoints": 22,
+        "storageMultiplier": 4,
+        "storageBonus": 1,
+        "hp": 180
+      },
+      {
+        "cost": {
+          "wood": 260,
+          "stone": 160
+        },
+        "buildPoints": 34,
+        "storageMultiplier": 5,
+        "storageBonus": 1.6,
+        "hp": 260
+      }
+    ],
+    "footprint": [
+      2,
+      3
+    ]
+  },
+  "smelter": {
+    "name": "제련소",
+    "category": "production",
+    "requiresTier": 3,
+    "maxTier": 3,
+    "multi": true,
+    "role": "factory",
+    "desc": "철광석과 장작이 강재가 되는 자리.",
+    "workSlots": 4,
+    "job": "factory",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 140,
+          "stone": 120
+        },
+        "buildPoints": 24,
+        "factoryBonus": 0.15,
+        "hp": 160
+      },
+      {
+        "cost": {
+          "wood": 240,
+          "stone": 200,
+          "steel": 30
+        },
+        "buildPoints": 36,
+        "factoryBonus": 0.3,
+        "hp": 240
+      },
+      {
+        "cost": {
+          "wood": 400,
+          "stone": 320,
+          "steel": 90
+        },
+        "buildPoints": 52,
+        "factoryBonus": 0.5,
+        "hp": 340
+      }
+    ],
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  "smithy": {
+    "name": "대장간",
+    "category": "production",
+    "requiresTier": 3,
+    "maxTier": 3,
+    "multi": true,
+    "role": "factory",
+    "desc": "도구와 무기를 벼린다. 스킬 도구 해금이 한 단계 빨라진다.",
+    "workSlots": 3,
+    "job": "factory",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 130,
+          "stone": 80,
+          "ironOre": 20
+        },
+        "buildPoints": 22,
+        "toolDiscount": 0.08,
+        "militiaDps": 1,
+        "hp": 150
+      },
+      {
+        "cost": {
+          "wood": 220,
+          "stone": 150,
+          "steel": 30
+        },
+        "buildPoints": 34,
+        "toolDiscount": 0.16,
+        "militiaDps": 2,
+        "hp": 220
+      },
+      {
+        "cost": {
+          "wood": 360,
+          "stone": 260,
+          "steel": 90
+        },
+        "buildPoints": 48,
+        "toolDiscount": 0.25,
+        "militiaDps": 3.5,
+        "hp": 310
+      }
+    ],
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  "mine_shaft": {
+    "name": "광산 갱도",
+    "category": "production",
+    "requiresTier": 3,
+    "maxTier": 3,
+    "multi": true,
+    "desc": "땅속으로 파고든다. 철광맥 옆에 세워야 값을 한다.",
+    "workSlots": 3,
+    "job": "mine",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 150,
+          "stone": 100
+        },
+        "buildPoints": 24,
+        "flatOutput": {
+          "ironOre": 2
+        },
+        "hp": 150
+      },
+      {
+        "cost": {
+          "wood": 260,
+          "stone": 180,
+          "steel": 20
+        },
+        "buildPoints": 36,
+        "flatOutput": {
+          "ironOre": 4.5
+        },
+        "hp": 220
+      },
+      {
+        "cost": {
+          "wood": 420,
+          "stone": 300,
+          "steel": 70
+        },
+        "buildPoints": 52,
+        "flatOutput": {
+          "ironOre": 8
+        },
+        "hp": 310
+      }
+    ],
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  "mill": {
+    "name": "방앗간",
+    "category": "production",
+    "requiresTier": 4,
+    "maxTier": 3,
+    "multi": true,
+    "desc": "낟알을 가루로. 같은 밭에서 더 많은 끼니가 나온다.",
+    "workSlots": 2,
+    "job": "farm",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 180,
+          "stone": 120,
+          "steel": 20
+        },
+        "buildPoints": 28,
+        "output": {
+          "grain": 0.12
+        },
+        "flatOutput": {
+          "grain": 4
+        },
+        "hp": 170
+      },
+      {
+        "cost": {
+          "wood": 300,
+          "stone": 200,
+          "steel": 60
+        },
+        "buildPoints": 42,
+        "output": {
+          "grain": 0.24
+        },
+        "flatOutput": {
+          "grain": 8
+        },
+        "hp": 250
+      },
+      {
+        "cost": {
+          "wood": 480,
+          "stone": 340,
+          "steel": 130
+        },
+        "buildPoints": 60,
+        "output": {
+          "grain": 0.4
+        },
+        "flatOutput": {
+          "grain": 13
+        },
+        "hp": 350
+      }
+    ],
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  "fence": {
+    "name": "울타리",
+    "category": "military",
+    "requiresTier": 2,
+    "maxTier": 2,
+    "piece": true,
+    "desc": "드래그로 선을 긋는다. 조각마다 내구도가 있고 목책은 석벽으로 올릴 수 있다.",
+    "_note": "★ 조각 배치 전용 — placeBuilding 이 아니라 placeFence {points[]} 로 세운다. 자동 성곽 링은 폐지됐다.",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 6
+        },
+        "buildPoints": 0.6,
+        "hp": 60,
+        "name": "목책"
+      },
+      {
+        "cost": {
+          "stone": 8,
+          "wood": 2
+        },
+        "buildPoints": 1.2,
+        "hp": 160,
+        "name": "석벽"
+      }
+    ],
+    "footprint": [
+      1,
+      1
+    ]
+  },
+  "gate": {
+    "name": "문",
+    "category": "military",
+    "requiresTier": 2,
+    "maxTier": 2,
+    "piece": true,
+    "desc": "울타리 한 조각을 문으로. 사람은 지나고 적은 두드린다.",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 14
+        },
+        "buildPoints": 1.2,
+        "hp": 90,
+        "name": "목문"
+      },
+      {
+        "cost": {
+          "stone": 12,
+          "steel": 4
+        },
+        "buildPoints": 2.4,
+        "hp": 220,
+        "name": "철문"
+      }
+    ],
+    "footprint": [
+      1,
+      1
+    ]
+  },
+  "watchpost": {
+    "name": "초소",
+    "category": "military",
+    "requiresTier": 2,
+    "maxTier": 3,
+    "multi": true,
+    "desc": "멀리 본다. 적이 오는 것을 하루 먼저 안다.",
+    "workSlots": 2,
+    "job": "defense",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 60,
+          "stone": 30
+        },
+        "buildPoints": 10,
+        "vision": 9,
+        "warnBonusDays": 0.5,
+        "hp": 100
+      },
+      {
+        "cost": {
+          "wood": 120,
+          "stone": 70
+        },
+        "buildPoints": 18,
+        "vision": 12,
+        "warnBonusDays": 1,
+        "hp": 150
+      },
+      {
+        "cost": {
+          "wood": 200,
+          "stone": 130,
+          "steel": 20
+        },
+        "buildPoints": 28,
+        "vision": 15,
+        "warnBonusDays": 1.5,
+        "hp": 220
+      }
+    ],
+    "footprint": [
+      1,
+      1
+    ]
+  },
+  "arrow_tower": {
+    "name": "화살탑",
+    "category": "military",
+    "requiresTier": 3,
+    "maxTier": 3,
+    "multi": true,
+    "desc": "값싸고 여러 기 세운다. 빠른 적에게 잘 듣는다.",
+    "counters": [
+      "pirate",
+      "wolf"
+    ],
+    "tiers": [
+      {
+        "cost": {
+          "wood": 60,
+          "stone": 30
+        },
+        "buildPoints": 10,
+        "turret": {
+          "dps": 6,
+          "range": 7
+        },
+        "hp": 110
+      },
+      {
+        "cost": {
+          "wood": 120,
+          "stone": 70
+        },
+        "buildPoints": 18,
+        "turret": {
+          "dps": 10,
+          "range": 8
+        },
+        "hp": 160
+      },
+      {
+        "cost": {
+          "wood": 200,
+          "stone": 130,
+          "steel": 20
+        },
+        "buildPoints": 28,
+        "turret": {
+          "dps": 15,
+          "range": 9
+        },
+        "hp": 230
+      }
+    ],
+    "footprint": [
+      1,
+      1
+    ]
+  },
+  "barracks": {
+    "name": "병영",
+    "category": "military",
+    "requiresTier": 4,
+    "maxTier": 3,
+    "multi": true,
+    "role": "defense",
+    "desc": "민병에게 창과 훈련을 준다.",
+    "workSlots": 6,
+    "job": "defense",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 160,
+          "stone": 60,
+          "steel": 20
+        },
+        "buildPoints": 24,
+        "permanentDefense": 30,
+        "militiaSlots": 4,
+        "militiaBonus": 0.25,
+        "hp": 190
+      },
+      {
+        "cost": {
+          "wood": 280,
+          "stone": 130,
+          "steel": 60
+        },
+        "buildPoints": 38,
+        "permanentDefense": 70,
+        "militiaSlots": 8,
+        "militiaBonus": 0.5,
+        "hp": 280
+      },
+      {
+        "cost": {
+          "wood": 440,
+          "stone": 220,
+          "steel": 130
+        },
+        "buildPoints": 54,
+        "permanentDefense": 150,
+        "militiaSlots": 13,
+        "militiaBonus": 0.85,
+        "hp": 400
+      }
+    ],
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  "ballista": {
+    "name": "노포",
+    "category": "military",
+    "requiresTier": 4,
+    "maxTier": 3,
+    "multi": true,
+    "desc": "관통. 큰 것 하나를 잡는 데 쓴다.",
+    "counters": [
+      "dragon",
+      "ogre"
+    ],
+    "tiers": [
+      {
+        "cost": {
+          "wood": 80,
+          "stone": 40,
+          "steel": 20
+        },
+        "buildPoints": 14,
+        "turret": {
+          "dps": 14,
+          "range": 9
+        },
+        "hp": 120
+      },
+      {
+        "cost": {
+          "wood": 150,
+          "stone": 90,
+          "steel": 50
+        },
+        "buildPoints": 24,
+        "turret": {
+          "dps": 22,
+          "range": 10
+        },
+        "hp": 180
+      },
+      {
+        "cost": {
+          "wood": 250,
+          "stone": 160,
+          "steel": 110
+        },
+        "buildPoints": 36,
+        "turret": {
+          "dps": 32,
+          "range": 11
+        },
+        "hp": 250
+      }
+    ],
+    "footprint": [
+      1,
+      1
+    ]
+  },
+  "cannon": {
+    "name": "화포",
+    "category": "military",
+    "requiresTier": 5,
+    "maxTier": 3,
+    "multi": true,
+    "desc": "값비싸고 무겁다. 성문을 두드리는 것들에게 쓴다.",
+    "counters": [
+      "viking",
+      "bandit"
+    ],
+    "tiers": [
+      {
+        "cost": {
+          "stone": 60,
+          "steel": 40
+        },
+        "gold": 80,
+        "buildPoints": 20,
+        "turret": {
+          "dps": 28,
+          "range": 8
+        },
+        "hp": 150
+      },
+      {
+        "cost": {
+          "stone": 120,
+          "steel": 90
+        },
+        "gold": 160,
+        "buildPoints": 32,
+        "turret": {
+          "dps": 42,
+          "range": 9
+        },
+        "hp": 220
+      },
+      {
+        "cost": {
+          "stone": 200,
+          "steel": 180
+        },
+        "gold": 300,
+        "buildPoints": 46,
+        "turret": {
+          "dps": 60,
+          "range": 10
+        },
+        "hp": 310
+      }
+    ],
+    "footprint": [
+      1,
+      1
+    ]
+  },
+  "campfire": {
+    "name": "정착지 본부",
+    "category": "civic",
+    "requiresTier": 0,
+    "maxTier": 6,
+    "multi": false,
+    "desc": "쓰러져도 여기서 일어난다. 정착지의 심장이자 얼굴 — 땅이 넓어질 때마다 함께 자란다.",
+    "core": true,
+    "tiers": [
+      {
+        "cost": {
+          "wood": 6
+        },
+        "buildPoints": 2,
+        "attractiveness": 0.03,
+        "moraleBonus": 0.02,
+        "vision": 8,
+        "hp": 60,
+        "name": "모닥불"
+      },
+      {
+        "cost": {
+          "wood": 40,
+          "stone": 10
+        },
+        "buildPoints": 8,
+        "attractiveness": 0.06,
+        "moraleBonus": 0.04,
+        "vision": 10,
+        "hp": 120,
+        "name": "야영 본부"
+      },
+      {
+        "cost": {
+          "wood": 90,
+          "stone": 45
+        },
+        "buildPoints": 14,
+        "attractiveness": 0.09,
+        "moraleBonus": 0.06,
+        "vision": 12,
+        "hp": 200,
+        "name": "촌락 회관"
+      },
+      {
+        "cost": {
+          "wood": 170,
+          "stone": 110,
+          "steel": 10
+        },
+        "buildPoints": 22,
+        "attractiveness": 0.13,
+        "moraleBonus": 0.08,
+        "vision": 14,
+        "hp": 300,
+        "name": "마을 회관"
+      },
+      {
+        "cost": {
+          "wood": 260,
+          "stone": 200,
+          "steel": 35
+        },
+        "buildPoints": 32,
+        "attractiveness": 0.17,
+        "moraleBonus": 0.1,
+        "vision": 16,
+        "hp": 420,
+        "name": "읍성 관청"
+      },
+      {
+        "cost": {
+          "wood": 380,
+          "stone": 320,
+          "steel": 70
+        },
+        "buildPoints": 44,
+        "attractiveness": 0.22,
+        "moraleBonus": 0.13,
+        "vision": 19,
+        "hp": 560,
+        "name": "도시 궁청"
+      }
+    ],
+    "footprint": [
+      4,
+      4
+    ],
+    "hq": true,
+    "autoTier": true,
+    "immovable": true,
+    "stages": [
+      "모닥불",
+      "야영 본부",
+      "촌락 회관",
+      "마을 회관",
+      "읍성 관청",
+      "도시 궁청"
+    ]
+  },
+  "appraisal_post": {
+    "name": "감정소",
+    "category": "civic",
+    "requiresTier": 2,
+    "maxTier": 1,
+    "multi": false,
+    "desc": "땅의 내력을 재는 곳. 다 세우고 나서 눌러 [땅을 감정한다]를 고르면 이 땅이 무엇을 품었는지 드러난다.",
+    "_note": "★ GDD3 §11-4 — 옛 '측량소' 개념의 복원. 감정의 날은 3일차 자동 발동이 아니라 이 건물을 세우고 손수 누르는 것으로만 열린다. 석재를 처음 요구하는 건물이라 '채석'이라는 새 동사를 자연스럽게 가르친다.",
+    "action": "appraiseLand",
+    "actionLabel": "땅을 감정한다",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 60,
+          "stone": 30
+        },
+        "buildPoints": 12,
+        "vision": 9,
+        "attractiveness": 0.02,
+        "hp": 110
+      }
+    ],
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  "trading_post": {
+    "name": "교역소",
+    "category": "civic",
+    "requiresTier": 3,
+    "maxTier": 3,
+    "multi": true,
+    "role": "trade",
+    "desc": "마차가 선다. 여기서부터 바깥과 값을 주고받는다.",
+    "workSlots": 3,
+    "job": "trade",
+    "unlocksTrade": true,
+    "tiers": [
+      {
+        "cost": {
+          "wood": 150,
+          "stone": 80
+        },
+        "buildPoints": 22,
+        "logisticsTier": 1,
+        "hp": 150
+      },
+      {
+        "cost": {
+          "wood": 260,
+          "stone": 150,
+          "steel": 20
+        },
+        "buildPoints": 34,
+        "logisticsTier": 2,
+        "hp": 220
+      },
+      {
+        "cost": {
+          "wood": 420,
+          "stone": 260,
+          "steel": 70
+        },
+        "buildPoints": 48,
+        "logisticsTier": 3,
+        "hp": 310
+      }
+    ],
+    "footprint": [
+      2,
+      3
+    ]
+  },
+  "market": {
+    "name": "시장",
+    "category": "civic",
+    "requiresTier": 4,
+    "maxTier": 3,
+    "multi": true,
+    "desc": "장이 서면 사람이 모이고 값이 정해진다.",
+    "workSlots": 4,
+    "job": "trade",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 220,
+          "stone": 140,
+          "steel": 20
+        },
+        "buildPoints": 30,
+        "logisticsTier": 2,
+        "attractiveness": 0.08,
+        "goldPerDay": 3,
+        "hp": 180
+      },
+      {
+        "cost": {
+          "wood": 360,
+          "stone": 240,
+          "steel": 60
+        },
+        "buildPoints": 44,
+        "logisticsTier": 3,
+        "attractiveness": 0.12,
+        "goldPerDay": 7,
+        "hp": 260
+      },
+      {
+        "cost": {
+          "wood": 560,
+          "stone": 380,
+          "steel": 140
+        },
+        "buildPoints": 62,
+        "logisticsTier": 3,
+        "attractiveness": 0.17,
+        "goldPerDay": 13,
+        "hp": 360
+      }
+    ],
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  "shrine": {
+    "name": "성지",
+    "category": "civic",
+    "requiresTier": 4,
+    "maxTier": 3,
+    "multi": false,
+    "role": "saint",
+    "desc": "성녀가 기도하는 자리. 사람이 더 모여 산다.",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 200,
+          "stone": 160,
+          "steel": 30
+        },
+        "buildPoints": 30,
+        "populationCap": 90,
+        "attractiveness": 0.1,
+        "moraleBonus": 0.04,
+        "hp": 200
+      },
+      {
+        "cost": {
+          "wood": 340,
+          "stone": 260,
+          "steel": 80
+        },
+        "buildPoints": 46,
+        "populationCap": 160,
+        "attractiveness": 0.15,
+        "moraleBonus": 0.07,
+        "hp": 290
+      },
+      {
+        "cost": {
+          "wood": 540,
+          "stone": 420,
+          "steel": 180
+        },
+        "buildPoints": 66,
+        "populationCap": 260,
+        "attractiveness": 0.2,
+        "moraleBonus": 0.1,
+        "hp": 400
+      }
+    ],
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  "consulate": {
+    "name": "영사관",
+    "category": "civic",
+    "requiresTier": 5,
+    "maxTier": 5,
+    "multi": false,
+    "role": "trade",
+    "currency": "gold",
+    "desc": "관세를 깎는다. 골드로만 올린다.",
+    "tiers": [
+      {
+        "gold": 60,
+        "tariffReduction": 0.01,
+        "hp": 160
+      },
+      {
+        "gold": 80,
+        "tariffReduction": 0.01,
+        "hp": 180
+      },
+      {
+        "gold": 110,
+        "tariffReduction": 0.01,
+        "hp": 200
+      },
+      {
+        "gold": 150,
+        "tariffReduction": 0.01,
+        "hp": 220
+      },
+      {
+        "gold": 200,
+        "tariffReduction": 0.01,
+        "hp": 240
+      }
+    ],
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  "monument": {
+    "name": "기념비",
+    "category": "civic",
+    "requiresTier": 5,
+    "maxTier": 3,
+    "multi": true,
+    "desc": "여기까지 왔다는 표시. 오래 남는다.",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 300,
+          "stone": 300,
+          "steel": 80
+        },
+        "buildPoints": 45,
+        "attractiveness": 0.15,
+        "moraleBonus": 0.06,
+        "prestige": 10,
+        "hp": 320
+      },
+      {
+        "cost": {
+          "wood": 480,
+          "stone": 500,
+          "steel": 180
+        },
+        "buildPoints": 64,
+        "attractiveness": 0.22,
+        "moraleBonus": 0.09,
+        "prestige": 25,
+        "hp": 450
+      },
+      {
+        "cost": {
+          "wood": 760,
+          "stone": 800,
+          "steel": 340
+        },
+        "buildPoints": 88,
+        "attractiveness": 0.3,
+        "moraleBonus": 0.12,
+        "prestige": 50,
+        "hp": 600
+      }
+    ],
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  "lamp": {
+    "name": "가로등",
+    "category": "decor",
+    "requiresTier": 1,
+    "maxTier": 2,
+    "multi": true,
+    "desc": "밤길이 무섭지 않다.",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 15
+        },
+        "buildPoints": 3,
+        "attractiveness": 0.02,
+        "vision": 4,
+        "hp": 30
+      },
+      {
+        "cost": {
+          "wood": 30,
+          "stone": 15
+        },
+        "buildPoints": 6,
+        "attractiveness": 0.035,
+        "vision": 6,
+        "hp": 50
+      }
+    ],
+    "footprint": [
+      1,
+      1
+    ]
+  },
+  "banner": {
+    "name": "깃발",
+    "category": "decor",
+    "requiresTier": 2,
+    "maxTier": 2,
+    "multi": true,
+    "desc": "이 땅에 이름이 있다는 뜻.",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 20,
+          "stone": 5
+        },
+        "buildPoints": 3,
+        "attractiveness": 0.025,
+        "moraleBonus": 0.01,
+        "hp": 30
+      },
+      {
+        "cost": {
+          "wood": 40,
+          "stone": 20
+        },
+        "buildPoints": 6,
+        "attractiveness": 0.045,
+        "moraleBonus": 0.02,
+        "hp": 50
+      }
+    ],
+    "footprint": [
+      1,
+      1
+    ]
+  },
+  "garden": {
+    "name": "정원",
+    "category": "decor",
+    "requiresTier": 3,
+    "maxTier": 2,
+    "multi": true,
+    "desc": "일하지 않는 땅도 필요하다.",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 30,
+          "stone": 20
+        },
+        "buildPoints": 6,
+        "attractiveness": 0.05,
+        "moraleBonus": 0.015,
+        "hp": 40
+      },
+      {
+        "cost": {
+          "wood": 70,
+          "stone": 50
+        },
+        "buildPoints": 12,
+        "attractiveness": 0.08,
+        "moraleBonus": 0.03,
+        "hp": 70
+      }
+    ],
+    "footprint": [
+      1,
+      1
+    ]
+  },
+  "fountain": {
+    "name": "분수",
+    "category": "decor",
+    "requiresTier": 4,
+    "maxTier": 2,
+    "multi": true,
+    "desc": "물이 솟는 광장. 아이들이 모인다.",
+    "tiers": [
+      {
+        "cost": {
+          "stone": 80,
+          "wood": 20
+        },
+        "buildPoints": 12,
+        "attractiveness": 0.08,
+        "moraleBonus": 0.025,
+        "hp": 90
+      },
+      {
+        "cost": {
+          "stone": 180,
+          "wood": 60,
+          "steel": 20
+        },
+        "buildPoints": 22,
+        "attractiveness": 0.13,
+        "moraleBonus": 0.045,
+        "hp": 150
+      }
+    ],
+    "footprint": [
+      1,
+      1
+    ]
+  },
+  "tools": {
+    "name": "대장간 도구",
+    "_note": "★ 유지 항목 — 국가 단위 도구 티어(괭이·곡괭이·무기). 개인 스킬의 도구(data/skills.json tools)와는 별개다: 이쪽은 매크로 산출 보정(buildingFactor)과 민병 무장에 들어가는 골드 소비처이고, 저쪽은 아바타 스윙 배수다. 대장간(smithy)이 값을 깎아 준다. 정착지 티어 3(대장간 해금)부터 살 수 있다.",
+    "role": "factory",
+    "currency": "gold",
+    "requiresTier": 3,
+    "hoe": {
+      "name": "괭이",
+      "tiers": [
+        {
+          "gold": 50,
+          "bonus": 0.1
+        },
+        {
+          "gold": 120,
+          "bonus": 0.2
+        },
+        {
+          "gold": 250,
+          "bonus": 0.35
+        }
+      ],
+      "target": "grain"
+    },
+    "pickaxe": {
+      "name": "곡괭이",
+      "tiers": [
+        {
+          "gold": 50,
+          "bonus": 0.1
+        },
+        {
+          "gold": 120,
+          "bonus": 0.2
+        },
+        {
+          "gold": 250,
+          "bonus": 0.35
+        }
+      ],
+      "target": "ironOre"
+    },
+    "weapon": {
+      "name": "무기",
+      "tiers": [
+        {
+          "gold": 80,
+          "oil": 5,
+          "power": 20,
+          "militiaDps": 1.5
+        },
+        {
+          "gold": 180,
+          "oil": 12,
+          "power": 50,
+          "militiaDps": 3.5
+        },
+        {
+          "gold": 380,
+          "oil": 25,
+          "power": 100,
+          "militiaDps": 6
+        }
+      ],
+      "refundRatio": 0.6
+    }
+  },
+  "effectRules": {
+    "_note": "★ 개별 건물 티어의 밸런스 보호 규칙(GDD3 §7). 같은 건물을 여러 채 지으면 효과가 합산되지만 합산값은 상한에 눌린다. mode=max 인 항목은 합산하지 않고 최고값만 쓴다(창고 배수·인구 상한·물류 티어처럼 성격상 겹치지 않는 것들). stackCap 은 그 건물 최고 티어 값 × 배수 가 상한이라는 뜻이다 — 기존 밸런스를 물려받은 항목(output·permanentDefense·toolDiscount·tariffReduction)은 배수 1, 즉 옛 상한 그대로다.",
+    "mode": {
+      "storageMultiplier": "max",
+      "populationCap": "max",
+      "logisticsTier": "max",
+      "residents": "sum",
+      "militiaSlots": "sum",
+      "prestige": "sum",
+      "vision": "each",
+      "turret": "each"
+    },
+    "stackCap": {
+      "_default": 3,
+      "output": 1,
+      "permanentDefense": 1,
+      "toolDiscount": 1,
+      "tariffReduction": 1,
+      "gatherBonus": 2,
+      "attractiveness": 4,
+      "moraleBonus": 2,
+      "warnBonusDays": 2
+    }
+  }
+}

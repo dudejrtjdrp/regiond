@@ -1,0 +1,12 @@
+{
+  "order": ["grain", "wood", "stone", "ironOre", "oil", "steel", "fuel"],
+  "meta": {
+    "grain":   { "name": "곡물",   "tier": 1, "referencePrice": 1.0, "stockCoefficient": 1.0,  "icon": "grain" },
+    "wood":    { "name": "목재",   "tier": 1, "referencePrice": 0.6, "stockCoefficient": 0.5,  "icon": "wood" },
+    "stone":   { "name": "석재",   "tier": 1, "referencePrice": 0.8, "stockCoefficient": 0.3,  "icon": "stone" },
+    "ironOre": { "name": "철광석", "tier": 1, "referencePrice": 1.2, "stockCoefficient": 0.4,  "icon": "ore" },
+    "oil":     { "name": "석유",   "tier": 1, "referencePrice": 2.5, "stockCoefficient": 0.15, "icon": "oil", "requiresTag": "oilfield" },
+    "steel":   { "name": "강재",   "tier": 2, "referencePrice": 2.0, "stockCoefficient": 0.24, "icon": "steel" },
+    "fuel":    { "name": "연료",   "tier": 2, "referencePrice": 2.2, "stockCoefficient": 0.1,  "icon": "fuel" }
+  }
+}
