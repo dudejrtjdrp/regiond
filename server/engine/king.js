@@ -1,0 +1,249 @@
+// 왕의 하루 — docs/GAMEPLAY2.md §C + docs/WORLD.md §10(군주 아바타).
+// ★ v2: 대상이 타일 인덱스가 아니라 월드의 노드/일자리 id 다. 계약(AP 비용·쿨다운·효과)은 그대로 재사용한다.
+// 섭정(오프라인)은 AP를 쓰지 않는다: AP는 '접속한 사람만 얻는 보너스'이고,
+// 시뮬 체크포인트는 AP 미사용 기준으로 유지된다(§C-1).
+import { grantArtifact } from './artifacts.js';
+import { round2 } from './economy.js';
+import { nodeById, townOf, territoryRadius, dist } from './world.js';
+import {
+  resolveTarget, isHarvestReady, markHarvestCycle, fieldStage, fieldStageView,
+} from './villagers.js';
+
+export const apConfig = (data) => data.balance.actionPoints;
+export const harvestConfig = (data) => data.balance.harvest;
+
+/**
+ * 하루 시작 시 AP 리셋(이월 없음) + 일일 사용 기록 초기화.
+ * ★ GDD3 §3 — '몸소 일하기'와 하루 체감 곡선(fatigue)은 폐지됐다. 노동은 스윙(actionSwing)이고
+ *   그 제한은 쿨타임이다. AP 는 큰 액션(격려 순행·유적 탐사·조사)에만 남는다.
+ */
+export function regenActionPoints(nation, data, tick) {
+  const cfg = apConfig(data);
+  const ap = (nation.ap ||= { current: cfg.max, max: cfg.max, day: tick });
+  ap.max = cfg.max;
+  ap.current = cfg.carryOver ? Math.min(cfg.max, (ap.current || 0) + cfg.regenPerDay) : cfg.regenPerDay;
+  ap.current = Math.min(ap.current, cfg.max);
+  ap.day = tick;
+  nation.apState = { inspiredDepts: [], workedNodes: [] };
+  return ap;
+}
+
+/** 대상(노드/일자리) → 부처 추정 */
+export function deptForTarget(target, data) {
+  const cfg = apConfig(data).actions.inspire;
+  if (!target) return cfg.defaultDept;
+  if (target.kind === 'node') return cfg.deptByNodeType[target.nodeType] ?? cfg.defaultDept;
+  return cfg.deptByPost[target.post] ?? cfg.defaultDept;
+}
+
+/**
+ * AP 액션. 반환은 commands.applyCommand 규약({ok, ...}|{ok:false, error}).
+ * events 를 함께 실어 보내면 서버가 즉시 브로드캐스트한다(유적 카드 등).
+ */
+export function performApAction(world, nation, cmd, data, rng) {
+  const cfg = apConfig(data);
+  // 소켓 계층에서 cmd.type 은 이벤트명('apAction')이 되므로 원본 페이로드가 cmd.payload 로 함께 온다.
+  const type = cmd.apType ?? cmd.payload?.type ?? cmd.action ?? cmd.kind;
+  const def = cfg.actions[type];
+  if (!def) return { ok: false, error: { code: 'BAD_AP_ACTION', message: '알 수 없는 행동입니다.' } };
+  if (!nation.isPlayer) return { ok: false, error: { code: 'NOT_PLAYER', message: '왕의 행동은 플레이어 국가만 할 수 있습니다.' } };
+
+  const nodeId = cmd.nodeId ?? cmd.payload?.nodeId ?? null;
+  const target = nodeId == null ? null : resolveTarget(world, nation, nodeId, data);
+  if (nodeId != null && !target) {
+    return { ok: false, error: { code: 'BAD_NODE', message: '영토 안에 그런 곳이 없습니다.' } };
+  }
+  if (type !== 'inspire' && !target) {
+    return { ok: false, error: { code: 'BAD_NODE', message: '대상을 골라야 합니다.' } };
+  }
+
+  const ap = (nation.ap ||= { current: cfg.max, max: cfg.max, day: world.tick });
+  const cost = def.cost ?? 0;
+  if (cost > 0 && (ap.current || 0) < cost) {
+    return { ok: false, error: { code: 'NO_AP', message: '오늘 쓸 수 있는 행동력을 다 썼습니다.' } };
+  }
+  const st = (nation.apState ||= { inspiredDepts: [], workedNodes: [] });
+
+  switch (type) {
+    case 'inspire': {
+      const asked = cmd.dept ?? cmd.payload?.dept ?? null;
+      if (!target && !asked) return { ok: false, error: { code: 'BAD_NODE', message: '대상을 골라야 합니다.' } };
+      const dept = asked && data.roles.order.includes(asked) ? asked : deptForTarget(target, data);
+      if (def.oncePerDeptPerDay && st.inspiredDepts.includes(dept)) {
+        return { ok: false, error: { code: 'ALREADY_INSPIRED', message: '오늘 그 부처는 이미 순행했습니다.' } };
+      }
+      st.inspiredDepts.push(dept);
+      ap.current -= cost;
+      (nation.buffs ||= []).push({
+        id: `king_inspire_${dept}_${world.tick}`,
+        name: `${data.roles.defs[dept]?.name ?? dept} 격려 순행`,
+        outputBonusByDept: { [dept]: def.outputBonus },
+        expiresTick: world.tick + (def.durationTicks ?? 1),
+      });
+      return { ok: true, ap: { ...ap }, action: 'inspire', dept, bonus: def.outputBonus, nodeId: target?.id ?? null };
+    }
+    case 'explore': {
+      if (target.kind !== 'node' || target.nodeType !== def.requiresNodeType) {
+        return { ok: false, error: { code: 'NOT_RUIN', message: '탐사할 유적이 아닙니다.' } };
+      }
+      ap.current -= cost;
+      nation.ruinGauge = (nation.ruinGauge || 0) + (def.gaugeGain ?? 1);
+      const events = [];
+      let card = null;
+      if (nation.ruinGauge >= data.ruins.gaugeThreshold) {
+        nation.ruinGauge = 0;
+        card = openRuinCard(world, nation, data, rng);
+        events.push({ kind: 'ruin_event', nationId: nation.id, data: { card } });
+      }
+      return { ok: true, ap: { ...ap }, action: 'explore', nodeId: target.id, ruinGauge: nation.ruinGauge, card, events };
+    }
+    case 'survey': {
+      const node = target.kind === 'node' ? target.node : null;
+      const def2 = node ? data.world.nodes.types[node.type] : null;
+      const survey = {
+        nodeId: target.id,
+        kind: target.kind,
+        name: target.name,
+        x: target.x,
+        y: target.y,
+        nodeType: node?.type ?? null,
+        rich: Boolean(node?.rich),
+        amount: node ? round2(node.amount) : null,
+        max: node ? round2(node.max) : null,
+        depleted: Boolean(node?.depleted),
+        workers: node?.workers ?? 0,
+        slots: target.slots,
+        hint: node
+          ? `${def2?.name ?? node.type}${node.rich ? ' — 유난히 기름집니다.' : ''}`
+          : `${target.name} — 사람을 붙일 수 있습니다.`,
+        surveyedTick: world.tick,
+      };
+      nation.survey = survey;
+      return { ok: true, ap: { ...ap }, action: 'survey', survey };
+    }
+    default:
+      return { ok: false, error: { code: 'BAD_AP_ACTION', message: '알 수 없는 행동입니다.' } };
+  }
+}
+
+// ────────────────────────────────────────────────────────────────
+// 수확 (§C-2) — 밭 노드. 클릭은 보너스만. 안 눌러도 자동 수확(3단계 산출)에는 이미 들어 있다.
+// ────────────────────────────────────────────────────────────────
+export function harvestNode(world, nation, cmd, data) {
+  const cfg = harvestConfig(data);
+  const node = nodeById(world, cmd.nodeId ?? cmd.payload?.nodeId);
+  if (!node) return { ok: false, error: { code: 'BAD_NODE', message: '없는 자리입니다.' } };
+  const town = townOf(world, nation.id);
+  if (!town || dist(node.x, node.y, town.x, town.y) > territoryRadius(nation, data) + 0.001) {
+    return { ok: false, error: { code: 'OUT_OF_TERRITORY', message: '우리 땅이 아닙니다.' } };
+  }
+  const def = data.world.nodes.types[node.type];
+  if (!def?.harvest) return { ok: false, error: { code: 'NOT_FARM', message: '밭에서만 거둘 수 있습니다.' } };
+  if (!isHarvestReady(node, data, world.tick)) {
+    return { ok: false, error: { code: 'NOT_READY', message: '아직 여물지 않았습니다.' } };
+  }
+  const gained = { ...cfg.clickBonus };
+  for (const [res, v] of Object.entries(gained)) nation.resources[res] = (nation.resources[res] || 0) + v;
+  // ★ §13 재배 루프 — 거두면 곧바로 재파종된다(자동). 성장 단계는 서버가 노드 상태로 관리한다.
+  node.readyAt = world.tick + cfg.readyEveryTicks;
+  node.stage = fieldStage(node, data, world.tick);
+  node.stamp = world.tick;
+  return { ok: true, nodeId: node.id, gained, readyAt: node.readyAt, stage: node.stage };
+}
+
+export { isHarvestReady, markHarvestCycle, fieldStage, fieldStageView };
+
+// ────────────────────────────────────────────────────────────────
+// 유적 카드 (§C-4) — 규칙 그대로
+// ────────────────────────────────────────────────────────────────
+export function openRuinCard(world, nation, data, rng) {
+  const def = rng.pick(data.ruins.cards);
+  const decisionId = `ruin_${nation.id}_${world.tick}_${def.id}`;
+  const card = {
+    decisionId,
+    cardId: def.id,
+    name: def.name,
+    text: def.text,
+    options: def.options.map((o) => ({ key: o.key, label: o.label })),
+  };
+  (nation.decisionQueue ||= []).push({
+    decisionId,
+    kind: data.ruins.decisionKind,
+    title: data.ruins.title,
+    text: `${def.name} — ${def.text}`,
+    options: def.options.map((o) => o.key),
+    createdTick: world.tick,
+    ruin: { cardId: def.id },
+  });
+  return card;
+}
+
+/** decide {decisionId, choice} 로 들어온 유적 카드 선택 처리 */
+export function resolveRuinChoice(world, nation, decision, choice, data, rng) {
+  const card = data.ruins.cards.find((c) => c.id === decision.ruin?.cardId);
+  if (!card) return { ok: false, error: { code: 'NO_RUIN_CARD', message: '없는 유적 카드입니다.' } };
+  const opt = card.options.find((o) => o.key === choice) ?? card.options[card.options.length - 1];
+  const applied = [];
+  const lines = [opt.text];
+  let artifact = null;
+
+  for (const out of opt.outcomes || []) {
+    switch (out.op) {
+      case 'artifactRoll': {
+        if (rng.chance(out.chance)) {
+          artifact = grantRandomArtifact(nation, data, rng, world.tick);
+          lines.push(artifact ? `${out.successText} (${artifact.name})` : out.successText);
+          applied.push(artifact ? `artifact:${artifact.key}` : 'artifact:none');
+        } else {
+          lines.push(out.failText);
+          for (const fx of out.failEffects || []) applyRuinEffect(nation, fx, data, applied);
+        }
+        break;
+      }
+      default: applyRuinEffect(nation, out, data, applied); if (out.text) lines.push(out.text); break;
+    }
+  }
+  return {
+    ok: true,
+    result: {
+      cardId: card.id, name: card.name, choice: opt.key, label: opt.label,
+      text: lines.filter(Boolean).join(' '), applied,
+      artifact: artifact ? { key: artifact.key, name: artifact.name, grade: artifact.grade } : null,
+    },
+  };
+}
+
+function applyRuinEffect(nation, fx, data, applied) {
+  switch (fx.op) {
+    case 'gold':
+      nation.gold = round2(nation.gold + fx.amount);
+      if (fx.amount < 0) nation.stats.goldSpent += -fx.amount; else nation.stats.goldEarned += fx.amount;
+      applied.push(`gold${fx.amount >= 0 ? '+' : ''}${fx.amount}`);
+      break;
+    case 'morale': {
+      const m = data.balance.morale;
+      nation.morale = Math.max(m.min, Math.min(m.max, nation.morale + fx.amount));
+      applied.push(`morale${fx.amount >= 0 ? '+' : ''}${fx.amount}`);
+      break;
+    }
+    case 'resource':
+      nation.resources[fx.resource] = Math.max(0, (nation.resources[fx.resource] || 0) + fx.amount);
+      applied.push(`${fx.resource}${fx.amount >= 0 ? '+' : ''}${fx.amount}`);
+      break;
+    default: break;
+  }
+}
+
+/** 기존 등급표(balance.artifacts.gradeWeights)를 그대로 재사용한 유물 드랍 */
+function grantRandomArtifact(nation, data, rng, tick) {
+  const cfg = data.balance.artifacts;
+  const grade = rng.weighted(Object.entries(cfg.gradeWeights).map(([value, weight]) => ({ value, weight })));
+  const owned = new Set((nation.artifacts || []).map((a) => a.key));
+  const pool = data.artifacts.list.filter((a) => a.grade === grade && !owned.has(a.key));
+  if (!pool.length) return null;
+  const pickKey = rng.pick(pool).key;
+  const entry = grantArtifact(nation, pickKey, tick, data);
+  if (!entry) return null;
+  const def = data.artifactsByKey[pickKey];
+  return { key: def.key, name: def.name, grade: def.grade };
+}
