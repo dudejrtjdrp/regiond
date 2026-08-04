@@ -45,6 +45,10 @@ import {
 import { startBattle, runBattle } from './battle.js';
 // ★ GDD3 §13-A-5 — 산출도 곳간 상한을 넘기지 못한다(서버 권위)
 import { deposit } from './storage.js';
+// ★ GDD3 §13-B·C — 은닉 유적 발견 · 상시 생태계 · 사냥꾼 오두막
+import { revealConcealed } from './world.js';
+import { stepEcologyDay, huntYield, cullForHunters } from './ecology.js';
+import { recordRuinFound } from './codex.js';
 import { record as chronicle } from './chronicle.js';
 
 /**
@@ -141,6 +145,22 @@ export function step(state, inputs = [], rng = null, data = loadGameData(), opts
   }
   stepNodes(world, data, tick);
   stepFields(world, data, tick);
+
+  // ── 3-b. ★ GDD3 §13-C — 상시 생태계. 접속자가 없어도 들에는 짐승이 산다.
+  //   실시간 루프(server/index.js)가 1초마다 굴리는 것과 **같은 함수**를 하루치로 몰아 돌린다.
+  for (const nation of Object.values(world.nations)) {
+    if (!nation.isPlayer) continue;
+    for (const e of stepEcologyDay(world, nation, data)) events.push({ tick, ...e });
+    // 사냥꾼 오두막의 하루 수확 (§13-C-8) — 짐승이 남아 있는 만큼만 난다
+    const hunt = huntYield(world, nation, data);
+    for (const [res, amount] of Object.entries(hunt.resources)) {
+      const got = deposit(nation, res, amount, data);
+      if (got > 0) (production[nation.id] ||= {}).hunted = { ...(production[nation.id].hunted || {}), [res]: got };
+    }
+    if (hunt.workers > 0) cullForHunters(world, nation, data);
+    // 은닉 유적 — 주민의 발길이 닿아도 드러난다
+    for (const n of revealConcealed(world, nation, data, tick)) recordRuinFound(nation, n, tick);
+  }
 
   // ── 4. 소비·재고 ───────────────────────────────────────────────
   for (const nation of Object.values(world.nations)) {

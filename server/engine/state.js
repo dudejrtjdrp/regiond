@@ -243,6 +243,9 @@ export function migrateWorld(world, data) {
     nation.prestige ??= 0;
     // ★ 진행 감독 — 장 상태(국가 단위). 없으면 1장부터.
     nation.progress ||= { chapter: 1, step: 0, cleared: [], flags: {}, trace: null };
+    // ★ GDD3 §13-C — 생태계·도감. 둘 다 국가 단위라 같이 접속한 동료와 공유된다.
+    nation.wild ||= { creatures: [], nextId: 1, respawnQueue: [], rngState: null, acc: 0 };
+    nation.codex ||= { species: {}, ruins: {} };
   }
   return world;
 }

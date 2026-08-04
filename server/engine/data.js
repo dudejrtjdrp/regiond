@@ -38,6 +38,8 @@ export function loadGameData({ reload = false } = {}) {
     waves: readJson('waves.json'),
     // ★ GDD3 §11 — 콘텐츠 사슬. 진행 감독(progression.js)이 이 표 하나로 게임의 모든 문을 연다.
     chapters: readJson('chapters.json'),
+    // ★ GDD3 §13-C — 상시 생태계(동물·야생 적)와 도감의 층
+    creatures: readJson('creatures.json'),
   };
   data.artifactsByKey = Object.fromEntries(data.artifacts.list.map((a) => [a.key, a]));
   cache = data;
@@ -209,6 +211,25 @@ export function publicWorld(d = loadGameData()) {
   };
 }
 
+/**
+ * 생태계 공개본 — ★ 정보 비대칭. 종의 **이름·능력치·드롭·일화는 실리지 않는다.**
+ * 그것을 여는 것은 도감이고(state.codex), 도감을 여는 것은 조우와 처치다.
+ * 여기 있는 것은 화면이 '그리는 데' 필요한 규칙뿐이다: 보간 주기·링 경계·도감 문턱.
+ */
+export function publicCreatures(d = loadGameData()) {
+  const c = d.creatures;
+  return {
+    order: [...c.order],
+    sim: {
+      stepSeconds: c.sim.stepSeconds, broadcastSeconds: c.sim.broadcastSeconds,
+      attackRangeTiles: c.sim.attackRangeTiles, viewRadius: c.sim.viewRadius,
+    },
+    codex: { nameAt: c.codex.nameAt, statsAt: c.codex.statsAt, loreAt: c.codex.loreAt },
+    // 종별 '겉모습' 힌트만 — 실루엣을 그리려면 크기 갈래는 알아야 한다
+    sprites: Object.fromEntries(Object.entries(c.defs).map(([k, v]) => [k, { kind: v.kind, ring: v.ring }])),
+  };
+}
+
 /** /api/config 용 병합본 */
 export function publicConfig() {
   const d = loadGameData();
@@ -229,6 +250,8 @@ export function publicConfig() {
     waves: publicWaves(d),
     // ★ GDD3 §11-2 — 콘텐츠 사슬(규칙만). 지금 몇 장인지는 state.chapter 로만 간다.
     chapters: publicChapters(d),
+    // ★ GDD3 §13-C — 생태계 공개본. 종 이름·능력치는 **여기 없다**(도감이 그것을 여는 열쇠다).
+    creatures: publicCreatures(d),
     world: publicWorld(d),
     time: {
       dayRealSeconds: d.balance.time.dayRealSeconds,

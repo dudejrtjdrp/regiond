@@ -24,6 +24,8 @@ import { evaluateProgress } from './engine/progression.js';
 import { roleSummary } from './engine/npc.js';
 import { ensurePlayer } from './engine/skills.js';
 import { stepBattle, finishBattle, battleSnapshot } from './engine/battle.js';
+// ★ GDD3 §13-C — 상시 생태계. 일 틱도 전투 서브틱도 아닌 제 박자로 돈다.
+import { stepEcology, ensureCreatures, creatureViews } from './engine/ecology.js';
 import { chronicleView, record as chronicleRecord } from './engine/chronicle.js';
 import {
   upsertMember as upsertMemberEntry, normalizeAppearance, defaultAppearance, chatHistory,
@@ -104,10 +106,46 @@ class GameRuntime {
     if (this.world.paused) return;
     this.timer = setInterval(() => this.advance(), this.tickRealSeconds * 1000);
     this.ensureBattleLoop();
+    this.startEcologyLoop();
   }
 
   stop() {
     if (this.timer) { clearInterval(this.timer); this.timer = null; }
+    this.stopEcologyLoop();
+  }
+
+  // ── 생태계 저빈도 루프 (GDD3 §13-C) ──────────────────────────
+  /**
+   * 1초에 한 번 들의 것들을 굴리고 그 자리를 방에 흘린다.
+   * 일 틱(10분)에 얹으면 짐승이 10분에 한 칸씩 움직이고, 전투 서브틱(0.25초)에 얹으면
+   * 아무 일도 없는 들판 때문에 초당 네 번을 방송하게 된다 — 그 사이가 여기다.
+   * 화면은 받은 좌표로 튀지 않고 **그리로 다가간다**(보간). 그래서 1초 간격이 끊겨 보이지 않는다.
+   */
+  startEcologyLoop() {
+    this.stopEcologyLoop();
+    const sec = data.creatures?.sim?.stepSeconds ?? 1;
+    this.ecologyTimer = setInterval(() => this.ecologyStep(sec), sec * 1000);
+  }
+
+  stopEcologyLoop() {
+    if (this.ecologyTimer) { clearInterval(this.ecologyTimer); this.ecologyTimer = null; }
+  }
+
+  ecologyStep(dt) {
+    for (const nation of Object.values(this.world.nations)) {
+      if (!nation.isPlayer) continue;
+      // 아무도 안 보고 있으면 굴리지 않는다 — 일 틱이 하루치를 몰아서 처리한다
+      const watching = [...sessions.values()].some((s) => s.gameId === this.gameId && s.nationId === nation.id);
+      if (!watching) continue;
+      ensureCreatures(this.world, nation, data);
+      const { events } = stepEcology(this.world, nation, data, dt);
+      const painful = events.filter((e) => e.kind === 'player_down' || e.kind === 'wild_hit');
+      if (painful.length) this.emitImmediate(nation.id, painful);
+      io.to(this.gameId).emit('creatures', {
+        tick: this.world.tick,
+        list: creatureViews(this.world, nation, data),
+      });
+    }
   }
 
   setSpeed(seconds) {
@@ -244,6 +282,9 @@ class GameRuntime {
         if (council) io.to(this.gameId).emit('council', council);
         break;
       }
+      // ★ GDD3 §13-C-2 — 들의 것에게 물렸다 / 쓰러져 모닥불에서 일어난다
+      case 'player_down': io.to(this.gameId).emit('playerDown', e.data); break;
+      case 'wild_hit': io.to(this.gameId).emit('wildHit', e.data); break;
       case 'camp_spotted': io.to(this.gameId).emit('campSpotted', e.data); break;
       case 'camp_scouted': io.to(this.gameId).emit('campScouted', e.data); break;
       case 'offer_received': io.to(this.gameId).emit('offer', e.data); break;

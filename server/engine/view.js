@@ -452,6 +452,10 @@ export function buildWorldDiff(world, nationId, data, sinceTick = -1) {
     sinceTick,
     fog: fogChunks,
     nodes,
+    clusters: clusterViews(world, nation),
+    rings: ringRadii(nation, data),
+    // ★ GDD3 §13-C — 들에 사는 것들. 위치의 정본은 서버이고 화면은 그 사이를 보간한다.
+    creatures: creatureViews(world, nation, data),
     // ★ §12-6 — 무역이 열린 뒤에야 상단이 다닌다. 열리기 전에는 늘 빈 목록이라
     //   join 뒤에 8장이 열려도 다시 붙지 않고 그 자리에서 나타난다.
     caravans: caravansFor(nation, world.map, data),

@@ -1487,6 +1487,7 @@
     GM.camera.update(dt);
     if (!frozen) {
       stepUnits(dt);
+      stepWild(dt);
       if (GM.avatar) GM.avatar.step(dt);
       if (GM.swing) GM.swing.step(dt);
       if (GM.combat && GM.combat.step) GM.combat.step(dt);
@@ -1534,13 +1535,30 @@
   function reset() {
     chunkCache = {}; units = {}; walkIns = []; doneBounce = {}; territoryAnim = null;
     structSort = { sig: '', list: [] };
+    wild = {};
   }
+
+  /** 사냥 대상 고르기 — 아바타에서 사거리 안, 가장 가까운 놈 (§13-C-8) */
+  function nearestWild(x, y, range) {
+    var list = S.creatureList();
+    var best = null;
+    var bestD = Infinity;
+    for (var i = 0; i < list.length; i++) {
+      var a = wild[list[i].id] || list[i];
+      var d = Math.hypot(a.x - x, a.y - y);
+      if (d < bestD) { bestD = d; best = { c: list[i], d: d, x: a.x, y: a.y }; }
+    }
+    if (!best || (range != null && best.d > range)) return null;
+    return best;
+  }
+  function wildPos(id) { return wild[id] || null; }
 
   GM.world = {
     mount: mount, resize: resize, draw: draw, tickAnim: tickAnim,
     setHover: setHover, hover: hover, setDragBox: setDragBox, recenter: recenter, reset: reset,
     animateTerritory: animateTerritory, bounceStructure: bounceStructure, markArrival: markArrival,
     setFencePath: setFencePath, getFencePath: getFencePath,
+    nearestWild: nearestWild, wildPos: wildPos, markWildHurt: markWildHurt,
     label: label, ringAt: ringAt, verbFor: verbFor,
     frameStats: frameStats, resetStats: resetStats,
     size: function () { return { w: W, h: H }; },

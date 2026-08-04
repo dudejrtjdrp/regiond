@@ -166,6 +166,12 @@
       S.emit('swing', p);
     });
 
+    /* ★ v3.2 — 상시 생태계(GDD3 §13-C). 1초에 한 번 들의 것들이 어디 있는지가 온다.
+       화면은 이 좌표로 튀지 않는다 — world.js 가 그 사이를 보간해 걸어가게 만든다. */
+    socket.on('creatures', function (p) { S.applyCreatures(p && p.list); });
+    socket.on('wildHit', function (p) { S.emit('wildHit', p); });
+    socket.on('playerDown', function (p) { S.emit('playerDown', p); });
+
     socket.on('emotionDay', function (p) { S.set({ emotionDay: p }); S.emit('emotionDay', p); });
     socket.on('mandate', function (p) { S.set({ mandate: p }); S.emit('mandate', p); });
     socket.on('council', function (p) { S.set({ council: p }); S.emit('council', p); });

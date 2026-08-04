@@ -787,13 +787,73 @@
     });
   }
 
+  /* ══════════ 들에 사는 것들 (GDD3 §13-C) ══════════
+     열두 종을 하나하나 손으로 찍지 않는다 — 몸통·머리·다리의 색과 비례만 종마다 달리 준다.
+     그래도 실루엣이 서로 다르게 읽히도록 뿔·갈기·귀 같은 표식을 하나씩 붙였다.
+     silhouette:true 면 도감의 '아직 못 만난 것' 카드다 — 같은 모양을 검게만 칠한다. */
+  var WILD = {
+    chicken:      { w: 10, h: 10, body: '#f0e6d2', dark: '#c9bda4', mark: '#bc4749', legs: '#e8a33d', tag: 'comb' },
+    rabbit:       { w: 10, h: 10, body: '#cdc3b2', dark: '#a89c88', mark: '#f4ece0', legs: '#8a7f6c', tag: 'ears' },
+    sheep:        { w: 12, h: 11, body: '#eae5d8', dark: '#c3bcab', mark: '#3a3028', legs: '#3a3028', tag: 'wool' },
+    pig:          { w: 12, h: 11, body: '#e0a9a0', dark: '#bd8a82', mark: '#8a5e56', legs: '#8a5e56', tag: 'snout' },
+    cow:          { w: 14, h: 12, body: '#efe9dd', dark: '#b9b2a4', mark: '#3a3028', legs: '#4a443c', tag: 'horns' },
+    deer:         { w: 13, h: 12, body: '#b08553', dark: '#8a6740', mark: '#f4ece0', legs: '#6b4f30', tag: 'antler' },
+    wolf:         { w: 13, h: 11, body: '#7a7264', dark: '#5e5850', mark: '#e8a33d', legs: '#4a443c', tag: 'fang' },
+    boar:         { w: 13, h: 11, body: '#6b5a48', dark: '#50432f', mark: '#f0e6d2', legs: '#3a3028', tag: 'tusk' },
+    stray_dog:    { w: 11, h: 10, body: '#9a8a70', dark: '#77694f', mark: '#e8a33d', legs: '#5e5850', tag: 'fang' },
+    bear:         { w: 15, h: 13, body: '#5a4436', dark: '#40301f', mark: '#e8a33d', legs: '#33261c', tag: 'hump' },
+    bandit_scout: { w: 12, h: 14, body: '#5c4438', dark: '#3f2f26', mark: '#c8a184', legs: '#2b2118', tag: 'hood' },
+    direwolf:     { w: 15, h: 12, body: '#4e4a52', dark: '#37343c', mark: '#bc4749', legs: '#26242a', tag: 'mane' },
+  };
+
+  function wild(sp, frame, opts) {
+    opts = opts || {};
+    var d = WILD[sp] || WILD.rabbit;
+    var sil = opts.silhouette ? 1 : 0;
+    var key = 'wl:' + sp + ':' + (frame ? 1 : 0) + ':' + sil + (opts.hurt ? ':h' : '');
+    return cached(key, 16, 16, function (P) {
+      var body = sil ? '#1c1720' : d.body;
+      var dark = sil ? '#120f16' : d.dark;
+      var mark = sil ? '#1c1720' : d.mark;
+      var legs = sil ? '#120f16' : d.legs;
+      var bob = frame ? 1 : 0;
+      var x0 = Math.round((16 - d.w) / 2);
+      var y0 = 16 - d.h - 1;
+      /* 다리 — 걷는 티가 나게 앞뒤를 엇갈려 든다 */
+      P(x0 + 1, 14 - bob, 2, 2 + bob, legs);
+      P(x0 + d.w - 3, 14, 2, 2, legs);
+      /* 몸통 */
+      P(x0, y0 + bob, d.w, d.h - 3, body);
+      P(x0, y0 + bob, d.w, 1, sil ? dark : U.shade(d.body, 0.28));
+      P(x0, y0 + d.h - 4 + bob, d.w, 1, dark);
+      /* 머리 — 오른쪽 위 */
+      var hx = x0 + d.w - 5;
+      var hy = y0 - 2 + bob;
+      P(hx, hy, 5, 5, body);
+      P(hx + 3, hy + 2, 1, 1, sil ? dark : '#1a1008');       // 눈
+      /* 종마다 하나씩 다른 표식 — 실루엣만 봐도 갈래가 읽히게 */
+      if (d.tag === 'comb') { P(hx + 1, hy - 2, 3, 2, mark); P(hx + 4, hy + 3, 2, 1, mark); }
+      if (d.tag === 'ears') { P(hx + 1, hy - 4, 1, 4, body); P(hx + 3, hy - 4, 1, 4, body); }
+      if (d.tag === 'wool') { P(x0, y0 - 1 + bob, d.w - 4, 2, body); P(x0 + 2, y0 - 2 + bob, 3, 2, body); }
+      if (d.tag === 'snout') { P(hx + 5, hy + 2, 1, 2, mark); }
+      if (d.tag === 'horns') { P(hx, hy - 2, 1, 2, mark); P(hx + 4, hy - 2, 1, 2, mark); P(x0 + 2, y0 + 2 + bob, 3, 3, mark); }
+      if (d.tag === 'antler') { P(hx, hy - 4, 1, 4, mark); P(hx + 4, hy - 4, 1, 4, mark); P(hx - 1, hy - 4, 1, 1, mark); P(hx + 5, hy - 3, 1, 1, mark); }
+      if (d.tag === 'fang') { P(hx + 5, hy + 3, 1, 1, '#f0e6d2'); P(hx + 1, hy - 2, 1, 2, dark); P(hx + 3, hy - 2, 1, 2, dark); P(hx + 3, hy + 2, 1, 1, mark); }
+      if (d.tag === 'tusk') { P(hx + 5, hy + 1, 1, 2, mark); P(x0, y0 - 1 + bob, 3, 2, dark); }
+      if (d.tag === 'hump') { P(x0 + 1, y0 - 2 + bob, 5, 3, body); P(hx + 1, hy - 2, 1, 2, dark); P(hx + 3, hy - 2, 1, 2, dark); }
+      if (d.tag === 'hood') { P(hx - 1, hy - 2, 6, 4, dark); P(hx + 1, hy + 1, 3, 1, mark); P(x0 - 1, y0 + 2 + bob, 2, 6, dark); }
+      if (d.tag === 'mane') { P(hx - 2, hy, 3, 5, dark); P(x0 + 1, y0 - 1 + bob, 6, 2, dark); P(hx + 5, hy + 3, 1, 1, mark); }
+      if (opts.hurt) P(x0, y0 + bob, d.w, d.h - 3, 'rgba(220,80,70,.45)');
+    });
+  }
+
   function clear() { CACHE = {}; }
 
   GM.atlas = {
     terrain: terrain, node: node, stump: stump, building: building, site: site, fence: fence,
     town: town, hall: hall, wagon: wagon, caravan: caravan, camp: camp, folk: folk,
     avatar: avatar, avatarPortrait: avatarPortrait, avatarImg: avatarImg,
-    enemy: enemy, variantAt: variantAt, hash01: h2, clear: clear,
+    enemy: enemy, wild: wild, variantAt: variantAt, hash01: h2, clear: clear,
     palette: palette, styleOf: styleOf, appKey: appKey, styleOfBuilding: styleOfBuilding
   };
 })(window);
