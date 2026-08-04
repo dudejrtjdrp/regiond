@@ -32,6 +32,7 @@ import { combatSwing } from './battle.js';
 import { huntSwing } from './ecology.js';
 import { settlementTier, promoteSettlement, nextTierStatus, tierDef } from './tiers.js';
 import { recruitResident, recruitStatus } from './residents.js';
+import { craftEquipment, enhanceEquipment, enchantEquipment, equipmentView } from './equipment.js';
 import {
   featureUnlocked, buildingUnlocked, departmentsActive, commandUnlocked, setFlag, checkTrace,
   evaluateProgress, currentChapter,
@@ -276,6 +277,22 @@ function runCommand(world, nationId, cmd, data, rng) {
         resources: { ...nation.resources },
         events: [{ kind: 'resident_arrived', nationId: nation.id, data: info }],
       });
+    }
+
+    // ── ★ GDD3 §13-D-3·4 — 대장간에서 벼리고, 더 벼리고, 깃들인다 ──
+    case 'craftEquipment': {
+      const player = ensurePlayer(nation, cmd.avatarId ?? cmd.playerName ?? 'lord', data, cmd.playerName ?? null);
+      const res = craftEquipment(nation, player, { ...cmd, tick: world.tick }, data);
+      if (!res.ok) return res;
+      return ok({ ...res, equipment: equipmentView(nation, player, data), resources: { ...nation.resources }, gold: round2(nation.gold) });
+    }
+    case 'enhanceEquipment': {
+      const player = ensurePlayer(nation, cmd.avatarId ?? cmd.playerName ?? 'lord', data, cmd.playerName ?? null);
+      const res = enhanceEquipment(nation, player, cmd, data);
+      if (!res.ok) return res;
+      return ok({ ...res, equipment: equipmentView(nation, player, data), resources: { ...nation.resources }, gold: round2(nation.gold) });
+    }
+      return ok({ ...res, equipment: equipmentView(nation, player, data), resources: { ...nation.resources }, gold: round2(nation.gold) });
     }
 
     case 'placeFence': {

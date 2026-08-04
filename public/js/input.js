@@ -266,7 +266,9 @@
       case 'k': GM.skills.open(); break;
       /* ★ GDD3 §13-C-3 — 도감 */
       case 'j': GM.codex.open(); break;
-      case 'c': GM.combat.openThreat(); break;
+      /* ★ GDD3 §13-D-3 — 캐릭터 창. C 는 이제 '나'다(방어는 V 로 옮겼다). */
+      case 'c': GM.equip.open(); break;
+      case 'v': GM.combat.openThreat(); break;
       case 'l': GM.chronicle.open(); break;
       case 'h': centerTown(); break;
       case 'm': GM.social.toggle(); break;

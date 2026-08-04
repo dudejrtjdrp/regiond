@@ -11,6 +11,7 @@ import { townOf, territoryRadius, encodeTerrain, dist, ringRadii } from './world
 // ★ GDD3 §13-C — 상시 생태계 · 도감
 import { creatureViews } from './ecology.js';
 import { codexView } from './codex.js';
+import { equipmentView } from './equipment.js';
 import {
   deriveLabor, nodeContribution, listTargets, isHarvestReady, jobsForTarget, fieldStageView,
 } from './villagers.js';
@@ -88,6 +89,11 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
       // ★ GDD3 §3 — 내 스킬·도구·쿨타임. 멀티에서 남의 레벨은 nation.players 로 요약만 본다.
       player: avatarId ? playerView(nation, avatarId, data) : null,
       swing: avatarId ? swingPreview(nation, avatarId, data) : null,
+      /* ★ GDD3 §13-D-3·4 — 캐릭터 창(C). 내가 든 것·두른 것과 지금 벼릴 수 있는 것.
+         장비는 **사람마다** 다르므로 you 아래에 둔다 — 같이 접속한 동료의 칼은 내 것이 아니다.
+         ★ 대장간이 서는 장(9장) 전에는 필드 자체가 없다 — 잠긴 계층은 '비활성'이 아니라 부재다(§11-1). */
+      ...(on('equipment') && avatarId
+        ? { equipment: equipmentView(nation, nation.players?.[avatarId] ?? null, data) } : {}),
     },
     nation: {
       id: nation.id,
@@ -100,7 +106,7 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
       territory: { radius: territoryRadius(nation, data), cx: town?.x ?? null, cy: town?.y ?? null },
       // ★ GDD3 §4 — 주민은 실인원이다
       residents: residentViews(nation, data, world),
-      housing: housingView(nation, data),
+      housing: housingView(nation, data, world),
       peoplePerUnit: round2(peoplePerUnit(nation, data)),
       villagerMix: derived ? { counts: derived.counts, mix: round3Map(derived.mix), units: derived.units } : null,
       // ★ GDD3 §7 — 개별 건물 티어

@@ -121,6 +121,7 @@ export function createNation(id, name, opts, data, rng) {
     ruinGauge: 0,
     // ★ GDD3 §13-B-4 — 뒤진 유적 중 가장 큰 것의 등급 보정. 다음에 열 상자의 급을 밀어 올린다.
     ruinGradeBoost: 0,
+    /* ★ GDD3 §13-D — RPG 계층. 장비는 사람(players)마다 붙고, 이 셋은 나라의 것이다.
     recruit: { readyTick: 0, count: 0 },
     // ★ GDD3 §13-C — 들에 사는 것들 · 도감(조우·처치 장부)
     wild: { creatures: [], nextId: 1, respawnQueue: [], rngState: null, acc: 0 },

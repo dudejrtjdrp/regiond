@@ -719,10 +719,17 @@
           "ballista",
           "market"
         ],
-        "features": [],
-        "ui": [],
+        "features": [
+          "equipment"
+        ],
+        "ui": [
+          "panel.equipment"
+        ],
         "commands": [
-          "saintBuff"
+          "saintBuff",
+          "craftEquipment",
+          "enhanceEquipment",
+          "enchantEquipment"
         ]
       },
       "steps": [

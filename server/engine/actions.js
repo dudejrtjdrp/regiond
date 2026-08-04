@@ -17,6 +17,7 @@ import { markHarvestCycle, fieldStage, fieldStageView, isHarvestReady } from './
 // ★ GDD3 §13-A-5 — 국고로 들어오는 문은 storage.deposit 하나다.
 import { deposit, isFull, storageLimit, FULL_MESSAGE } from './storage.js';
 import { round2, round3 } from './economy.js';
+import { equipEffects } from './equipment.js';
 
 const err = (code, message, extra = {}) => ({ ok: false, error: { code, message, ...extra } });
 

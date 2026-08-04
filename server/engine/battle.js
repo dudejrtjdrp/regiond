@@ -9,6 +9,8 @@
 import { townOf, territoryRadius, dist } from './world.js';
 import { turretList, damageStructure, isRuined, structureName } from './structures.js';
 import { militiaList } from './residents.js';
+// ★ GDD3 §13-D-3 — 손에 든 것과 두른 것. 무기는 피해를, 방어구는 맞는 피해와 다운 시간을 바꾼다.
+import { equipEffects } from './equipment.js';
 import { aliveFences, blockingFence, damageFence, fenceMid } from './fences.js';
 import {
   nextWaveSpec, battleCfg, warnCfg, hasSaintSight, directionAngle, advanceWave, clearCamps,
@@ -235,7 +237,9 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
     // 4-a. 코앞의 방어자부터 친다
     const near = nearest(defenders, e.x, e.y, cfg.meleeRangeTiles + 0.6);
     if (near) {
-      const dmg = e.dps * dt;
+      /* ★ §13-D-3 — 두른 것이 맞는 피해를 던다(플레이어에게만; 민병은 능력치가 그 몫을 한다). */
+      const reduce = near.entity.kind === 'player' ? (equipEffects(near.entity.ref, data).reduction || 0) : 0;
+      const dmg = e.dps * dt * (1 - reduce);
       const target = near.entity.ref;
       target.hp = round2((target.hp ?? 0) - dmg);
       if (target.hp <= 0) {
@@ -251,7 +255,9 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
           push(b, { t: round2(b.t), kind: 'militiaDown', targetId: target.id }, data);
         } else {
           target.hp = 0;
-          target.downUntil = combatSkillCfg(data).downSeconds;
+          /* ★ §13-D-3 — 방어구의 다운 저항. 쓰러지긴 해도 더 빨리 일어선다(죽음은 없다). */
+          const resist = equipEffects(target, data).downResist || 0;
+          target.downUntil = round2(combatSkillCfg(data).downSeconds * (1 - resist));
           b.playersDowned += 1;
           push(b, { t: round2(b.t), kind: 'playerDown', targetId: target.id }, data);
         }
@@ -394,7 +400,10 @@ export function combatSwing(world, nation, cmd, data, now = Date.now()) {
   }
 
   markSwing(player, now, 'combat');
-  const dmg = round2(swingDamage(nation, player, data) * b.multipliers.defender);
+  /* ★ §13-D-3 — 무기가 얹는 배수. 스킬 도구(skills.json)와는 다른 축이라 곱해진다:
+     레벨이 여는 것과 손으로 벼린 것이 서로를 갉아먹지 않는다. */
+  const gearFx = equipEffects(player, data);
+  const dmg = round2(swingDamage(nation, player, data) * gearFx.damage * b.multipliers.defender);
   target.hp = round2(target.hp - dmg);
   b.playerDamage[avatarId] = round2((b.playerDamage[avatarId] || 0) + dmg);
   push(b, { t: round2(b.t), kind: 'playerHit', targetId: target.id, by: avatarId, damage: dmg }, data);
@@ -416,6 +425,7 @@ export function combatSwing(world, nation, cmd, data, now = Date.now()) {
     skill: 'combat',
     level: skillLevel(player, 'combat'),
     leveled: xp.leveled,
+    gearDamage: gearFx.damage,
   };
 }
 

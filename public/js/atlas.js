@@ -641,7 +641,12 @@
     var crown = opts.crown === false ? 0 : 1;
     var sw = opts.swing || 0;
     var tool = opts.tool || null;
-    var key = 'a:' + appKey(app) + ':' + dir + ':' + frame + ':' + crown + ':' + sw + ':' + (tool || '-');
+    /* ★ GDD3 §13-D-3 — 벼린 것이 몸에 보인다. 등급이 팔레트를, 강화가 자루의 띠를,
+       인첸트가 옅은 기운을 정한다. 키에 섞어야 캐시가 옛 그림을 되돌려 주지 않는다. */
+    var g = opts.gear || null;
+    var gk = g ? [g.weaponGrade | 0, g.weaponPlus | 0, g.weaponEnchant || '-',
+                  g.armorGrade | 0, g.armorPlus | 0, g.armorEnchant || '-'].join('.') : '-';
+    var key = 'a:' + appKey(app) + ':' + dir + ':' + frame + ':' + crown + ':' + sw + ':' + (tool || '-') + ':' + gk;
     var skin = palette('skin', app.skin, '#f5d6b8');
     var hairC = palette('hairColor', app.hairColor, '#3b2a1d');
     var outC = palette('outfitColor', app.outfitColor, '#6a994e');
@@ -693,7 +698,18 @@
         P(5, headY + 3, 2, 2, '#241812'); P(9, headY + 3, 2, 2, '#241812');
         P(7, headY + 6, 2, 1, skinD);
       }
-      /* 도구 — 손에 든 것 */
+      /* ★ §13-D-3 — 두른 것: 가슴과 어깨에 갑옷 층이 한 겹 얹힌다 */
+      var sp = (GM.state && GM.state.equipCfg() && GM.state.equipCfg().sprite) || null;
+      if (g && g.armorGrade > 0) {
+        var apal = (sp && sp.armorPalette) || ['#6b5a44', '#8f97a3', '#c3ccd8', '#e8d08a', '#e6b6ff'];
+        var ac = apal[Math.min(apal.length - 1, g.armorGrade - 1)];
+        P(3, bodyTop + 1, 10, 4, ac);
+        P(3, bodyTop + 1, 10, 1, U.shade(ac, 0.3));
+        P(2, bodyTop + 1, 2, 2, U.shade(ac, -0.15));
+        P(12, bodyTop + 1, 2, 2, U.shade(ac, -0.15));
+        if (g.armorPlus > 0) P(7, bodyTop + 2, 2, 2, (sp && sp.plusBand) || '#ffcf6a');
+      }
+      /* 도구 — 손에 든 것. 벼린 무기가 있으면 그 팔레트로 바뀐다. */
       if (tool) {
         var tx = sw === 1 ? 13 : (sw === 2 ? 14 : 13);
         var ty = sw === 1 ? bodyTop - 7 : (sw === 2 ? bodyTop + 4 : bodyTop);

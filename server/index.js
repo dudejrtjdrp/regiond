@@ -431,6 +431,7 @@ const CLIENT_COMMANDS = [
   // ★ GDD3 §12-2 — 정착지 승격(본부의 [승격] 단추)
   'promoteSettlement',
   'recruitResident',
+  'craftEquipment', 'enhanceEquipment', 'enchantEquipment',
   // ★ GDD3 §11-4 — 감정의 날의 유일한 방아쇠
   'appraiseLand',
   'placeFence', 'upgradeFence', 'repairFence', 'removeFence',
@@ -449,6 +450,8 @@ const CLIENT_COMMANDS = [
 /** ★ 신원(누구의 아바타인가)은 서버 세션이 정한다 — 클라가 보낸 avatarId·playerName 은 신뢰하지 않는다. */
 const IDENTITY_COMMANDS = new Set([
   'lordMove', 'setAppearance', 'chat', 'pickRole', 'delegate', 'actionSwing', 'combatSwing',
+  // ★ GDD3 §13-D-3 — 장비는 **사람마다** 다르다. 누구의 칼인지는 세션이 정한다(클라 말을 안 믿는다).
+  'craftEquipment', 'enhanceEquipment', 'enchantEquipment',
 ]);
 
 /** ★ 실시간 명령 — 처리 후 곧바로 결과를 돌려주고, 전투 중이면 스냅샷도 함께 흘린다 */

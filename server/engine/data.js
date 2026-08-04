@@ -7,6 +7,7 @@ import { publicBuildings } from './structures.js';
 import { publicWaves } from './waves.js';
 import { publicChapters } from './progression.js';
 import { publicStats } from './traits.js';
+import { publicEquipment } from './equipment.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = join(here, '..', '..', 'data');
@@ -41,6 +42,7 @@ export function loadGameData({ reload = false } = {}) {
     chapters: readJson('chapters.json'),
     // ★ GDD3 §13-C — 상시 생태계(동물·야생 적)와 도감의 층
     creatures: readJson('creatures.json'),
+    equipment: readJson('equipment.json'),
   };
   data.artifactsByKey = Object.fromEntries(data.artifacts.list.map((a) => [a.key, a]));
   cache = data;
@@ -257,6 +259,7 @@ export function publicConfig() {
     residentStats: publicStats(d),
     // ★ GDD3 §13-D-2 — 모집 값(식량 20 · 쿨다운 1일). 지금 쓸 수 있는지는 state.housing.recruit 이 안다.
     recruit: { ...d.balance.residents.recruit, cost: { ...d.balance.residents.recruit.cost } },
+    equipment: publicEquipment(d),
     world: publicWorld(d),
     time: {
       dayRealSeconds: d.balance.time.dayRealSeconds,

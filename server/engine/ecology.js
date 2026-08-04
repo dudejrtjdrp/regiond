@@ -14,6 +14,8 @@
 import { townOf, territoryRadius, dist, terrainAt, terrainIndex, ringAt, ringRadii } from './world.js';
 import { rngFromState } from './rng.js';
 import { combatSkillCfg, ensurePlayer, canSwing, markSwing, grantXp, swingDamage, skillLevel } from './skills.js';
+// ★ GDD3 §13-D-3 — 사냥에도 손에 든 것이 따라온다
+import { equipEffects } from './equipment.js';
 import { deposit } from './storage.js';
 import { recordEncounter, recordKill } from './codex.js';
 import { round2 } from './economy.js';
@@ -364,7 +366,9 @@ export function huntSwing(world, nation, cmd, data, now = Date.now()) {
 
   markSwing(player, now, 'combat');
   const def = creatureDefs(data)[target.sp];
-  const dmg = round2(swingDamage(nation, player, data));
+  // ★ §13-D-3 — 손에 든 것은 웨이브에서나 들판에서나 같은 검이다(§13-C-8 과 같은 규칙).
+  const gearFx = equipEffects(player, data);
+  const dmg = round2(swingDamage(nation, player, data) * gearFx.damage);
   target.hp = round2(target.hp - dmg);
   // 맞으면 덤빈다 — 온순한 짐승도 성이 나고, 포식자는 끝까지 쫓는다
   target.provoked = simCfg(data).provokedSeconds ?? 20;
@@ -375,8 +379,10 @@ export function huntSwing(world, nation, cmd, data, now = Date.now()) {
   const gained = {};
   if (target.hp <= 0) {
     killed = true;
+    /* ★ §13-D-3 — 무기의 '사냥 효율'. 좋은 칼은 더 빨리 벨 뿐 아니라 더 곱게 발라낸다. */
+    const huntBonus = 1 + (gearFx.huntYield || 0);
     for (const [res, n] of Object.entries(def.drops || {})) {
-      const got = deposit(nation, res, n, data);
+      const got = deposit(nation, res, round2(n * huntBonus), data);
       if (got > 0) gained[res] = got;
     }
     player.stats.kills = (player.stats.kills || 0) + 1;

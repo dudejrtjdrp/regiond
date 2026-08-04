@@ -718,6 +718,8 @@
     if (!t || !v || !v.stats) return false;
     return (v.stats[key] || 0) >= (t.fitThreshold || 7) && jobFitStats(v.job).indexOf(key) >= 0;
   }
+  function equipCfg() { var c = cfg(); return (c && c.equipment) || null; }
+  function equipment() { var y = you(); return (y && y.equipment) || null; }
   function workPosts() { var n = nation(); return (n && n.workPosts) || []; }
   function camps() {
     var n = nation();
@@ -1230,6 +1232,7 @@
     /* ★ GDD3 §13-D — RPG 계층 */
     recruitInfo: recruitInfo, statsCfg: statsCfg, statDefs: statDefs, statOrder: statOrder,
     statName: statName, jobFitStats: jobFitStats, statFit: statFit,
+    equipCfg: equipCfg, equipment: equipment,
     jobMeta: jobMeta, stageName: stageName,
 
     selectResidents: selectResidents, selectTarget: selectTarget,

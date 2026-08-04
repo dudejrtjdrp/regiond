@@ -980,7 +980,10 @@
       return;
     }
     try {
-      ctx.drawImage(GM.atlas.avatar(app, dir, frame, { swing: swingPhase, tool: tool }),
+      /* ★ GDD3 §13-D-3 — 내 아바타에는 벼린 것이 그대로 실린다(동료의 장비는 서로 보이지 않는다) */
+      var mine = GM.avatar && avatarId === (S.you() && S.you().avatarId);
+      var gear = mine && GM.avatar.gear ? GM.avatar.gear() : null;
+      ctx.drawImage(GM.atlas.avatar(app, dir, frame, { swing: swingPhase, tool: tool, gear: gear }),
         Math.round(p.x), Math.round(p.y), Math.ceil(w), Math.ceil(h));
     } catch (e2) {}
     ctx.restore();

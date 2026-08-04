@@ -76,6 +76,18 @@
     body.appendChild(U.el('p', 'se-line',
       '길 위의 사람에게 먹을 것을 들려 보내면 하루 안에 한 사람이 옵니다. '
       + '저절로 찾아오는 사람은 그대로 옵니다.'));
+    var rl = U.el('div', 'req-list');
+    (r.reqs || []).forEach(function (q) { rl.appendChild(reqRowOf(q)); });
+    body.appendChild(rl);
+    if (r.count) body.appendChild(U.el('p', 'hint', '지금까지 ' + r.count + '명을 불렀습니다.'));
+    return body;
+  }
+
+        var rl = U.el('div', 'req-list');
+        (x.reqs || []).forEach(function (q) {
+          rl.appendChild(reqRow(q.ok, q.text, q.have, q.need, q.unit, q.dec));
+        });
+        row.appendChild(rl);
   function openSettlement(b) {
     openHqId = b && b.id ? b.id : null;
     var t = S.tier();

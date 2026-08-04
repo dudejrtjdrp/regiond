@@ -41,6 +41,19 @@
     }
   }
 
+  /**
+   * ★ GDD3 §13-D-3 — 스프라이트에 실을 장비 요약.
+  var gearMark = null;
+  function gear() {
+    var e = S.equipment();
+    if (!e || !e.gear) return null;
+    var w = e.gear.weapon || {};
+    var a = e.gear.armor || {};
+    return {
+      weaponGrade: w.grade || 0, weaponPlus: w.plus || 0,
+      armorGrade: a.grade || 0, armorPlus: a.plus || 0,
+  function markGear() { gearMark = Date.now(); }
+
   function pos() { return S.S.map ? me : null; }
   function destPos() { return dest; }
   function freeze(v) { frozen = !!v; if (v) dest = null; }
@@ -152,6 +165,8 @@
     distTo: distTo, freeze: freeze, isFrozen: isFrozen, reveal: reveal,
     destPos: destPos, stop: function () { dest = null; },
     setHidden: setHidden, isHidden: isHidden, startPos: startPos,
+    /* ★ GDD3 §13-D-3 — 스프라이트가 읽는 장비 요약 */
+    gear: gear, markGear: markGear,
     report: function () { report(true); },
     interact: function () { if (GM.swing) GM.swing.once(); }
   };

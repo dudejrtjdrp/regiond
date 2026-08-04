@@ -336,9 +336,15 @@
         function () { GM.codex.open(); });
     }
     if (S.uiOn('hud.threat')) {
-      tb(bar, 'tb-defense', 'shield', '방어 (C)', '울타리·터렛·민병을 한눈에',
+      tb(bar, 'tb-defense', 'shield', '방어 (V)', '울타리·터렛·민병을 한눈에',
         '다음 무리가 얼마나 센지, 지금 우리가 얼마나 버틸 수 있는지 보여 줍니다.',
         function () { GM.combat.openThreat(); });
+    }
+    /* ★ GDD3 §13-D-3 — 캐릭터 창. 대장간이 서는 장(9장)부터 나타난다. */
+    if (S.uiOn('panel.equipment')) {
+      tb(bar, 'tb-equip', 'anvil', '내 장비 (C)', '무기와 방어구를 벼립니다',
+        '기본 세 단은 그냥 벼릴 수 있고, 공장장이 자리에 있으면 윗단과 강화가 열립니다. ' +
+        function () { GM.equip.open(); });
     }
     tb(bar, 'tb-town', 'castle', '정착지 (H)', '정착지로 시선을 옮깁니다', '',
       function () { GM.input.centerTown(); });
