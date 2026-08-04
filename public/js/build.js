@@ -260,27 +260,30 @@
       var def = S.buildingDef(b.key) || {};
       var full = !b.multi && b.built > 0;
       var label = b.name + (b.multi && b.built ? ' (' + b.built + ')' : '');
-      var detail = (def.desc || '') +
-        (b.buildPoints ? '\n공사 ' + U.fmt(b.buildPoints, 0) + ' — 현장에서 직접 두드리면 빨리 오릅니다.' : '') +
-        (b.multi ? '\n여러 채 건설할 수 있습니다.' : '\n한 채만 건설합니다.') +
-        effectLine(b.key, 1);
+      /* ★ GDD3 §15-B-2 — 툴팁 첫 줄은 「왜 짓는가」다. 값이나 크기보다 그것이 먼저다. */
+      var detail = purposeOf(b) + (def.desc ? '\n' + def.desc : '') + keyFactLine(b);
       var fp = S.footprintOf(b.key);
       if (fp.w > 1 || fp.h > 1) detail += '\n차지하는 자리 ' + fp.w + '×' + fp.h + '칸';
+      var aside = (b.buildPoints ? '공사 ' + U.fmt(b.buildPoints, 0) + ' — 현장에서 직접 두드리면 빨리 오릅니다.\n' : '')
+        + (b.multi ? '여러 채 건설할 수 있습니다.' : '한 채만 건설합니다.');
       row.appendChild(item(iconOf(b.key), label, costNodes(b.cost, b.gold), detail,
-        !full && b.affordable, function () { pick({ kind: 'build', key: b.key }); }, full ? '이미 건설함' : null));
+        !full && b.affordable, function () { pick({ kind: 'build', key: b.key }); }, full ? '이미 건설함' : null,
+        purposeOf(b), aside));
     });
 
     /* ★ GDD3 §14-7 — 아직 잠긴 것도 이 갈래 안에 그대로 보인다.
        흐림 + 자물쇠 + 「언제 열리는가」. "없는 줄 알았다"를 막는 유일한 방법은 보여 주는 것이다.
        (§11-1 의 '부재' 원칙은 갈래·시스템 단위에만 적용한다 — 갈래가 안 열렸으면 서버가 아예 안 보낸다.) */
     lockedIn(cat).forEach(function (b) {
-      var def = S.buildingDef(b.key) || {};
-      var it = item(iconOf(b.key), b.name, b.lockReason, (def.desc || '') + '\n\n' + b.lockReason,
-        false, null, null);
+      var it = item(iconOf(b.key), b.name, b.lockReason,
+        purposeOf(b) + keyFactLine(b) + '\n\n' + b.lockReason,
+        false, null, null, purposeOf(b));
       it.classList.add('locked');
       it.setAttribute('data-locked', b.key);
-      U.tipSet(it, b.name + ' — 아직 잠김', (def.desc ? def.desc + '\n\n' : '') + b.lockReason
-        + '\n값: ' + (costText(b.cost, b.gold) || '없음'));
+      /* ★ §15-B-2 — 잠긴 것도 「왜 짓는가」가 먼저다. 그래야 열릴 때까지 기다릴 까닭이 생긴다. */
+      U.tipSet(it, b.name + ' — 아직 잠김',
+        purposeOf(b) + keyFactLine(b) + '\n' + b.lockReason,
+        '값: ' + (costText(b.cost, b.gold) || '없음'));
       row.appendChild(it);
     });
 
@@ -291,6 +294,25 @@
     var t = S.buildingTier(key, tier || 1);
     if (!t || !t.effects || !t.effects.length) return '';
     return '\n' + t.effects.map(function (e) { return e.label + ' ' + e.value; }).join(' · ');
+  }
+
+  /* ★ GDD3 §15-B-2 — 「왜 짓는가」 한 줄. 서버가 준 값이 정본이고, 없으면 도감의 같은 줄을 쓴다. */
+  function purposeOf(b) {
+    if (b && b.purpose) return b.purpose;
+    var def = S.buildingDef(b && b.key) || {};
+    return def.purpose || def.desc || '';
+  }
+
+  /** ★ §15-B-2 — 핵심 수치 1~2개. 서버가 골라 준 keyFacts 가 없으면 1단계 효과표 앞머리를 쓴다. */
+  function keyFacts(b) {
+    if (b && b.keyFacts && b.keyFacts.length) return b.keyFacts;
+    var t = S.buildingTier(b && b.key, 1);
+    return (t && t.effects) ? t.effects.slice(0, 2) : [];
+  }
+  function keyFactLine(b) {
+    var f = keyFacts(b);
+    if (!f.length) return '';
+    return '\n' + f.map(function (e) { return e.label + ' ' + e.value; }).join(' · ');
   }
 
   function fenceStrip() {
@@ -334,18 +356,25 @@
    * 배치대 한 칸. cost 는 글이거나 **DOM 묶음**(costNodes — 부족분이 빨강)이다.
    * ★ §12-3 — 못 짓는 까닭이 "값이 모자람"이면 그 자원만 빨갛게 「석재 12/30」으로 보인다.
    */
-  function item(icon, name, cost, tip, enabled, onClick, badge) {
+  function item(icon, name, cost, tip, enabled, onClick, badge, purpose, aside) {
     var b = U.el('button', 'pb-item' + (enabled ? '' : ' off'));
     b.type = 'button';
     b.setAttribute('data-place', name);
     b.appendChild(GM.icons.img(icon, 26));
     b.appendChild(U.el('span', 'pb-n', name));
+    /* ★ GDD3 §15-B-2 — 카드 위에 「왜 짓는가」를 그대로 적는다.
+       툴팁에만 두면 마우스를 올려야 알 수 있다 — 고르는 순간에 이미 보여야 한다. */
+    if (purpose) {
+      var w = U.el('span', 'pb-why');
+      w.textContent = purpose;
+      b.appendChild(w);
+    }
     var c = U.el('span', 'pb-c');
     if (badge) c.textContent = badge;
     else if (cost && cost.nodeType === 1) c.appendChild(cost);
     else c.textContent = cost || '';
     b.appendChild(c);
-    U.tipSet(b, name + (c.textContent ? ' — ' + c.textContent : ''), tip || '');
+    U.tipSet(b, name + (c.textContent ? ' — ' + c.textContent : ''), tip || '', aside || null);
     b.disabled = !enabled;
     b.onclick = onClick;
     return b;

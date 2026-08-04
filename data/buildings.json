@@ -63,6 +63,7 @@
   },
   "tent": {
     "name": "천막",
+    "purpose": "사람이 잘 자리를 만든다. 잠자리가 있어야 새 사람이 찾아온다.",
     "category": "housing",
     "requiresTier": 0,
     "maxTier": 2,
@@ -96,6 +97,7 @@
   },
   "hut": {
     "name": "오두막",
+    "purpose": "천막보다 튼튼한 집. 두 사람이 살고 마을이 조금 예뻐진다.",
     "category": "housing",
     "requiresTier": 0,
     "maxTier": 3,
@@ -140,6 +142,7 @@
   },
   "house": {
     "name": "가옥",
+    "purpose": "네 사람이 사는 집. 사람을 많이 들이려면 이게 있어야 한다.",
     "category": "housing",
     "requiresTier": 2,
     "maxTier": 3,
@@ -186,6 +189,7 @@
   },
   "manor": {
     "name": "저택",
+    "purpose": "가장 큰 집. 여섯 사람이 살고 마을이 훨씬 그럴듯해 보인다.",
     "category": "housing",
     "requiresTier": 4,
     "maxTier": 3,
@@ -233,6 +237,7 @@
   },
   "storage_crate": {
     "name": "저장 궤짝",
+    "purpose": "물건을 더 쌓아 둘 수 있다. 곳간이 차면 캐도 안 들어온다.",
     "category": "production",
     "requiresTier": 0,
     "maxTier": 2,
@@ -265,6 +270,7 @@
   },
   "well": {
     "name": "우물",
+    "purpose": "물을 얻는다. 밭이 잘 자라고 마을이 살 만해 보인다.",
     "category": "production",
     "requiresTier": 1,
     "maxTier": 2,
@@ -303,6 +309,7 @@
   },
   "woodpile": {
     "name": "장작더미",
+    "purpose": "나무를 저절로 조금씩 모은다. 아무도 붙이지 않아도 된다.",
     "category": "production",
     "requiresTier": 1,
     "maxTier": 2,
@@ -338,6 +345,7 @@
   },
   "granary": {
     "name": "곡창",
+    "purpose": "곡물이 더 많이 난다. 사람이 늘면 먹을 것이 먼저 모자란다.",
     "category": "production",
     "requiresTier": 2,
     "maxTier": 3,
@@ -392,6 +400,7 @@
   },
   "sawmill": {
     "name": "제재소",
+    "purpose": "나무를 더 잘 벤다. 사람이 나무를 팰 때마다 더 많이 얻는다.",
     "category": "production",
     "requiresTier": 2,
     "maxTier": 3,
@@ -451,6 +460,7 @@
   },
   "quarry_camp": {
     "name": "채석장",
+    "purpose": "돌을 더 잘 캔다. 돌은 튼튼한 건물과 성벽에 든다.",
     "category": "production",
     "requiresTier": 2,
     "maxTier": 3,
@@ -510,6 +520,7 @@
   },
   "hunter_hut": {
     "name": "사냥꾼 오두막",
+    "purpose": "사냥꾼이 들에서 고기를 가져온다. 근처에 짐승이 있어야 난다.",
     "category": "production",
     "requiresTier": 2,
     "maxTier": 3,
@@ -560,6 +571,7 @@
   },
   "ranch": {
     "name": "목장",
+    "purpose": "짐승을 우리에 기른다. 목장 둘레에는 온순한 짐승이 들어와도 된다.",
     "category": "production",
     "requiresTier": 4,
     "maxTier": 3,
@@ -617,6 +629,7 @@
   },
   "storage": {
     "name": "저장고",
+    "purpose": "곳간을 크게 늘린다. 한 채면 궤짝 세 개 몫이 넘는다.",
     "category": "production",
     "requiresTier": 2,
     "maxTier": 3,
@@ -665,6 +678,7 @@
   },
   "smelter": {
     "name": "제련소",
+    "purpose": "철광석을 강철로 녹인다. 좋은 무기와 큰 건물에 강철이 든다.",
     "category": "production",
     "requiresTier": 3,
     "maxTier": 3,
@@ -711,6 +725,7 @@
   },
   "smithy": {
     "name": "대장간",
+    "purpose": "연장과 무기를 벼린다. 좋은 연장은 캐는 손을 빠르게 한다.",
     "category": "production",
     "requiresTier": 3,
     "maxTier": 3,
@@ -761,6 +776,7 @@
   },
   "mine_shaft": {
     "name": "광산 갱도",
+    "purpose": "땅속에서 철광석을 캐낸다. 사람을 붙이지 않아도 매일 난다.",
     "category": "production",
     "requiresTier": 3,
     "maxTier": 3,
@@ -812,6 +828,7 @@
   },
   "mill": {
     "name": "방앗간",
+    "purpose": "곡물을 빻아 갑절로 쓴다. 사람이 많아질수록 값어치가 커진다.",
     "category": "production",
     "requiresTier": 4,
     "maxTier": 3,
@@ -873,6 +890,7 @@
   },
   "fence": {
     "name": "울타리",
+    "purpose": "짐승과 적을 막는 선. 울타리 안쪽은 정말로 안전하다.",
     "category": "military",
     "requiresTier": 2,
     "maxTier": 2,
@@ -905,6 +923,7 @@
   },
   "gate": {
     "name": "문",
+    "purpose": "울타리에 낸 문. 사람은 지나가고 짐승은 못 지나간다.",
     "category": "military",
     "requiresTier": 2,
     "maxTier": 2,
@@ -936,6 +955,7 @@
   },
   "watchpost": {
     "name": "초소",
+    "purpose": "멀리 본다. 적이 오는 것을 하루 먼저 알 수 있다.",
     "category": "military",
     "requiresTier": 2,
     "maxTier": 3,
@@ -983,6 +1003,7 @@
   },
   "arrow_tower": {
     "name": "화살탑",
+    "purpose": "가까이 온 짐승과 적을 저절로 쏜다. 싸고 여러 기 세울 수 있다.",
     "category": "military",
     "requiresTier": 3,
     "maxTier": 3,
@@ -1044,6 +1065,7 @@
   },
   "barracks": {
     "name": "병영",
+    "purpose": "마을 사람에게 창과 훈련을 준다. 웨이브 때 함께 싸운다.",
     "category": "military",
     "requiresTier": 4,
     "maxTier": 3,
@@ -1097,6 +1119,7 @@
   },
   "ballista": {
     "name": "노포",
+    "purpose": "가장 멀리 쏜다. 곰처럼 크고 단단한 것을 잡는 데 쓴다.",
     "category": "military",
     "requiresTier": 3,
     "maxTier": 3,
@@ -1159,6 +1182,7 @@
   },
   "cannon": {
     "name": "화포",
+    "purpose": "한 방이 가장 세다. 가까이 붙은 무리를 한 번에 쓸어버린다.",
     "category": "military",
     "requiresTier": 3,
     "maxTier": 3,
@@ -1219,6 +1243,7 @@
   },
   "campfire": {
     "name": "정착지 본부",
+    "purpose": "정착지의 심장. 여기서 다음 단계로 올리고 사람을 모집한다.",
     "category": "civic",
     "requiresTier": 0,
     "maxTier": 6,
@@ -1319,6 +1344,7 @@
   },
   "appraisal_post": {
     "name": "감정소",
+    "purpose": "이 땅이 무엇을 품었는지 알아낸다. 감정의 날이 여기서 열린다.",
     "category": "civic",
     "requiresTier": 2,
     "maxTier": 1,
@@ -1346,6 +1372,7 @@
   },
   "trading_post": {
     "name": "교역소",
+    "purpose": "다른 나라와 물건을 사고판다. 남는 것을 골드로 바꾼다.",
     "category": "civic",
     "requiresTier": 3,
     "maxTier": 3,
@@ -1393,6 +1420,7 @@
   },
   "market": {
     "name": "시장",
+    "purpose": "장이 선다. 날마다 세금이 들어오고 마을이 북적인다.",
     "category": "civic",
     "requiresTier": 4,
     "maxTier": 3,
@@ -1445,6 +1473,7 @@
   },
   "shrine": {
     "name": "성지",
+    "purpose": "사람이 마음을 붙인다. 살 수 있는 사람 수가 크게 는다.",
     "category": "civic",
     "requiresTier": 4,
     "maxTier": 3,
@@ -1496,6 +1525,7 @@
   },
   "consulate": {
     "name": "영사관",
+    "purpose": "다른 나라와 이야기한다. 물건을 사고팔 때 떼이는 몫이 준다.",
     "category": "civic",
     "requiresTier": 5,
     "maxTier": 5,
@@ -1537,6 +1567,7 @@
   },
   "monument": {
     "name": "기념비",
+    "purpose": "마을의 자랑. 사람들의 기운이 오르고 나라의 이름값이 는다.",
     "category": "civic",
     "requiresTier": 5,
     "maxTier": 3,
@@ -1587,6 +1618,7 @@
   },
   "lamp": {
     "name": "가로등",
+    "purpose": "밤을 밝힌다. 어두운 골목이 환해지고 보기에 좋다.",
     "category": "decor",
     "requiresTier": 1,
     "maxTier": 2,
@@ -1620,6 +1652,7 @@
   },
   "banner": {
     "name": "깃발",
+    "purpose": "마을의 깃발. 사람들이 힘을 낸다.",
     "category": "decor",
     "requiresTier": 2,
     "maxTier": 2,
@@ -1654,6 +1687,7 @@
   },
   "garden": {
     "name": "정원",
+    "purpose": "꽃밭. 마을이 예뻐지고 사람들 기분이 좋아진다.",
     "category": "decor",
     "requiresTier": 3,
     "maxTier": 2,
@@ -1688,6 +1722,7 @@
   },
   "fountain": {
     "name": "분수",
+    "purpose": "물이 솟는 자리. 마을이 눈에 띄게 예뻐진다.",
     "category": "decor",
     "requiresTier": 4,
     "maxTier": 2,

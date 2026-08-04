@@ -906,6 +906,12 @@ export function effectSummary(key, tier, data) {
   const out = [];
   const push = (label, value) => out.push({ label, value });
   if (spec.residents) push('수용 인원', `${spec.residents}명`);
+  /* ★ §15-B-2 — 저장 계열의 핵심 수치는 「얼마나 더 쌓이나」다. 곳간이 차면 캐도 안 들어오므로
+     이 값이야말로 그 건물을 짓는 까닭인데, 지금껏 어디에도 안 적혔다(storage_crate 는 표가 비었다). */
+  if (data.buildings?.[key]?.storageCap > 0) {
+    const mult = data.balance?.storage?.capPerTierMultiplier ?? 1.6;
+    push('저장 상한', `+${Math.round(data.buildings[key].storageCap * Math.pow(mult, Math.max(0, tier - 1)))}`);
+  }
   for (const [r, v] of Object.entries(spec.output || {})) push(`${data.resources.meta[r]?.name ?? r} 산출`, `+${Math.round(v * 100)}%`);
   for (const [r, v] of Object.entries(spec.gatherBonus || {})) push(`${data.resources.meta[r]?.name ?? r} 채집`, `+${Math.round(v * 100)}%`);
   for (const [r, v] of Object.entries(spec.flatOutput || {})) push(`${data.resources.meta[r]?.name ?? r}`, `+${v}/일`);
@@ -940,6 +946,8 @@ export function publicBuildings(data) {
       key,
       name: def.name,
       category: def.category ?? null,
+      // ★ §15-B-2 — 「왜 짓는가」 한 줄. 건설 카드와 건물 패널이 같은 문장을 쓴다.
+      purpose: def.purpose ?? null,
       desc: def.desc ?? null,
       requiresTier: def.requiresTier ?? 0,
       maxTier: maxTier(key, data),

@@ -21,6 +21,7 @@ import { normalizeMembers as membersView, normalizeAppearance } from './social.j
 import { fogSnapshot, fogChunksSince, isExplored, exploredRatio, encodeChunk } from './fog.js';
 import {
   structureView, siteView, adjacencyDetail, isRuined, buildingKeys, maxTier, structureDef, footprint,
+  effectSummary,
 } from './structures.js';
 import { fenceViews, fenceSummary } from './fences.js';
 import { residentViews, housingView, peoplePerUnit, capacity } from './residents.js';
@@ -289,9 +290,13 @@ function buildableCatalog(nation, data) {
     out.push({
       key,
       name: def.name,
+      // ★ §15-B-2 — 카드가 이름 아래에 그대로 적는 한 줄
+      purpose: def.purpose ?? null,
       category: def.category ?? null,
       requiresTier: def.requiresTier ?? 0,
       unlocked: true,
+      // ★ §15-B-2 — 「핵심 수치 1~2개」. 1단계 효과표의 앞 두 줄이 곧 그것이다.
+      keyFacts: effectSummary(key, 1, data).slice(0, 2),
       action: def.action ?? null,
       actionLabel: def.actionLabel ?? null,
       multi: def.multi !== false,
@@ -328,9 +333,11 @@ function lockedCatalog(nation, data, openCategories) {
     out.push({
       key,
       name: def.name,
+      purpose: def.purpose ?? null,
       category: cat,
       requiresTier: def.requiresTier ?? 0,
       unlocked: false,
+      keyFacts: effectSummary(key, 1, data).slice(0, 2),
       multi: def.multi !== false,
       cost: { ...(t.cost || {}) },
       gold: t.gold ?? 0,

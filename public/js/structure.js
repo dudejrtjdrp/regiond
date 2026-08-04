@@ -469,11 +469,14 @@
     var fp = S.footprintOfThing(b);
     if (fp.w > 1 || fp.h > 1) facts.push({ k: '차지한 자리', v: fp.w + '×' + fp.h + '칸' });
 
+    /* ★ GDD3 §15-B-2 — 패널 맨 위의 한 줄도 「왜 짓는가」다. 건설 카드와 **같은 문장**을 쓴다:
+       고를 때 읽은 말과 지은 뒤에 읽는 말이 다르면 그것은 설명이 아니라 소음이다. */
+    var bdef = S.buildingDef(b.key) || {};
     GM.hud.showContext({
       icon: GM.build.iconOf(b.key),
       title: b.name + (b.ruined ? ' (부서짐)' : ''),
       facts: facts, extra: extra, actions: acts,
-      note: (S.buildingDef(b.key) || {}).desc || null
+      note: bdef.purpose || bdef.desc || null
     });
   }
 
