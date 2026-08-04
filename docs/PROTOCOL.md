@@ -6,6 +6,70 @@
 
 ---
 
+## 0-V. v3.2 안 델타 — **RPG 계층** (GDD3 §13-D)
+
+**판번호를 올리지 않는다.** 이 층은 더하기만 했다 — 땅도 그대로고, 옛 세이브에 없는 것은
+`migrateWorld` 가 채운다(주민 능력치는 「씨앗:나라:사람번호」로 지어 넣고, 연구·철로·모집은 빈 값에서 시작한다).
+§0-W 가 판번호를 올린 까닭은 **세이브가 안 맞아서**였다. 여기는 그렇지 않다. `world.schema` 는 **5** 그대로다.
+
+### 0-V-1. 신설 — 명령 (C→S)
+
+| 명령 | 페이로드 | 여는 장 | 서버가 지키는 것 |
+|---|---|---|---|
+| `recruitResident` | `{}` | 4장 첫 이웃 | 빈 잠자리 · 식량 20 · 쿨다운 1게임일. 자연 유입과 **같은 잠자리 조건**을 쓴다 |
+| `craftEquipment` | `{slot,key}` | 9장 나라의 격 | 대장간 존재 · 자재/골드 · **상위 티어는 공장장 재임** |
+| `enhanceEquipment` | `{slot}` | 9장 | +1~+3 · **공장장 재임 필수** · 단계마다 값이 `costGrowth` 배 |
+| `enchantEquipment` | `{slot}` | 9장 | 등급 뽑기(서버 난수) · **성녀 재임 시 상위 등급 무게 ×2** · 재부여는 덮어쓰기 |
+| `startResearch` | `{key}` | 10장 끝이 없는 길 | 티어 · 선행 연구 · 값(골드+자원)은 **착수할 때 한 번에** · 한 번에 하나만 |
+| `placeRail` | `{points:[{x,y}…]}` | 10장 | 「철로」 연구 필수 · 칸마다 강재 · 물 위 금지 · 상한 600칸 |
+| `removeRail` | `{tileIds:[…]}` | 10장 | 낸 값의 절반 환급 |
+
+`craftEquipment`·`enhanceEquipment`·`enchantEquipment` 는 **신원 명령**이다 —
+누구의 칼인지는 세션이 정한다(클라가 보낸 `avatarId` 는 믿지 않는다).
+
+### 0-V-2. 신설 — 이벤트 (S→C)
+
+| 이벤트 | 실리는 것 |
+|---|---|
+| `researchDone` | `{key,name,line,desc,unlocks,spawnedNodes,nodeIds,nodeType}` — 석탄·석유 노두가 드러나는 순간이라 화면은 이때 지도를 다시 청한다 |
+| `residentArrived` | (기존) `+ stats{diligence,strength,dexterity,courage}` · `recruited:boolean` |
+
+### 0-V-3. 신설 — 뷰 필드
+
+`state.nation`
+- `residents[].stats` · `statFactors{yieldFactor,outdoorFactor,haulFactor,top}` · `fit{ok,keys,best}` · `outdoor` · `haul`
+- `housing.recruit` — `{open,reason,reqs[],cost,cooldownDays,cooldownLeft,count}` **(4장 전에는 필드 자체가 없다)**
+- `research` — `{order,list[],active,productionBonus,railsOpen,doneCount}` **(10장 전에는 필드 자체가 없다)**
+- `rails[] {id,x,y}` · `railSummary {tiles,maxTiles,costPerTile,speedMultiplier,open}`
+
+`state.you`
+- `equipment` — `{smithy,officer,saint,gear,effects,catalog,enhance,enchant}` **(9장 전에는 필드 자체가 없다)**
+
+`/api/config`
+- `residentStats` (이름·눈금·직업 적합) · `recruit` (값·쿨다운) · `equipment` (티어·재료·특성표) · `research` (선행·값·날수·철로 규격)
+- 규칙만 간다. **내가 무엇을 끼고 있는지, 어디까지 연구했는지는 `state` 로만** 간다.
+
+### 0-V-4. 조건 가시화의 두 겹 (§11-1 과 §12-3 이 부딪히지 않는 자리)
+
+- **장(chapter)이 열기 전** → 필드 자체가 없다. 화면은 단추도 탭도 그리지 않는다.
+- **장이 열린 뒤, 아직 못 하는 것** → 목록에는 남고 **빨강 + 현재값/필요값**으로 적는다.
+  연구가 그렇다: 10장에 들어서면 네 연구가 모두 실리고, 잠긴 것은 「단계 3/4」처럼 무엇이 얼마나 모자란지 적힌다.
+
+### 0-V-5. 능력치는 세계 난수를 쓰지 않는다
+
+§13-C(생태계)와 같은 규칙이다. 주민 능력치는 `「씨앗:나라:사람번호」` 로 지은 **제 난수**에서 나온다.
+세계 난수를 한 톨이라도 축내면 웨이브 구성·사건·이름이 통째로 밀려 같은 씨앗이 다른 게임이 된다
+— 실제로 그렇게 해 보고 시뮬 웨이브5 생존율이 60% → 45% 로 움직이는 것을 확인한 뒤 갈라냈다.
+연구가 심는 석탄·석유 노두도 같은 이유로 제 난수를 쓴다.
+
+### 0-V-6. 새 자원 `coal`
+
+`resources.order` 에 `ironOre` 다음으로 들어간다. **월드 생성에는 한 톨도 나지 않는다**
+(`world.nodes.types.coal.count = 0`) — 「석탄 채굴」 연구가 링1~2 에 심는다.
+저장 상한·HUD 자원칸·가격표는 다른 자원과 같은 규칙을 그대로 탄다. 도감에는 실리지 않는다(도감은 생물의 것이다).
+
+---
+
 ## 0-W. v3.1 → **v3.2** 델타 — 월드 2.0 · 생태계 (GDD3 §13-B · §13-C)
 
 **판번호를 올린 까닭은 하나다: 세이브가 안 맞는다.** 더한 것만 있었다면 3.1 그대로 두었을 텐데
