@@ -271,7 +271,7 @@ class GameRuntime {
       case 'mandate': io.to(this.gameId).emit('mandate', e.data); break;
       // ★ GDD3 §1 — 티어업은 큰 이벤트다(팡파레 + 영토 말뚝 + 도감 카드 공개)
       case 'tier_up': io.to(this.gameId).emit('tierUp', e.data); break;
-      // ★ GDD3 §4 — 주민 도착(이름·외형과 함께)
+      // ★ GDD3 §4 · §13-D-1 — 주민 도착(이름·외형·능력치와 함께)
       case 'resident_arrived': io.to(this.gameId).emit('residentArrived', e.data); break;
       case 'building_done': io.to(this.gameId).emit('buildingDone', e.data); break;
       case 'wave_incoming': io.to(this.gameId).emit('waveIncoming', e.data); break;

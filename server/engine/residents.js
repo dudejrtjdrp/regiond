@@ -1,6 +1,6 @@
 // 주민 — docs/GDD3.md §4. 인구 0에서 시작해 한 명씩 걸어온다.
 // ★ 옛 '인구 50 시작 · 이주민 %'는 폐기됐다. 주민은 실인원이다: unitCompressionFrom 명까지 1유닛=1명.
-import { townOf, territoryRadius, dist } from './world.js';
+import { townOf, territoryRadius, dist, inTerritory } from './world.js';
 import {
   housingCapacity, attractivenessBonus, moraleBonus, militiaSlots, militiaBonus,
   militiaDpsBonus, shrinePopulationCap, hasBuilding,
@@ -9,6 +9,11 @@ import { featureUnlocked, departmentsActive } from './progression.js';
 import { round2, round3, clamp } from './economy.js';
 // ★ GDD3 §13-A-1 — 유입 조건도 티어 조건과 **같은 공장**에서 찍는다.
 import { resourceReq, countReq } from './requirements.js';
+// ★ GDD3 §13-D-1 — 사람마다 다른 네 수치. 평균이 정확히 중립이라 마을 곡선은 그대로다.
+import {
+  rollStats, statRng, ensureStats, yieldFactor, militiaHpFactor, militiaDpsFactor, haulFactor,
+  statsView, jobFit,
+} from './traits.js';
 
 export const residentCfg = (data) => data.balance.residents;
 export const arrivalCfg = (data) => data.balance.residents.arrival;
@@ -152,6 +157,11 @@ export function spawnResident(world, nation, data, rng) {
     id: `r${nation.nextResidentId++}`,
     name: pickName(rng, data),
     appearance: randomAppearance(rng, data),
+    /* ★ §13-D-1 — 태어날 때 한 번 굴리고 평생 바뀌지 않는다.
+       ★ **세계 난수를 쓰지 않는다.** 씨앗·나라·사람 번호로 제 난수를 지어 굴린다(§13-C 와 같은 규칙).
+          세계 난수를 한 톨 축내면 웨이브 구성·사건·이름이 통째로 밀려 같은 씨앗이 다른 게임이 된다
+          — 실제로 그렇게 해 보고 시뮬 웨이브5 가 60%→45% 로 움직이는 것을 확인한 뒤 갈라냈다. */
+    stats: rollStats(statRng(`${world.seed}:${nation.id}:r${nation.nextResidentId}`), data),
     job: 'idle',
     targetId: 'hall',
     x: from.x, y: from.y,
@@ -191,6 +201,7 @@ export function stepArrivals(world, nation, data, rng) {
   return arrived;
 }
 
+  nation.stats.residentsArrived = (nation.stats.residentsArrived || 0) + 1;
 /** 굶주림으로 사람이 떠난다(죽지 않는다 — 짐을 싸서 나간다) */
 export function loseResidents(nation, count) {
   const list = nation.villagers || [];
@@ -215,14 +226,22 @@ const JOB_RESOURCE = {
  * 화면은 40번쯤 지고 나르는 시늉만 했다. 화면이 띄울 숫자가 국고에 실제로 들어가는 값과
  * 반드시 같으려면, 두 쪽이 같은 함수에서 값을 받아야 한다.
  *
+ * ★ GDD3 §13-D-1 — 여기에 **능력치 배수**가 붙는다. 손재주·근면이 반이고, 자리가 영토 밖이면
+ * 용기가 근면 몫을 나눠 든다. 가중치 합이 언제나 1 이라 최대 편차는 ±18%(상한 ±20% 안)이고,
+ * 능력치 평균이 정확히 5.5 이므로 사람이 여럿이면 배수의 평균은 1.0 이다 — 마을 곡선은 안 흔들린다.
+ *
  * @param {object|null} node 이 주민이 붙어 있는 자원 노드(없으면 건물 일자리)
- * @returns {{kind:'resource'|'buildPoints'|'none', resource?:string, perDay:number, idle?:boolean}}
+ * @param {boolean} outdoor 그 자리가 영토 밖인가 (residentGather·residentViews 가 같은 값을 준다)
+ * @returns {{kind:'resource'|'buildPoints'|'none', resource?:string, perDay:number, idle?:boolean, factor?:number}}
  */
-export function residentYield(u, node, data) {
+export function residentYield(u, node, data, outdoor = false) {
   const cfg = gatherCfg(data);
   if (!u) return { kind: 'none', perDay: 0 };
-  if (u.job === 'idle') return { kind: 'resource', resource: 'grain', perDay: cfg.idleGrainPerDay, idle: true };
-  if (u.job === 'build') return { kind: 'buildPoints', perDay: cfg.buildPointsPerResidentPerDay };
+  const factor = yieldFactor(u, data, Boolean(outdoor));
+  if (u.job === 'idle') return { kind: 'resource', resource: 'grain', perDay: cfg.idleGrainPerDay, idle: true, factor: 1 };
+  if (u.job === 'build') {
+    return { kind: 'buildPoints', perDay: round2(cfg.buildPointsPerResidentPerDay * factor), factor };
+  }
   const res = JOB_RESOURCE[u.job];
   if (!res) return { kind: 'none', perDay: 0 };
   if (node && node.type === 'oil') return { kind: 'resource', resource: 'oil', perDay: cfg.perResidentPerDay.oil };
@@ -279,13 +298,18 @@ export function militiaList(nation, data) {
   const untrainedDps = cfg.untrainedDpsRatio ?? 0.35;
   return pool.map((u, i) => {
     const trained = i < trainedCount;
+    /* ★ §13-D-1 — 용기가 버티는 힘을, 힘이 미는 힘을 정한다. 각각 ±18% 안이고 평균은 1.0 이다.
+       (민병은 대개 여럿이라, 사람이 늘수록 전투 결과는 옛 값으로 수렴한다 — 시뮬 재보정이 없는 까닭.) */
+    const hpF = militiaHpFactor(u, data);
+    const dpsF = militiaDpsFactor(u, data);
     return {
       id: u.id,
       name: u.name ?? u.id,
       x: u.x, y: u.y,
       trained,
-      hp: cfg.hp * (trained ? 1 + bonus : untrainedHp),
-      dps: (cfg.dps + weaponDps + dpsFlat) * (trained ? 1 + bonus : untrainedDps),
+      stats: u.stats ? { ...u.stats } : null,
+      hp: round2(cfg.hp * (trained ? 1 + bonus : untrainedHp) * hpF),
+      dps: round2((cfg.dps + weaponDps + dpsFlat) * (trained ? 1 + bonus : untrainedDps) * dpsF),
       range: cfg.rangeTiles,
     };
   });
@@ -325,11 +349,21 @@ export function residentViews(nation, data, world = null) {
   return (nation.villagers || []).map((u) => {
     /* ★ §13-A-3 — 이 사람이 하루에 얼마를 버는가. 국고에 적립되는 값과 **같은 함수**가 낸다.
        화면은 이 값을 흐른 시간만큼 쪼개어 "+1.2 목재" 를 띄우므로, 뜬 숫자의 합 = 국고 증가분이다. */
-    const y = residentYield(u, nodeOfResident(world, u), data);
+    const node = nodeOfResident(world, u);
+    const outdoor = isOutdoorNode(world, nation, node, data);
+    const y = residentYield(u, node, data, outdoor);
+    ensureStats(u, data);
+    const fit = jobFit(u, u.job, data);
     return {
       id: u.id,
       name: u.name ?? u.id,
       appearance: u.appearance ?? null,
+      // ★ §13-D-1 — 능력치는 사람의 것이라 언제나 실린다(잠긴 계층이 아니다).
+      stats: { ...u.stats },
+      statFactors: statsView(u, data),
+      fit: { ok: fit.fit, keys: fit.keys, best: fit.best },
+      outdoor,
+      haul: haulFactor(u, data),
       job: u.job,
       jobName: names[u.job] ?? u.job,
       x: u.x, y: u.y,

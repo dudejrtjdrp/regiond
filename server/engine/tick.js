@@ -453,8 +453,9 @@ export function produceNation(world, nation, data, hooks) {
   // ── 건물 정액 산출 (두 체제 공통, 레이트 기준) ──
   const flatBuild = flatOutputs(nation, data);
   out.flatOutput = flatBuild;
+  out.techBonus = round2(techBonus);
   for (const [res, amount] of Object.entries(flatBuild)) {
-    out[res] = round2((out[res] || 0) + deposit(nation, res, amount, data));
+    out[res] = round2((out[res] || 0) + deposit(nation, res, amount * techBonus, data));
   }
   const tax = goldPerDay(nation, data);
   if (tax > 0) {

@@ -704,6 +704,19 @@
     return null;
   }
   function housing() { var n = nation(); return (n && n.housing) || null; }
+  /* ── ★ GDD3 §13-D — RPG 계층 ─────────────────────────────────
+     잠긴 계층은 뷰에 필드 자체가 없다(§11-1). 그래서 여기 없으면 화면도 그리지 않는다. */
+  function statsCfg() { var c = cfg(); return (c && c.residentStats) || null; }
+  function statDefs() { var t = statsCfg(); return (t && t.defs) || {}; }
+  function statOrder() { var t = statsCfg(); return (t && t.order) || []; }
+  function statName(key) { var d = statDefs()[key]; return (d && d.name) || key; }
+  /** 이 직업에 잘 맞는 능력치들 — 주민 패널이 초록 테를 두를 목록 (§13-D-1) */
+  function jobFitStats(job) { var t = statsCfg(); return (t && t.jobFit && t.jobFit[job]) || []; }
+  function statFit(v, key) {
+    var t = statsCfg();
+    if (!t || !v || !v.stats) return false;
+    return (v.stats[key] || 0) >= (t.fitThreshold || 7) && jobFitStats(v.job).indexOf(key) >= 0;
+  }
   function workPosts() { var n = nation(); return (n && n.workPosts) || []; }
   function camps() {
     var n = nation();
@@ -1213,6 +1226,9 @@
     anchorFromCell: anchorFromCell, rectOfThing: rectOfThing, rectGap: rectGap, cellIn: cellIn, hq: hq,
     fences: fences, fenceSummary: fenceSummary, buildable: buildable, buildableOf: buildableOf,
     housing: housing, workPosts: workPosts, camps: camps,
+    /* ★ GDD3 §13-D — RPG 계층 */
+    recruitInfo: recruitInfo, statsCfg: statsCfg, statDefs: statDefs, statOrder: statOrder,
+    statName: statName, jobFitStats: jobFitStats, statFit: statFit,
     jobMeta: jobMeta, stageName: stageName,
 
     selectResidents: selectResidents, selectTarget: selectTarget,

@@ -9,6 +9,8 @@ import { createVillagers } from './villagers.js';
 import { createFog } from './fog.js';
 import { tierRadius, settlementTier } from './tiers.js';
 import { completeStructure, syncLegacyBuildings, anchorFromCell } from './structures.js';
+// ★ GDD3 §13-D-1 — 옛 세이브의 주민에게 능력치를 채워 넣을 때 쓴다
+import { rollStats, statRng } from './traits.js';
 
 function emptyResources(data, overrides = null) {
   const start = data.balance.startingResources || {};
@@ -246,6 +248,11 @@ export function migrateWorld(world, data) {
     // ★ GDD3 §13-C — 생태계·도감. 둘 다 국가 단위라 같이 접속한 동료와 공유된다.
     nation.wild ||= { creatures: [], nextId: 1, respawnQueue: [], rngState: null, acc: 0 };
     nation.codex ||= { species: {}, ruins: {} };
+    /* ★ GDD3 §13-D — RPG 계층. 셋 다 **없으면 없는 대로** 굴러가는 자리라 세이브를 버리지 않는다.
+       옛 세이브의 주민에게는 능력치가 없다 — 아이디로 씨앗을 지어 사람마다 다른 값을 채운다
+       (전부 5.5 로 채우면 옛 마을만 개성 없는 판박이가 된다). */
+      if (!u.stats) u.stats = rollStats(statRng(`${world.seed}:${nation.id}:${u.id}`), data);
+    }
   }
   return world;
 }

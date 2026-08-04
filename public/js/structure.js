@@ -75,6 +75,7 @@
     var arr = h.arrival || null;
 
     var body = U.el('div', 'settle');
+    if (tabRow) body.appendChild(tabRow);
 
     var head = U.el('div', 'se-head');
     head.appendChild(U.el('span', 'se-name', t.name || '야영지'));

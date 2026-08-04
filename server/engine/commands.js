@@ -25,6 +25,7 @@ import {
 } from './structures.js';
 import { placeFence, upgradeFence, repairFence, removeFence } from './fences.js';
 import { actionSwing } from './actions.js';
+import { ensurePlayer } from './skills.js';
 import { revealAvatar } from './fog.js';
 import { combatSwing } from './battle.js';
 // ★ GDD3 §13-C-8 — 웨이브 밖의 검. 들에 사는 것들을 벤다.
@@ -260,6 +261,7 @@ function runCommand(world, nationId, cmd, data, rng) {
     }
 
     // ── GDD3 §7 — 울타리 조각(드래그 배치) ────────────────────────
+        stats: { ...res.resident.stats }, population: Math.floor(nation.population || 0),
     case 'placeFence': {
       const res = placeFence(world, nation, cmd, data);
       return res.ok ? ok(res) : res;

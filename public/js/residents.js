@@ -112,6 +112,33 @@
     return true;
   }
 
+  /* ══════════ ★ GDD3 §13-D-1 — 능력치 ══════════
+     네 수치를 눈금으로 보이고, 지금 하는 일에 잘 맞는 것에는 초록 테를 두른다.
+     수치를 그대로 적는 까닭: 「손재주 8」이 「수확이 조금 낫다」보다 정확하고, 사람을 고를 근거가 된다. */
+  function statBars(v, opts) {
+    var o = opts || {};
+    var wrap = U.el('div', 'st-stats' + (o.big ? ' big' : ''));
+    if (!v || !v.stats) return wrap;
+    var max = (S.statsCfg() && S.statsCfg().max) || 10;
+    S.statOrder().forEach(function (key) {
+      var d = S.statDefs()[key] || {};
+      var val = v.stats[key] || 0;
+      var fit = S.statFit(v, key);
+      var row = U.el('div', 'sb' + (fit ? ' fit' : ''));
+      row.appendChild(U.el('span', 'sb-n', d.short || d.name || key));
+      var bar = U.el('span', 'sb-bar');
+      var fill = U.el('span', 'sb-fill');
+      fill.style.width = Math.round((val / max) * 100) + '%';
+      bar.appendChild(fill);
+      row.appendChild(bar);
+      row.appendChild(U.el('span', 'sb-v', String(val)));
+      U.tipSet(row, (d.name || key) + ' ' + val + '/' + max,
+        (d.desc || '') + (fit ? '\n지금 하는 일에 잘 맞습니다.' : ''));
+      wrap.appendChild(row);
+    });
+    return wrap;
+  }
+
   /* ══════════ 선택 패널 ══════════ */
   function counts(ids) {
     var out = {};
@@ -141,6 +168,20 @@
       return v ? v.name : '';
     }).filter(Boolean).join(' · ');
     var extra = U.el('div', 'sel-strip');
+    /* ★ §13-D-1 — 한 사람만 골랐으면 그 사람의 능력치를 그대로 보여 준다 */
+    if (ids.length === 1) {
+      var only = S.residentById(ids[0]);
+      if (only) {
+        var box = U.el('div', 'sel-one');
+        box.appendChild(statBars(only, { big: true }));
+        if (only.fit && only.fit.best) {
+          box.appendChild(U.el('p', 'hint',
+            (only.fit.ok ? '이 일에 잘 맞습니다 — ' : '더 잘 맞는 일이 있을지 모릅니다 — ')
+            + S.statName(only.fit.best.key) + ' ' + only.fit.best.value));
+        }
+        extra.appendChild(box);
+      }
+    }
     Object.keys(c).forEach(function (job) {
       var m = S.jobMeta(job);
       var chip = U.el('div', 'sel-folk');
@@ -215,6 +256,8 @@
       var col = U.el('div', 'rs-col');
       col.appendChild(U.el('span', 'rs-n', v.name));
       col.appendChild(U.el('span', 'rs-j', (v.jobName || S.jobMeta(v.job).name) + (v.militia ? ' · 민병' : '')));
+      /* ★ §13-D-1 — 명부에서도 한눈에. 적임인 수치에는 초록 테가 선다. */
+      col.appendChild(statBars(v));
       card.appendChild(col);
       card.onclick = function () {
         S.selectResidents([v.id]);
@@ -260,6 +303,8 @@
     GM.sfx.play('arrive');
     U.banner({ icon: 'person', kind: 'good', title: p.name + '이(가) 도착했다',
                sub: '이제 ' + p.population + '명이 산다', ms: 3400 });
+    /* ★ GDD3 §13-D-1 — 도착 연출의 능력치 카드. 새 사람이 어떤 사람인지 그 자리에서 보인다. */
+    statCard(p);
     GM.fx.ring(p.x, p.y, '#8dbb6d', 0.3, 1.6, 0.7);
     /* 처음 몇 명은 카메라가 맞이한다 */
     if ((p.total || p.population) <= 2) {
@@ -267,7 +312,32 @@
     }
   }
 
+  /** ★ §13-D-1 — 도착 카드: 이름·얼굴·네 수치·가장 뛰어난 것 한 줄 */
+  function statCard(p) {
+    if (!p || !p.stats || !S.statsCfg()) return null;
+    var host = U.qs('#fx-cards') || U.qs('#hud');
+    if (!host) return null;
+    var card = U.el('div', 'arrive-card');
+    card.setAttribute('data-arrive-card', p.id || '');
+    var head = U.el('div', 'ac-head');
+    if (p.appearance) head.appendChild(GM.atlas.avatarImg(p.appearance, 30));
+    else head.appendChild(GM.icons.img('person', 30));
+    var nm = U.el('div', 'ac-n');
+    nm.appendChild(U.el('b', null, p.name || '새 사람'));
+    card.appendChild(statBars({ stats: p.stats, job: 'idle' }, { big: true }));
+    var best = null;
+    S.statOrder().forEach(function (k) {
+      if (!best || (p.stats[k] || 0) > best.v) best = { k: k, v: p.stats[k] || 0 };
+    });
+    if (best) card.appendChild(U.el('p', 'ac-top', S.statName(best.k) + '이(가) ' + best.v + ' — 이 사람의 몫입니다.'));
+    host.appendChild(card);
+    setTimeout(function () { card.classList.add('out'); }, 4200);
+    setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); }, 5200);
+    return card;
+  }
+
   GM.residents = {
+    statBars: statBars, statCard: statCard,
     selectAt: selectAt, selectBox: selectBox, selectSameJob: selectSameJob,
     selectAllIdle: selectAllIdle, command: command, targetAt: targetAt,
     renderPanel: renderPanel, openPanel: openPanel, residentAt: residentAt,

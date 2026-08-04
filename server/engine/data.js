@@ -6,6 +6,7 @@ import { publicAppearance, publicChat } from './social.js';
 import { publicBuildings } from './structures.js';
 import { publicWaves } from './waves.js';
 import { publicChapters } from './progression.js';
+import { publicStats } from './traits.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = join(here, '..', '..', 'data');
@@ -252,6 +253,8 @@ export function publicConfig() {
     chapters: publicChapters(d),
     // ★ GDD3 §13-C — 생태계 공개본. 종 이름·능력치는 **여기 없다**(도감이 그것을 여는 열쇠다).
     creatures: publicCreatures(d),
+    // ★ GDD3 §13-D-1 — 주민 능력치의 '규칙'(이름·눈금·직업 적합). 사람마다의 수치는 state 로만 간다.
+    residentStats: publicStats(d),
     world: publicWorld(d),
     time: {
       dayRealSeconds: d.balance.time.dayRealSeconds,
