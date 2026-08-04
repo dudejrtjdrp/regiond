@@ -187,18 +187,78 @@
 
   function styleOfBuilding(key) { return STYLE[key] || DEFAULT_STYLE; }
 
+  /* ══════════ ★ GDD3 §15-B-4 — 티어별 외형 진화 (절차 레이어) ══════════
+   *
+   * 무엇이 문제였나: 티어를 반영하는 모양은 여덟 뿐이었다(gable·round·shed·stack·tower·crate·pile).
+   * 노포·화포·시장·기념비·가로등은 1단이든 3단이든 **픽셀 한 톨도 안 달라졌다** — 개축하고도
+   * 화면이 그대로면 「올렸다」는 감각이 남지 않는다. 서른다섯 채를 손으로 세 벌씩 그리는 대신,
+   * 세 켜를 절차로 얹는다.
+   *
+   *   ① 재질  — 흙·나무 → 회칠·기와 → 석조·금장 (팔레트를 티어에 따라 섞는다)
+   *   ② 규모  — 모양마다 이미 있는 grow 항 (유지)
+   *   ③ 장식  — 실제로 그려진 픽셀의 **테두리 상자**를 재어 그 위에 얹는다.
+   *             모양별 좌표표가 필요 없어 서른다섯 채가 한 벌의 규칙으로 자란다.
+   */
+  function tierPalette(wall, roof, t) {
+    if (t >= 2) { wall = U.mix(wall, '#efe6d2', 0.26); roof = U.mix(roof, '#5f6a74', 0.26); }
+    if (t >= 3) { wall = U.mix(wall, '#f8f1e0', 0.22); roof = U.mix(roof, '#39434f', 0.30); }
+    return { wall: wall, roof: roof };
+  }
+
+  /** 그려진 픽셀의 테두리 상자 위에 티어 장식을 얹는다 */
+  function tierLayer(P, t, box, ruined) {
+    if (t < 2 || ruined) return;
+    var cl = function (v) { return Math.max(0, Math.min(24, v)); };
+    var x0 = cl(box.x0), x1 = cl(box.x1), y0 = cl(box.y0), y1 = cl(box.y1);
+    var w = Math.max(2, x1 - x0), h = Math.max(2, y1 - y0);
+
+    /* 2단 — 돌 기단과 모서리 기둥. 건물이 땅에서 한 뼘 올라선다. */
+    var px = cl(x0 - 1), pw = Math.min(24 - px, w + 2);
+    P(px, cl(y1 - 1), pw, Math.min(2, 24 - cl(y1 - 1)), '#8f8578');
+    P(px, cl(y1 - 1), pw, 1, '#b5ab98');
+    var post = Math.max(3, Math.round(h * 0.42));
+    P(px, cl(y1 - 1 - post), 1, post, '#7d7364');
+    P(cl(px + pw - 1), cl(y1 - 1 - post), 1, post, '#7d7364');
+
+    if (t < 3) return;
+    /* 3단 — 금장 처마 한 줄, 깃대와 깃발, 켜 놓은 등불. */
+    P(x0, cl(y0 + Math.round(h * 0.30)), w, 1, '#e8a33d');
+    var fx = cl(x1 - 3);
+    P(fx, cl(y0 - 5), 1, Math.min(6, cl(y0) + 5), '#6b4526');
+    P(cl(fx - 4), cl(y0 - 5), 4, 3, '#bc4749');
+    P(cl(fx - 4), cl(y0 - 5), 4, 1, '#d97a78');
+    var ly = cl(y0 + Math.round(h * 0.62));
+    P(cl(x0 - 1), ly, 2, 3, '#a8701f');
+    P(cl(x0 - 1), ly, 2, 2, '#f6e6a8');
+  }
+
   function building(key, tier, opts) {
     opts = opts || {};
     var t = Math.max(1, Math.min(4, tier || 1));
     var ruined = opts.ruined ? 1 : 0;
     var ck = 'b:' + key + ':' + t + ':' + ruined;
-    return cached(ck, 24, 24, function (P) {
+    return cached(ck, 24, 24, function (P0) {
       var st = styleOfBuilding(key);
-      var wall = ruined ? U.mix(st.wall, '#4a4038', 0.55) : st.wall;
-      var roof = ruined ? U.mix(st.roof, '#3a3028', 0.55) : st.roof;
+      /* ★ §15-B-4 ① 재질 — 티어가 오르면 벽과 지붕의 재료가 바뀐다 */
+      var pal = tierPalette(st.wall, st.roof, t);
+      /* ★ §15-B-4 ③ 장식의 자리를 알기 위해 그려지는 것의 테두리를 잰다 */
+      var box = { x0: 99, y0: 99, x1: -1, y1: -1 };
+      var P = function (x, y, w, h, c) {
+        P0(x, y, w, h, c);
+        if (!(w > 0 && h > 0)) return;
+        if (x < box.x0) box.x0 = x;
+        if (y < box.y0) box.y0 = y;
+        if (x + w > box.x1) box.x1 = x + w;
+        if (y + h > box.y1) box.y1 = y + h;
+      };
+      var wall = ruined ? U.mix(pal.wall, '#4a4038', 0.55) : pal.wall;
+      var roof = ruined ? U.mix(pal.roof, '#3a3028', 0.55) : pal.roof;
       var dark = '#4a3220';
       var grow = (t - 1);
 
+      /* ★ §15-B-4 — 표식 없이 끝나는 모양들도 티어 레이어까지는 와야 한다: 옛 코드의 `return` 을
+         라벨 탈출로 바꿨다(그 모양의 '표식 생략'은 그대로 지킨다). */
+      shapeAndMark: {
       switch (st.shape) {
         case 'fire': {                                     // 모닥불
           P(4, 18, 16, 4, '#5a4632');
@@ -209,7 +269,7 @@
           P(10, 10 - grow, 4, 5 + grow, '#f2b06a');
           P(11, 6 - grow, 2, 4, '#f6e6a8');
           P(6, 13, 2, 3, '#d96a2c'); P(16, 12, 2, 4, '#d96a2c');
-          return;
+          break shapeAndMark;
         }
         case 'tent': {
           P(2, 20, 20, 3, '#4a3a2a');
@@ -220,14 +280,14 @@
           P(3, 19, 18, 2, U.shade(wall, -0.2));
           P(10, 14, 4, 7, dark);
           P(10, 1, 4, 3, roof);
-          return;
+          break shapeAndMark;
         }
         case 'crate': {
           P(4, 12, 16, 10, wall); P(4, 12, 16, 1, U.shade(wall, 0.3));
           P(4, 21, 16, 2, U.shade(wall, -0.3));
           P(4, 16, 16, 2, roof); P(11, 12, 2, 10, roof);
           if (t >= 2) { P(6, 6, 12, 6, wall); P(6, 6, 12, 1, U.shade(wall, 0.3)); P(6, 9, 12, 1, roof); }
-          return;
+          break shapeAndMark;
         }
         case 'well': {
           P(6, 14, 12, 8, wall); P(6, 14, 12, 1, U.shade(wall, 0.35));
@@ -235,14 +295,14 @@
           P(5, 4, 2, 11, '#6b4526'); P(17, 4, 2, 11, '#6b4526');
           P(3, 2, 18, 3, roof); P(3, 2, 18, 1, U.shade(roof, 0.3));
           P(11, 6, 2, 4, '#8a5e33');
-          return;
+          break shapeAndMark;
         }
         case 'pile': {
           P(2, 15, 20, 7, wall); P(2, 15, 20, 1, U.shade(wall, 0.28));
           for (var w = 3; w < 21; w += 4) P(w, 16, 2, 5, U.shade(wall, -0.25));
           if (t >= 2) { P(4, 9, 16, 6, wall); for (var w2 = 5; w2 < 19; w2 += 4) P(w2, 10, 2, 4, U.shade(wall, -0.25)); }
           if (t >= 3) { P(7, 4, 10, 5, wall); }
-          return;
+          break shapeAndMark;
         }
         case 'round': {
           var rh = 11 + grow * 2;
@@ -388,9 +448,12 @@
         case 'flap':     P(3, 3, 4, 3, '#bc4749'); break;
         default: break;
       }
+      }
+      /* ★ §15-B-4 ③ — 잰 테두리 위에 티어 장식을 얹는다 (서른다섯 채가 같은 규칙으로 자란다) */
+      tierLayer(P0, t, box, ruined);
       if (ruined) {
-        P(2, 2, 4, 2, '#3a3028'); P(17, 5, 5, 2, '#3a3028');
-        P(6, 8, 3, 2, '#3a3028'); P(13, 12, 4, 2, '#3a3028');
+        P0(2, 2, 4, 2, '#3a3028'); P0(17, 5, 5, 2, '#3a3028');
+        P0(6, 8, 3, 2, '#3a3028'); P0(13, 12, 4, 2, '#3a3028');
       }
     });
   }
