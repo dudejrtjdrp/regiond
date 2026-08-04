@@ -72,6 +72,77 @@ defenseIndex = Σ(터렛 dps × 사거리 ÷ turretRangeReference) + 민병 dps 
 **요약과 설명은 호버하는 순간 함께** 뜬다. 지연(550ms)은 `data-tip3`(곁가지)에만 남는다.
 옛 규약의 「잠깐 두면 자세히 보입니다」 자리표시는 폐지됐다.
 
+### 0-S-7. 신설 — **동료 봇 = 각료** (GDD3 §15-C)
+
+**판번호를 올리지 않는다.** 더하기만 했다 — `world.schema` **6** 그대로다.
+옛 세이브에 `nation.companions` 가 없으면 다음 걸음의 `syncCompanionSeats` 가 빈 명단을 열고 정원을 채운다
+(§0-W 가 세운 기준: 판번호는 '세이브가 안 맞는가'로만 올린다).
+
+#### 채널 — **새 채널을 내지 않는다**
+
+동료는 주민이 아니라 **플레이어와 같은 아바타 실체**다. 그러므로 자리는 `avatars`, 손맛은 `swing`
+— 사람이 쓰던 그 채널을 그대로 탄다. 화면은 「사람인가 동료인가」를 아이디로 뜯어보지 않고
+서버가 실어 보낸 `bot` 를 읽는다(신원 판정은 서버의 몫이다).
+
+| 자리 | 필드 | 뜻 |
+|---|---|---|
+| `avatars[]` (S→C) · `state.nation.avatars[]` | `bot` | ★ 이 아바타가 동료인가 |
+| 〃 | `color` | ★ 이름표 빛깔(동료마다 다르다 · 사람은 없음) |
+| 〃 | `role` · `roleName` | ★ 맡은 자리(감정의 날 뒤) |
+| 〃 | `state` | ★ 지금 하는 일 — `node`·`site`·`creature`·`enemy`·`haul`·`rest`·`flee`·`down`·`idle` |
+| `state.nation.companions[]` | `{id,seat,name,color,role,roleName,state,hp,maxHp,down}` | ★ 정원을 채운 동료 요약(명부·각료 화면) |
+| `state.nation.seats` | 정수 | ★ 국가 정원(기본 5) |
+| `state.nation.roles[k]` | `botId` | ★ 그 자리를 맡은 동료의 아바타 — 각료 카드와 들에 선 사람을 잇는다 |
+| `state.nation.members[]` | `bot` | ★ 명부에도 동료가 함께 오른다 |
+| `state.you` | `autoPlay {on,active,suspendedFor,suspendSeconds}` | ★ 자동 플레이 상태(서버 권위) |
+| `/api/config` | `companions {enabled,seats,nameplateColors,autoPlay}` | 규칙만. 누가 어느 자리인지는 state 로만 간다 |
+
+#### 신설 — 명령 (C→S)
+
+| 명령 | 페이로드 | 뜻 |
+|---|---|---|
+| `setAutoPlay` | `{enabled?:bool}` 또는 `{suspend:true}` | ★ 켜기·끄기 / **수동 입력이 잡혔을 때의 잠시 물러남**(끄는 것이 아니다) |
+
+자동 플레이는 **연구도 붙든다**(`autoPlay.researchWhenIdle` · `researchEverySeconds`) — 다만 우선순위표를
+따로 두지 않는다: `startResearch` 에 연구표 차례대로 청해 보고 처음 되는 것을 잡는다.
+장 사슬의 문(`commandUnlocked`)은 그대로 지킨다. 동료에게는 시키지 않는다.
+
+`setAutoPlay` 는 신원 고정 명령이다(`IDENTITY_COMMANDS`) — 남의 아바타를 몰라고 청할 수 없다.
+`suspend` 는 `suspendSeconds`(기본 30) 뒤에 스스로 풀린다. 화면은 그 사이에도 토글을 켠 채로 그린다.
+
+#### 자리 규칙 (심리스)
+
+```
+동료 수 = seats − max(1, 붙어 있는 사람 수)
+```
+사람 자리 **하나는 늘 비워 둔다** — 혼자 하는 판의 모습이 「사람 1 + 동료 4」이기 때문이다.
+그래서 첫 사람은 아무도 밀어내지 않고, **둘째 사람부터** 동료가 하나씩 비켜난다.
+비켜난 동료는 지워지지 않는다(이름·외형·솜씨 장부가 남는다) — 자리가 다시 비면 그 사람이 돌아온다.
+나간 사람의 아바타는 `avatars` 에서 **지운다**: 남겨 두면 정원이 영영 차 있고 짐승이 허깨비를 쫓는다.
+
+#### 두 박자 — 한 사람의 노동을 두 번 세지 않는다 (§0-S-4 와 같은 규율)
+
+| 시각 | 도는 곳 | 몫 |
+|---|---|---|
+| 지켜보는 동안 | `companions.stepCompanions` (생태계 1초 루프에 편승) | 실제로 걷고 휘두른다. 흐른 초를 `liveSeconds` 에 적는다 |
+| 아무도 없을 때 | `companions.stepCompanionsDay` (일 틱) | 하루에서 `liveSeconds` 를 뺀 **안 본 만큼만** 몰아 돌린다 |
+
+동료의 스윙은 `actions.actionSwing` · `ecology.huntSwing` · `battle.combatSwing` — **사람과 같은 함수**를 부른다.
+다만 `commands.applyCommand` 를 거치지 않는다: ① 순환 참조를 만들지 않고 ② 장 사슬(`evaluateProgress`)은
+**사람의 손**이 여는 것이기 때문이다. 그래서 `progression.totalSwings` 는 `player.bot` 을 세지 않는다
+(곳간을 채우는 자원 조건은 함께 센다 — 창고는 나라 공용이다).
+
+#### 신설 — `skills.combat.restHealPerSecond` · `restRadiusTiles`
+
+본부(모닥불) 반경 안에 서 있고 웨이브 중이 아니며 **무적이 돌지 않을 때** 초당 그만큼 체력이 돈다.
+사람과 동료에게 똑같이 적용된다 — 규칙이 둘로 갈리면 그것은 두 게임이다.
+
+#### 고침 — `playerRevived` 에 전용 채널이 없었다 (P1)
+
+`player_down` 은 `playerDown` 으로 나갔지만 `player_revived` 는 `emitTypedEvent` 의 표에 없었다.
+화면을 덮은 장막(`#down-veil`)이 영영 걷히지 않아 **그 뒤의 모든 클릭이 막혔다**(§15-C 연기 검사에서 드러났다).
+서버에 그 한 줄을 냈고, 화면에도 스스로 걷는 안전장치를 뒀다(카운트다운이 0이 되고 2초 뒤 강제 제거).
+
 ---
 
 ## 0-T. v3.2 안 델타 — **플레이테스트 3차** (GDD3 §14)
@@ -1232,6 +1303,7 @@ v3.1 에서 월드가 256×256 이 되고 해금의 정본이 장(chapter)으로
 | `test/progression.test.js` | ★ **진행 감독** — 30게임일 방치 시 모달 0건 · 시작 주민 0/명부 0/배치대 0 · 장 사슬 순차 · 감정소→`appraiseLand` · 웨이브는 흔적을 살핀 뒤 · 마커 대상 |
 | `test/world2.test.js` | ★ **월드 2.0** — 군락 생성 재현성 · 영토 안 무노드 · 첫 군락 거리 · 영토 밖 채집 · 그루터기 재생 타이밍 · 유적 크기·은닉 · 스폰 링·링2 경고 |
 | `test/ecology.test.js` | ★ **생태계·도감** — 링 스폰 규칙 · 울타리 차단(선분 교차) · 사냥 드롭 · 반격·다운·모닥불 부활 · 도감 층·조우 집계 · 월드 난수 불가침 · 고기 식량 환산 |
+| `test/playtest15c.test.js` | ★ **동료 봇 = 각료(§15-C)** — 정원 5인·심리스 교대(비켜난 사람이 그대로 돌아온다) · 사람과 같은 스윙 경로 · 하루 예산의 이중 계산 금지 · 사슬 스윙 조건은 사람만 · 헐기에는 손대지 않음 · 각료 이름 일치 · 웨이브 참전 · 모닥불 부활·쉼 · 자동 플레이 토글과 30초 물러남 · 뷰 계약 |
 
 ---
 

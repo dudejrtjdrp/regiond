@@ -13,10 +13,15 @@ process.env.GALLAEMALLAE_SAVES_DIR = mkdtempSync(join(tmpdir(), 'gm-e2e-'));
 
 import { io as ioClient } from 'socket.io-client';
 import { loadGameData } from '../server/engine/data.js';
+import { disableCompanions } from '../server/engine/companions.js';
 import { openChapterForDebug } from '../server/engine/progression.js';
 import { savesDir } from '../server/persistence.js';
 
 const data = loadGameData();
+/* ★ GDD3 §15-C — 이 파일은 **다른 한 계층**을 잰다(주민 산출·소비·공사 자재·전체 루프).
+   동료는 같은 곳간에 손을 대므로 켜 두면 「주민이 낸 몫 = 국고 증가분」 같은 등식이 흐려진다.
+   동료 계층 자체의 회귀는 test/playtest15.test.js 가 따로 잰다. */
+disableCompanions(data);
 // ★ v3.1 — 해금은 티어가 아니라 '장'이 쥔다(진행 감독 progression.js).
 //   티어를 손으로 올리는 검사는 그에 상응하는 장도 함께 열어 둔다(개발·테스트 전용 손잡이).
 const __openChapter = (nation, id) => openChapterForDebug(null, nation, data, id);

@@ -3,6 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadGameData, publicConfig } from '../server/engine/data.js';
+import { disableCompanions } from '../server/engine/companions.js';
 import { openChapterForDebug } from '../server/engine/progression.js';
 import { createWorld } from '../server/engine/state.js';
 import { createRng } from '../server/engine/rng.js';
@@ -22,6 +23,10 @@ import {
 import { actionSwing } from '../server/engine/actions.js';
 
 const data = loadGameData();
+/* ★ GDD3 §15-C — 이 파일은 **다른 한 계층**을 잰다(주민 산출·소비·공사 자재·전체 루프).
+   동료는 같은 곳간에 손을 대므로 켜 두면 「주민이 낸 몫 = 국고 증가분」 같은 등식이 흐려진다.
+   동료 계층 자체의 회귀는 test/playtest15.test.js 가 따로 잰다. */
+disableCompanions(data);
 const newWorld = (seed = 1) => createWorld({ seed, data, playerName: '테스트' });
 const __openChapter = (nation, id) => openChapterForDebug(null, nation, data, id);
 const put = (w, n, key, tier, dx, dy = 0) =>

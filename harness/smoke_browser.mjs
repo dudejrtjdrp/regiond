@@ -1279,6 +1279,82 @@ try {
   pass('사거리 원', `고스트 ${(ring.ghost.max || 0).toFixed(0)}px · 선택 ${(ring.click.max || 0).toFixed(0)}px `
     + `(사거리 ${ring.range}칸 × ${ring.tile.toFixed(0)}px) · 실제로 선 터렛 ${ring.built}기`);
 
+  // ── 10-i. ★ GDD3 §15-C — 동료가 화면에 서 있는가 · 이름표 · 「자동」 배지 ──
+  //   서버 계약은 test/playtest15c.test.js 가 잰다. 여기서 재는 것은 **그려지는가**다:
+  //   ① 아바타 채널로 온 동료가 캔버스에 실제로 나온다 ② 이름과 맡은 자리가 이름표로 찍힌다
+  //   ③ 사람과 동료의 이름표 빛깔이 다르다 ④ 자동을 켜면 배지가 자리를 차지하고 글이 바뀐다.
+  const crew = await ev(`(function(){
+      var av = ((GM.state.S.view && GM.state.S.view.nation && GM.state.S.view.nation.avatars) || []);
+      var bots = av.filter(function (a) { return a.bot; });
+      var out = { total: av.length, bots: bots.length, seats: GM.state.seats(),
+                  names: bots.map(function (b) { return b.name; }),
+                  colors: bots.map(function (b) { return b.color; }),
+                  states: bots.map(function (b) { return b.state; }) };
+      if (!bots.length) return JSON.stringify(out);
+      // 동료 하나를 내 눈앞으로 데려다 놓고(화면 안이어야 그린다) 한 프레임을 잡는다
+      var me = GM.avatar.pos();
+      bots.forEach(function (b, i) { b.x = Math.round(me.x + 1 + i); b.y = Math.round(me.y + 1); });
+      GM.camera.moveTo(me.x, me.y, true);
+      var c = document.querySelector('#world-canvas');
+      var ctx = c.getContext('2d');
+      var texts = [], fills = [];
+      var oT = ctx.fillText;
+      ctx.fillText = function (t) { texts.push(String(t)); fills.push(this.fillStyle); return oT.apply(this, arguments); };
+      var oI = ctx.drawImage;
+      var imgs = 0;
+      ctx.drawImage = function () { imgs += 1; return oI.apply(this, arguments); };
+      try { GM.world.draw(); } finally { ctx.fillText = oT; ctx.drawImage = oI; }
+      out.drawn = imgs;
+      out.labels = texts;
+      out.nameHit = bots.filter(function (b) { return texts.indexOf(b.name) >= 0; }).length;
+      var idx = texts.indexOf(bots[0].name);
+      out.nameColor = idx >= 0 ? String(fills[idx]).toLowerCase() : null;
+      var mineIdx = texts.indexOf('그대');
+      out.myColor = mineIdx >= 0 ? String(fills[mineIdx]).toLowerCase() : null;
+      return JSON.stringify(out);
+    })()`).then(JSON.parse);
+  must(crew.bots === crew.seats - 1, '★ §15-C-1 혼자 시작해도 동료가 정원을 채운다',
+    `동료 ${crew.bots}인 / 정원 ${crew.seats}`);
+  must(crew.nameHit === crew.bots, '★ §15-C 동료의 이름표가 캔버스에 찍힌다',
+    `${crew.nameHit}/${crew.bots} · ${(crew.names || []).join(', ')}`);
+  must(crew.nameColor && crew.myColor && crew.nameColor !== crew.myColor,
+    '★ §15-C 동료의 이름표 빛깔이 사람의 것과 다르다', `${crew.nameColor} ↔ ${crew.myColor}`);
+  must((crew.colors || []).length === new Set(crew.colors || []).size,
+    '★ §15-C 동료끼리도 빛깔이 겹치지 않는다', (crew.colors || []).join(' '));
+  pass('동료 렌더', `${crew.bots}인 · 이름표 ${crew.nameHit}개 · 하는 일 ${(crew.states || []).join('/')}`);
+
+  const auto = await ev(`(function(){
+      var out = {};
+      var b = document.querySelector('#badge-auto');
+      out.hiddenAtFirst = b.hidden;
+      GM.settings.open();
+      var t = document.querySelector('#set-autoplay');
+      out.hasToggle = !!t;
+      if (!t) return JSON.stringify(out);
+      t.checked = true;
+      t.dispatchEvent(new Event('change', { bubbles: true }));
+      GM.ui.closeTopModal();
+      GM.autoplay.paint();
+      var r = b.getBoundingClientRect();
+      out.on = { hidden: b.hidden, text: b.textContent, w: r.width, h: r.height,
+                 paused: b.classList.contains('is-paused') };
+      GM.autoplay.touched();
+      GM.autoplay.paint();
+      out.touched = { text: b.textContent, paused: b.classList.contains('is-paused') };
+      GM.autoplay.set(false);
+      GM.autoplay.paint();
+      out.off = { hidden: b.hidden };
+      return JSON.stringify(out);
+    })()`).then(JSON.parse);
+  must(auto.hiddenAtFirst === true, '★ §15-C-4 자동을 켜기 전에는 배지가 없다');
+  must(auto.hasToggle, '★ §15-C-4 설정 패널에 자동 토글이 있다');
+  must(auto.on && auto.on.hidden === false && auto.on.text === '자동' && auto.on.w > 20 && auto.on.h > 10,
+    '★ §15-C-4 켜면 「자동」 배지가 실제로 자리를 차지한다', JSON.stringify(auto.on));
+  must(auto.touched && auto.touched.paused === true && /초 뒤/.test(auto.touched.text),
+    '★ §15-C-4 손이 닿으면 배지가 「몇 초 뒤」로 바뀐다', JSON.stringify(auto.touched));
+  must(auto.off && auto.off.hidden === true, '★ §15-C-4 끄면 배지가 사라진다');
+  pass('자동 배지', `켬 「${auto.on.text}」 ${auto.on.w.toFixed(0)}×${auto.on.h.toFixed(0)}px · 물러남 「${auto.touched.text}」`);
+
   // ── 11. 프레임 시간 (GDD3 §8 — 60fps 목표) ──
   //   ★ 프레임 '간격'은 60fps 로 맞물려 돌면 늘 16.7ms 다 — 그 값이 16ms 아래로 내려갈 일이 없다.
   //     그래서 두 가지를 나눠 본다: ① 간격이 흔들리지 않는가(끊김) ② 한 프레임을 그리는 데

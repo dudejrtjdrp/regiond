@@ -1586,3 +1586,168 @@ test('클라이언트 하니스 — §14 플레이테스트 3차 (즉시 수치�
     await new Promise((res) => http.close(res));
   }
 });
+
+// ────────────────────────────────────────────────────────────────
+// ★ GDD3 §15-C — 동료 봇(= 각료)과 자동 플레이
+//
+// 검증 문장: 「혼자 시작해도 넷이 함께 산다. 켜 두면 열 시간을 방치해도 그 사람이 살아 있다.」
+// 그래서 여기서는 **화면이 실제로 그들을 받고 그리는지**를 잰다(서버 계약은 test/playtest15c.test.js).
+// ────────────────────────────────────────────────────────────────
+test('클라이언트 하니스 — §15-C 동료 넷과 자동 플레이(10분 방치 생존)', async (t) => {
+  const errors = [];
+  const { loadGameData } = await import('../server/engine/data.js');
+  const { stepCompanions } = await import('../server/engine/companions.js');
+  const data = loadGameData();
+  await new Promise((res) => http.listen(0, '127.0.0.1', res));
+  const port = http.address().port;
+  const base = `http://127.0.0.1:${port}`;
+  let dom = null;
+  let gameId = null;
+
+  try {
+    dom = await boot(`${base}/?seed=20260806`, errors);
+    const { window } = dom;
+    const GM = window.GM;
+    const S = GM.state;
+    const doc = window.document;
+
+    doc.querySelector('#btn-new').click();
+    await until(() => doc.querySelector('#scene-found').hidden === false, { what: '개척 화면' });
+    const name = doc.querySelector('#found-name');
+    name.value = '나래';
+    name.dispatchEvent(new window.Event('input', { bubbles: true }));
+    doc.querySelector('#found-start').click();
+    await until(() => !!S.S.map, { ms: 15000, what: '월드 스냅샷' });
+    await until(() => !!(S.S.view && S.S.view.nation), { what: '정착지 상태' });
+    gameId = S.S.gameId;
+    const rt = games.get(gameId);
+    rt.stop();                                   // 일 틱은 손으로 돌린다
+    const nation = () => rt.world.nations.player;
+    if (GM.opening.busy()) doc.querySelector('#opening-skip').click();
+    await until(() => !GM.opening.busy(), { what: '오프닝 종료' });
+
+    /** 서버의 1초 루프를 손으로 돌린다(하니스에는 타이머가 없다 — §14 검사와 같은 방식) */
+    function crewSeconds(seconds) {
+      const out = { actions: 0, moved: 0 };
+      for (let i = 0; i < seconds; i += 1) {
+        const r = stepCompanions(rt.world, nation(), data, 1);
+        out.actions += r.actions.length;
+        out.moved += r.moved;
+      }
+      return out;
+    }
+
+    await t.test('★ §15-C-1 혼자 시작해도 동료 넷이 함께 선다', async () => {
+      await sendNow(window, 'chat', { text: '함께 갑시다' });      // 아무 명령이나 — 상태를 새로 받는다
+      await until(() => (S.companions() || []).length >= 4, { ms: 8000, what: '동료 넷' });
+      const crew = S.companions();
+      assert.equal(crew.length, data.companions.seats - 1, `정원 ${data.companions.seats} 중 넷이 동료다`);
+      assert.equal(new Set(crew.map((c) => c.name)).size, crew.length, '이름이 저마다 다르다');
+      assert.equal(new Set(crew.map((c) => c.color)).size, crew.length, '이름표 빛깔이 저마다 다르다');
+
+      // 아바타 채널에 그대로 실린다 — 화면이 그리는 자리가 여기다
+      const bots = (S.S.view.nation.avatars || []).filter((a) => a.bot);
+      assert.equal(bots.length, crew.length, '아바타 채널로 넷이 온다');
+      for (const b of bots) {
+        assert.ok(b.appearance && Number.isInteger(b.appearance.skin), '외형이 규격대로 온다');
+        assert.ok(b.color, '이름표 빛깔이 온다');
+      }
+      assert.equal(S.seats(), data.companions.seats, '정원이 몇인지 화면도 안다');
+    });
+
+    await t.test('★ §15-C-2 동료가 실제로 일한다 — 자리를 옮기고 곳간이 는다', async () => {
+      const before = Object.values(nation().resources).reduce((a, b) => a + b, 0);
+      const start = S.companions().map((c) => {
+        const a = (S.S.view.nation.avatars || []).find((x) => x.id === c.id);
+        return { id: c.id, x: a.x, y: a.y };
+      });
+      const r = crewSeconds(600);                    // 한 게임일치
+      assert.ok(r.actions > 0, `하루 동안 ${r.actions}번 휘둘렀다`);
+      const after = Object.values(nation().resources).reduce((a, b) => a + b, 0);
+      assert.ok(after > before, `곳간이 늘었다 (${before.toFixed(1)} → ${after.toFixed(1)})`);
+
+      await sendNow(window, 'chat', { text: '수고했습니다' });
+      await until(() => {
+        const av = S.S.view.nation.avatars || [];
+        return start.some((s) => {
+          const now = av.find((x) => x.id === s.id);
+          return now && Math.hypot(now.x - s.x, now.y - s.y) > 1;
+        });
+      }, { ms: 8000, what: '동료가 옮겨 간 자리' });
+
+      // 화면의 이름표 색이 사람과 동료를 가른다
+      const mine = (S.S.view.nation.avatars || []).find((a) => !a.bot);
+      const bot = (S.S.view.nation.avatars || []).find((a) => a.bot);
+      assert.ok(bot.color !== (mine && mine.color), '동료의 빛깔은 사람의 것과 다르다');
+      assert.ok(bot.state, `지금 하는 일이 온다 (${bot.state})`);
+    });
+
+    await t.test('★ §15-C-4 자동 — 설정에서 켜면 배지가 뜨고, 손이 닿으면 물러난다', async () => {
+      GM.settings.open();
+      const toggle = doc.querySelector('#set-autoplay');
+      assert.ok(toggle, '설정에 자동 토글이 있다');
+      assert.equal(toggle.checked, false, '처음에는 꺼져 있다');
+      assert.equal(doc.querySelector('#badge-auto').hidden, true, '꺼져 있으면 배지도 없다');
+
+      toggle.checked = true;
+      toggle.dispatchEvent(new window.Event('change', { bubbles: true }));
+      window.GM.ui.closeTopModal();
+      await until(() => doc.querySelector('#badge-auto').hidden === false, { ms: 6000, what: '자동 배지' });
+      assert.equal(doc.querySelector('#badge-auto').textContent, '자동');
+      await until(() => nation().players[S.S.avatarId] && nation().players[S.S.avatarId].autoPlay === true,
+        { ms: 6000, what: '서버가 자동을 켰다' });
+
+      // 손이 닿으면 — 끄지 않고 잠시 물러난다
+      GM.autoplay.touched();
+      assert.equal(S.autoPlay().on, true, '켠 채로다');
+      assert.equal(S.autoPlay().active, false, '지금은 손을 뗐다');
+      GM.autoplay.paint();
+      assert.equal(doc.querySelector('#badge-auto').classList.contains('is-paused'), true, '배지가 물러난 얼굴이 된다');
+      await until(() => (nation().players[S.S.avatarId].autoPlaySuspendUntil || 0) > Date.now(),
+        { ms: 6000, what: '서버도 물러났다' });
+    });
+
+    await t.test('★ §15-C-4 10분 방치 — 자동으로 스스로 살아 움직인다', async () => {
+      // 물러남을 걷고(직접 손을 뗀 뒤 30초가 지난 셈) 열 시간을 굴린다
+      const me = () => nation().players[S.S.avatarId];
+      me().autoPlaySuspendUntil = 0;
+      const av = () => nation().avatars[S.S.avatarId];
+      const from = { x: av().x, y: av().y };
+      const hp0 = me().hp;
+      let downs = 0;
+      let acts = 0;
+      let now = Date.now();
+      for (let s = 0; s < 600; s += 1) {
+        now += 1000;
+        const r = stepCompanions(rt.world, nation(), data, 1, { now });
+        acts += r.actions.filter((a) => a.avatarId === S.S.avatarId).length;
+        if ((me().downUntil || 0) > 0) downs += 1;
+      }
+      assert.ok(Math.hypot(av().x - from.x, av().y - from.y) > 1, '스스로 걸어 다녔다');
+      assert.ok(acts > 0, `열 시간 동안 ${acts}번 스스로 일했다`);
+      assert.ok(me().hp > 0 || downs > 0, '살아 있다(쓰러져도 모닥불에서 일어난다)');
+      assert.equal(me().autoPlay, true, '열 시간 뒤에도 자동은 켜져 있다');
+
+      /* 화면도 그 자리를 따라간다 — avatar.js 의 자동 추종.
+         ★ 앞 칸에서 손을 댔으므로 화면 쪽 물러남도 걷어 준다(서버 쪽은 위에서 걷었다).
+            여기서 재는 것은 「물러남이 도는가」가 아니라 「추종이 따라잡는가」다. */
+      S.setAutoPlayLocal(true);
+      await sendNow(window, 'chat', { text: '잘 다녀왔습니다' });
+      assert.equal(S.autoPlay().active, true, '자동이 다시 돈다');
+      const srv = av();
+      for (let i = 0; i < 900; i += 1) GM.avatar.step(1 / 60);
+      const shown = GM.avatar.pos();
+      assert.ok(Math.hypot(shown.x - srv.x, shown.y - srv.y) < 1.0,
+        `화면이 서버 자리를 따라잡았다 (${shown.x.toFixed(1)},${shown.y.toFixed(1)} ↔ ${srv.x},${srv.y})`);
+    });
+
+    await t.test('콘솔이 조용하다', () => {
+      const noisy = errors.filter((e) => !/AudioContext|Not implemented|Could not parse CSS/i.test(e));
+      assert.deepEqual(noisy, [], noisy.join(' / '));
+    });
+  } finally {
+    if (dom) dom.window.close();
+    if (gameId) games.delete(gameId);
+    await new Promise((res) => http.close(res));
+  }
+});
