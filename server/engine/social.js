@@ -85,8 +85,8 @@ export function memberAppearance(nation, key, data) {
   return normalizeAppearance(raw, data).appearance;
 }
 
-/** 명부 upsert — role/online/appearance 중 준 것만 갱신한다 */
-export function upsertMember(nation, { avatarId, name, role, online, appearance } = {}, data = null) {
+/** 명부 upsert — role/online/appearance/bot 중 준 것만 갱신한다 */
+export function upsertMember(nation, { avatarId, name, role, online, appearance, bot } = {}, data = null) {
   if (!nation) return null;
   const list = (nation.members ||= []);
   for (let i = 0; i < list.length; i += 1) {
@@ -102,6 +102,8 @@ export function upsertMember(nation, { avatarId, name, role, online, appearance 
     if (role !== undefined) e.role = role ?? e.role ?? null;
     if (online !== undefined) e.online = Boolean(online);
     if (look !== undefined) e.appearance = look;
+    // ★ GDD3 §15-C — 이 자리의 주인이 사람인가 동료인가. 명부·이름표가 이 값으로 색을 가른다.
+    if (bot !== undefined) e.bot = Boolean(bot);
     return e;
   }
   const entry = {
@@ -109,6 +111,7 @@ export function upsertMember(nation, { avatarId, name, role, online, appearance 
     name: name ?? key ?? '플레이어',
     role: role ?? null,
     online: Boolean(online),
+    bot: Boolean(bot),
     appearance: look ?? (data ? defaultAppearance(data) : null),
   };
   list.push(entry);
@@ -120,7 +123,7 @@ export function normalizeMembers(nation, data = null) {
   return (nation?.members || []).map((m) => {
     if (typeof m === 'string') {
       return {
-        avatarId: m, name: m, role: null, online: Boolean(nation.online),
+        avatarId: m, name: m, role: null, online: Boolean(nation.online), bot: false,
         appearance: data ? defaultAppearance(data) : null,
       };
     }
@@ -129,6 +132,7 @@ export function normalizeMembers(nation, data = null) {
       name: m.name ?? '플레이어',
       role: m.role ?? null,
       online: Boolean(m.online),
+      bot: Boolean(m.bot),
       appearance: data ? normalizeAppearance(m.appearance, data).appearance : (m.appearance ?? null),
     };
   });

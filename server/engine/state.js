@@ -70,6 +70,10 @@ export function createNation(id, name, opts, data, rng) {
     arrivalProgress: 0,
     avatars: {},
     players: {},                                // 아바타별 스킬·체력 (GDD3 §3)
+    /* ★ GDD3 §15-C — 동료 봇(= 각료). 사람이 못 채운 자리를 채우는 개척자들.
+       list 는 자리 번호·이름·외형·맡은 자리를 들고, clock 은 그들만의 단조 시계(쿨타임 판정),
+       liveSeconds 는 「이번 하루 중 지켜본 초」다(일 틱이 안 본 만큼만 몰아 돌린다). */
+    companions: { list: [], clock: 0, liveSeconds: 0, rngState: null },
     fog: null,
     // ── 매크로 계층 (검증된 엔진 그대로) ─────────────────────────
     population: opts.startingPopulation ?? (isPlayer ? b.population.startingPopulation : 50),
@@ -263,6 +267,9 @@ export function migrateWorld(world, data) {
        옛 세이브의 주민에게는 능력치가 없다 — 아이디로 씨앗을 지어 사람마다 다른 값을 채운다
        (전부 5.5 로 채우면 옛 마을만 개성 없는 판박이가 된다). */
     nation.research ||= { done: {}, active: null };
+    /* ★ GDD3 §15-C — 동료는 **없으면 없는 대로** 굴러가는 자리라 세이브를 버리지 않는다.
+       빈 명단으로 열어 두면 다음 걸음의 syncCompanionSeats 가 정원을 맞춰 새로 앉힌다. */
+    nation.companions ||= { list: [], clock: 0, liveSeconds: 0, rngState: null };
     nation.rails ||= [];
     nation.nextRailId ||= 1;
     nation.recruit ||= { readyTick: 0, count: 0 };

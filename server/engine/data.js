@@ -47,6 +47,8 @@ export function loadGameData({ reload = false } = {}) {
     // ★ GDD3 §13-D — RPG 계층: 장비·인첸트의 규격과 기술 트리
     equipment: readJson('equipment.json'),
     research: readJson('research.json'),
+    // ★ GDD3 §15-C — 동료 봇(= 각료). 정원·이름·활동량 다이얼·자리별 선호 행동
+    companions: readJson('companions.json'),
   };
   data.artifactsByKey = Object.fromEntries(data.artifacts.list.map((a) => [a.key, a]));
   cache = data;
@@ -269,6 +271,14 @@ export function publicConfig() {
     equipment: publicEquipment(d),
     // ★ GDD3 §13-D-5 — 기술 트리 규격(선행·값·날수·해금). 어디까지 했는지는 state.research 로만 간다.
     research: publicResearch(d),
+    /* ★ GDD3 §15-C — 동료 봇 공개본. 정원과 자동 플레이의 규칙만 간다.
+       누가 어느 자리를 맡았는지·어디 서 있는지는 state·avatars 로만 온다. */
+    companions: {
+      enabled: d.companions.enabled !== false,
+      seats: d.companions.seats ?? 5,
+      nameplateColors: [...(d.companions.nameplateColors || [])],
+      autoPlay: { suspendSeconds: d.companions.autoPlay?.suspendSeconds ?? 30 },
+    },
     world: publicWorld(d),
     time: {
       dayRealSeconds: d.balance.time.dayRealSeconds,

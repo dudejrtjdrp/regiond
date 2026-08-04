@@ -1,0 +1,742 @@
+// 동료 봇 = 각료 — docs/GDD3.md §15-C.
+//
+// 국가 정원은 5인이다. 사람이 못 채운 자리를 **동료**가 채운다.
+// 동료는 주민이 아니다. 주민은 매크로 노동력(부처 산출)이고, 동료는 **플레이어와 같은 아바타 실체**다:
+// 제 외형·이름·스킬 장부(nation.players)를 갖고, 사람과 **같은 명령 함수**(actionSwing·huntSwing·combatSwing)를
+// 그대로 탄다. 그래서 수치가 갈릴 자리가 없다 — 쿨타임도, 도구 배수도, 저장 상한도 한 곳에서만 판정된다.
+//
+// ★ 왜 commands.applyCommand 를 부르지 않는가
+//   ① 순환 참조(commands → companions → commands)를 만들지 않기 위해서다.
+//   ② 장 사슬(evaluateProgress)은 **사람의 손**이 여는 것이다. 동료가 대신 두드려 장을 넘기면
+//      "무엇을 해 보세요"라는 안내가 스스로 사라진다. 동료가 곳간에 넣은 몫은 자원 조건에 그대로
+//      반영되지만(창고는 나라 공용이다), 「나무를 세 번 베어 보세요」 같은 스윙 조건은
+//      사람만 센다(progression.totalSwings 가 p.bot 을 건너뛴다).
+//
+// ★ 두 박자 (터렛의 §0-S-4 와 같은 규율 — 한 사람의 노동을 두 번 세지 않는다)
+//   · 지켜보는 동안 — server/index.js 의 생태계 1초 루프가 stepCompanions 를 부른다. 실제로 걷고 휘두른다.
+//   · 아무도 없을 때 — tick.js 의 일 틱이 stepCompanionsDay 로 **안 본 만큼만** 몰아 돌린다
+//     (liveSeconds 를 세어 두고 하루에서 뺀다). 그래서 방치가 이득도 손해도 되지 않는다.
+import { townOf, territoryRadius, dist, terrainAt, terrainIndex } from './world.js';
+import { rngFromState } from './rng.js';
+import { normalizeAppearance, appearanceCfg, upsertMember } from './social.js';
+import {
+  ensurePlayer, playerMaxHp, combatSkillCfg, swingCfg, skillsCfg,
+} from './skills.js';
+import { creatureDefs, huntSwing } from './ecology.js';
+import { actionSwing } from './actions.js';
+import { combatSwing } from './battle.js';
+import { centerOf, footprint, structuresOf, isRuined } from './structures.js';
+import { isHarvestReady } from './villagers.js';
+import { isFull } from './storage.js';
+import { grainDays } from './residents.js';
+import { defaultName } from './npc.js';
+import { revealAvatar } from './fog.js';
+import { round2 } from './economy.js';
+
+export const companionCfg = (data) => data.companions ?? {};
+const laborCfg = (data) => companionCfg(data).labor ?? {};
+const brainCfg = (data) => companionCfg(data).brain ?? {};
+const roleCfgOf = (data, key) => (companionCfg(data).roles ?? {})[key] ?? {};
+export const autoPlayCfg = (data) => companionCfg(data).autoPlay ?? {};
+
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// ────────────────────────────────────────────────────────────────
+// 상태
+// ────────────────────────────────────────────────────────────────
+/**
+ * 이 자료판에서 동료 계층을 끈다 — **한 계층만 재는 회귀 시험**의 격리 장치다.
+ * 「주민의 하루 산출 = 국고 증가분」 같은 등식은 곳간에 손을 대는 사람이 주민뿐일 때만 성립한다.
+ * 동료는 창고를 나라 사람들과 함께 쓰므로, 그 등식을 재는 시험은 이 문으로 동료를 잠시 내보낸다.
+ * (게임 자체의 기본값은 켬이다 — 시뮬레이터도 켠 채로 돈다.)
+ */
+export function disableCompanions(data) {
+  data.companions = { ...(data.companions || {}), enabled: false };
+  return data;
+}
+
+export function ensureCompanions(nation) {
+  const st = (nation.companions ||= {});
+  st.list ||= [];
+  st.clock ??= 0;          // 동료 전용 단조 시계(ms) — 쿨타임 판정의 기준
+  st.liveSeconds ??= 0;    // 이번 하루 중 '지켜본' 초. 일 틱이 이만큼을 하루에서 뺀다.
+  st.rngState ??= null;
+  return st;
+}
+
+/** 동료 전용 난수 — 세계 난수도 생태계 난수도 축내지 않는다(§13-C 와 같은 규율) */
+function companionRng(world, nation) {
+  const st = ensureCompanions(nation);
+  const seed = ((world.seed >>> 0) ^ 0x2f6b1d47) >>> 0;
+  const r = rngFromState(seed, st.rngState ?? undefined);
+  return { r, save: () => { st.rngState = r.getState(); } };
+}
+
+export function companionById(nation, id) {
+  return (nation?.companions?.list || []).find((c) => c.id === id) ?? null;
+}
+
+export function isCompanionId(nation, id) {
+  return Boolean(companionById(nation, id));
+}
+
+/** 지금 이 나라에 붙어 있는 **사람**의 아바타 수 (동료는 세지 않는다) */
+export function humanAvatarCount(nation) {
+  let n = 0;
+  for (const id of Object.keys(nation?.avatars || {})) if (!isCompanionId(nation, id)) n += 1;
+  return n;
+}
+
+// ────────────────────────────────────────────────────────────────
+// 자리 (정원 5인) — 사람이 들어오면 하나가 비켜 주고, 나가면 돌아온다
+// ────────────────────────────────────────────────────────────────
+function makeAppearance(data, r) {
+  const cfg = appearanceCfg(data);
+  const pick = {};
+  for (const [field, spec] of Object.entries(cfg.fields)) pick[field] = r.int(0, Math.max(0, spec.count - 1));
+  return normalizeAppearance(pick, data).appearance;
+}
+
+function spawnCompanion(world, nation, data, seat) {
+  const cfg = companionCfg(data);
+  const st = ensureCompanions(nation);
+  const { r, save } = companionRng(world, nation);
+  const used = new Set(st.list.map((c) => c.name));
+  const pool = (cfg.names || []).filter((n) => !used.has(n));
+  const name = pool.length ? r.pick(pool) : `개척자 ${seat}`;
+  const appearance = makeAppearance(data, r);
+  save();
+  const colors = cfg.nameplateColors || ['#8fe3b4'];
+  const comp = {
+    id: `${cfg.idPrefix ?? 'bot~'}${seat}`,
+    seat,
+    name,
+    appearance,
+    color: colors[(seat - 1) % colors.length],
+    role: null,
+    active: true,
+    mem: { state: 'idle', think: 0, credit: 0, target: null },
+  };
+  st.list.push(comp);
+  return comp;
+}
+
+/** 동료를 자리에 앉힌다 — 아바타·스킬 장부·명부를 함께 연다 */
+function activate(world, nation, data, comp) {
+  comp.active = true;
+  const town = townOf(world, nation.id);
+  const avatars = (nation.avatars ||= {});
+  if (!avatars[comp.id]) {
+    // 본부 둘레에 조금씩 흩어 세운다 — 같은 칸에 겹쳐 서면 넷이 한 사람으로 보인다
+    const a = (comp.seat * 1.7) % (Math.PI * 2);
+    avatars[comp.id] = {
+      id: comp.id, name: comp.name,
+      x: clamp(Math.round((town?.x ?? 0) + Math.cos(a) * 3), 1, (world.map?.size ?? 256) - 2),
+      y: clamp(Math.round((town?.y ?? 0) + Math.sin(a) * 3), 1, (world.map?.size ?? 256) - 2),
+      tick: world.tick, appearance: comp.appearance,
+    };
+  }
+  const p = ensurePlayer(nation, comp.id, data, comp.name);
+  p.bot = true;
+  p.seat = comp.seat;
+  upsertMember(nation, { avatarId: comp.id, name: comp.name, appearance: comp.appearance, online: true, bot: true }, data);
+  return comp;
+}
+
+/** 자리를 비켜 준다 — 사람이 들어왔을 때. 스킬 장부와 이름은 남는다(돌아오면 그 사람 그대로다) */
+function deactivate(nation, comp) {
+  comp.active = false;
+  comp.mem = { state: 'idle', think: 0, credit: 0, target: null };
+  delete nation.avatars?.[comp.id];
+  const p = nation.players?.[comp.id];
+  if (p) p.downUntil = 0;
+  upsertMember(nation, { avatarId: comp.id, online: false, bot: true });
+  return comp;
+}
+
+/**
+ * 정원 맞추기 (§15-C 멀티 심리스).
+ * 자리 = seats. 사람 자리는 **최소 하나**를 늘 비워 둔다(아무도 안 붙어 있어도 그 자리는 주인의 것이다).
+ * 비켜 줄 사람을 고르는 차례: 아직 자리를 안 맡은 동료 → 늦게 온 동료(자리 번호가 큰 쪽).
+ */
+export function syncCompanionSeats(world, nation, data) {
+  const cfg = companionCfg(data);
+  const st = ensureCompanions(nation);
+  if (cfg.enabled === false) {
+    for (const c of st.list) if (c.active) deactivate(nation, c);
+    return { active: 0, want: 0 };
+  }
+  const seats = cfg.seats ?? 5;
+  const humans = Math.max(1, humanAvatarCount(nation));
+  const want = clamp(seats - humans, 0, seats);
+  const active = () => st.list.filter((c) => c.active);
+
+  while (active().length > want) {
+    const list = active().sort((a, b) => (a.role ? 1 : 0) - (b.role ? 1 : 0) || b.seat - a.seat);
+    deactivate(nation, list[0]);
+  }
+  while (active().length < want) {
+    const idle = st.list.find((c) => !c.active);
+    if (idle) activate(world, nation, data, idle);
+    else {
+      const seat = st.list.length + 1;
+      if (seat > seats) break;
+      activate(world, nation, data, spawnCompanion(world, nation, data, seat));
+    }
+  }
+  // 자리에 앉은 동료의 아바타·장부가 세이브 이관 등으로 비었으면 다시 채운다
+  for (const c of active()) activate(world, nation, data, c);
+  return { active: active().length, want };
+}
+
+// ────────────────────────────────────────────────────────────────
+// 각료 통합 (§15-C) — 「위임한 신하」와 「동료 봇」은 **같은 인물**이다
+//
+// 옛 구조: roles[key].holder === 'npc' 이면 이름표만 있는 유령이 그 자리를 지켰다(npc.js NPC_NAMES).
+// 이제 그 유령을 지운다 — 자리를 맡은 사람은 실제로 들에 서서 일하는 동료다.
+// 자리보다 동료가 적으면(솔로는 넷) 남는 자리는 옛 이름표를 그대로 쓴다: 나라는 멎지 않는다.
+// ────────────────────────────────────────────────────────────────
+export function bindCompanionRoles(nation, data) {
+  const st = ensureCompanions(nation);
+  const order = data.roles.order;
+  const roles = nation.roles || {};
+  const actives = st.list.filter((c) => c.active).sort((a, b) => a.seat - b.seat);
+
+  // ① 사라진 연결을 끊는다 — 사람이 가져간 자리, 비운 자리, 물러난 동료
+  for (const key of order) {
+    const role = roles[key];
+    if (!role) continue;
+    const bound = role.botId ? companionById(nation, role.botId) : null;
+    if (role.holder !== 'npc' || !bound || !bound.active) {
+      if (role.botId) {
+        const old = companionById(nation, role.botId);
+        if (old && old.role === key) old.role = null;
+        role.botId = null;
+        if (role.holder === 'npc') role.name = role.name ?? defaultName(key, order.indexOf(key));
+      }
+    }
+  }
+  for (const c of actives) {
+    if (c.role && (roles[c.role]?.botId !== c.id || roles[c.role]?.holder !== 'npc')) c.role = null;
+  }
+
+  // ② 빈 자리에 아직 자리 없는 동료를 앉힌다 (역할 차례대로 — 농정관부터)
+  const free = actives.filter((c) => !c.role);
+  for (const key of order) {
+    const role = roles[key];
+    if (!role || role.holder !== 'npc') continue;
+    if (!role.botId && free.length) {
+      const comp = free.shift();
+      comp.role = key;
+      role.botId = comp.id;
+      role.name = comp.name;
+    }
+    /* 동료보다 자리가 많으면(솔로는 자리 여섯에 동료 넷) 남는 자리는 옛 이름표가 지킨다.
+       그 자리가 이름 없이 비면 각료 화면에 「이름 없는 신하」가 생긴다 — 나라는 멎지 않아야 한다. */
+    if (!role.name) role.name = defaultName(key, order.indexOf(key));
+  }
+  return roles;
+}
+
+/** 뷰·명부용 요약 */
+export function companionViews(nation, data) {
+  const st = nation?.companions;
+  if (!st?.list?.length) return [];
+  return st.list.filter((c) => c.active).map((c) => ({
+    id: c.id, seat: c.seat, name: c.name, color: c.color,
+    role: c.role ?? null,
+    roleName: c.role ? (data.roles.defs[c.role]?.name ?? c.role) : null,
+    state: c.mem?.state ?? 'idle',
+    hp: round2(nation.players?.[c.id]?.hp ?? 0),
+    maxHp: nation.players?.[c.id]?.maxHp ?? 0,
+    down: (nation.players?.[c.id]?.downUntil ?? 0) > 0,
+  }));
+}
+
+// ────────────────────────────────────────────────────────────────
+// 자동 플레이 (§15-C) — 내 아바타를 같은 두뇌가 몬다
+// ────────────────────────────────────────────────────────────────
+/** 켜기·끄기 / 수동 입력이 잡혔을 때의 일시 해제 */
+export function setAutoPlay(nation, avatarId, data, { enabled, suspend, now = Date.now() } = {}) {
+  const p = ensurePlayer(nation, avatarId, data);
+  if (suspend) {
+    const sec = autoPlayCfg(data).suspendSeconds ?? 30;
+    p.autoPlaySuspendUntil = now + sec * 1000;
+  } else if (enabled != null) {
+    p.autoPlay = Boolean(enabled);
+    p.autoPlaySuspendUntil = 0;
+  }
+  return {
+    autoPlay: Boolean(p.autoPlay),
+    suspendedUntil: p.autoPlaySuspendUntil || 0,
+    suspendSeconds: autoPlayCfg(data).suspendSeconds ?? 30,
+    active: autoPlayActive(p, now),
+  };
+}
+
+export function autoPlayActive(player, now = Date.now()) {
+  if (!player?.autoPlay) return false;
+  return (player.autoPlaySuspendUntil || 0) <= now;
+}
+
+export function autoPlayView(nation, avatarId, data, now = Date.now()) {
+  const p = nation?.players?.[avatarId];
+  if (!p) return null;
+  return {
+    on: Boolean(p.autoPlay),
+    active: autoPlayActive(p, now),
+    suspendedFor: Math.max(0, Math.round(((p.autoPlaySuspendUntil || 0) - now) / 1000)),
+    suspendSeconds: autoPlayCfg(data).suspendSeconds ?? 30,
+  };
+}
+
+// ────────────────────────────────────────────────────────────────
+// 두뇌 — 목표 고르기
+// ────────────────────────────────────────────────────────────────
+const NODE_KINDS = {
+  wood: ['forest'],
+  stone: ['rock'],
+  grain: ['berry', 'fertile', 'field', 'water'],
+};
+
+function walkable(world, data, x, y) {
+  const list = data.world.terrain.walkable || ['grass', 'forest', 'rock', 'fertile'];
+  const idx = terrainIndex(data);
+  const t = terrainAt(world.map, Math.round(x), Math.round(y));
+  return list.some((c) => idx[c] === t);
+}
+
+/** 이 자리의 사람이 즐겨 머무는 건물 — 공장장은 대장간 곁에서 일한다(§15-C) */
+function roleAnchor(nation, data, roleKey) {
+  if (!roleKey) return null;
+  for (const key of roleCfgOf(data, roleKey).anchor || []) {
+    const s = structuresOf(nation, key).find((x) => !isRuined(x));
+    if (s) return centerOf(s.key, s.x, s.y, data);
+  }
+  return null;
+}
+
+function needKinds(nation, data, roleKey) {
+  const out = [];
+  const B = brainCfg(data);
+  if (grainDays(nation, data) < (B.grainDaysUrgent ?? 6)) out.push('grain');
+  for (const k of roleCfgOf(data, roleKey).prefer || []) out.push(k);
+  const res = nation.resources || {};
+  const stocks = ['wood', 'stone', 'grain'].sort((a, b) => (res[a] || 0) - (res[b] || 0));
+  out.push(...stocks);
+  return [...new Set(out)];
+}
+
+/**
+ * 이 노드를 지금 두드릴 수 있는가 — 드러났는가 · 남았는가 · 여물었는가 · 곳간에 자리가 있는가.
+ * @param {Set<string>|null} fullSet 이미 가득 찬 자원들. 후보를 훑을 때 한 번만 재고 돌려 쓴다
+ *   (isFull 은 건물 효과를 훑어 상한을 내므로 노드마다 부르면 하루가 수천 번이 된다).
+ */
+function nodeUsable(world, nation, data, node, fullSet = null) {
+  if (!node || node.hidden || node.depleted) return false;
+  if (node.concealed && !node.revealed) return false;
+  const spec = skillsCfg(data).nodes[node.type];
+  if (!spec) return false;
+  // ★ 밭 계열은 여물어야 거둔다 — 사람과 같은 판정을 그대로 쓴다(actions.swingNode)
+  if (spec.requiresRipe && !isHarvestReady(node, data, world.tick)) return false;
+  const wanted = [...new Set([...Object.keys(spec.yield || {}), ...Object.keys(spec.cycleBonus || {})])];
+  const full = fullSet ?? new Set(data.resources.order.filter((r) => isFull(nation, r, data)));
+  if (wanted.length && wanted.every((r) => full.has(r))) return false;
+  return true;
+}
+
+/**
+ * 캘 자리 고르기.
+ * ★ 자리 번호(seat)만큼 **다른 후보**를 집는다 — 안 그러면 넷이 같은 나무 하나에 붙어 선다.
+ * ★ 안개는 건드리지 않는다: 동료는 이미 드러난 자리만 캔다(정찰은 사람의 몫이다).
+ */
+function pickNode(world, nation, data, actor, av, roleKey) {
+  const B = brainCfg(data);
+  const town = townOf(world, nation.id);
+  if (!town) return null;
+  const reach = territoryRadius(nation, data) + (B.workRadiusBonus ?? 26);
+  const anchor = roleAnchor(nation, data, roleKey) ?? { x: av.x, y: av.y };
+  const seat = actor.comp?.seat ?? 0;
+  const fullSet = new Set(data.resources.order.filter((r) => isFull(nation, r, data)));
+  for (const kind of needKinds(nation, data, roleKey)) {
+    const types = NODE_KINDS[kind] || [];
+    const cands = [];
+    for (const n of world.map?.nodes || []) {
+      if (!types.includes(n.type)) continue;
+      if (dist(n.x, n.y, town.x, town.y) > reach) continue;
+      if (!nodeUsable(world, nation, data, n, fullSet)) continue;
+      cands.push({ n, d: dist(n.x, n.y, anchor.x, anchor.y) });
+    }
+    if (!cands.length) continue;
+    cands.sort((a, b) => a.d - b.d);
+    const top = cands.slice(0, Math.max(1, B.maxNodeCandidates ?? 12));
+    return top[seat % top.length].n;
+  }
+  return null;
+}
+
+/** 동료가 손을 보태도 되는 공사인가 — **짓는 일과 개축**뿐이다 */
+function joinableSite(s) {
+  if (!s || (s.remaining ?? 0) <= 0) return false;
+  const mode = s.mode ?? (s.structureId ? 'upgrade' : 'build');
+  /* ★ 헐기·옮기기에는 손대지 않는다. 그것은 주인의 결정이고, 마음이 바뀌면 되돌릴 수 있어야 한다
+     — 동료가 함께 두드리면 「그만둔다」를 누르기도 전에 건물이 사라진다(실제로 하니스가 잡아냈다). */
+  return mode === 'build' || mode === 'upgrade';
+}
+
+function pickSite(nation, data, actor, roleKey) {
+  const sites = (nation.construction || []).filter(joinableSite);
+  if (!sites.length) return null;
+  const seat = actor.comp?.seat ?? 0;
+  // 사람의 자동 플레이와 건축가는 언제나 망치를 든다. 나머지는 절반이 붙는다 — 살림도 굴러가야 한다.
+  const always = !actor.comp || roleCfgOf(data, roleKey).siteFirst;
+  if (!always && seat % 2 === 0) return null;
+  return sites[seat % sites.length];
+}
+
+function nearestPredator(world, nation, data, av) {
+  const defs = creatureDefs(data);
+  const B = brainCfg(data);
+  let best = null;
+  let bd = B.engageRadius ?? 10;
+  for (const c of nation.wild?.creatures || []) {
+    const def = defs[c.sp];
+    if (!def || def.kind !== 'predator') continue;
+    const d = dist(c.x, c.y, av.x, av.y);
+    if (d <= bd) { bd = d; best = { c, d }; }
+  }
+  return best;
+}
+
+function nearestEnemy(battle, x, y) {
+  let best = null;
+  let bd = Infinity;
+  for (const e of battle.enemies || []) {
+    if (e.alive === false) continue;
+    const d = dist(e.x, e.y, x, y);
+    if (d < bd) { bd = d; best = e; }
+  }
+  return best;
+}
+
+function decide(world, nation, data, actor, player, av, opts = {}) {
+  const B = brainCfg(data);
+  const town = townOf(world, nation.id);
+  const roleKey = actor.comp?.role ?? null;
+  const rc = roleCfgOf(data, roleKey);
+
+  /* ★ workOnly — 일 틱(아무도 안 보는 시간)의 몫. 그 시각에는 짐승도 웨이브도 제 계층이 따로 굴린다
+     (stepEcologyDay · battle). 여기서까지 싸우게 하면 한 사람의 칼이 두 번 세어진다. 일만 한다. */
+  if (!opts.workOnly) {
+    // ① 다쳤으면 모닥불로 물러난다 — 거기서 기운이 돈다(skills.combat.restHealPerSecond)
+    const maxHp = playerMaxHp(player, data);
+    const ratio = (player.hp ?? maxHp) / Math.max(1, maxHp);
+    if (ratio < (B.fleeHpRatio ?? 0.35) && town) return { kind: 'rest', x: town.x, y: town.y };
+
+    // ② 웨이브 — 몰려온 것들과 싸운다(combatSwing 규칙 동일). 성녀는 본부를 지킨다.
+    const b = nation.battle;
+    if (b && !b.over) {
+      if (rc.timid) return town ? { kind: 'rest', x: town.x, y: town.y } : null;
+      const e = nearestEnemy(b, av.x, av.y);
+      if (e) return { kind: 'enemy', id: e.id };
+      return town ? { kind: 'rest', x: town.x, y: town.y } : null;
+    }
+
+    // ③ 들의 것 — 국방을 맡은 이는 맞서고, 그 밖은 코앞까지 왔을 때만 든다
+    const threat = nearestPredator(world, nation, data, av);
+    if (threat) {
+      const danger = B.dangerRadius ?? 8;
+      if (rc.guard || threat.d <= danger * 0.6) return { kind: 'creature', id: threat.c.id };
+      if (threat.d <= danger) return { kind: 'flee', x: threat.c.x, y: threat.c.y };
+    }
+
+    /* ③-b 짐을 지고 돌아간다 — 하루 예산을 다 쓴 참.
+       가만히 서서 힘이 차기를 기다리게 두면 「고장 난 사람」으로 보인다.
+       거둔 것을 곳간에 부리러 걸어가는 그림이 곧 쉬는 시간의 얼굴이다(§14-1 운반 연출과 같은 뜻).
+       ★ 싸움보다 **뒤에** 둔다: 예산은 노동의 다이얼이지 「칼을 놓아라」가 아니다(웨이브가 먼저다). */
+    if (opts.hauling && town) return { kind: 'haul', x: town.x, y: town.y };
+  }
+
+  // ④ 공사장
+  const site = pickSite(nation, data, actor, roleKey);
+  if (site) return { kind: 'site', id: site.id };
+
+  // ⑤ 부족한 것을 캔다
+  const node = pickNode(world, nation, data, actor, av, roleKey);
+  if (node) return { kind: 'node', id: node.id };
+
+  return town ? { kind: 'rest', x: town.x, y: town.y } : null;
+}
+
+function targetValid(world, nation, data, tgt) {
+  if (!tgt) return false;
+  switch (tgt.kind) {
+    case 'node': {
+      const n = (world.map?.nodes || []).find((x) => x.id === tgt.id);
+      return nodeUsable(world, nation, data, n);
+    }
+    case 'site': return (nation.construction || []).some((s) => s.id === tgt.id && joinableSite(s));
+    case 'creature': return (nation.wild?.creatures || []).some((c) => c.id === tgt.id);
+    case 'enemy': {
+      const b = nation.battle;
+      if (!b || b.over) return false;
+      return (b.enemies || []).some((e) => e.id === tgt.id && e.alive !== false);
+    }
+    case 'rest':
+    case 'haul':
+    case 'flee': return true;
+    default: return false;
+  }
+}
+
+function aimPoint(world, nation, data, tgt) {
+  switch (tgt.kind) {
+    case 'node': {
+      const n = (world.map?.nodes || []).find((x) => x.id === tgt.id);
+      return n ? { x: n.x, y: n.y } : null;
+    }
+    case 'site': {
+      const s = (nation.construction || []).find((x) => x.id === tgt.id);
+      return s ? centerOf(s.building, s.x, s.y, data) : null;
+    }
+    case 'creature': {
+      const c = (nation.wild?.creatures || []).find((x) => x.id === tgt.id);
+      return c ? { x: c.x, y: c.y } : null;
+    }
+    case 'enemy': {
+      const e = (nation.battle?.enemies || []).find((x) => x.id === tgt.id);
+      return e ? { x: e.x, y: e.y } : null;
+    }
+    default: return { x: tgt.x, y: tgt.y };
+  }
+}
+
+function reachOf(data, nation, tgt) {
+  const c = combatSkillCfg(data);
+  switch (tgt.kind) {
+    case 'node': return (swingCfg(data).rangeTiles ?? 3) - 0.4;
+    case 'site': {
+      const s = (nation.construction || []).find((x) => x.id === tgt.id);
+      const fp = s ? footprint(s.building, data) : { w: 1, h: 1 };
+      return (swingCfg(data).rangeTiles ?? 3) - 0.4 + Math.max(fp.w, fp.h) / 2;
+    }
+    case 'creature': return (c.huntRangeTiles ?? 2.8) - 0.5;
+    case 'enemy': return (c.rangeTiles ?? 2.5) - 0.5;
+    case 'rest': return brainCfg(data).restNearTownRadius ?? 4;
+    case 'haul': return laborCfg(data).carryHomeRadius ?? 2.5;
+    default: return 0.5;
+  }
+}
+
+// ────────────────────────────────────────────────────────────────
+// 한 사람의 한 걸음
+// ────────────────────────────────────────────────────────────────
+function stepAvatar(world, nation, data, av, tx, ty, step) {
+  const dx = tx - av.x;
+  const dy = ty - av.y;
+  const d = Math.hypot(dx, dy);
+  if (d < 0.001 || step <= 0) return false;
+  const k = Math.min(step, d);
+  const size = world.map?.size ?? data.world.size;
+  const nx = clamp(av.x + (dx / d) * k, 1, size - 2);
+  const ny = clamp(av.y + (dy / d) * k, 1, size - 2);
+  if (walkable(world, data, nx, ny)) { av.x = round2(nx); av.y = round2(ny); return true; }
+  if (walkable(world, data, nx, av.y)) { av.x = round2(nx); return true; }
+  if (walkable(world, data, av.x, ny)) { av.y = round2(ny); return true; }
+  return false;
+}
+
+/** 목표에 손이 닿았다 — 사람과 **같은 함수**를 부른다 */
+function act(world, nation, data, actor, player, tgt, now, out) {
+  const id = actor.id;
+  let res = null;
+  let type = 'actionSwing';
+  if (tgt.kind === 'node') {
+    res = actionSwing(world, nation, { nodeId: tgt.id, avatarId: id, playerName: player.name }, data, now);
+  } else if (tgt.kind === 'site') {
+    res = actionSwing(world, nation, { siteId: tgt.id, avatarId: id, playerName: player.name }, data, now);
+  } else if (tgt.kind === 'creature') {
+    type = 'combatSwing';
+    res = huntSwing(world, nation, { targetId: tgt.id, avatarId: id, playerName: player.name }, data, now);
+  } else if (tgt.kind === 'enemy') {
+    type = 'combatSwing';
+    res = combatSwing(world, nation, { targetId: tgt.id, avatarId: id, playerName: player.name }, data, now);
+  } else return false;
+  if (!res?.ok) return false;
+  const { events, ...rest } = res;
+  out.actions.push({ avatarId: id, type, ...rest });
+  if (events?.length) out.events.push(...events);
+  return true;
+}
+
+/**
+ * 한 사람(동료 또는 자동 플레이 중인 사람)의 한 걸음.
+ * @param {{id, comp, now, budgeted, human}} actor
+ */
+function driveActor(world, nation, data, actor, dt, out) {
+  const player = ensurePlayer(nation, actor.id, data, actor.comp?.name ?? null);
+  const av = nation.avatars?.[actor.id];
+  if (!av) return;
+  const mem = actor.comp ? (actor.comp.mem ||= {}) : (player.auto ||= {});
+  if ((player.downUntil || 0) > 0) { mem.state = 'down'; mem.target = null; return; }
+
+  // 하루 예산 — 동료만 매인다. 자동 플레이는 사람의 아바타라 쿨타임만이 뚜껑이다.
+  const L = laborCfg(data);
+  if (actor.budgeted) {
+    const perSec = (L.swingsPerDay ?? 0) / Math.max(1, data.balance.time.dayRealSeconds);
+    mem.credit = Math.min(L.burstMax ?? 5, (mem.credit || 0) + perSec * dt);
+    /* 힘이 다하면 짐을 지고 돌아가고, 한 짐치(haulResumeCredit)가 다시 차면 일터로 나선다.
+       ★ 예산(swingsPerDay)은 그대로다 — 이것은 **쉬는 시간의 그림**이지 노동량의 다이얼이 아니다. */
+    const resume = Math.min(L.burstMax ?? 5, L.haulResumeCredit ?? 3);
+    if (!mem.hauling && (mem.credit || 0) < 1) { mem.hauling = true; mem.target = null; }
+    else if (mem.hauling && (mem.credit || 0) >= resume) { mem.hauling = false; mem.target = null; }
+  }
+
+  mem.think = (mem.think || 0) - dt;
+  if (mem.think <= 0 || !targetValid(world, nation, data, mem.target)) {
+    mem.target = decide(world, nation, data, actor, player, av, { hauling: Boolean(mem.hauling) });
+    mem.think = brainCfg(data).decideEverySeconds ?? 3;
+  }
+  const tgt = mem.target;
+  if (!tgt) { mem.state = 'idle'; return; }
+  mem.state = tgt.kind;
+
+  /* ★ 안개 — **사람의 아바타를 몰 때만** 걸음이 땅을 밝힌다(자동 플레이는 내 발걸음이다).
+     동료의 발걸음은 안개를 걷지 않는다: 정찰은 사람의 몫이고, 넷이 흩어져 걸으면
+     지도가 저절로 다 열려 「무엇을 아직 못 봤는가」가 사라진다. */
+  const walked = (moved) => {
+    if (!moved) return;
+    out.moved += 1;
+    av.tick = world.tick;
+    if (!actor.human) return;
+    const got = revealAvatar(nation, data, world.tick, Math.round(av.x), Math.round(av.y), actor.id);
+    if (got?.length) out.revealed.push(...got);
+  };
+
+  const speed = (L.moveTilesPerSecond ?? 4) * dt;
+  if (tgt.kind === 'flee') {
+    const ax = av.x - (tgt.x - av.x);
+    const ay = av.y - (tgt.y - av.y);
+    walked(stepAvatar(world, nation, data, av, ax, ay, speed));
+    return;
+  }
+
+  const aim = aimPoint(world, nation, data, tgt);
+  if (!aim) { mem.target = null; return; }
+  const reach = reachOf(data, nation, tgt);
+  if (dist(av.x, av.y, aim.x, aim.y) > reach) {
+    walked(stepAvatar(world, nation, data, av, aim.x, aim.y, speed));
+    return;
+  }
+  if (tgt.kind === 'rest' || tgt.kind === 'haul') return;   // 다다랐으면 그 자리에서 숨을 고른다
+  /* ★ 하루 예산은 **노동**에만 매인다(캐기·짓기). 칼은 매이지 않는다 —
+     예산은 경제를 흔들지 않으려고 둔 다이얼이지 「싸우지 말라」는 규칙이 아니다.
+     웨이브 한복판에서 힘이 다해 서 있는 동료는 자리를 채운 것이 아니라 비운 것이다. */
+  const costly = tgt.kind === 'node' || tgt.kind === 'site';
+  if (actor.budgeted && costly && (mem.credit || 0) < 1) return;
+  if (act(world, nation, data, actor, player, tgt, actor.now, out)) {
+    if (actor.budgeted && costly) mem.credit = Math.max(0, (mem.credit || 0) - 1);
+  }
+}
+
+/**
+ * 저빈도(1초) 한 걸음 — server/index.js 의 생태계 루프가 부른다.
+ * @returns {{moved, actions, events, avatars}} 방에 흘릴 재료
+ */
+export function stepCompanions(world, nation, data, dt = 1, opts = {}) {
+  const out = { moved: 0, actions: [], events: [], revealed: [], avatars: false };
+  if (!nation?.isPlayer) return out;
+  const cfg = companionCfg(data);
+  const st = ensureCompanions(nation);
+  syncCompanionSeats(world, nation, data);
+  bindCompanionRoles(nation, data);
+  if (cfg.enabled === false) return out;
+
+  st.clock = (st.clock || 0) + dt * 1000;
+  st.liveSeconds = (st.liveSeconds || 0) + dt;
+
+  for (const comp of st.list) {
+    if (!comp.active) continue;
+    driveActor(world, nation, data, { id: comp.id, comp, now: st.clock, budgeted: true, human: false }, dt, out);
+  }
+
+  // ★ 자동 플레이 — 켠 사람의 아바타를 같은 두뇌가 몬다(사람의 시계로 판정한다)
+  const now = opts.now ?? Date.now();
+  for (const p of Object.values(nation.players || {})) {
+    if (p.bot) continue;
+    if (!autoPlayActive(p, now)) continue;
+    if (!nation.avatars?.[p.id]) continue;
+    driveActor(world, nation, data, { id: p.id, comp: null, now, budgeted: false, human: true }, dt, out);
+  }
+  out.avatars = out.moved > 0;
+  return out;
+}
+
+/**
+ * 일 틱 몰아 돌리기 — **안 본 만큼만**.
+ * 걷는 데도 하루가 든다(§13-B-2 와 같은 환산): 자리를 옮기면 그만큼 예산에서 깎는다.
+ * 그래서 「지켜보면 손해 / 방치하면 이득」이 생기지 않는다.
+ */
+export function stepCompanionsDay(world, nation, data) {
+  const out = { swings: 0, byKind: {} };
+  if (!nation?.isPlayer) return out;
+  const cfg = companionCfg(data);
+  const st = ensureCompanions(nation);
+  syncCompanionSeats(world, nation, data);
+  bindCompanionRoles(nation, data);
+  const daySec = data.balance.time.dayRealSeconds;
+  const unwatched = clamp(daySec - (st.liveSeconds || 0), 0, daySec);
+  st.liveSeconds = 0;
+  if (cfg.enabled === false) return out;
+  const budgetPer = Math.floor(((laborCfg(data).swingsPerDay ?? 0) * unwatched) / daySec);
+  if (budgetPer <= 0) return out;
+
+  const walkPerSwing = data.world.simulation?.botWalkTilesPerSwing ?? 5.5;
+  const baseCd = data.skills.swing.baseCooldownSec * 1000;
+  const town = townOf(world, nation.id);
+  for (const comp of st.list) {
+    if (!comp.active) continue;
+    const player = ensurePlayer(nation, comp.id, data, comp.name);
+    if ((player.downUntil || 0) > 0) continue;
+    const av = nation.avatars?.[comp.id];
+    if (!av) continue;
+    /* 많이 다친 사람은 그날은 모닥불 곁에서 쉰다 — 거기서만 기운이 돈다(§14-6 부활과 같은 자리) */
+    const maxHp = playerMaxHp(player, data);
+    if ((player.hp ?? maxHp) / Math.max(1, maxHp) < (brainCfg(data).fleeHpRatio ?? 0.35)) {
+      if (town) { av.x = town.x; av.y = town.y; }
+      comp.mem = { ...(comp.mem || {}), state: 'rest', target: null };
+      continue;
+    }
+    let spent = 0;
+    let misses = 0;
+    let tgt = null;
+    const actor = { id: comp.id, comp, now: st.clock, budgeted: false, human: false };
+    while (spent < budgetPer && misses < 6) {
+      /* 자리는 **쓸모가 다할 때까지** 지킨다 — 한 그루를 마저 벤다.
+         스윙마다 다시 고르면 지도의 모든 노드를 매번 훑게 되어 하루가 수만 번이 된다. */
+      if (!tgt || !targetValid(world, nation, data, tgt)) {
+        tgt = decide(world, nation, data, actor, player, av, { workOnly: true });
+        if (!tgt || (tgt.kind !== 'node' && tgt.kind !== 'site')) break;   // 일 틱에는 일만 한다
+        const aim = aimPoint(world, nation, data, tgt);
+        if (!aim) { tgt = null; misses += 1; continue; }
+        const walk = Math.floor(dist(av.x, av.y, aim.x, aim.y) / Math.max(0.5, walkPerSwing));
+        if (walk > 0) {
+          spent += walk;
+          st.clock += walk * (baseCd + 20);
+          if (spent >= budgetPer) break;
+        }
+        av.x = Math.round(aim.x);
+        av.y = Math.round(aim.y);
+      }
+      st.clock += baseCd + 20;
+      actor.now = st.clock;
+      const local = { moved: 0, actions: [], events: [], revealed: [] };
+      if (!act(world, nation, data, actor, player, tgt, st.clock, local)) { tgt = null; misses += 1; continue; }
+      spent += 1;
+      out.swings += 1;
+      out.byKind[tgt.kind] = (out.byKind[tgt.kind] || 0) + 1;
+    }
+    comp.mem = { ...(comp.mem || {}), state: tgt ? tgt.kind : 'idle', target: tgt ?? null };
+  }
+  return out;
+}

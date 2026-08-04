@@ -153,9 +153,17 @@ const stepKey = (ch, st) => `${ch.id}:${st.key}`;
 
 const structureCount = haveStructures;
 
+/**
+ * 이 나라 **사람들**이 그 솜씨로 휘두른 횟수.
+ * ★ GDD3 §15-C — 동료 봇(p.bot)의 팔은 세지 않는다. 「나무를 세 번 베어 보세요」는
+ *   손으로 해 보라는 말이지 곳간을 채우라는 말이 아니다. 동료가 대신 두드려 칸이 넘어가면
+ *   안내가 스스로 사라지고 사람은 무엇을 배웠는지 모른 채 다음 장에 선다.
+ *   (곳간을 채우는 자원 조건은 그대로 함께 센다 — 창고는 나라 공용이기 때문이다.)
+ */
 function totalSwings(nation, skill) {
   let n = 0;
   for (const p of Object.values(nation.players || {})) {
+    if (p.bot) continue;
     n += (p.stats?.swingsBySkill?.[skill] ?? 0);
   }
   return n;

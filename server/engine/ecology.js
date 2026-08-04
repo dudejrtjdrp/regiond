@@ -341,8 +341,23 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
         화면은 이 이벤트를 받아 카운트다운을 걷고 무적 표시를 띄운다. */
   const cCfg = combatSkillCfg(data);
   const town0 = townOf(world, nation.id);
+  const inBattle = Boolean(nation.battle && !nation.battle.over);
   for (const p of Object.values(nation.players || {})) {
     if ((p.invulnUntil || 0) > 0) p.invulnUntil = Math.max(0, round2(p.invulnUntil - dt));
+    /* ★ GDD3 §15-C — 모닥불 곁의 쉼. 본부 반경 안에 서 있고 웨이브 중이 아니면 기운이 돈다.
+       이 문이 없으면 한 번 다친 동료는 영영 다친 채로 남아(회복 수단이 다운뿐이다)
+       「다치면 물러난다」는 규칙이 곧 「한 번 다치면 일 안 한다」가 된다. 사람에게도 같이 적용된다. */
+    /* 막 일어난 사람(무적이 도는 3초)은 아직 「일어나는 중」이라 회복이 시작되지 않는다 —
+       부활이 준 절반과 모닥불의 몫이 한 숨에 겹치지 않게. */
+    const heal = cCfg.restHealPerSecond ?? 0;
+    if (heal > 0 && !inBattle && (p.downUntil || 0) <= 0 && (p.invulnUntil || 0) <= 0 && town0) {
+      const av0 = nation.avatars?.[p.id];
+      const maxHp = playerMaxHp(p, data);
+      if (av0 && (p.hp ?? maxHp) < maxHp
+        && dist(av0.x, av0.y, town0.x, town0.y) <= (cCfg.restRadiusTiles ?? 6)) {
+        p.hp = round2(Math.min(maxHp, (p.hp ?? maxHp) + heal * dt));
+      }
+    }
     if ((p.downUntil || 0) <= 0) continue;
     p.downUntil = Math.max(0, round2(p.downUntil - dt));
     if (p.downUntil > 0) continue;

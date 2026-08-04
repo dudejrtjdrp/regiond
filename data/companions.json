@@ -1,0 +1,45 @@
+{
+  "_note": "동료 봇(GDD3 §15-C) — 국가 정원 5인 중 사람이 못 채운 자리를 채우는 개척자들. 주민이 아니라 **플레이어와 같은 아바타 실체**다: 제 외형·이름·스킬 장부를 갖고, actionSwing·combatSwing 같은 명령 경로를 그대로 탄다. 서버 1초 루프(생태계 루프에 편승)가 두뇌를 굴리고, 위치는 avatars 채널로 흘러간다. ★ labor.swingsPerDay 가 밸런스의 유일한 다이얼이다 — 아래 주석 참조.",
+  "enabled": true,
+  "seats": 5,
+  "idPrefix": "bot~",
+  "names": [
+    "들메", "노루", "가람", "미르", "다솜", "여울", "한별", "새벽", "누리", "바람"
+  ],
+  "nameplateColors": ["#8fe3b4", "#e3b48f", "#b48fe3", "#8fc6e3", "#e3dc8f"],
+  "labor": {
+    "_note": "★ 밸런스 다이얼. swingsPerDay 는 동료 한 사람이 **하루(600 실시간초) 동안 낼 수 있는 스윙 수**다. 지켜보든 안 보든 같은 값이 나오도록 '작업 크레딧'으로 구현한다(초당 swingsPerDay/dayRealSeconds 만큼 쌓이고, 스윙 한 번이 1 을 쓴다). burstMax 는 걷는 동안 쌓아 둘 수 있는 최대치이고, haulResumeCredit 은 「한 짐치」다: 힘이 다하면 곳간으로 걸어가 부리고, 이만큼 다시 차면 일터로 나선다. 이 둘이 없으면 봇이 수십 초에 한 번 툭 치고 마는 그림이 되어 죽어 보인다. ★ 값의 근거는 docs/GDD3.md §15-C 구현 노트의 실측표에 있다(0→티어3 15일 · 8→13일 · 10 이상→12일로 바닥).",
+    "swingsPerDay": 8,
+    "burstMax": 4,
+    "haulResumeCredit": 2,
+    "moveTilesPerSecond": 4.0,
+    "carryHomeRadius": 2.5
+  },
+  "brain": {
+    "_note": "1초 FSM. decideEverySeconds 마다 목표를 다시 고르고, 그 사이에는 고른 목표로 걷는다.",
+    "decideEverySeconds": 3,
+    "workRadiusBonus": 6,
+    "dangerRadius": 8,
+    "engageRadius": 10,
+    "fleeHpRatio": 0.35,
+    "returnHpRatio": 0.75,
+    "grainDaysUrgent": 6,
+    "maxNodeCandidates": 12,
+    "restNearTownRadius": 4,
+    "creatureLeash": 26
+  },
+  "roles": {
+    "_note": "감정의 날 뒤 동료가 자리를 하나씩 맡는다(기존 각료와 **같은 인물**이다 — 따로 사람 아닌 신하를 두지 않는다). anchor 는 그 자리의 사람이 즐겨 머무는 건물, prefer 는 즐겨 캐는 것이다.",
+    "farm": { "anchor": ["farm_field", "granary", "well", "mill"], "prefer": ["grain"] },
+    "factory": { "anchor": ["smithy", "smelter", "mine_shaft", "quarry_camp"], "prefer": ["stone"] },
+    "build": { "anchor": ["sawmill", "woodpile"], "prefer": ["wood"], "siteFirst": true },
+    "defense": { "anchor": ["barracks", "watchpost", "arrow_tower"], "prefer": ["stone"], "guard": true },
+    "trade": { "anchor": ["trading_post", "market", "storage"], "prefer": ["wood"] },
+    "saint": { "anchor": ["shrine", "campfire"], "prefer": ["grain"], "timid": true }
+  },
+  "autoPlay": {
+    "_note": "★ §15-C 자동 플레이 — 내 아바타를 동료 두뇌가 몬다. 수동 입력이 잡히면 suspendSeconds 만큼 손을 떼고, 그 뒤 스스로 다시 잡는다. 자동 플레이는 사람의 아바타이므로 동료와 달리 하루 예산(swingsPerDay)에 매이지 않는다 — 사람이 직접 하는 것과 같은 쿨타임으로 움직인다.",
+    "suspendSeconds": 30,
+    "researchWhenIdle": true
+  }
+}

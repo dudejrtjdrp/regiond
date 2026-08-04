@@ -325,6 +325,8 @@ export function playersView(nation, data) {
     down: (p.downUntil || 0) > 0,
     level: playerLevel(p, data),
     levels: Object.fromEntries(SKILL_KEYS(data).map((k) => [k, skillLevel(p, k)])),
+    // ★ GDD3 §15-C — 이 장부의 주인이 동료인가. 명부가 사람과 동료를 가려 그린다.
+    bot: Boolean(p.bot),
   }));
 }
 
