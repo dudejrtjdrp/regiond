@@ -883,6 +883,34 @@
     return true;
   }
 
+  /**
+   * ★ GDD3 §15-A-2 — 터렛이 잡은 자리.
+   *   드롭은 서버가 이미 국고에 넣었다(저장 상한도 서버가 지켰다). 여기서는 **그 자리에** 값을 띄운다.
+   *   한 마리가 여러 자원을 떨구면 줄을 조금씩 어긋나게 쌓아 서로 가리지 않게 한다.
+   */
+  function turretKillFloat(k) {
+    if (!k || !GM.fx) return false;
+    var x = Number(k.x) || 0, y = Number(k.y) || 0;
+    if (!GM.camera.onScreen(x, y, GM.camera.cam.tile * 3)) return false;
+    GM.fx.debris(x, y, '#bc4749', 7, 0.9);
+    GM.fx.ring(x, y, '#f6cf7a', 0.2, 1.3, 0.5);
+    var keys = Object.keys(k.gained || {});
+    if (!keys.length) {
+      GM.fx.floatText(x, y - 0.9, (k.name || '') + ' 처치', '#dcd0b4', 11);
+      return true;
+    }
+    keys.forEach(function (r, i) {
+      var meta = S.resourceMeta(r) || {};
+      var n = Number(k.gained[r]) || 0;
+      if (n <= 0) return;
+      var digits = n >= 10 ? 0 : (n >= 1 ? 1 : 2);
+      GM.fx.floatText(x, y - 0.9 - i * 0.55, '+' + U.fmt(n, digits) + ' ' + (meta.name || r),
+        meta.color || '#f6e6a8', 12);
+      GM.fx.resourcePop(x, y - 0.4, r, '', meta.color);
+    });
+    return true;
+  }
+
   function stepUnits(dt) {
     var list = S.residents();
     var seen = {};
@@ -1148,9 +1176,13 @@
     ctx.strokeStyle = v.ok ? '#8dfa8d' : '#ff9d99';
     ctx.strokeRect(p.x, p.y, t * f.w, t * f.h);
     ctx.restore();
+    /* ★ §15-A-4 — 놓기 전에 어디까지 닿는지 보여 준다. 이것이 "터렛이 안 쏜다"의 예방약이다. */
+    var tur = key ? S.turretSpecOf(key, 1) : null;
+    if (tur && tur.range) rangeCircle(cxy.x, cxy.y, tur.range, v.ok ? '#f6cf7a' : '#ff9d99', true);
     var lby = a0.y - 1.25;
     if (!v.ok && v.reason) label(v.reason, cxy.x, lby, '#ff9d99');
     else if (v.ok && v.note) label(v.note, cxy.x, lby, '#b8f0a0');
+    else if (tur && tur.range) label(turretReachNote(cxy.x, cxy.y, tur.range), cxy.x, lby, '#f6cf7a');
 
     if (pl.kind === 'reclaim' && pl.drag) {
       var a = pl.drag;
@@ -1229,10 +1261,63 @@
     ctx.restore();
   }
 
+  /**
+   * ★ GDD3 §15-A-4 — 터렛 사거리 원.
+   *
+   * 왜 이것이 P0 의 나머지 반쪽인가: §14-4 가 짐승을 영토 밖으로 못박은 뒤로, 본부 옆에 세운
+   * 터렛은 **닿을 수가 없다**(실측: 영토 반경 16 · 사거리 7 · 짐승 최근접 11.05칸).
+   * 그러니 "왜 안 쏘지"의 답은 코드만이 아니라 **눈**으로도 와야 한다 — 어디까지 닿는지를 그린다.
+   * 영토 경계와 겹쳐 그려서, 원이 경계를 넘어야 바깥의 것에 닿는다는 사실이 한눈에 보이게 한다.
+   */
+  function rangeCircle(cx, cy, range, color, strong) {
+    var t = GM.camera.cam.tile;
+    var p = GM.camera.worldToScreen(cx, cy);
+    var r = Math.max(2, range * t);
+    ctx.save();
+    ctx.globalAlpha = strong ? 0.16 : 0.10;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = strong ? 0.85 : 0.5;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 5]);
+    ctx.lineDashOffset = -(animT / 42) % 11;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    if (t >= 16) label('사거리 ' + U.fmt(range, 0) + '칸', cx, cy - range - 0.5, color);
+  }
+
+  /**
+   * ★ §15-A-4 — 이 자리에 세우면 영토 경계 **밖** 몇 칸까지 닿는가.
+   * 짐승은 영토 안으로 못 들어온다(§14-4). 그래서 경계를 못 넘는 터렛은 평생 한 발도 못 쏜다 —
+   * 그 사실을 놓기 전에 한 줄로 알려 준다.
+   */
+  function turretReachNote(cx, cy, range) {
+    var t = S.territory();
+    var R = t && t.radius;
+    if (!t || t.cx == null || !R) return '사거리 ' + U.fmt(range, 0) + '칸';
+    var toEdge = R - Math.hypot(cx - t.cx, cy - t.cy);
+    var over = range - toEdge;
+    if (over >= 0.5) return '경계 밖 ' + U.fmt(over, 0) + '칸까지 닿습니다';
+    return '경계에 못 미칩니다 — 바깥 짐승에 닿지 않습니다';
+  }
+
   function drawSelectionMarks() {
     var sel = S.S.selection;
     if (!sel) return;
     if (sel.nodeId) { var n = S.nodeById(sel.nodeId); if (n) ringAt(n.x, n.y, '#e8a33d'); }
+    /* ★ §15-A-4 — 터렛을 누르면 사거리가 보인다 */
+    if (sel.structureId) {
+      var st = S.structureById ? S.structureById(sel.structureId) : null;
+      if (st && st.turret && st.turret.range) {
+        var c = S.centerOfThing(st);
+        rangeCircle(c.x, c.y, st.turret.range, '#f6cf7a', true);
+      }
+    }
     if (dragBox) {
       ctx.save();
       ctx.strokeStyle = '#8dfa8d';
@@ -1687,6 +1772,8 @@
     nearestWild: nearestWild, wildPos: wildPos, markWildHurt: markWildHurt,
     /* ★ GDD3 §14-1 — 주민 작업 사이클의 수치 표시 */
     creditFloat: creditFloat,
+    /* ★ GDD3 §15-A-2 — 터렛이 잡은 자리에 뜨는 수치 */
+    turretKillFloat: turretKillFloat,
     /* ★ GDD3 §14-3 — 서버 좌표 묶음이 올 때마다 지연 버퍼를 한 칸 민다 */
     pushWild: pushWildSnapshot,
     /* 하니스·스모크 전용 — jsdom 에는 rAF 시계가 없어 걸음을 손으로 돌린다 */

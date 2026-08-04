@@ -140,13 +140,25 @@ class GameRuntime {
       const watching = [...sessions.values()].some((s) => s.gameId === this.gameId && s.nationId === nation.id);
       if (!watching) continue;
       ensureCreatures(this.world, nation, data);
-      const { events } = stepEcology(this.world, nation, data, dt);
+      const { events, shots, kills } = stepEcology(this.world, nation, data, dt);
       const painful = events.filter((e) => e.kind === 'player_down' || e.kind === 'wild_hit' || e.kind === 'player_revived');
       if (painful.length) this.emitImmediate(nation.id, painful);
+      /* ★ GDD3 §15-A — 터렛이 쏜 발과 잡은 것. 짐승 좌표와 **같은 박자**로 흘려보낸다:
+         화면이 두 채널을 맞물릴 필요 없이, 받은 그 순간의 좌표로 궤적을 그린다. */
       io.to(this.gameId).emit('creatures', {
         tick: this.world.tick,
         list: creatureViews(this.world, nation, data),
+        shots: shots && shots.length ? shots : undefined,
       });
+      /* ★ §15-A-2 — 처치 드롭은 그 자리에서 국고로 들어갔다. 화면은 같은 값을 그 자리에 띄운다.
+         연대기(events)에는 싣지 않는다 — 들의 것 하나가 쓰러지는 일은 나라의 사건이 아니다. */
+      if (kills && kills.length) {
+        io.to(this.gameId).emit('turretKill', {
+          tick: this.world.tick,
+          kills,
+          resources: liveResources(nation),
+        });
+      }
       /* ★ GDD3 §14-1 — 주민의 작업 사이클. 하나가 끝날 때마다 곳간이 그 자리에서 오르고,
          화면은 같은 값을 그 사람 머리 위에 띄운다. 일 틱은 나머지만 채운다(하루 합계 불변). */
       const work = stepResidentWork(this.world, nation, data, dt);

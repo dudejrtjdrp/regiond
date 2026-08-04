@@ -176,8 +176,15 @@
 
     /* ★ v3.2 — 상시 생태계(GDD3 §13-C). 1초에 한 번 들의 것들이 어디 있는지가 온다.
        화면은 이 좌표로 튀지 않는다 — world.js 가 그 사이를 보간해 걸어가게 만든다. */
-    socket.on('creatures', function (p) { S.applyCreatures(p && p.list); });
+    socket.on('creatures', function (p) { S.applyCreatures(p && p.list, p && p.shots); });
     socket.on('wildHit', function (p) { S.emit('wildHit', p); });
+    /* ★ GDD3 §15-A-2 — 터렛이 잡았다. 드롭은 서버가 이미 국고에 넣었다:
+       화면은 그 값을 쓰러진 자리에 띄우고 자원칸을 곧바로 고쳐 쓴다(주민 사이클과 같은 문). */
+    socket.on('turretKill', function (p) {
+      if (!p) return;
+      if (p.resources) S.applyLiveResources(p.resources);
+      S.emit('turretKill', p);
+    });
     socket.on('playerDown', function (p) { S.emit('playerDown', p); });
     socket.on('playerRevived', function (p) { S.emit('playerRevived', p); });
 

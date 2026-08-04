@@ -574,11 +574,13 @@
   /* ★ GDD3 §13-C — 들에 사는 것들.
      위치의 정본은 **서버**다(주민과 반대다 — 주민은 클라가 쥔다). 대신 서버는 1초에 한 번만 보내므로
      화면은 이 좌표로 튀지 않고 그리로 다가간다(world.js 가 보간한다). 여기서는 마지막 사실만 적어 둔다. */
-  function applyCreatures(list) {
+  function applyCreatures(list, shots) {
     var m = S.map;
     if (!m) return;
     m.creatures = Array.isArray(list) ? list : [];
     emit('creatures', m.creatures);
+    /* ★ GDD3 §15-A-1 — 같은 박자로 온 터렛 사격. 좌표와 발이 한 묶음이라 궤적이 어긋나지 않는다. */
+    if (shots && shots.length) emit('turretShots', shots);
   }
   function creatureList() { return (S.map && S.map.creatures) || []; }
   function clusterList() { return (S.map && S.map.clusters) || []; }
@@ -1122,6 +1124,11 @@
     var d = buildingDef(key);
     return (d && d.tiers && d.tiers[(tierNum || 1) - 1]) || null;
   }
+  /** ★ GDD3 §15-A-4 — 이 건물이 터렛인가, 그렇다면 얼마나 멀리 쏘는가 (사거리 원의 재료) */
+  function turretSpecOf(key, tierNum) {
+    var t = buildingTier(key, tierNum || 1);
+    return (t && t.turret) || null;
+  }
   function categoryName(key) {
     var b = buildingsCfg();
     var c = b && b.categories && b.categories[key];
@@ -1300,6 +1307,7 @@
     cfg: cfg, worldCfg: worldCfg, tiersCfg: tiersCfg, skillsCfg: skillsCfg, wavesCfg: wavesCfg,
     buildingsCfg: buildingsCfg, fenceCfg: fenceCfg,
     buildingDef: buildingDef, buildingName: buildingName, buildingTier: buildingTier,
+    turretSpecOf: turretSpecOf,
     categoryName: categoryName,
     appearanceCfg: appearanceCfg, defaultAppearance: defaultAppearance, randomAppearance: randomAppearance,
     difficulties: difficulties, defaultDifficulty: defaultDifficulty,

@@ -860,6 +860,8 @@ export function structureView(nation, s, data, { architect = false } = {}) {
     ruined: isRuined(s),
     upgrading: Boolean(s.upgrading),
     residents: spec?.residents ?? 0,
+    // ★ §15-A-4 — 눌렀을 때 그리는 사거리 원. 지금 이 티어의 값이다.
+    turret: spec?.turret ? { dps: round2(spec.turret.dps * damageScale(s)), range: spec.turret.range } : null,
     effects: effectSummary(s.key, s.tier, data),
     nextTier: next ? { tier: s.tier + 1, name: structureName(s.key, s.tier + 1, data), cost: { ...(next.cost || {}) }, gold: next.gold ?? 0, buildPoints: next.buildPoints ?? 0, effects: effectSummary(s.key, s.tier + 1, data) } : null,
     adjacency: architect ? round3(s.adjacency || 0) : null,
@@ -961,6 +963,8 @@ export function publicBuildings(data) {
         gold: t.gold ?? 0,
         buildPoints: t.buildPoints ?? 0,
         hp: t.hp ?? 0,
+        // ★ §15-A-4 — 사거리 원의 재료. 고스트 배치 중에도 그려야 하므로 도감에 실린다.
+        turret: t.turret ? { dps: t.turret.dps, range: t.turret.range } : null,
         effects: effectSummary(key, i + 1, data),
       })),
     };

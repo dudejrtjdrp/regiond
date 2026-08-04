@@ -139,7 +139,7 @@
       }
       if (en) {
         shots.push({ from: { x: tr.x, y: tr.y - 0.8 }, to: { x: en.x, y: en.y }, t: 0, dur: 0.2,
-                     color: tr.key === 'cannon' ? '#e08541' : (tr.key === 'ballista' ? '#c6d6e2' : '#f6e6a8') });
+                     color: shotColor(tr.key) });
         GM.sfx.play('shot');
       }
     }
@@ -154,7 +154,50 @@
     return cur;
   }
 
+  /* ★ GDD3 §15-A-1 — 터렛이 쏜 발은 웨이브 밖에서도 그려야 한다.
+     서버 생태계 루프(1초)가 흘려보낸 shots 를 그대로 궤적으로 만든다. */
+  function addGuardShots(list) {
+    for (var i = 0; i < (list || []).length; i++) {
+      var s = list[i];
+      shots.push({
+        from: { x: s.x, y: s.y - 0.8 }, to: { x: s.tx, y: s.ty },
+        t: 0, dur: 0.24, color: shotColor(s.key)
+      });
+      if (GM.world && GM.world.markWildHurt && s.targetId) GM.world.markWildHurt(s.targetId);
+    }
+    if ((list || []).length && GM.sfx) GM.sfx.play('shot');
+  }
+
+  function shotColor(key) {
+    return key === 'cannon' ? '#e08541' : (key === 'ballista' ? '#c6d6e2' : '#f6e6a8');
+  }
+
+  /** 날아가는 것들 — 전투 중이든 아니든 늘 그린다 */
+  function drawShots(ctx) {
+    if (!shots.length) return;
+    ctx.save();
+    ctx.lineWidth = 2;
+    for (var i = 0; i < shots.length; i++) {
+      var sh = shots[i];
+      var kk = U.clamp(sh.t / sh.dur, 0, 1);
+      var cx = sh.from.x + (sh.to.x - sh.from.x) * kk;
+      var cy = sh.from.y + (sh.to.y - sh.from.y) * kk - Math.sin(kk * Math.PI) * 1.1;
+      var a = GM.camera.worldToScreen(sh.from.x, sh.from.y);
+      var c = GM.camera.worldToScreen(cx, cy);
+      ctx.globalAlpha = 0.8 * (1 - kk * 0.4);
+      ctx.strokeStyle = sh.color;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(c.x, c.y);
+      ctx.stroke();
+      ctx.fillStyle = '#fff6dc';
+      ctx.fillRect(c.x - 2, c.y - 2, 4, 4);
+    }
+    ctx.restore();
+  }
+
   function drawUnits(ctx, tile, animT) {
+    drawShots(ctx);
     var b = S.battleLive();
     if (!b) return;
 
@@ -207,25 +250,6 @@
       }
     });
 
-    ctx.save();
-    ctx.lineWidth = 2;
-    for (var i = 0; i < shots.length; i++) {
-      var sh = shots[i];
-      var kk = U.clamp(sh.t / sh.dur, 0, 1);
-      var cx = sh.from.x + (sh.to.x - sh.from.x) * kk;
-      var cy = sh.from.y + (sh.to.y - sh.from.y) * kk - Math.sin(kk * Math.PI) * 1.1;
-      var a = GM.camera.worldToScreen(sh.from.x, sh.from.y);
-      var c = GM.camera.worldToScreen(cx, cy);
-      ctx.globalAlpha = 0.8 * (1 - kk * 0.4);
-      ctx.strokeStyle = sh.color;
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(c.x, c.y);
-      ctx.stroke();
-      ctx.fillStyle = '#fff6dc';
-      ctx.fillRect(c.x - 2, c.y - 2, 4, 4);
-    }
-    ctx.restore();
   }
 
   function hpBar(ctx, x, y, w, ratio, color) {
@@ -451,6 +475,9 @@
   GM.combat = {
     onIncoming: onIncoming, onStart: onStart, onTick: onTick, onResult: onResult,
     step: step, drawUnits: drawUnits, drawOverlay: drawOverlay,
+    /* ★ GDD3 §15-A — 웨이브 밖의 터렛 사격(생태계 루프가 준 것) */
+    addGuardShots: addGuardShots, drawShots: drawShots,
+    shotCount: function () { return shots.length; },
     openThreat: openThreat, updateThreat: updateThreat,
     reset: reset, clearBattleBar: clearBattleBar
   };

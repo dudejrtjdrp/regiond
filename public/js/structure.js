@@ -308,6 +308,13 @@
     facts.push({ k: '튼튼함', v: U.pct(cond, 0),
       tip: U.fmt(b.hp, 0) + ' / ' + U.fmt(b.maxHp, 0) + (b.ruined ? '\n부서져서 아무 몫도 못 합니다.' : '') });
     if (b.residents) facts.push({ k: '사는 사람', v: b.residents + '명' });
+    /* ★ GDD3 §15-A-4 — 터렛이면 사거리를 적고, 지도 위에는 원을 그린다(world.drawSelectionMarks). */
+    if (b.turret && b.turret.range) {
+      facts.push({ k: '사거리', v: U.fmt(b.turret.range, 0) + '칸',
+        tip: '지도 위 노란 원 안에 든 것을 저절로 쏩니다.',
+        detail: '짐승은 영토 안으로 못 들어옵니다 — 원이 경계를 넘어야 바깥의 것에 닿습니다.' });
+      facts.push({ k: '화력', v: U.fmt(b.turret.dps, 0) + ' DPS' });
+    }
     if (b.adjacency) facts.push({ k: '이웃한 자리의 덕', v: '+' + U.pct(b.adjacency, 0) });
 
     var extra = U.el('div', 'st-body');
