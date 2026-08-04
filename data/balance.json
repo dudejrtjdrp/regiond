@@ -527,7 +527,7 @@
           "turretsBelow": 2
         },
         "text": "적이 코앞인데 쏠 것이 없습니다.",
-        "label": "화살탑 세우기",
+        "label": "화살탑 건설",
         "event": "placeBuilding",
         "params": {
           "building": "arrow_tower"

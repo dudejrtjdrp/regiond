@@ -60,7 +60,11 @@ if (!/id="fx-layer"[^>]*class="[^"]*\bdecor\b/.test(html)) {
 const BANNED_DEV = ['콥더글러스', 'O(g)', '클램프', 'R값', '틱', 'AST', 'NPC', '큐', '파라미터',
                     '페이로드', '콜백', '소켓', '스냅샷'];
 const BANNED_V2 = ['개척령', '성곽', '시즌', '결산', '열나흘', '감정의 날을 기다'];
-const BANNED = BANNED_DEV.concat(BANNED_V2);
+/* ★ GDD3 §14-8 — 명칭 통일. 배치대·단추·안내문의 「세우기」는 전부 「건설」이다.
+   (동사 「세운다/세웁니다」도 「짓는다/짓습니다」로 옮겼지만, 자물쇠를 거는 것은 화면에 그대로
+    나오는 명사 하나뿐이다 — 「깃발을 세운다」 같은 정당한 쓰임까지 막지 않기 위해서다.) */
+const BANNED_NAMING = ['세우기'];
+const BANNED = BANNED_DEV.concat(BANNED_V2, BANNED_NAMING);
 
 function stripComments(src) {
   let out = '', i = 0;
@@ -106,7 +110,17 @@ const text = html.replace(/<script[\s\S]*?<\/script>/g, ' ')
 for (const w of BANNED) {
   if (text.includes(w)) problems.push(`index.html 화면 문구에 금지어 "${w}"`);
 }
-notes.push(`금지어 ${BANNED.length}종 검사 (개발자 용어 ${BANNED_DEV.length} · 폐기 용어 ${BANNED_V2.length})`);
+notes.push(`금지어 ${BANNED.length}종 검사 (개발자 용어 ${BANNED_DEV.length} · 폐기 용어 ${BANNED_V2.length}`
+  + ` · 명칭 ${BANNED_NAMING.length})`);
+
+/* ── 4-b. ★ GDD3 §14-8 — 자료 파일의 화면 문구도 같은 자를 쓴다 ─────────
+   chapters.json 의 코치마크·목표 카드 글은 그대로 화면에 나간다. 여기가 새면 이름이 두 벌이 된다. */
+for (const f of ['chapters.json', 'balance.json']) {
+  const raw = readFileSync(join(ROOT, 'data', f), 'utf8');
+  for (const w of BANNED_NAMING) {
+    if (raw.includes(w)) problems.push(`data/${f} 의 화면 문구에 금지어 "${w}" (§14-8 — 「건설」로 통일)`);
+  }
+}
 
 /* ── 5. ★ 폐기된 프로토콜 명령 (PROTOCOL v3 §0-2) ───────────── */
 const DEAD_COMMANDS = ['expand', 'setWallFocus', 'placeTurret', 'removeTurret', 'workSite', 'buildStart'];

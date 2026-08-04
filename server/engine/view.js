@@ -27,6 +27,8 @@ import { residentViews, housingView, peoplePerUnit, capacity } from './residents
 import { tierView, settlementTier } from './tiers.js';
 import {
   unlockedList, buildingUnlocked, departmentsActive, featureUnlocked, chapterView,
+  // ★ GDD3 §14-7 — 잠긴 건물이 「언제 열리는가」
+  buildingUnlockInfo,
 } from './progression.js';
 import { waveView, campViews, nextWaveSpec, daysUntilWave, hasSaintSight } from './waves.js';
 import { battleView } from './battle.js';
@@ -57,6 +59,8 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
   const rolesOn = on('roles');
   const tradeOn = on('trade');
   const councilOn = on('council');
+  // ★ GDD3 §14-7 — 지을 수 있는 것과 아직 잠긴 것을 같은 자에서 잰다(갈래가 열렸는가로 가른다)
+  const buildable = buildableCatalog(nation, data);
 
   const view = {
     protocol: 3,
@@ -117,7 +121,10 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
       // ★ GDD3 §7 — 울타리 조각
       fences: fenceViews(nation, data),
       fenceSummary: fenceSummary(nation, data),
-      buildable: buildableCatalog(nation, data),
+      buildable,
+      /* ★ GDD3 §14-7 — 열린 갈래 안의 잠긴 건물. 흐림 + 자물쇠 + 해금 조건으로 그려진다. */
+      lockedBuildings: lockedCatalog(nation, data,
+        new Set(buildable.map((b) => b.category).filter(Boolean))),
       workPosts: listTargets(world, nation, data).map((t) => ({
         id: t.id, kind: t.kind, name: t.name, x: t.x, y: t.y, slots: t.slots,
         nodeType: t.nodeType ?? null, post: t.post ?? null, jobs: jobsForTarget(t, data),
@@ -295,6 +302,44 @@ function buildableCatalog(nation, data) {
       buildPoints: t.buildPoints ?? 0,
       affordable: Object.entries(t.cost || {}).every(([r, v]) => (nation.resources[r] || 0) >= v)
         && (nation.gold || 0) >= (t.gold ?? 0),
+    });
+  }
+  return out;
+}
+
+/**
+ * ★ GDD3 §14-7 — **열린 갈래 안**의 잠긴 건물 목록.
+ *
+ * "화살탑이 안 보여서 없는 줄 알았다"의 정면 답이다. §11-1(잠긴 계층은 UI 에 부재)은
+ * 갈래·시스템 단위에만 적용한다 — 갈래가 통째로 안 열렸으면 여기에도 한 줄도 안 실린다.
+ * 이미 열린 갈래 안에서는 §12-3(조건 가시화)이 이긴다: 흐리게, 자물쇠를 달고, **언제 열리는지**를 적는다.
+ */
+function lockedCatalog(nation, data, openCategories) {
+  const out = [];
+  if (!openCategories.size) return out;               // 배치대 자체가 없는 장 — 잠긴 목록도 없다
+  for (const key of buildingKeys(data)) {
+    const def = structureDef(key, data);
+    if (def.piece || def.hq) continue;
+    if (buildingUnlocked(nation, key, data)) continue;
+    const cat = def.category ?? null;
+    if (!cat || !openCategories.has(cat)) continue;    // 아직 안 열린 갈래는 아예 없는 것으로
+    const t = def.tiers[0];
+    const info = buildingUnlockInfo(nation, key, data);
+    out.push({
+      key,
+      name: def.name,
+      category: cat,
+      requiresTier: def.requiresTier ?? 0,
+      unlocked: false,
+      multi: def.multi !== false,
+      cost: { ...(t.cost || {}) },
+      gold: t.gold ?? 0,
+      buildPoints: t.buildPoints ?? 0,
+      affordable: false,
+      lockKind: info.kind,
+      lockChapter: info.chapter ?? null,
+      lockTier: info.tier ?? null,
+      lockReason: info.text,
     });
   }
   return out;

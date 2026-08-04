@@ -338,6 +338,41 @@ export function setFlag(nation, flag) {
 }
 
 /**
+ * ★ GDD3 §14-7 — 이 건물은 **언제** 열리는가.
+ *
+ * 피드백: "화살탑이 목록에 없어서 없는 줄 알았다". §11-1(잠긴 계층은 UI 에 부재)은
+ * **시스템·갈래 단위**의 규칙이고, 이미 열린 갈래 안의 개별 건물은 §12-3(조건 가시화)를 따른다.
+ * 그러려면 「언제 열리는가」를 글로 낼 수 있어야 한다 — 그 답을 여기서 낸다.
+ *
+ * 문은 둘이다: ① 어느 장의 opens 에 적혀 있는가 ② (어디에도 없으면) 마지막 장에 든 뒤 티어가 연다.
+ * @returns {{kind:'chapter'|'tier'|'never', chapter?:number, chapterName?:string, tier?:number, text:string}}
+ */
+export function buildingUnlockInfo(nation, key, data) {
+  const def = data.buildings?.[key];
+  if (!def) return { kind: 'never', text: '지을 수 없는 것입니다.' };
+  for (const ch of chapterList(data)) {
+    const inOpens = (ch.opens?.buildings || []).includes(key);
+    const inReward = (ch.reward?.opens?.buildings || []).includes(key);
+    const step = (ch.steps || []).find((st) => (st.opens?.buildings || []).includes(key));
+    if (!inOpens && !inReward && !step) continue;
+    return {
+      kind: 'chapter', chapter: ch.id, chapterName: ch.name,
+      text: `${ch.id}장 「${ch.name}」에서 해금`,
+    };
+  }
+  // 어느 장에도 안 적혀 있다 = 엔드리스(마지막 장)에 들어선 뒤 정착지 티어가 연다
+  const tier = def.requiresTier ?? 0;
+  const last = chapterList(data)[chapterList(data).length - 1];
+  const name = data.tiers?.levels?.find((l) => l.tier === tier)?.name ?? `티어 ${tier}`;
+  return {
+    kind: 'tier', tier, chapter: last?.id ?? null, chapterName: last?.name ?? null,
+    text: inEndless(nation, data)
+      ? `${name}(티어 ${tier})에서 해금`
+      : `${last?.id ?? ''}장 「${last?.name ?? ''}」 뒤 ${name}(티어 ${tier})에서 해금`,
+  };
+}
+
+/**
  * ★ 개발·테스트·시뮬 전용 — 장을 통째로 열어 둔다.
  *   실제 플레이에서는 절대 불리지 않는다(소켓 명령이 없다). 테스트가 '7장 이후의 규칙'만
  *   따로 확인할 수 있게, 그리고 개발 패널이 뒷장을 바로 볼 수 있게 두는 손잡이다.

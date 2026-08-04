@@ -1462,6 +1462,11 @@ body.cutscene .toasts{bottom:74px}
   padding:3px 9px; background:rgba(20,16,24,.7); color:#b9cdff; font-size:12px;
   border:1px solid rgba(185,205,255,.45)}
 
+/* ══════════ ★ GDD3 §14-7 잠긴 건물 칸 ══════════ */
+.pb-item.locked{opacity:.5; filter:grayscale(.7); cursor:default; position:relative}
+.pb-item.locked::after{content:'🔒'; position:absolute; right:4px; top:3px; font-size:12px; filter:none}
+.pb-item.locked .pb-c{color:var(--red-deep)}
+
 @media (max-width:720px){
   .eq-slots{grid-template-columns:1fr}
   .eq-row{grid-template-columns:1fr; gap:4px}

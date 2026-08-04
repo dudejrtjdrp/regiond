@@ -72,7 +72,7 @@
   function pointerText(g) {
     var t = (g.targets || [])[0];
     if (!t) return null;
-    if (t.kind === 'buildSlot') return '눌러서 [세우기]로 — ' + (t.name || '');
+    if (t.kind === 'buildSlot') return '눌러서 [건설]로 — ' + (t.name || '');
     if (t.kind === 'ui') return '눌러서 그 단추로';
     var me = GM.avatar && GM.avatar.pos();
     if (me && t.x != null) {
@@ -173,7 +173,7 @@
 
   /* ══════════ 새로 열린 UI 짚어 주기 ══════════ */
   var UI_HINT = {
-    'panel.build': { sel: '#tb-build', text: '여기서 세울 것을 고르고 땅을 눌러 자리를 잡습니다' },
+    'panel.build': { sel: '#tb-build', text: '여기서 지을 것을 고르고 땅을 눌러 자리를 잡습니다' },
     'hud.population': { sel: '#res-bar', text: '이제 사람이 늘어납니다 — 인구가 위쪽에 보입니다' },
     'panel.residents': { sel: '#tb-people', text: '주민을 끌어서 고르고 오른쪽 단추로 일을 시킵니다' },
     'panel.skills': { sel: '#tb-skills', text: '그동안 익힌 솜씨를 여기서 봅니다' },
@@ -215,7 +215,7 @@
     COOLDOWN: { text: '숨을 고르는 중입니다 — 발밑 링이 차면 다시 휘두릅니다', find: null },
     CHAPTER_LOCKED: { text: '아직 그럴 때가 아닙니다 — 목표 카드가 가리키는 일을 먼저 끝내세요', find: 'goal' },
     NO_SPACE: { text: '자리가 좁습니다 — 건물끼리 두 칸은 떨어져야 합니다', find: null },
-    BAD_TERRAIN: { text: '이 땅에는 세울 수 없습니다 — 풀밭이나 숲을 고르세요', find: null },
+    BAD_TERRAIN: { text: '이 땅에는 지을 수 없습니다 — 풀밭이나 숲을 고르세요', find: null },
     ON_NODE: { text: '자원이 나는 자리입니다 — 한 칸 옆으로 옮기세요', find: null }
   };
 

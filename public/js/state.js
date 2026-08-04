@@ -722,6 +722,11 @@
   }
   function fenceSummary() { var n = nation(); return (n && n.fenceSummary) || null; }
   function buildable() { var n = nation(); return (n && n.buildable) || []; }
+  /** ★ GDD3 §14-7 — 열린 갈래 안에서 아직 잠긴 건물들(서버가 해금 조건 글까지 실어 준다) */
+  function lockedBuildings() {
+    var n = nation();
+    return (n && n.lockedBuildings) || [];
+  }
   function buildableOf(key) {
     var l = buildable();
     for (var i = 0; i < l.length; i++) if (l[i].key === key) return l[i];
@@ -1310,6 +1315,7 @@
     footprintOf: footprintOf, footprintOfThing: footprintOfThing, centerOfThing: centerOfThing,
     anchorFromCell: anchorFromCell, rectOfThing: rectOfThing, rectGap: rectGap, cellIn: cellIn, hq: hq,
     fences: fences, fenceSummary: fenceSummary, buildable: buildable, buildableOf: buildableOf,
+    lockedBuildings: lockedBuildings,
     housing: housing, workPosts: workPosts, camps: camps,
     /* ★ GDD3 §13-D — RPG 계층 */
     recruitInfo: recruitInfo, statsCfg: statsCfg, statDefs: statDefs, statOrder: statOrder,

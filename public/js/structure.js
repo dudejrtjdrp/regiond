@@ -405,7 +405,7 @@
     }
     if (cond < 0.999) {
       acts.push({
-        label: b.ruined ? '다시 세운다' : '수리한다', cls: 'btn-good', id: 'st-repair',
+        label: b.ruined ? '다시 짓는다' : '수리한다', cls: 'btn-good', id: 'st-repair',
         tip: '자재를 들여 내구도를 되돌립니다',
         onClick: function () {
           GM.net.send('repairStructure', { structureId: b.id }, function (r) {
@@ -437,7 +437,7 @@
       } else {
         acts.push({
           label: '옮긴다', id: 'st-relocate',
-          tip: '새 자리를 고르면 헐었다가 다시 세웁니다',
+          tip: '새 자리를 고르면 헐었다가 다시 짓습니다',
           detail: '자재는 더 들지 않습니다. 다만 옮기는 동안에는 아무 몫도 하지 않습니다.',
           onClick: function () { GM.hud.hideContext(); GM.build.startRelocate(b); }
         });
@@ -505,7 +505,7 @@
     var facts = [{ k: wrecking ? '진행' : '올라간 정도', v: U.pct(c.progress || 0, 0) },
                  { k: '남은 일', v: U.fmt(c.remaining, 0) + ' / ' + U.fmt(c.total, 0) }];
     if (c.mode === 'demolish' && c.refund) facts.push({ k: '돌아올 것', v: GM.build.costText(c.refund) });
-    if (c.mode === 'relocate') facts.push({ k: '마디', v: c.phase === 'rebuild' ? '다시 세우기' : '헐어 내기' });
+    if (c.mode === 'relocate') facts.push({ k: '마디', v: c.phase === 'rebuild' ? '다시 짓기' : '헐어 내기' });
 
     GM.hud.showContext({
       icon: wrecking ? 'pickaxe' : 'hammer',
