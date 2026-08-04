@@ -1,0 +1,26 @@
+# 갈래말래 — Render 블루프린트 (docs/DEPLOY.md 참고)
+# 저장소를 Render 에 연결하면 이 파일을 자동으로 읽어 웹 서비스를 만든다.
+# 손으로 설정할 것은 없다 — 'Apply' 만 누르면 된다.
+services:
+  - type: web
+    name: gallaemallae
+    runtime: node
+    plan: free                     # 무료: 15분 미접속 시 잠들고, 재시작하면 세이브가 사라진다
+    region: singapore              # 한국에서 가장 가까운 무료 지역
+    branch: main
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health   # 200 이 떠야 살아 있는 것으로 친다
+    autoDeploy: true               # main 에 push 하면 자동으로 다시 배포한다
+    envVars:
+      - key: NODE_ENV
+        value: production          # ★ 이 값이 개발용 뒷문(/api/debug/*)을 잠근다
+      - key: NODE_VERSION
+        value: "22"
+      # ── 아래는 필요할 때만 (기본은 꺼 둔다) ──
+      # - key: DEBUG_API           # 운영에서 개발 뒷문을 임시로 열 때: 1
+      #   value: "1"
+      # - key: SAVES_DIR           # 유료 플랜 + 영구 디스크를 붙였을 때: 그 마운트 경로
+      #   value: /var/data/saves
+      # - key: ANTHROPIC_API_KEY   # 문장 표현 계층을 Claude 로 돌릴 때 (없으면 템플릿 전용)
+      #   sync: false
