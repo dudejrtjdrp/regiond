@@ -31,6 +31,7 @@ import { combatSwing } from './battle.js';
 // ★ GDD3 §13-C-8 — 웨이브 밖의 검. 들에 사는 것들을 벤다.
 import { huntSwing } from './ecology.js';
 import { settlementTier, promoteSettlement, nextTierStatus, tierDef } from './tiers.js';
+// ★ GDD3 §13-D — RPG 계층: 모집 · 장비/인첸트 · 연구/철로
 import { recruitResident, recruitStatus } from './residents.js';
 import { craftEquipment, enhanceEquipment, enchantEquipment, equipmentView } from './equipment.js';
 import { startResearch, researchView, placeRail, removeRail } from './research.js';
@@ -300,11 +301,21 @@ function runCommand(world, nationId, cmd, data, rng) {
       return ok({ ...res, equipment: equipmentView(nation, player, data), resources: { ...nation.resources }, gold: round2(nation.gold) });
     }
 
+    // ── ★ GDD3 §13-D-5 — 기술 트리와 철로 ───────────────────────
     case 'startResearch': {
       const res = startResearch(world, nation, cmd, data);
       if (!res.ok) return res;
       return ok({ ...res, research: researchView(nation, data), resources: { ...nation.resources }, gold: round2(nation.gold) });
     }
+    case 'placeRail': {
+      const res = placeRail(world, nation, cmd, data);
+      return res.ok ? ok({ ...res, resources: { ...nation.resources } }) : res;
+    }
+    case 'removeRail': {
+      const res = removeRail(world, nation, cmd, data);
+      return res.ok ? ok({ ...res, resources: { ...nation.resources } }) : res;
+    }
+
     case 'placeFence': {
       const res = placeFence(world, nation, cmd, data);
       return res.ok ? ok(res) : res;

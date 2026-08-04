@@ -72,7 +72,8 @@
       "unlocks": {
         "buildings": ["consulate", "cannon", "monument"],
         "features": ["highTierUpgrade", "diplomacy"],
-        "ui": ["panel.diplomacy"]
+        "ui": ["panel.diplomacy"],
+        "research": ["steam_engine", "railway"]
       },
       "line": "성문 밖에서도 이 이름을 부른다."
     },

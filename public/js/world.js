@@ -267,6 +267,31 @@
   }
 
   /* ══════════ 울타리 조각 ══════════ */
+  /* ★ GDD3 §13-D-5 — 철로. 바닥에 깔린 것이라 건물·사람보다 먼저 그린다. */
+  function drawRails() {
+    var list = S.rails();
+    if (!list.length) return;
+    var t = GM.camera.cam.tile;
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i];
+      if (!GM.camera.onScreen(r.x, r.y, t)) continue;
+      if (S.fogAt(r.x, r.y) < 1) continue;
+      var p = GM.camera.worldToScreen(r.x - 0.5, r.y - 0.5);
+      ctx.save();
+      /* 침목 — 가로 세 줄 */
+      ctx.fillStyle = '#6b4526';
+      for (var k = 0; k < 3; k++) {
+        ctx.fillRect(Math.round(p.x + t * (0.12 + k * 0.3)), Math.round(p.y + t * 0.2),
+                     Math.max(1, Math.round(t * 0.12)), Math.max(1, Math.round(t * 0.6)));
+      }
+      /* 레일 — 세로 두 줄 */
+      ctx.fillStyle = '#9aa4ae';
+      ctx.fillRect(Math.round(p.x), Math.round(p.y + t * 0.26), Math.ceil(t), Math.max(1, Math.round(t * 0.1)));
+      ctx.fillRect(Math.round(p.x), Math.round(p.y + t * 0.64), Math.ceil(t), Math.max(1, Math.round(t * 0.1)));
+      ctx.restore();
+    }
+  }
+
   function drawFences() {
     var list = S.fences();
     if (!list.length) return;
@@ -1023,6 +1048,10 @@
       drawFenceGhost();
       return;
     }
+    if (pl.kind === 'rail') {
+      drawRailGhost();
+      return;
+    }
     if (hoverTile.x < 0) return;
     var v = GM.build ? GM.build.validate(pl, hoverTile.x, hoverTile.y) : { ok: true };
     /* ★ §12-1 — 고스트도 풋프린트 사각형 전체를 보여 준다 (놓기 전에 "얼마나 큰지"가 보여야 한다) */
@@ -1093,6 +1122,25 @@
     ctx.restore();
     var cost = GM.build ? GM.build.fenceCostText(pts.length) : '';
     if (cost) label(cost, pts[pts.length - 1].x, pts[pts.length - 1].y - 1.2, '#f6cf7a');
+  }
+
+  /** ★ §13-D-5 — 철로 고스트. 지나간 칸이 그대로 놓일 자리다(선분이 아니다). */
+  function drawRailGhost() {
+    var t = GM.camera.cam.tile;
+    var pts = fencePath ? fencePath.slice() : [];
+    if (hoverTile.x >= 0) pts = pts.concat([{ x: hoverTile.x, y: hoverTile.y }]);
+    if (!pts.length) return;
+    ctx.save();
+    ctx.globalAlpha = 0.8;
+    for (var i = 0; i < pts.length; i++) {
+      var okHere = GM.build ? GM.build.railTileOk(pts[i].x, pts[i].y) : true;
+      var p = GM.camera.worldToScreen(pts[i].x - 0.5, pts[i].y - 0.5);
+      ctx.fillStyle = okHere ? 'rgba(154,164,174,.5)' : 'rgba(220,90,90,.4)';
+      ctx.fillRect(p.x, p.y, t, t);
+    }
+    ctx.restore();
+    var cost = GM.build ? GM.build.railCostText(pts.length) : '';
+    if (cost) label(cost, pts[pts.length - 1].x, pts[pts.length - 1].y - 1.2, '#c8d2dc');
   }
 
   function setFencePath(pts) { fencePath = pts; }
@@ -1453,6 +1501,7 @@
     drawClusters();
     drawTerritory();
     if (GM.fx) GM.fx.drawStumps(ctx, tile);
+    drawRails();                         /* ★ §13-D-5 — 바닥에 깔린 것이 먼저다 */
     drawNodes();
     drawFences();
     drawStructures();

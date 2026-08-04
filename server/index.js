@@ -432,8 +432,10 @@ const CLIENT_COMMANDS = [
   'demolishStructure', 'relocateStructure', 'cancelStructureWork',
   // ★ GDD3 §12-2 — 정착지 승격(본부의 [승격] 단추)
   'promoteSettlement',
+  // ★ GDD3 §13-D — RPG 계층: 모집 · 장비/강화/인첸트 · 연구 · 철로
   'recruitResident',
   'craftEquipment', 'enhanceEquipment', 'enchantEquipment',
+  'startResearch', 'placeRail', 'removeRail',
   // ★ GDD3 §11-4 — 감정의 날의 유일한 방아쇠
   'appraiseLand',
   'placeFence', 'upgradeFence', 'repairFence', 'removeFence',

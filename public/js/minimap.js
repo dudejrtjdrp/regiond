@@ -106,6 +106,10 @@
       ctx.fillRect(tw.x * k - 2, tw.y * k - 2, 5, 5);
     });
 
+    /* ★ GDD3 §13-D-5 — 철로. 축소 지도에서도 길이 보여야 어디에 더 깔지 알 수 있다. */
+    ctx.fillStyle = '#9aa4ae';
+    S.rails().forEach(function (r) { ctx.fillRect(r.x * k - 0.5, r.y * k - 0.5, 2, 2); });
+
     /* 울타리 · 주민 · 건물 · 아바타 */
     ctx.strokeStyle = '#a3703f';
     ctx.lineWidth = 1.5;

@@ -11,6 +11,7 @@ import { townOf, territoryRadius, encodeTerrain, dist, ringRadii } from './world
 // ★ GDD3 §13-C — 상시 생태계 · 도감
 import { creatureViews } from './ecology.js';
 import { codexView } from './codex.js';
+// ★ GDD3 §13-D — RPG 계층. 장비는 사람의 것, 연구·철로는 나라의 것이다.
 import { equipmentView } from './equipment.js';
 import { researchView, railViews, railSummary, researchFeature } from './research.js';
 import {
@@ -180,11 +181,15 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
       nodeContribution: nodeContributionView(world, nation, data),
       // ★ GDD3 §13-B-5 — 위험 띠. HUD 가 지금 내가 어느 띠에 서 있는지를 이 값으로 읽는다.
       rings: ringRadii(nation, data),
+      /* ★ GDD3 §13-D-5 — 기술 트리와 철로. 두 겹의 문을 구별해 둔다.
          ① **장**(10장 끝이 없는 길)이 열기 전에는 필드 자체가 없다 — 연구 탭도 그려지지 않는다(§11-1).
          ② 장이 열린 뒤에는 **잠긴 연구도 목록에 남는다** — 조건 가시화 원칙(§12-3)대로
             「단계 3/4」를 빨강으로 적어 다음 걸음이 무엇인지 보여야 하기 때문이다. */
       ...(on('research') ? {
         research: researchView(nation, data),
+        rails: researchFeature(nation, 'rails', data) ? railViews(nation) : [],
+        railSummary: railSummary(nation, data),
+      } : {}),
     },
     // ★ GDD3 §13-C-3 — 도감(J). 조우·처치 수는 서버가 권위로 세고, 잠긴 층은 필드 자체가 없다.
     codex: codexView(nation, data),

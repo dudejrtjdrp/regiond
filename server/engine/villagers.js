@@ -3,6 +3,8 @@
 // ★ 이 모듈의 핵심 계약: laborAlloc 은 더 이상 슬라이더가 아니라 '배치의 파생값'이다.
 //   referenceMix 대로 배치하면 옛 balance.json labor.defaultAlloc 과 채집 계수가 그대로 재현된다.
 import { townOf, territoryRadius, dist, nodeById, markDepleted } from './world.js';
+// ★ GDD3 §13-D-5 — 철로. 위를 걷는 걸음이 두 배가 된다.
+import { onRail, railCfg } from './research.js';
 
 export const vCfg = (data) => data.world.villagers;
 export const labCfg = (data) => data.world.laborDerivation;
@@ -371,8 +373,14 @@ export function syncNodeWorkers(world, nation, data) {
 // 매 틱 유지 — 이동 · 고갈 · 재생 · 재배치
 // ────────────────────────────────────────────────────────────────
 export function stepVillagers(world, nation, data, tick) {
-  const speed = vCfg(data).moveTilesPerTick;
+  const base = vCfg(data).moveTilesPerTick;
+  const railFast = railCfg(data).speedMultiplier ?? 2;
+  const railed = (nation.rails || []).length > 0;
   for (const u of nation.villagers || []) {
+    /* ★ GDD3 §13-D-5 — 철로 위에 선 걸음은 두 배다.
+       판정은 **지금 서 있는 칸**으로 한다: 길을 따라 걸으면 매 걸음이 빠르고,
+       길에서 벗어나면 그 순간 도로 느려진다. 길을 '따라' 깔아야 값어치가 나는 규칙이다. */
+    const speed = railed && onRail(nation, u.x, u.y) ? base * railFast : base;
     const dx = (u.destX ?? u.x) - u.x;
     const dy = (u.destY ?? u.y) - u.y;
     const d = Math.hypot(dx, dy);
@@ -386,6 +394,9 @@ export function stepVillagers(world, nation, data, tick) {
 /** 이 사람이 지금 얼마나 빠른가 — 화면의 걷기 연출이 서버와 같은 셈을 쓰게 한다 (§13-D-5) */
 export function villagerSpeed(nation, u, data) {
   const base = vCfg(data).moveTilesPerTick;
+  return onRail(nation, u.x, u.y) ? base * (railCfg(data).speedMultiplier ?? 2) : base;
+}
+
 /**
  * 노드 고갈·재생. 산출 수치는 매크로 공식이 내므로 여기서 자원을 주지는 않는다 —
  * 고갈은 "숲이 옅어짐" 연출과 재배치 압력(가동 노드 수 = 노드 기여)만 만든다.

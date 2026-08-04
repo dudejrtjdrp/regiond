@@ -124,6 +124,8 @@ export function createNation(id, name, opts, data, rng) {
     /* ★ GDD3 §13-D — RPG 계층. 장비는 사람(players)마다 붙고, 이 셋은 나라의 것이다.
        research.done 은 {열쇠: 끝난 날}, active 는 지금 붙들고 있는 연구 하나. */
     research: { done: {}, active: null },
+    rails: [],
+    nextRailId: 1,
     recruit: { readyTick: 0, count: 0 },
     // ★ GDD3 §13-C — 들에 사는 것들 · 도감(조우·처치 장부)
     wild: { creatures: [], nextId: 1, respawnQueue: [], rngState: null, acc: 0 },
@@ -253,9 +255,12 @@ export function migrateWorld(world, data) {
     nation.wild ||= { creatures: [], nextId: 1, respawnQueue: [], rngState: null, acc: 0 };
     nation.codex ||= { species: {}, ruins: {} };
     /* ★ GDD3 §13-D — RPG 계층. 셋 다 **없으면 없는 대로** 굴러가는 자리라 세이브를 버리지 않는다.
+       ① 장비는 사람(players)마다 붙는다 ② 연구·철로는 나라의 것이다.
        옛 세이브의 주민에게는 능력치가 없다 — 아이디로 씨앗을 지어 사람마다 다른 값을 채운다
        (전부 5.5 로 채우면 옛 마을만 개성 없는 판박이가 된다). */
     nation.research ||= { done: {}, active: null };
+    nation.rails ||= [];
+    nation.nextRailId ||= 1;
     nation.recruit ||= { readyTick: 0, count: 0 };
     for (const u of nation.villagers || []) {
       if (!u.stats) u.stats = rollStats(statRng(`${world.seed}:${nation.id}:${u.id}`), data);

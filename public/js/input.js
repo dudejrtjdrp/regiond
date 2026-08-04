@@ -61,9 +61,10 @@
     var t = tileFrom(e);
     var pl = S.S.placing;
 
-    if (pl && pl.kind === 'fence') {
+    /* ★ 울타리(선분)와 철로(칸)는 같은 끌기를 쓴다 — 모으는 점의 뜻만 다르다 */
+    if (pl && (pl.kind === 'fence' || pl.kind === 'rail')) {
       GM.world.setFencePath([{ x: t.x, y: t.y }]);
-      drag = { sx: l.x, sy: l.y, x: l.x, y: l.y, moved: false, mode: 'fence' };
+      drag = { sx: l.x, sy: l.y, x: l.x, y: l.y, moved: false, mode: pl.kind };
       return;
     }
     if (pl && pl.kind === 'reclaim') {
@@ -98,11 +99,11 @@
     if (drag.mode === 'select' && drag.moved) {
       GM.world.setDragBox({ x0: drag.sx, y0: drag.sy, x1: l.x, y1: l.y });
     }
-    if (drag.mode === 'fence') {
+    if (drag.mode === 'fence' || drag.mode === 'rail') {
       var path = GM.world.getFencePath() || [];
       var last = path[path.length - 1];
       if (!last || last.x !== t.x || last.y !== t.y) {
-        var cfg = S.fenceCfg();
+        var cfg = drag.mode === 'rail' ? (S.railCfg() || { maxPointsPerRequest: 64 }) : S.fenceCfg();
         if (path.length < (cfg.maxPointsPerRequest || 64)) {
           path.push({ x: t.x, y: t.y });
           GM.world.setFencePath(path);
@@ -125,6 +126,10 @@
     if (d.mode === 'fence') {
       var path = GM.world.getFencePath() || [];
       GM.build.commitFence(path, !!e.shiftKey);
+      return;
+    }
+    if (d.mode === 'rail') {
+      GM.build.commitRail(GM.world.getFencePath() || []);
       return;
     }
 

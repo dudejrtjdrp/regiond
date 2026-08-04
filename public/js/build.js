@@ -463,6 +463,59 @@
     return true;
   }
 
+  /* ══════════ ★ GDD3 §13-D-5 — 철로 드래그 ══════════
+     울타리와 같은 끌기지만 놓이는 것은 **선분이 아니라 칸**이다. 위를 걷는 주민이 두 배로 빨라진다. */
+  function openRail() {
+    var info = S.railInfo();
+    if (!info || !info.open) { U.toast('철로를 아직 모릅니다.', 'warn'); return; }
+    S.setPlacing({ kind: 'rail' });
+    GM.world.setFencePath([]);
+    U.toast('지도를 눌러 끌면 지나간 칸에 철로가 깔립니다. 그 위를 걷는 주민은 두 배로 빠릅니다.', 'good', 4200);
+    GM.sfx.play('page');
+  }
+
+  function railTileOk(x, y) {
+    var cfg = S.railCfg() || { blockedTerrain: ['water'], requiresTerritoryMargin: 30 };
+    var code = S.terrainKey(x, y);
+    if ((cfg.blockedTerrain || []).indexOf(code) >= 0) return false;
+    var t = S.myTown();
+    if (t) {
+      var w = S.worldCfg();
+      var base = (w && w.territory && w.territory.baseRadius) || 6;
+      if (Math.hypot(t.x - x, t.y - y) > base + (cfg.requiresTerritoryMargin || 30)) return false;
+    }
+    if (S.onRail(x, y)) return false;
+    return true;
+  }
+
+  function railCostText(tiles) {
+    var cfg = S.railCfg();
+    if (!cfg || !tiles) return '';
+    var total = {};
+    for (var k in cfg.costPerTile) {
+      if (Object.prototype.hasOwnProperty.call(cfg.costPerTile, k)) total[k] = cfg.costPerTile[k] * tiles;
+    }
+    return tiles + '칸 · ' + costText(total);
+  }
+
+  function commitRail(points) {
+    var cfg = S.railCfg() || { maxPointsPerRequest: 64 };
+    if (!points || !points.length) { GM.world.setFencePath([]); return false; }
+    var pts = points.slice(0, cfg.maxPointsPerRequest || 64);
+    GM.net.send('placeRail', { points: pts }, function (r) {
+      if (!r) return;
+      if (!r.ok) { U.toast((r.error && r.error.message) || '깔지 못했습니다.', 'warn', 3200); GM.sfx.play('deny'); return; }
+      GM.sfx.play('build');
+      U.toast(r.placed + '칸을 깔았습니다' + (r.skipped ? ' (' + r.skipped + '칸은 자리가 안 되어 건너뛰었습니다)' : '')
+        + ' · ' + costText(r.cost), r.skipped ? 'warn' : 'good', 3200);
+      (r.tiles || []).forEach(function (t, i) {
+        setTimeout(function () { GM.fx.dust(t.x, t.y, 3, '#9aa4ae'); }, i * 18);
+      });
+    });
+    GM.world.setFencePath([]);
+    return true;
+  }
+
   function repairAllFence() {
     GM.net.send('repairFence', {}, function (r) {
       if (r && r.ok) {
@@ -487,6 +540,8 @@
       GM.sfx.play('page');
     },
     openFence: openFence, fenceTileOk: fenceTileOk, fenceCostText: fenceCostText,
-    commitFence: commitFence, repairAllFence: repairAllFence
+    commitFence: commitFence, repairAllFence: repairAllFence,
+    /* ★ GDD3 §13-D-5 — 철로 */
+    openRail: openRail, railTileOk: railTileOk, railCostText: railCostText, commitRail: commitRail
   };
 })(window);

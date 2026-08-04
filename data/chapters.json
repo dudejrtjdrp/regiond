@@ -795,7 +795,10 @@
           "panel.research"
         ],
         "commands": [
-          "ordersSet"
+          "ordersSet",
+          "startResearch",
+          "placeRail",
+          "removeRail"
         ]
       },
       "steps": [],

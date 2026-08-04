@@ -18,8 +18,10 @@
     'demolishStructure', 'relocateStructure', 'cancelStructureWork',
     /* ★ GDD3 §12-2 — 정착지 승격(본부의 [승격] 단추) */
     'promoteSettlement',
+    /* ★ GDD3 §13-D — RPG 계층: 모집 · 장비/강화/인첸트 · 연구 · 철로 */
     'recruitResident',
     'craftEquipment', 'enhanceEquipment', 'enchantEquipment',
+    'startResearch', 'placeRail', 'removeRail',
     /* ★ 감정의 날 — 감정소를 눌러 여는 유일한 문 (GDD3 §11-4) */
     'appraiseLand',
     /* 주민 */

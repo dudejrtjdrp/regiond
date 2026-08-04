@@ -730,6 +730,15 @@
     for (var i = 0; i < (r.list || []).length; i++) if (r.list[i].key === key) return r.list[i];
     return null;
   }
+  function rails() { var n = nation(); return (n && n.rails) || []; }
+  function railInfo() { var n = nation(); return (n && n.railSummary) || null; }
+  function railCfg() { var c = cfg(); return (c && c.research && c.research.rails) || null; }
+  function onRail(x, y) {
+    var l = rails();
+    var rx = Math.round(x), ry = Math.round(y);
+    for (var i = 0; i < l.length; i++) if (l[i].x === rx && l[i].y === ry) return true;
+    return false;
+  }
   function workPosts() { var n = nation(); return (n && n.workPosts) || []; }
   function camps() {
     var n = nation();
@@ -1244,6 +1253,7 @@
     statName: statName, jobFitStats: jobFitStats, statFit: statFit,
     equipCfg: equipCfg, equipment: equipment,
     research: research, researchOf: researchOf,
+    rails: rails, railInfo: railInfo, railCfg: railCfg, onRail: onRail,
     jobMeta: jobMeta, stageName: stageName,
 
     selectResidents: selectResidents, selectTarget: selectTarget,

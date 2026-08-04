@@ -150,6 +150,16 @@
       list.appendChild(row);
     });
     body.appendChild(list);
+    var rail = S.railInfo();
+    if (rail && rail.open) {
+      body.appendChild(U.el('h4', 'se-sec', '철로'));
+      body.appendChild(U.el('p', 'se-line',
+        '깐 조각 ' + rail.tiles + ' / ' + rail.maxTiles
+        + ' · 위를 걷는 주민은 ' + rail.speedMultiplier + '배로 빠릅니다.'));
+    }
+    return body;
+  }
+
   function doResearch(key, b) {
     GM.net.send('startResearch', { key: key }, function (res) {
       if (!res) return;
