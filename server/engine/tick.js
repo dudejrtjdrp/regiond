@@ -38,7 +38,7 @@ import {
 import {
   departmentsActive, featureUnlocked, evaluateProgress, checkTrace, chapterIndex, ensureProgress,
 } from './progression.js';
-import { capacity, stepArrivals, residentGather, loseResidents, grainDays } from './residents.js';
+import { capacity, stepArrivals, residentSettle, loseResidents, grainDays } from './residents.js';
 import {
   updateWaveSchedule, ensureCamps, updateCampIntel, campEventView, daysUntilWave, nextWaveSpec,
 } from './waves.js';
@@ -449,9 +449,13 @@ export function produceNation(world, nation, data, hooks) {
     out.buildPoints = cobbDouglas(A.build, L('build'), K('build'), a, b)
       * departmentMultiplier(world, nation, 'build', 'build', data, hooks, buffs) * speed;
   } else {
-    // ── 티어 0~2 — 주민 개별 채집 적립 ──
-    const gathered = residentGather(world, nation, data);
-    out.residentGather = gathered;
+    /* ── 티어 0~2 — 주민 개별 채집 적립 ──
+       ★ GDD3 §14-1 — 이제 하루 몫의 대부분은 실시간 루프가 사이클마다 이미 건네주었다.
+       여기서는 **아직 안 준 나머지**만 채운다(residentSettle). 아무도 접속하지 않아 실시간 루프가
+       멎어 있었다면 나머지가 곧 하루 전부이므로, 어느 쪽이든 하루 합계는 옛 값과 정확히 같다. */
+    const gathered = residentSettle(world, nation, data);
+    out.residentGather = { resources: gathered.gross, buildPoints: gathered.buildPoints, workers: gathered.workers };
+    out.residentPrepaid = gathered.prepaid;
     /* ★ §13-A-5 — 주민이 지고 온 것도 곳간이 받아 주는 만큼만 들어간다 */
     for (const [res, amount] of Object.entries(gathered.resources)) {
       out[res] = round2((out[res] || 0) + deposit(nation, res, amount, data));

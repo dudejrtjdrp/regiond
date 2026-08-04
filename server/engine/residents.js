@@ -7,6 +7,8 @@ import {
 } from './structures.js';
 import { featureUnlocked, departmentsActive } from './progression.js';
 import { round2, round3, clamp } from './economy.js';
+// ★ GDD3 §14-1 — 실시간 크레딧도 저장 상한(§13-A-5)의 같은 문으로 들어간다.
+import { deposit } from './storage.js';
 // ★ GDD3 §13-A-1 — 유입 조건도 티어 조건과 **같은 공장**에서 찍는다.
 import { resourceReq, countReq } from './requirements.js';
 // ★ GDD3 §13-D-1 — 사람마다 다른 네 수치. 평균이 정확히 중립이라 마을 곡선은 그대로다.
@@ -368,6 +370,121 @@ export function residentGather(world, nation, data) {
   for (const k of Object.keys(out.resources)) out.resources[k] = round2(out.resources[k]);
   out.buildPoints = round2(out.buildPoints);
   return out;
+}
+
+// ────────────────────────────────────────────────────────────────
+// ★ GDD3 §14-1 — 작업 사이클 즉시 크레딧
+//
+// 실측이 먼저였다(harness 계측, 씨앗 20260804 · 벌목 3명):
+//   · 화면의 첫 숫자가 뜨기까지 **154.4초**, 그다음은 157.6초 뒤. 자루 하나(perDay÷4)를 채우는 데
+//     드는 시간이 언제나 하루길이÷4 = 150초였기 때문이다(자원 종류와 무관).
+//   · 국고(nation.resources.wood)는 그 15분 내내 **0.00** 이었다 — 일 틱(600초)에만 올랐다.
+//   즉 아무것도 고장 나지 않았다. 박자가 사람이 알아볼 수 없을 만큼 느렸을 뿐이다.
+//
+// 고친 규칙:
+//   · 사이클 길이 = 하루길이 ÷ cyclesPerDay (기본 30 → 20초). 사이클마다 perDay÷cyclesPerDay 를
+//     **그 자리에서** 국고에 넣고 같은 값을 그 사람 자리에 띄운다.
+//   · 사람마다 사이클 위상을 어긋나게 뿌린다(phaseJitter) — 안 그러면 셋이 동시에 터져
+//     "20초에 세 개, 그다음 20초는 정적"이 된다(옛 계측의 「0.0, 0.0, 157.6」이 바로 그 모습이다).
+//   · **하루 합계 동일성**: 사람마다 `workCredited` 에 이번 하루에 이미 받은 몫을 적어 두고,
+//     일 틱은 `perDay − workCredited` 만 채운다(residentSettle). 그래서 옛 산출식과 한 톨도 다르지 않다.
+//   · 저장 상한(§13-A-5)은 그대로다 — 넣는 문은 여전히 storage.deposit 하나뿐이다.
+// ────────────────────────────────────────────────────────────────
+export const workCfg = (data) => data.world.villagers.work ?? {};
+
+/** 한 작업 사이클의 길이(실시간 초) */
+export function workCycleSeconds(data) {
+  const cycles = Math.max(1, workCfg(data).cyclesPerDay ?? 30);
+  return (data.balance.time.dayRealSeconds ?? 600) / cycles;
+}
+
+/** 사람마다 다른 시작 위상 — id 에서 뽑는다(난수를 축내지 않는다) */
+function phaseOf(u, data) {
+  const jitter = workCfg(data).phaseJitter ?? 0;
+  if (!(jitter > 0)) return 0;
+  let h = 2166136261;
+  for (const ch of String(u.id || '')) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return ((h >>> 0) % 1000) / 1000 * jitter;
+}
+
+/**
+ * 이 사람의 노동 장부(하루 단위로 비워진다).
+ *   · produced — 이번 하루에 **낸** 몫. 하루 산출을 넘겨 주지 않게 막는 뚜껑이다.
+ *   · credited — 이번 하루에 **곳간에 실제로 들어간** 몫. 일 틱이 나머지를 채울 때 쓰는 값이다.
+ * 둘을 가른 까닭: 곳간이 차 있으면 낸 것과 들어간 것이 다르다(§13-A-5 는 넘치는 몫을 버린다).
+ * 또 storage.deposit 은 소수 둘째 자리에서 끊으므로, 잘려 나간 먼지를 일 틱이 마저 갚아야
+ * 하루 합계가 옛 산출식과 정확히 같아진다(실측: 이 구분이 없으면 오차 2.4%).
+ */
+export function ensureWork(u, data) {
+  const w = (u.work ||= {});
+  if (w.acc == null) w.acc = phaseOf(u, data);
+  w.produced ||= {};
+  w.credited ||= {};
+  return w;
+}
+
+/**
+ * 실시간 저빈도 루프의 한 걸음. 생태계 1초 루프에 편승한다(§14-1).
+ * @param {number} dt 초
+ * @returns {{credits:Array<{id,name,x,y,resource,amount}>, resources:Object}}
+ *          credits — 이번에 실제로 국고에 들어간 사이클들(화면이 이 자리에 수치를 띄운다)
+ */
+export function stepResidentWork(world, nation, data, dt = 1) {
+  const out = { credits: [], resources: {} };
+  if (!(dt > 0) || !nation?.isPlayer) return out;
+  const cycles = Math.max(1, workCfg(data).cyclesPerDay ?? 30);
+  const cycleSec = workCycleSeconds(data);
+  const nodeById = new Map((world.map?.nodes || []).map((n) => [n.id, n]));
+  for (const u of nation.villagers || []) {
+    const node = u.targetId ? (nodeById.get(u.targetId) ?? null) : null;
+    const y = residentYield(u, node, data, isOutdoorNode(world, nation, node, data));
+    // 노는 사람·수비·공사는 실시간으로 적립하지 않는다 — 일 틱이 통째로 맡는다(합계는 그대로다).
+    if (y.kind !== 'resource' || y.idle || !(y.perDay > 0)) continue;
+    const w = ensureWork(u, data);
+    w.acc += dt / cycleSec;
+    let guard = 0;
+    while (w.acc >= 1 && guard++ < 8) {
+      w.acc -= 1;
+      const share = y.perDay / cycles;
+      const made = w.produced[y.resource] || 0;
+      // 하루 몫을 넘겨 주지 않는다 — 이 뚜껑이 「일 합계 동일성」의 마지막 자물쇠다
+      const want = Math.min(share, Math.max(0, y.perDay - made));
+      if (!(want > 0)) break;
+      w.produced[y.resource] = round3(made + want);
+      const got = deposit(nation, y.resource, want, data);
+      w.credited[y.resource] = round3((w.credited[y.resource] || 0) + got);
+      out.resources[y.resource] = round3((out.resources[y.resource] || 0) + got);
+      out.credits.push({
+        id: u.id, name: u.name ?? u.id,
+        x: u.x, y: u.y,
+        resource: y.resource, amount: round3(want), stored: round3(got),
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * 일 틱 정산 — 하루 산출에서 **이미 실시간으로 준 몫**을 뺀 나머지.
+ * 아무도 안 보고 있어 실시간 루프가 멎어 있었다면 credited 가 비어 있으므로 residentGather 와 같다.
+ * @returns {{resources:{}, buildPoints:number, workers:number, gross:{}, prepaid:{}}}
+ */
+export function residentSettle(world, nation, data) {
+  const gross = residentGather(world, nation, data);
+  const prepaid = {};
+  for (const u of nation.villagers || []) {
+    const c = u.work?.credited;
+    if (!c) continue;
+    for (const [res, v] of Object.entries(c)) prepaid[res] = round3((prepaid[res] || 0) + v);
+    u.work.credited = {};
+    u.work.produced = {};
+  }
+  const resources = {};
+  for (const [res, v] of Object.entries(gross.resources)) {
+    const owed = round2(Math.max(0, v - (prepaid[res] || 0)));
+    if (owed > 0) resources[res] = owed;
+  }
+  return { resources, buildPoints: gross.buildPoints, workers: gross.workers, gross: gross.resources, prepaid };
 }
 
 // ────────────────────────────────────────────────────────────────

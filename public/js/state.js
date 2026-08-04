@@ -453,6 +453,24 @@
     return true;
   }
 
+  /**
+   * ★ GDD3 §14-1 — 서버가 실시간으로 고쳐 쓴 창고 잔고를 그대로 받아 적는다.
+   *   주민의 작업 사이클(residentWork)과 스윙 ack 이 같은 문을 쓴다: 자원칸이 일 틱을 안 기다린다.
+   */
+  function applyLiveResources(table) {
+    var v = S.view;
+    if (!table || !v || !v.nation || !v.nation.resources) return false;
+    for (var k in table) {
+      if (!Object.prototype.hasOwnProperty.call(table, k)) continue;
+      v.nation.resources[k] = table[k];
+    }
+    refreshAffordable(v.nation);
+    clearStorageNotice();
+    emit('change', S);
+    emit('live', S);
+    return true;
+  }
+
   function applyAck(evt, res, opts) {
     if (!res) return;
     /* 실패한 명령도 사실을 하나 알려 준다 — 「저 밭은 아직 아니다」 같은 것 */
@@ -930,14 +948,51 @@
     for (var i = 0; i < l.phases.length; i++) DAY_PHASES.push(l.phases[i]);
     return lightCache;
   }
+
+  /* ── ★ GDD3 §14-2 — 플레이어의 밝기 슬라이더 ────────────
+     자료의 값은 이제 '기본값'이다. 여기 곱해지는 배수 하나가 화면 전체의 밝기를 정한다:
+       · 덮는 어둠(phase.alpha · fogVeil) 은 (1 − (b−1)×darkPerStep) 만큼 얇아지고
+       · 더하는 빛(phase.lift) 은 (b−1)×liftPerStep 만큼 두꺼워진다.
+     b = 1 이면 자료 그대로다. 서버는 이 값을 모른다 — 보기의 문제이지 규칙의 문제가 아니다. */
+  var brightness = null;
+  function brightnessCfg() { return lightCfg().brightness || LIGHT_FALLBACK.brightness; }
+  function getBrightness() {
+    var c = brightnessCfg();
+    if (brightness == null) {
+      var v = null;
+      try { v = parseFloat(localStorage.getItem('gm.brightness')); } catch (e) { v = null; }
+      brightness = (isFinite(v) && v > 0) ? v : c.default;
+    }
+    return Math.max(c.min, Math.min(c.max, brightness));
+  }
+  function setBrightness(v) {
+    var c = brightnessCfg();
+    var n = Math.max(c.min, Math.min(c.max, Number(v) || c.default));
+    brightness = n;
+    try { localStorage.setItem('gm.brightness', String(n)); } catch (e) {}
+    emit('brightness', n);
+    return n;
+  }
+  /** 덮는 어둠에 곱하는 값 (0 아래로는 안 내려간다) */
+  function darkScale() {
+    var c = brightnessCfg();
+    return Math.max(0, 1 - (getBrightness() - 1) * (c.darkPerStep != null ? c.darkPerStep : 1));
+  }
+  /** 더하는 빛에 얹는 값 */
+  function liftBonus() {
+    var c = brightnessCfg();
+    return (getBrightness() - 1) * (c.liftPerStep != null ? c.liftPerStep : 0.22);
+  }
+
   /**
    * 지금 땅에 덮이는 장막의 세기 — 탐사했지만 눈에 안 닿는 칸에 쓴다.
    * ★ §13-A-2 — **건설 모드에서는 더 옅다.** 건물을 놓으러 카메라를 옮기면 시야 밖으로 나가
    *   화면이 훅 어두워졌다("건설 모드로 들어가면 어두워진다")는 피드백의 정면 답이다.
+   * ★ §14-2 — 그 위에 밝기 슬라이더가 곱해진다.
    */
   function fogVeil() {
     var l = lightCfg();
-    return S.placing ? l.buildVeil : l.fogVeil;
+    return (S.placing ? l.buildVeil : l.fogVeil) * darkScale();
   }
 
   /* ── ★ 주민 노동 다이얼 (GDD3 §13-A-3) ───────────────
@@ -1206,6 +1261,7 @@
     S: S, on: on, off: off, emit: emit, set: set, reset: reset, setBoot: setBoot,
     applyWorld: applyWorld, applyWorldDiff: applyWorldDiff, decodeRleInto: decodeRleInto,
     revealAround: revealAround, visionRadius: visionRadius, applyAck: applyAck,
+    applyLiveResources: applyLiveResources,
 
     nation: nation, ap: ap,
     tier: tier, tierNo: tierNo, unlocked: unlocked, uiOn: uiOn, featOn: featOn, buildingOn: buildingOn,

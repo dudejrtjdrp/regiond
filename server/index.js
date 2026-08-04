@@ -26,6 +26,8 @@ import { ensurePlayer } from './engine/skills.js';
 import { stepBattle, finishBattle, battleSnapshot } from './engine/battle.js';
 // ★ GDD3 §13-C — 상시 생태계. 일 틱도 전투 서브틱도 아닌 제 박자로 돈다.
 import { stepEcology, ensureCreatures, creatureViews } from './engine/ecology.js';
+// ★ GDD3 §14-1 — 주민의 작업 사이클도 그 박자에 편승한다(즉시 크레딧 + 그 자리 수치).
+import { stepResidentWork } from './engine/residents.js';
 import { chronicleView, record as chronicleRecord } from './engine/chronicle.js';
 import {
   upsertMember as upsertMemberEntry, normalizeAppearance, defaultAppearance, chatHistory,
@@ -145,6 +147,16 @@ class GameRuntime {
         tick: this.world.tick,
         list: creatureViews(this.world, nation, data),
       });
+      /* ★ GDD3 §14-1 — 주민의 작업 사이클. 하나가 끝날 때마다 곳간이 그 자리에서 오르고,
+         화면은 같은 값을 그 사람 머리 위에 띄운다. 일 틱은 나머지만 채운다(하루 합계 불변). */
+      const work = stepResidentWork(this.world, nation, data, dt);
+      if (work.credits.length) {
+        io.to(this.gameId).emit('residentWork', {
+          tick: this.world.tick,
+          credits: work.credits,
+          resources: liveResources(nation),
+        });
+      }
     }
   }
 

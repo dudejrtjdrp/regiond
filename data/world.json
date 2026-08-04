@@ -700,9 +700,11 @@
     "reassignOnDepletion": true,
     "moveTilesPerTick": 12,
     "work": {
-      "_note": "★ GDD3 §13-A-3 — 주민 노동 연출과 수치의 동기화 다이얼. 짐은 흐른 시간만큼 쌓이고(초당 perDay÷하루길이), 한 자루(perDay÷deliveriesPerDay)가 차면 저장고로 나른다. 부리는 순간 그 자루의 값이 \"+1.2 목재\"로 뜬다 — 하루 동안 뜬 숫자의 합이 서버가 국고에 넣는 값과 같다. deliveriesPerDay 를 올리면 자주 나르되 한 번에 뜨는 숫자가 작아진다.",
+      "_note": "★ GDD3 §14-1 — 주민 산출의 **박자**. 옛 규칙(§13-A-3)은 화면이 짐을 쌓아 하역할 때 숫자를 띄웠고 국고는 일 틱(10분)에 한 번 올랐다. 실측하니 첫 숫자가 뜨기까지 154초, 국고는 600초 동안 한 톨도 안 움직였다 — 그것이 \"일해도 안 늘고 플로팅도 안 뜬다\"의 정체다. 이제 서버가 실시간 저빈도 루프에서 **작업 사이클(cyclesPerDay 분의 하루)** 마다 곧바로 적립하고 그 자리에 수치를 띄운다. 한 사이클 몫 = 하루 산출 ÷ cyclesPerDay 이고, 일 틱은 '아직 안 준 나머지'만 채우므로 **하루 합계는 옛 값과 정확히 같다**. deliveriesPerDay·swingSeconds 는 이제 순수 연출(운반 왕복·스윙 간격) 다이얼이다 — 크레딧과 무관하다.",
+      "cyclesPerDay": 30,
       "deliveriesPerDay": 4,
-      "swingSeconds": 0.9
+      "swingSeconds": 0.9,
+      "phaseJitter": 0.85
     },
     "workRadiusBonus": 26,
     "_workRadiusNote": "★ GDD3 §13-B-2 — 자원 군락이 영토 밖에 앉으면서 주민의 일터도 영토를 넘는다. 일자리 판정 반경 = 영토 반경 + workRadiusBonus. 이 값이 0 이면 영토 안이 텅 비어 아무도 일하지 못한다."
@@ -995,25 +997,25 @@
     "repairPerBuildPoint": 8
   },
   "light": {
-    "_note": "★ GDD3 §13-A-2 — 화면 밝기 다이얼. 플레이테스트 2차: \"밤이 칠흑이라 아무것도 안 보인다\". phases[].alpha 는 월드 위에 덮는 어둠의 세기, lift 는 그 위에 더하는 빛(lighter 합성)이다. 밤은 어둠을 줄이고 달빛(liftColor)을 얹어 '캄캄함'이 아니라 '푸른 밤'이 되게 한다. fogVeil 은 탐사했지만 지금 안 보이는 땅에 덮는 장막 — 이 값이 화면에서 가장 크게 어둡게 만드는 항이다. buildVeil 은 건설 모드일 때의 장막(고스트를 읽을 수 있어야 하므로 더 옅다). minLuma 는 어떤 순간에도 지켜야 할 화면 평균 밝기 하한(0~255)이고, 스모크가 실제 캡처로 이 값을 잰다.",
+    "_note": "★ GDD3 §13-A-2 · §14-2 — 화면 밝기 다이얼. phases[].alpha 는 월드 위에 덮는 어둠의 세기, lift 는 그 위에 더하는 빛(lighter 합성)이다. 밤은 어둠을 줄이고 달빛(liftColor)을 얹어 '캄캄함'이 아니라 '푸른 밤'이 되게 한다. fogVeil 은 탐사했지만 지금 안 보이는 땅에 덮는 장막 — 이 값이 화면에서 가장 크게 어둡게 만드는 항이다. buildVeil 은 건설 모드일 때의 장막(고스트를 읽을 수 있어야 하므로 더 옅다). minLuma 는 어떤 순간에도 지켜야 할 화면 평균 밝기 하한(0~255)이고, 스모크가 실제 캡처로 이 값을 잰다. ★ §14-2 로 낮·밤 바닥을 한 단계 더 올렸다(밤 alpha 0.60→0.46 · 낮 lift 0.09→0.15 · fogVeil 0.30→0.24). 그 위에 플레이어의 **밝기 슬라이더**(settings.js, localStorage)가 곱해진다 — 자료의 값은 이제 '기본값'이지 '최종값'이 아니다.",
     "phases": [
       {
         "key": "morning",
         "name": "아침",
         "tint": "#3a4a88",
-        "alpha": 0.22,
-        "lift": 0.05,
+        "alpha": 0.16,
+        "lift": 0.1,
         "liftColor": "#ffd9a8",
         "vision": 0.94,
-        "sky": "rgba(255,168,120,.30)",
-        "ground": "rgba(38,48,108,.16)"
+        "sky": "rgba(255,168,120,.26)",
+        "ground": "rgba(38,48,108,.13)"
       },
       {
         "key": "day",
         "name": "낮",
         "tint": "#ffffff",
         "alpha": 0.0,
-        "lift": 0.09,
+        "lift": 0.15,
         "liftColor": "#fff4d8",
         "vision": 1,
         "sky": null,
@@ -1023,28 +1025,37 @@
         "key": "evening",
         "name": "저녁",
         "tint": "#e8663a",
-        "alpha": 0.18,
-        "lift": 0.05,
+        "alpha": 0.13,
+        "lift": 0.1,
         "liftColor": "#ffc890",
         "vision": 0.96,
-        "sky": "rgba(255,132,70,.32)",
-        "ground": "rgba(58,40,92,.20)"
+        "sky": "rgba(255,132,70,.27)",
+        "ground": "rgba(58,40,92,.16)"
       },
       {
         "key": "night",
         "name": "밤",
         "tint": "#16214a",
-        "alpha": 0.6,
-        "lift": 0.05,
+        "alpha": 0.46,
+        "lift": 0.11,
         "liftColor": "#b9cdff",
         "vision": 0.8,
-        "sky": "rgba(20,30,74,.20)",
-        "ground": "rgba(14,20,52,.22)"
+        "sky": "rgba(20,30,74,.16)",
+        "ground": "rgba(14,20,52,.17)"
       }
     ],
     "fogVeil": 0.3,
     "buildVeil": 0.18,
     "minLuma": 48
+    "brightness": {
+      "_note": "★ GDD3 §14-2 — 설정 패널의 밝기 슬라이더. 1.0 이 자료 그대로다. 올리면 덮는 어둠(alpha·fogVeil)이 줄고 더하는 빛(lift)이 는다. 화면(public/js/settings.js)이 localStorage 에 적어 두고, 서버는 이 값을 모른다 — 보기의 문제이지 규칙의 문제가 아니기 때문이다.",
+      "min": 0.6,
+      "max": 1.6,
+      "step": 0.05,
+      "default": 1,
+      "darkPerStep": 1,
+      "liftPerStep": 0.22
+    }
   },
   "rings": {
     "_note": "★ GDD3 §13-B-5 — 본부에서 멀어질수록 세상이 사나워진다. 링0(영토+근교)은 온순한 짐승만, 링1은 약한 포식자, 링2는 강하고 빠른 적이다. 경계는 '영토 반경 + margin' 이라 정착지가 자라면 안전한 땅도 함께 넓어진다. warnRing 에 처음 발을 들이면 경고 한 번(토스트 + 화면 가장자리 붉은 기)이 뜨고, 되돌아 나갔다 다시 들어가면 또 한 번 뜬다.",

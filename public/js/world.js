@@ -399,29 +399,86 @@
   var wild = {};
   var WILD_SNAP = 12;
 
+  /* ★ GDD3 §14-3 — 뚝뚝 끊기던 까닭과 고친 규칙.
+     옛 코드는 지수 감쇠(`d × min(1, dt×6)`)로 서버 좌표에 '다가갔다'. 그 곡선은 새 좌표가 오는
+     순간 가장 빠르고 다음 좌표가 올 때쯤 거의 멈춘다 — 1초 주기로 **빨라졌다 느려지는** 톱니가
+     그대로 눈에 보인다(실측: 프레임 간 이동량 표준편차 ÷ 평균 = 0.94).
+     고친 규칙은 교과서 그대로다:
+       ① 서버 좌표를 **두 개**(prev·next) 들고 있는다.
+       ② 그리는 시각을 **한 스텝 뒤로 미룬다**(지연 버퍼) — 다음 좌표가 이미 손에 있는 구간만 그린다.
+       ③ 그 두 점 사이를 **등속**으로 지난다. k 는 [0,1] 로 잘라 **외삽하지 않는다**
+          (패킷이 늦으면 멈춰 기다린다 — 앞질러 갔다가 되돌아오는 것이 가장 큰 끊김이다).
+       ④ 방향은 값이 아니라 **각도를 스무딩**해서 정한다. 왼·오른쪽 뒤집기에는 문턱을 둬
+          제자리걸음에 스프라이트가 파닥거리지 않게 한다. */
+  var WILD_DELAY_MS = 1000;              // 지연 버퍼 = 서버 한 스텝
+  var wildClock = 0;                     // 애니메이션 시계(ms) — rAF 가 없어도 도는 자체 시계
+
+  /** 새 좌표 묶음이 왔다 — 각자의 버퍼를 한 칸 민다 */
+  function pushWildSnapshot(list) {
+    var now = wildClock;
+    for (var i = 0; i < (list || []).length; i++) {
+      var c = list[i];
+      var a = wild[c.id];
+      if (!a) {
+        wild[c.id] = { x: c.x, y: c.y, dir: 1, face: 0, frame: 0, ft: 0, hurt: 0,
+                       prev: { x: c.x, y: c.y, t: now - WILD_DELAY_MS }, next: { x: c.x, y: c.y, t: now } };
+        continue;
+      }
+      if (a.next && Math.hypot(c.x - a.next.x, c.y - a.next.y) > WILD_SNAP) {
+        /* 걸어서는 못 갈 거리 — 같은 놈이 걸어간 것으로 볼 수 없다. 그때만 스냅한다. */
+        a.x = c.x; a.y = c.y;
+        a.prev = { x: c.x, y: c.y, t: now - WILD_DELAY_MS };
+        a.next = { x: c.x, y: c.y, t: now };
+        continue;
+      }
+      a.prev = a.next || { x: a.x, y: a.y, t: now - WILD_DELAY_MS };
+      a.next = { x: c.x, y: c.y, t: now };
+    }
+    for (var k in wild) {
+      if (!Object.prototype.hasOwnProperty.call(wild, k)) continue;
+      var alive = false;
+      for (var j = 0; j < (list || []).length; j++) if (list[j].id === k) { alive = true; break; }
+      if (!alive) delete wild[k];
+    }
+  }
+
   function stepWild(dt) {
+    wildClock += dt * 1000;
+    var render = wildClock - WILD_DELAY_MS;
     var list = S.creatureList();
     var seen = {};
     for (var i = 0; i < list.length; i++) {
       var c = list[i];
       seen[c.id] = true;
       var a = wild[c.id];
-      if (!a) { wild[c.id] = { x: c.x, y: c.y, dir: 1, frame: 0, ft: 0, hurt: 0 }; continue; }
-      var dx = c.x - a.x;
-      var dy = c.y - a.y;
-      var d = Math.hypot(dx, dy);
-      if (d > WILD_SNAP) { a.x = c.x; a.y = c.y; continue; }
-      if (d > 0.02) {
-        var step = Math.min(d, d * Math.min(1, dt * 6));
-        a.x += (dx / d) * step;
-        a.y += (dy / d) * step;
-        if (Math.abs(dx) > 0.02) a.dir = dx > 0 ? 1 : -1;
+      if (!a) {
+        wild[c.id] = { x: c.x, y: c.y, dir: 1, face: 0, frame: 0, ft: 0, hurt: 0,
+                       prev: { x: c.x, y: c.y, t: render - WILD_DELAY_MS }, next: { x: c.x, y: c.y, t: render } };
+        continue;
+      }
+      var p = a.prev, q = a.next;
+      var span = Math.max(1, q.t - p.t);
+      /* ★ 외삽 금지 — 아직 안 온 미래로 나아가지 않는다 */
+      var k = Math.max(0, Math.min(1, (render - p.t) / span));
+      var nx = p.x + (q.x - p.x) * k;
+      var ny = p.y + (q.y - p.y) * k;
+      var mx = nx - a.x, my = ny - a.y;
+      a.x = nx; a.y = ny;
+      var moved = Math.hypot(mx, my);
+      if (moved > 0.0015) {
+        /* 방향 스무딩 — 각도를 따라가고, 좌우 뒤집기에는 문턱을 둔다 */
+        var want = Math.atan2(my, mx);
+        var diff = Math.atan2(Math.sin(want - a.face), Math.cos(want - a.face));
+        a.face += diff * Math.min(1, dt * 7);
+        var cosF = Math.cos(a.face);
+        if (cosF > 0.22) a.dir = 1;
+        else if (cosF < -0.22) a.dir = -1;
         a.ft += dt;
         if (a.ft > 0.22) { a.ft = 0; a.frame = a.frame ? 0 : 1; }
       }
       if (a.hurt > 0) a.hurt = Math.max(0, a.hurt - dt);
     }
-    for (var k in wild) if (Object.prototype.hasOwnProperty.call(wild, k) && !seen[k]) delete wild[k];
+    for (var id in wild) if (Object.prototype.hasOwnProperty.call(wild, id) && !seen[id]) delete wild[id];
   }
 
   function markWildHurt(id) { if (wild[id]) wild[id].hurt = 0.35; }
@@ -744,15 +801,15 @@
   }
 
   /**
-   * ★ §12-9 노동 루프 + ★ §13-A-3 실제 수치.
+   * ★ §12-9 노동 루프 — ★ GDD3 §14-1 로 **순수 연출**이 되었다.
    *
-   * 예전엔 순수 연출이었다 — 0.9초마다 휘두르고 네 번이면 지고 날라 **숫자 없이** 부렸다.
-   * 그래서 "주민이 일하는 건 보이는데 국고에 들어가는지 모르겠다"가 나왔다.
-   * (실측: 산출은 국고에 제대로 들어가고 있었다. 다만 일 틱 10분에 한 번 소리 없이 뭉텅이로.)
+   * 옛 규칙(§13-A-3)은 화면이 짐을 시간만큼 쌓아 두었다가 하역하는 순간 숫자를 띄웠다.
+   * 실측해 보니 그 순간이 오기까지 **154초**였고(자루 하나 = 하루길이÷4 = 150초 + 걸어가는 시간),
+   * 국고는 그동안 한 톨도 안 움직였다(일 틱 600초). 그것이 "일해도 안 늘고 플로팅도 안 뜬다"의 정체다.
    *
-   * 이제 짐은 **흐른 시간만큼 실제로 쌓인다**: 초당 perDay ÷ 하루길이.
-   * 한 자루(perDay ÷ deliveriesPerDay)가 차면 그때 나르고, 부리는 순간 그 자루의 값을 띄운다.
-   * 그래서 하루 동안 뜬 숫자의 합 = 서버가 국고에 넣는 값이다. 연출과 셈이 같은 시계를 본다.
+   * 이제 수치는 **서버가 사이클마다 곧바로** 넣고 residentWork 로 알려 준다(creditFloat).
+   * 여기 남은 것은 그림뿐이다: 휘두르고, 지고, 날라 부리고, 돌아온다. 자루는 **시간으로만** 찬다
+   * (deliveriesPerDay 는 이제 왕복 빈도 다이얼일 뿐 크레딧과 무관하다).
    */
   function stepWork(v, a, dt) {
     var res = CARRY_JOBS[v.job];
@@ -762,15 +819,14 @@
     a.home.x = node.x; a.home.y = node.y;
 
     var wk = S.villagerWorkCfg();
-    var perDay = (v.yield && v.yield.resource === res) ? (v.yield.perDay || 0) : 0;
-    var sack = perDay > 0 ? perDay / Math.max(1, wk.deliveriesPerDay) : 0;
-    var perSec = perDay / Math.max(1, S.dayRealSeconds());
+    var working = !!(v.yield && v.yield.resource === res && v.yield.perDay > 0);
+    /* 왕복 한 번에 걸리는 시간 — 하루를 deliveriesPerDay 로 나눈 것(순수 연출 박자) */
+    var haulEvery = S.dayRealSeconds() / Math.max(1, wk.deliveriesPerDay);
 
     if (a.phase === 'work') {
       a.swingT = (a.swingT || 0) + dt;
       a.pose = Math.max(0, 1 - (a.swingT % wk.swingSeconds) / (wk.swingSeconds * 0.47));
       faceTo(a, node.x - a.x, node.y - a.y);
-      a.carry = (a.carry || 0) + perSec * dt;                 // ★ 짐은 시간과 함께 쌓인다
       if (a.swingT - (a.lastHit || 0) >= wk.swingSeconds) {
         a.lastHit = a.swingT;
         if (GM.fx) {
@@ -778,8 +834,10 @@
           GM.fx.debris(node.x, node.y, S.nodeMeta(node.type).color, 3, 0.6);
         }
       }
-      /* 자루가 찼으면 나른다. 산출이 0인 사람(고갈된 노드 등)은 나르지 않는다 — 헛걸음을 보이지 않는다. */
-      if (sack > 0 && a.carry >= sack) { a.phase = 'haul'; a.drop = dropSpot(a); a.swingT = 0; a.pose = 0; }
+      /* 일하지 않는 사람(고갈된 노드 등)은 나르지 않는다 — 헛걸음을 보이지 않는다 */
+      if (working && a.swingT >= haulEvery) {
+        a.carry = 1; a.phase = 'haul'; a.drop = dropSpot(a); a.swingT = 0; a.pose = 0;
+      }
       return true;
     }
     if (a.phase === 'haul') {
@@ -790,18 +848,8 @@
     if (a.phase === 'unload') {
       a.unloadT = (a.unloadT || 0) + dt;
       if (a.unloadT > 0.55) {
-        /* ★ §13-A-3 하역 — 연출과 수치가 같은 순간에 터진다.
-           숫자는 플레이어의 스윙과 **같은 서식**("+1.2 목재")으로, 제자리에서 떠오르며 사라진다. */
-        var got = a.carry || 0;
-        if (GM.fx) {
-          GM.fx.dust(a.x, a.y, 4, '#c8a874');
-          var meta = S.resourceMeta(res) || {};
-          if (got > 0.049) {
-            GM.fx.floatText(a.x, a.y - 0.9, '+' + U.fmt(got, got < 10 ? 1 : 0) + ' ' + (meta.name || res),
-              meta.color || '#f6e6a8', 12);
-          }
-          GM.fx.resourcePop(a.x, a.y - 0.4, res, '', meta.color);
-        }
+        /* 부리는 그림만 남았다 — 숫자는 서버가 사이클마다 이미 띄웠다(§14-1) */
+        if (GM.fx) GM.fx.dust(a.x, a.y, 4, '#c8a874');
         a.carry = 0;
         a.phase = 'return';
       }
@@ -812,6 +860,27 @@
       return true;
     }
     return false;
+  }
+
+  /**
+   * ★ GDD3 §14-1 — 서버가 방금 곳간에 넣은 한 사이클 몫을 그 사람 자리에 띄운다.
+   *   연출 좌표(units[id])가 있으면 그 자리에, 없으면 서버가 준 좌표에 띄운다.
+   *   숫자 서식은 플레이어 스윙과 같다("+0.11 목재") — 값이 작을수록 소수 자리를 늘려 0 이 안 뜬다.
+   */
+  function creditFloat(c) {
+    if (!c || !GM.fx) return false;
+    var a = units[c.id];
+    var x = a ? a.x : c.x;
+    var y = a ? a.y : c.y;
+    if (!GM.camera.onScreen(x, y, GM.camera.cam.tile * 3)) return false;
+    var meta = S.resourceMeta(c.resource) || {};
+    var n = Number(c.amount) || 0;
+    if (n <= 0) return false;
+    var digits = n >= 10 ? 0 : (n >= 1 ? 1 : 2);
+    GM.fx.floatText(x, y - 0.9, '+' + U.fmt(n, digits) + ' ' + (meta.name || c.resource),
+      meta.color || '#f6e6a8', 12);
+    GM.fx.resourcePop(x, y - 0.4, c.resource, '', meta.color);
+    return true;
   }
 
   function stepUnits(dt) {
@@ -1611,6 +1680,12 @@
     animateTerritory: animateTerritory, bounceStructure: bounceStructure, markArrival: markArrival,
     setFencePath: setFencePath, getFencePath: getFencePath,
     nearestWild: nearestWild, wildPos: wildPos, markWildHurt: markWildHurt,
+    /* ★ GDD3 §14-1 — 주민 작업 사이클의 수치 표시 */
+    creditFloat: creditFloat,
+    /* ★ GDD3 §14-3 — 서버 좌표 묶음이 올 때마다 지연 버퍼를 한 칸 민다 */
+    pushWild: pushWildSnapshot,
+    /* 하니스·스모크 전용 — jsdom 에는 rAF 시계가 없어 걸음을 손으로 돌린다 */
+    stepWildForTest: stepWild,
     label: label, ringAt: ringAt, verbFor: verbFor,
     frameStats: frameStats, resetStats: resetStats,
     size: function () { return { w: W, h: H }; },

@@ -136,6 +136,17 @@
       GM.residents.arrived(p);
     });
 
+    /* ★ GDD3 §14-1 — 주민의 작업 사이클이 끝났다.
+       서버는 이미 곳간에 넣었다. 화면은 ① 그 사람 자리에 수치를 띄우고 ② 자원칸이 그 값을 빨아들이게 한다. */
+    S.on('residentWork', function (p) {
+      if (!inGame || !p) return;
+      var seen = {};
+      (p.credits || []).forEach(function (c) {
+        if (GM.world.creditFloat(c)) seen[c.resource] = 1;
+      });
+      Object.keys(seen).forEach(function (k) { GM.hud.absorb(k); });
+    });
+
     /* ★ GDD3 §13-D-5 — 연구가 끝났다. 석탄·석유는 그 순간 땅에 드러나므로 지도를 다시 청한다. */
     S.on('researchDone', function (p) {
       if (!inGame || !p) return;
