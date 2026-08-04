@@ -255,6 +255,8 @@ export function publicConfig() {
     creatures: publicCreatures(d),
     // ★ GDD3 §13-D-1 — 주민 능력치의 '규칙'(이름·눈금·직업 적합). 사람마다의 수치는 state 로만 간다.
     residentStats: publicStats(d),
+    // ★ GDD3 §13-D-2 — 모집 값(식량 20 · 쿨다운 1일). 지금 쓸 수 있는지는 state.housing.recruit 이 안다.
+    recruit: { ...d.balance.residents.recruit, cost: { ...d.balance.residents.recruit.cost } },
     world: publicWorld(d),
     time: {
       dayRealSeconds: d.balance.time.dayRealSeconds,

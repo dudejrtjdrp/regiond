@@ -201,7 +201,84 @@ export function stepArrivals(world, nation, data, rng) {
   return arrived;
 }
 
+// ────────────────────────────────────────────────────────────────
+// 모집 — ★ GDD3 §13-D-2. 본부의 [모집] 단추.
+//
+// 자연 유입은 그대로 둔다. 이것은 그 위에 낸 **두 번째 문**이다: 곡물을 치르고 지금 당장 한 사람.
+// 잠자리 조건은 자연 유입과 똑같다 — 식량으로 잠자리를 살 수는 없다.
+// 쿨다운이 하루라, 붐빔(§12-4 crowding)이 자연 유입을 늦추는 후반에도 하루 한 명이 뚜껑이다.
+// ────────────────────────────────────────────────────────────────
+export const recruitCfg = (data) => data.balance.residents.recruit;
+
+/** 지금 모집할 수 있는가 + 못 하는 조건 하나하나 (§12-3 조건 가시화) */
+export function recruitStatus(world, nation, data) {
+  const cfg = recruitCfg(data);
+  const tick = world?.tick ?? 0;
+  const readyTick = nation.recruit?.readyTick ?? 0;
+  const cooling = Math.max(0, readyTick - tick);
+  const beds = freeBeds(nation, data);
+  const unlocked = featureUnlocked(nation, 'residentArrival', data);
+  const reqs = [
+    countReq({
+      key: 'unlocked', text: '사람이 찾아올 만한 곳',
+      have: unlocked ? 1 : 0, need: 1,
+      detail: unlocked ? '소문이 났습니다' : '오두막을 세우면 소문이 납니다',
+    }),
+    countReq({
+      key: 'beds', text: '빈 잠자리', have: beds, need: 1, unit: '자리',
+      detail: `잠자리 ${capacity(nation, data)}개 중 ${beds}개가 비었습니다`,
+    }),
+    countReq({
+      key: 'cooldown', text: '다시 부를 수 있을 때까지',
+      have: cooling > 0 ? 0 : 1, need: 1,
+      detail: cooling > 0 ? `${round2(cooling)}일 뒤에 다시 부를 수 있습니다` : '지금 부를 수 있습니다',
+    }),
+  ];
+  for (const [res, amount] of Object.entries(cfg.cost || {})) {
+    reqs.push(resourceReq(nation, res, amount, data, { key: `cost:${res}`, text: data.resources.meta[res]?.name ?? res, dec: 0 }));
+  }
+  const bad = reqs.find((x) => !x.ok);
+  return {
+    open: !bad,
+    reason: bad ? bad.text : null,
+    reqs,
+    cost: { ...(cfg.cost || {}) },
+    cooldownDays: cfg.cooldownDays,
+    cooldownLeft: round2(cooling),
+    readyTick,
+    count: nation.recruit?.count ?? 0,
+  };
+}
+
+/**
+ * recruitResident — 값을 치르고 그 자리에서 한 사람.
+ * @returns {{ok:true, resident, status}|{ok:false,error}}
+ */
+export function recruitResident(world, nation, data, rng) {
+  const st = recruitStatus(world, nation, data);
+  if (!st.open) {
+    const bad = st.reqs.find((x) => !x.ok);
+    return {
+      ok: false,
+      error: {
+        code: bad?.key === 'beds' ? 'NO_BED' : (bad?.key === 'cooldown' ? 'COOLDOWN' : 'NOT_READY'),
+        message: bad?.detail ?? '지금은 부를 수 없습니다.',
+      },
+    };
+  }
+  const cfg = recruitCfg(data);
+  for (const [res, amount] of Object.entries(cfg.cost || {})) {
+    nation.resources[res] = round2((nation.resources[res] || 0) - amount);
+  }
+  const resident = spawnResident(world, nation, data, rng);
+  nation.recruit = {
+    readyTick: (world?.tick ?? 0) + (cfg.cooldownDays ?? 1),
+    count: (nation.recruit?.count ?? 0) + 1,
+  };
   nation.stats.residentsArrived = (nation.stats.residentsArrived || 0) + 1;
+  return { ok: true, resident, cost: { ...(cfg.cost || {}) }, status: recruitStatus(world, nation, data) };
+}
+
 /** 굶주림으로 사람이 떠난다(죽지 않는다 — 짐을 싸서 나간다) */
 export function loseResidents(nation, count) {
   const list = nation.villagers || [];
@@ -325,7 +402,7 @@ export function peoplePerUnit(nation, data) {
   return n <= from ? 1 : (nation.population || n) / Math.min(n, from);
 }
 
-export function housingView(nation, data) {
+export function housingView(nation, data, world = null) {
   const st = arrivalStatus(nation, data);
   const byKey = {};
   for (const s of nation.structures || []) {
@@ -339,6 +416,10 @@ export function housingView(nation, data) {
     freeBeds: st.freeBeds,
     byBuilding: byKey,
     arrival: st,
+    /* ★ §13-D-2 — 본부의 [모집] 단추가 이 표로 그려진다(잠긴 까닭도 여기 다 있다).
+       ★ 사람이 찾아오는 장(4장) 전에는 필드 자체가 없다 — 단추도 그려지지 않는다(§11-1). */
+    ...(featureUnlocked(nation, 'recruit', data)
+      ? { recruit: recruitStatus(world ?? { tick: 0 }, nation, data) } : {}),
     departmentsActive: departmentsActive(nation, data),
   };
 }

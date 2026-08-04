@@ -706,6 +706,7 @@
   function housing() { var n = nation(); return (n && n.housing) || null; }
   /* ── ★ GDD3 §13-D — RPG 계층 ─────────────────────────────────
      잠긴 계층은 뷰에 필드 자체가 없다(§11-1). 그래서 여기 없으면 화면도 그리지 않는다. */
+  function recruitInfo() { var h = housing(); return (h && h.recruit) || null; }
   function statsCfg() { var c = cfg(); return (c && c.residentStats) || null; }
   function statDefs() { var t = statsCfg(); return (t && t.defs) || {}; }
   function statOrder() { var t = statsCfg(); return (t && t.order) || []; }

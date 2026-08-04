@@ -240,13 +240,16 @@
           "hut"
         ],
         "features": [
-          "residentArrival"
+          "residentArrival",
+          "recruit"
         ],
         "ui": [
           "hud.population",
           "panel.residents"
         ],
-        "commands": []
+        "commands": [
+          "recruitResident"
+        ]
       },
       "steps": [
         {

@@ -158,6 +158,11 @@
       },
       "fitThreshold": 7
     },
+    "recruit": {
+      "_note": "★ GDD3 §13-D-2 — 본부 [모집]. 자연 유입(arrival)은 그대로 두고 그 위에 **손으로 부르는 문**을 하나 더 낸다. 값은 식량 20 한 번, 쿨다운 1게임일. 빈 잠자리는 자연 유입과 똑같이 필요하다 — 식량으로 잠자리를 살 수는 없다. 쿨다운이 하루라 인구 곡선의 기울기(§12-4 crowding)를 넘어서지 못한다.",
+      "cost": { "grain": 20 },
+      "cooldownDays": 1
+    },
     "unitCompressionFrom": 60,
     "militiaMoraleFloor": 0.7,
     "names": {

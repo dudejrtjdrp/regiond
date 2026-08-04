@@ -67,12 +67,43 @@
    *   "영토가 넓어지는 조건을 모르겠다"에 대한 답이다. 지금 단계·다음 단계 조건표(초록/빨강+현재값/필요값)·
    *   주민 유입 조건과 다음 사람까지의 진행바, 그리고 조건이 다 차면 켜지는 [승격] 단추.
    */
+    if (S.recruitInfo()) tabs.push({ key: 'recruit', name: '모집', icon: 'person' });
+  /* ══════════ ★ §13-D-2 — 모집 갈래 ══════════ */
+  function recruitBody(b) {
+    var r = S.recruitInfo();
+    var body = U.el('div', 'settle');
+    body.appendChild(U.el('h4', 'se-sec', '사람을 부른다'));
+    body.appendChild(U.el('p', 'se-line',
+      '길 위의 사람에게 먹을 것을 들려 보내면 하루 안에 한 사람이 옵니다. '
+      + '저절로 찾아오는 사람은 그대로 옵니다.'));
   function openSettlement(b) {
     openHqId = b && b.id ? b.id : null;
     var t = S.tier();
     var nx = t.next;
     var h = S.housing() || {};
     var arr = h.arrival || null;
+        var rr = S.recruitInfo() || {};
+        var costText = Object.keys(rr.cost || {}).map(function (k) {
+          return S.resourceMeta(k).name + ' ' + U.fmt(rr.cost[k], 0);
+        }).join(' · ');
+        altActs.push({
+          label: '모집한다 — ' + costText, cls: 'btn-primary', id: 'se-recruit',
+          disabled: !rr.open,
+          tip: rr.open ? '지금 한 사람을 부릅니다' : ('아직 부를 수 없습니다 — ' + (rr.reason || '')),
+          detail: '값을 치르면 그 자리에서 한 사람이 옵니다. 다시 부르기까지 '
+            + U.fmt(rr.cooldownDays, 0) + '일 걸립니다.',
+          onClick: function () {
+            GM.net.send('recruitResident', {}, function (res) {
+              if (!res) return;
+              if (!res.ok) { U.toast((res.error && res.error.message) || '지금은 부를 수 없습니다.', 'warn', 3400); GM.sfx.play('deny'); return; }
+              GM.sfx.play('arrive');
+              openSettlement(b);
+            });
+          }
+        });
+      }
+      altActs.push({ label: '닫는다', cls: 'btn-ghost', onClick: function () { S.clearSelection(); GM.hud.hideContext(); } });
+      GM.hud.showContext({
 
     var body = U.el('div', 'settle');
     if (tabRow) body.appendChild(tabRow);

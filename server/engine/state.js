@@ -121,6 +121,7 @@ export function createNation(id, name, opts, data, rng) {
     ruinGauge: 0,
     // ★ GDD3 §13-B-4 — 뒤진 유적 중 가장 큰 것의 등급 보정. 다음에 열 상자의 급을 밀어 올린다.
     ruinGradeBoost: 0,
+    recruit: { readyTick: 0, count: 0 },
     // ★ GDD3 §13-C — 들에 사는 것들 · 도감(조우·처치 장부)
     wild: { creatures: [], nextId: 1, respawnQueue: [], rngState: null, acc: 0 },
     codex: { species: {}, ruins: {} },
@@ -251,6 +252,8 @@ export function migrateWorld(world, data) {
     /* ★ GDD3 §13-D — RPG 계층. 셋 다 **없으면 없는 대로** 굴러가는 자리라 세이브를 버리지 않는다.
        옛 세이브의 주민에게는 능력치가 없다 — 아이디로 씨앗을 지어 사람마다 다른 값을 채운다
        (전부 5.5 로 채우면 옛 마을만 개성 없는 판박이가 된다). */
+    nation.recruit ||= { readyTick: 0, count: 0 };
+    for (const u of nation.villagers || []) {
       if (!u.stats) u.stats = rollStats(statRng(`${world.seed}:${nation.id}:${u.id}`), data);
     }
   }

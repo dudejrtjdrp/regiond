@@ -324,6 +324,9 @@
     else head.appendChild(GM.icons.img('person', 30));
     var nm = U.el('div', 'ac-n');
     nm.appendChild(U.el('b', null, p.name || '새 사람'));
+    nm.appendChild(U.el('span', null, p.recruited ? '불러온 사람' : '스스로 찾아온 사람'));
+    head.appendChild(nm);
+    card.appendChild(head);
     card.appendChild(statBars({ stats: p.stats, job: 'idle' }, { big: true }));
     var best = null;
     S.statOrder().forEach(function (k) {

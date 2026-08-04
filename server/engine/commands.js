@@ -31,6 +31,7 @@ import { combatSwing } from './battle.js';
 // ★ GDD3 §13-C-8 — 웨이브 밖의 검. 들에 사는 것들을 벤다.
 import { huntSwing } from './ecology.js';
 import { settlementTier, promoteSettlement, nextTierStatus, tierDef } from './tiers.js';
+import { recruitResident, recruitStatus } from './residents.js';
 import {
   featureUnlocked, buildingUnlocked, departmentsActive, commandUnlocked, setFlag, checkTrace,
   evaluateProgress, currentChapter,
@@ -261,7 +262,22 @@ function runCommand(world, nationId, cmd, data, rng) {
     }
 
     // ── GDD3 §7 — 울타리 조각(드래그 배치) ────────────────────────
+    // ── ★ GDD3 §13-D-2 — 본부의 [모집] ─────────────────────────
+    case 'recruitResident': {
+      const res = recruitResident(world, nation, data, rng);
+      if (!res.ok) return res;
+      const info = {
+        id: res.resident.id, name: res.resident.name, x: res.resident.x, y: res.resident.y,
         stats: { ...res.resident.stats }, population: Math.floor(nation.population || 0),
+        recruited: true,
+      };
+      return ok({
+        resident: info, cost: res.cost, recruit: res.status,
+        resources: { ...nation.resources },
+        events: [{ kind: 'resident_arrived', nationId: nation.id, data: info }],
+      });
+    }
+
     case 'placeFence': {
       const res = placeFence(world, nation, cmd, data);
       return res.ok ? ok(res) : res;
@@ -322,7 +338,7 @@ function runCommand(world, nationId, cmd, data, rng) {
       //   (예전에는 recomputeFog 가 일 틱에만 돌아, 새 지역의 노드가 최대 10분 뒤에야 내려갔다)
       //   같은 칸을 다시 보고하면 아무 일도 하지 않는다 = 이동 스로틀.
       const moved = !prev || prev.x !== x || prev.y !== y;
-      const revealed = moved ? revealAvatar(nation, data, world.tick, x, y) : [];
+      const revealed = moved ? revealAvatar(nation, data, world.tick, x, y, who) : [];
       // ★ 7장 정찰 — 「안개 속 낯선 발자국」은 그 자리까지 걸어가야 열린다(시간이 아니라 발걸음).
       if (moved && nation.isPlayer) checkTrace(world, nation, data);
       /* ★ GDD3 §13-B-4·5 — 걸어 들어간 자리가 여는 것 둘.
