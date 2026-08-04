@@ -635,7 +635,8 @@
         var s = U.el('span');
         s.appendChild(U.el('b', null, f.k + ' '));
         s.appendChild(U.el('span', null, f.v));
-        if (f.tip) U.tipSet(s, f.k + ' ' + f.v, f.tip);
+        /* ★ §15-B-1 — 뜻은 곧바로(data-tip2), 곁가지만 잠깐 머물면(data-tip3) */
+        if (f.tip) U.tipSet(s, f.k + ' ' + f.v, f.tip, f.detail || null);
         fw.appendChild(s);
       });
       p.appendChild(fw);
@@ -648,7 +649,8 @@
       o.actions.forEach(function (a) {
         var b = U.btn(a.label, a.cls || '', a.onClick);
         if (a.disabled) b.disabled = true;
-        if (a.tip) U.tipSet(b, a.tip, a.detail);
+        /* ★ §15-B-1 — 단추가 무엇을 하는지는 곧바로. 「자재는 더 들지 않습니다」 같은 곁가지만 지연. */
+        if (a.tip) U.tipSet(b, a.label, a.tip, a.detail || null);
         if (a.id) b.id = a.id;
         aw.appendChild(b);
       });

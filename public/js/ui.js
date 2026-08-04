@@ -109,24 +109,38 @@
     }, ms || 3600);
   }
 
-  /* ── 2단 툴팁 (요약 → 800ms 뒤 자세히) ────────────────── */
+  /* ── 툴팁 — ★ GDD3 §15-B-1 「즉시 툴팁」 ──────────────────
+   *
+   * 무엇이 문제였나: 옛 코드는 요약(data-tip)만 곧바로 띄우고 **설명(data-tip2)은 800ms 를
+   * 기다리게** 했다. 그런데 배치대 카드는 이름을 요약에, "무엇을 하는 건물인가"를 설명에 담는다 —
+   * 즉 정작 알고 싶은 한 줄이 지연 뒤에 있었고, 그동안 자리에는 「잠깐 두면 자세히 보입니다」라는
+   * 안내만 떴다. 그것이 "설명이 늦게 뜬다"의 정체다.
+   *
+   * 새 규칙: **요약과 설명은 호버하는 순간 함께** 뜬다. 지연은 `data-tip3`(보조 상세)에만 남는다 —
+   * 「이 값이 어떻게 계산되나」처럼 없어도 되는 곁가지다. 아무도 지연을 겪지 않고,
+   * 곁가지를 알고 싶은 사람만 잠깐 더 머문다.
+   */
+  var TIP_DEEP_MS = 550;
   var tipEl = null, tipTimer = null, tipHold = null, tipTarget = null;
-  function tipSet(node, summary, detail) {
+  function tipSet(node, summary, detail, aside) {
     if (!node) return node;
     if (summary) node.setAttribute('data-tip', summary); else node.removeAttribute('data-tip');
     if (detail) node.setAttribute('data-tip2', detail); else node.removeAttribute('data-tip2');
+    if (aside) node.setAttribute('data-tip3', aside); else node.removeAttribute('data-tip3');
     return node;
   }
-  function tipShow(node, x, y, withDetail) {
+  function tipShow(node, x, y, withAside) {
     tipEl = tipEl || qs('#tooltip');
     if (!tipEl || !node) return;
     var summary = node.getAttribute('data-tip');
     if (!summary) return;
     clear(tipEl);
     tipEl.appendChild(el('span', null, summary));
+    /* 설명은 지연 없이 함께 — 이것이 §15-B-1 의 전부다 */
     var d = node.getAttribute('data-tip2');
-    if (d && withDetail) tipEl.appendChild(el('span', 'tt-more', d));
-    else if (d) tipEl.appendChild(el('span', 'tt-more', '잠깐 두면 자세히 보입니다'));
+    if (d) tipEl.appendChild(el('span', 'tt-more', d));
+    var a = node.getAttribute('data-tip3');
+    if (a && withAside) tipEl.appendChild(el('span', 'tt-aside', a));
     tipEl.hidden = false;
     var r = tipEl.getBoundingClientRect();
     var left = clamp(x + 16, 6, Math.max(8, innerWidth - r.width - 6));
@@ -148,11 +162,14 @@
         tipTarget = t;
         tipDeep = null;
         clearTimeout(tipHold);
-        tipHold = setTimeout(function () {
-          if (tipTarget !== t) return;
-          tipDeep = t;                       // 2단계: 800ms 머물면 자세히까지 펼친다
-          tipShow(t, lastX, lastY, true);
-        }, 800);
+        /* 보조 상세(data-tip3)만 잠깐 머물면 펼친다 — 요약·설명은 이미 떠 있다 */
+        if (t.getAttribute('data-tip3')) {
+          tipHold = setTimeout(function () {
+            if (tipTarget !== t) return;
+            tipDeep = t;
+            tipShow(t, lastX, lastY, true);
+          }, TIP_DEEP_MS);
+        }
       }
       tipShow(t, e.clientX, e.clientY, tipDeep === t);
     });

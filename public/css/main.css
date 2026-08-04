@@ -255,6 +255,8 @@ select{appearance:none; padding-right:28px; cursor:pointer;
 }
 .tooltip b{color:var(--gold)}
 .tooltip .tt-more{display:block; margin-top:5px; padding-top:5px; border-top:1px dashed rgba(246,230,200,.35); color:#cbb389}
+/* ★ GDD3 §15-B-1 — 보조 상세(곁가지)만 잠깐 머물면 펼쳐진다. 요약·설명은 호버하는 순간 함께 뜬다. */
+.tooltip .tt-aside{display:block; margin-top:4px; padding-top:4px; border-top:1px dotted rgba(246,230,200,.22); color:#9c8f76; font-size:12px}
 [data-tip]{cursor:help}
 button[data-tip],.res-chip[data-tip],.minister[data-tip]{cursor:pointer}
 
