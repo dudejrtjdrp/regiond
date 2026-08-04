@@ -24,6 +24,8 @@
     'startResearch', 'placeRail', 'removeRail',
     /* ★ GDD3 §14-5 — 레벨업 능력치 점수 나누기(캐릭터 창 C) */
     'allocStat',
+    /* ★ GDD3 §15-C — 자동 플레이 켜기·끄기와, 손이 닿았을 때의 잠시 물러남 */
+    'setAutoPlay',
     /* ★ 감정의 날 — 감정소를 눌러 여는 유일한 문 (GDD3 §11-4) */
     'appraiseLand',
     /* 주민 */

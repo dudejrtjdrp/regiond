@@ -58,6 +58,7 @@
     GM.build.init();
     GM.avatar.init();
     GM.social.init();
+    GM.autoplay.init();      // ★ GDD3 §15-C — 「자동」 배지와 손이 닿은 순간의 물러남
     GM.input.init();
 
     window.addEventListener('resize', function () { GM.world.resize(); GM.fx.resize(); });

@@ -39,9 +39,42 @@
 
   function pct(v) { return Math.round(v * 100) + '%'; }
 
+  /** 켬·끔 한 줄 — ★ GDD3 §15-C 자동 플레이 */
+  function toggleRow(o) {
+    var row = U.el('div', 'set-row');
+    var head = U.el('div', 'set-head');
+    head.appendChild(U.el('b', null, o.label));
+    var sw = U.el('label', 'switch');
+    var chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.checked = !!o.value;
+    chk.id = o.id;
+    chk.setAttribute('aria-label', o.label);
+    var word = U.el('span', null, o.value ? '켬' : '끔');
+    chk.onchange = function () {
+      word.textContent = chk.checked ? '켬' : '끔';
+      o.onChange(chk.checked);
+    };
+    sw.appendChild(chk); sw.appendChild(U.el('span', 'sw-box')); sw.appendChild(word);
+    head.appendChild(sw);
+    row.appendChild(head);
+    if (o.hint) row.appendChild(U.el('p', 'hint', o.hint));
+    return row;
+  }
+
   function buildBody() {
     var body = U.el('div', 'setwrap');
     var bc = S.brightnessCfg();
+
+    /* ★ GDD3 §15-C — 자동 플레이. 동료가 나를 대신해 판단하고 움직인다.
+       끄고 켜는 것은 이 한 줄뿐이고, 잠깐 손을 대는 것은 그냥 움직이면 된다(30초 물러난다). */
+    body.appendChild(toggleRow({
+      id: 'set-autoplay', label: '자동으로 움직이기',
+      value: S.autoPlay().on,
+      hint: '켜면 동료와 같은 판단으로 내 사람이 스스로 캐고, 짓고, 싸웁니다. '
+        + '직접 움직이거나 휘두르면 ' + S.autoPlay().suspendSeconds + '초 동안 손을 뗐다가 다시 이어 갑니다.',
+      onChange: function (v) { GM.autoplay.set(v); }
+    }));
 
     body.appendChild(slider({
       id: 'set-brightness', label: '화면 밝기',

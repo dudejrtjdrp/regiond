@@ -87,11 +87,43 @@
     return 4.6 * (1 + bonus * 0.6) * (1 + charm) * agility;
   }
 
+  /**
+   * ★ GDD3 §15-C 자동 플레이 — 서버가 내 아바타를 몬다.
+   *
+   * 평소에 이 아바타의 자리는 **클라가** 쥔다(§12-11 — 그래야 걸음이 끊기지 않는다).
+   * 자동 플레이가 도는 동안에는 그 소유권이 잠시 서버로 넘어간다: 서버가 두뇌를 굴려
+   * 자리를 정하고, 화면은 avatars 채널로 오는 그 자리를 **따라 걷는다**(튀지 않는다).
+   * 그래서 두 주인이 한 몸을 서로 다른 곳으로 끌지 않는다.
+   */
+  function serverMe() {
+    var id = S.S.avatarId;
+    var list = S.S.avatars || [];
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+
+  function autoStep(dt) {
+    var srv = serverMe();
+    if (!srv) return;
+    var dx = srv.x - me.x, dy = srv.y - me.y;
+    var d = Math.hypot(dx, dy);
+    if (d < 0.02) { me.frame = 0; return; }
+    if (d > 12) { me.x = srv.x; me.y = srv.y; reveal(true); return; }   // 부활 등으로 멀리 옮겨졌다
+    var k = Math.min(1, (speed() * 1.25 * dt) / d);
+    me.x += dx * k; me.y += dy * k;
+    me.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 2 : 1) : (dy > 0 ? 0 : 3);
+    me.ft += dt;
+    if (me.ft > 0.17) { me.ft = 0; me.frame = me.frame ? 0 : 1; }
+    reveal(false);
+  }
+
   function step(dt) {
     if (!S.S.map) return;
     if (!placed) snapToTown();
     if (frozen) return;
     if (S.downed()) { me.frame = 0; return; }
+    /* ★ §15-C — 자동 플레이가 도는 동안에는 키도 목적지도 읽지 않는다. 서버를 따라간다. */
+    if (S.autoPlay().active) { dest = null; autoStep(dt); return; }
     var sp = speed() * dt;
     var dx = 0, dy = 0;
     var k = GM.input ? GM.input.keys : {};
@@ -159,7 +191,11 @@
     });
   }
 
-  function moveTo(x, y) { if (!frozen) dest = { x: x, y: y }; }
+  function moveTo(x, y) {
+    if (frozen) return;
+    GM.autoplay.touched();      // ★ §15-C — 손이 닿았다: 자동이 잠시 물러난다
+    dest = { x: x, y: y };
+  }
   function faceTo(x, y) {
     var dx = x - me.x, dy = y - me.y;
     me.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 2 : 1) : (dy > 0 ? 0 : 3);

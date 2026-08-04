@@ -31,6 +31,8 @@ import { isFull } from './storage.js';
 import { grainDays } from './residents.js';
 import { defaultName } from './npc.js';
 import { revealAvatar } from './fog.js';
+import { startResearch, RESEARCH_KEYS } from './research.js';
+import { commandUnlocked } from './progression.js';
 import { round2 } from './economy.js';
 
 export const companionCfg = (data) => data.companions ?? {};
@@ -640,6 +642,26 @@ function driveActor(world, nation, data, actor, dt, out) {
 }
 
 /**
+ * ★ §15-C-4 — 자동 플레이의 「연구 우선순위」.
+ *
+ * 손이 남는 사람은 붙들 것을 붙든다. 다만 여기서 셈을 새로 하지 않는다 —
+ * `startResearch` 가 선행·티어·값을 스스로 판정하고 안 되면 오류를 돌려주므로,
+ * **차례대로 한 번씩 청해 보고 처음 되는 것**을 잡는다(연구표의 차례가 곧 우선순위다).
+ * 장 사슬의 문(commandUnlocked)은 그대로 지킨다 — 사람이 못 여는 것을 대신 열지 않는다.
+ * 동료에게는 시키지 않는다: 무엇을 연구할지는 나라의 결정이고, 그것은 사람의 몫이다.
+ */
+function autoResearch(world, nation, data) {
+  if (autoPlayCfg(data).researchWhenIdle === false) return null;
+  if (nation.research?.active) return null;
+  if (!commandUnlocked(nation, 'startResearch', data)) return null;
+  for (const key of RESEARCH_KEYS(data)) {
+    const res = startResearch(world, nation, { key }, data);
+    if (res?.ok) return res;
+  }
+  return null;
+}
+
+/**
  * 저빈도(1초) 한 걸음 — server/index.js 의 생태계 루프가 부른다.
  * @returns {{moved, actions, events, avatars}} 방에 흘릴 재료
  */
@@ -662,11 +684,23 @@ export function stepCompanions(world, nation, data, dt = 1, opts = {}) {
 
   // ★ 자동 플레이 — 켠 사람의 아바타를 같은 두뇌가 몬다(사람의 시계로 판정한다)
   const now = opts.now ?? Date.now();
+  let anyAuto = false;
   for (const p of Object.values(nation.players || {})) {
     if (p.bot) continue;
     if (!autoPlayActive(p, now)) continue;
     if (!nation.avatars?.[p.id]) continue;
+    anyAuto = true;
     driveActor(world, nation, data, { id: p.id, comp: null, now, budgeted: false, human: true }, dt, out);
+  }
+  /* 연구는 손이 아니라 머리가 하는 일이라 걸음과 따로 센다 — 몇 초에 한 번만 들여다본다 */
+  if (anyAuto) {
+    st.researchAt = (st.researchAt || 0) - dt;
+    if (st.researchAt <= 0) {
+      st.researchAt = autoPlayCfg(data).researchEverySeconds ?? 15;
+      const got = autoResearch(world, nation, data);
+      if (got?.events?.length) out.events.push(...got.events);
+      if (got) out.research = got.research ?? got;
+    }
   }
   out.avatars = out.moved > 0;
   return out;

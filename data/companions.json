@@ -40,6 +40,7 @@
   "autoPlay": {
     "_note": "★ §15-C 자동 플레이 — 내 아바타를 동료 두뇌가 몬다. 수동 입력이 잡히면 suspendSeconds 만큼 손을 떼고, 그 뒤 스스로 다시 잡는다. 자동 플레이는 사람의 아바타이므로 동료와 달리 하루 예산(swingsPerDay)에 매이지 않는다 — 사람이 직접 하는 것과 같은 쿨타임으로 움직인다.",
     "suspendSeconds": 30,
-    "researchWhenIdle": true
+    "researchWhenIdle": true,
+    "researchEverySeconds": 15
   }
 }

@@ -257,6 +257,9 @@
     if (U.anyModalOpen()) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     var k = e.key.toLowerCase();
+    /* ★ GDD3 §15-C — 손이 닿았다. 걷거나 휘두르려 한 순간 자동이 잠시 물러난다
+       (끄는 것이 아니라 비켜 주는 것이다 — 30초 뒤 스스로 다시 잡는다). */
+    if (k === 'w' || k === 's' || k === 'a' || k === 'd' || k === 'e') GM.autoplay.touched();
     switch (k) {
       case 'w': keys.up = 1; break;
       case 's': keys.down = 1; break;
