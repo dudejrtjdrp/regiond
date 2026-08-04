@@ -1064,6 +1064,237 @@ test('클라이언트 하니스 — 7장 이후(울타리·개축·웨이브·�
 });
 
 // ────────────────────────────────────────────────────────────────
+// ★ GDD3 §13-D — RPG 계층의 길: 모집 → 능력치 카드 → 장비 → 인첸트 → 연구 → 철로
+//   앞장과 같은 규칙으로 검사한다 — **화면에 실제로 있는 단추만 눌러서** 간다.
+// ────────────────────────────────────────────────────────────────
+test('클라이언트 하니스 — §13-D RPG 계층 (모집·능력치·장비·인첸트·연구·철로)', async (t) => {
+  const errors = [];
+  const { openChapterForDebug } = await import('../server/engine/progression.js');
+  const { loadGameData } = await import('../server/engine/data.js');
+  const data = loadGameData();
+  await new Promise((res) => http.listen(0, '127.0.0.1', res));
+  const port = http.address().port;
+  const base = `http://127.0.0.1:${port}`;
+  let dom = null;
+  let gameId = null;
+
+  try {
+    dom = await boot(`${base}/?seed=20260806`, errors);
+    const { window } = dom;
+    const GM = window.GM;
+    const S = GM.state;
+    const doc = window.document;
+
+    doc.querySelector('#btn-new').click();
+    await until(() => doc.querySelector('#scene-found').hidden === false, { what: '개척 화면' });
+    const name = doc.querySelector('#found-name');
+    name.value = '나래';
+    name.dispatchEvent(new window.Event('input', { bubbles: true }));
+    doc.querySelector('#found-start').click();
+    await until(() => !!S.S.map, { ms: 15000, what: '월드 스냅샷' });
+    await until(() => !!(S.S.view && S.S.view.nation), { what: '정착지 상태' });
+    gameId = S.S.gameId;
+    const rt = games.get(gameId);
+    rt.stop();
+    const nation = () => rt.world.nations.player;
+    const step = () => post(base, '/api/debug/step', { gameId });
+    if (GM.opening.busy()) doc.querySelector('#opening-skip').click();
+    await until(() => !GM.opening.busy(), { what: '오프닝 종료' });
+
+    const openHq = () => {
+      const hq = S.hq();
+      assert.ok(hq, '본부가 있다');
+      GM.structure.open(hq.id);
+      return doc.querySelector('#context-panel');
+    };
+
+    // ── ★ §13-D-2 모집 — 4장(첫 이웃)에서 열린다 ──
+    await t.test('★ §13-D-2 모집 — 본부 [모집] 갈래가 열리고, 식량을 치르면 그 자리에서 한 사람', async () => {
+      openChapterForDebug(rt.world, nation(), data, 5);
+      nation().resources.grain = 400;
+      nation().resources.wood = 600;
+      // 잠자리가 있어야 사람이 든다 — 값으로 잠자리를 살 수는 없다(§13-D-2)
+      const { completeStructure: build } = await import('../server/engine/structures.js');
+      for (const dx of [4, -4]) {
+        const hutSpot = findSpot(window, { kind: 'build', key: 'hut' }, (x) => (dx > 0 ? x > S.myTown().x : x < S.myTown().x));
+        if (hutSpot) build(rt.world, nation(), { building: 'hut', tier: 1, x: hutSpot.x, y: hutSpot.y, placed: true }, data);
+      }
+      await step();
+      await until(() => !!S.recruitInfo(), { ms: 6000, what: '모집 해금' });
+
+      let panel = openHq();
+      const tab = panel.querySelector('[data-hqtab="recruit"]');
+      assert.ok(tab, '본부에 [모집] 갈래가 생겼다');
+      tab.click();
+      panel = doc.querySelector('#context-panel');
+      const btn = panel.querySelector('#se-recruit');
+      assert.ok(btn, '[모집] 단추가 그려졌다');
+      assert.equal(btn.disabled, false, `지금 부를 수 있어야 한다 (${JSON.stringify(S.recruitInfo().reqs)})`);
+
+      const before = nation().villagers.length;
+      const grain0 = nation().resources.grain;
+      btn.click();
+      await until(() => nation().villagers.length > before, { ms: 6000, what: '모집한 주민 도착' });
+      assert.ok(nation().resources.grain < grain0, '식량을 치렀다');
+
+      // 쿨다운 — 같은 날 두 번은 없다
+      const again = await sendNow(window, 'recruitResident', {});
+      assert.equal(again.ok, false, '하루가 지나야 다시 부른다');
+    });
+
+    // ── ★ §13-D-1 능력치 — 도착 카드와 주민 패널 ──
+    await t.test('★ §13-D-1 능력치 — 도착 카드가 뜨고, 주민 패널이 네 수치를 그린다', async () => {
+      const who = nation().villagers[nation().villagers.length - 1];
+      assert.ok(who.stats, '서버가 능력치를 붙여 보낸다');
+      GM.residents.arrived({
+        id: who.id, name: who.name, x: who.x, y: who.y, stats: who.stats,
+        population: nation().villagers.length, recruited: true,
+      });
+      const card = doc.querySelector('[data-arrive-card]');
+      assert.ok(card, '도착 연출에 능력치 카드가 뜬다');
+      assert.equal(card.querySelectorAll('.st-stats .sb').length, S.statOrder().length,
+        '네 수치가 모두 그려진다');
+
+      await until(() => S.residents().length > 0, { ms: 6000, what: '주민 뷰' });
+      GM.residents.openPanel();
+      const bars = doc.querySelectorAll('.res-card .st-stats .sb');
+      assert.ok(bars.length >= S.statOrder().length, '명부 카드에도 능력치가 실린다');
+      window.GM.ui.closeTopModal();
+    });
+
+    // ── ★ §13-D-3·4 장비와 인첸트 — 9장(나라의 격)에서 열린다 ──
+    await t.test('★ §13-D-3 장비 — 캐릭터 창에서 벼리면 손에 들린다', async () => {
+      openChapterForDebug(rt.world, nation(), data, 9);
+      const spot = findSpot(window, { kind: 'build', key: 'smithy' });
+      assert.ok(spot, '대장간 자리를 찾았다');
+      const { completeStructure: mk } = await import('../server/engine/structures.js');
+      mk(rt.world, nation(), { building: 'smithy', tier: 1, x: spot.x, y: spot.y, placed: true }, data);
+      nation().gold = 4000;
+      for (const k of ['stone', 'wood', 'ironOre', 'steel', 'hide', 'wool']) nation().resources[k] = 400;
+      await step();
+      await until(() => S.uiOn('panel.equipment'), { ms: 6000, what: '장비 해금' });
+
+      GM.hud.update();
+      assert.ok(doc.querySelector('#tb-equip'), '연장통에 [내 장비] 단추가 생겼다');
+      GM.equip.open();
+      const craft = doc.querySelector('[data-craft="stone_blade"]');
+      assert.ok(craft, '대장간 목록에 돌칼이 있다');
+      assert.equal(craft.disabled, false, '자재가 있으면 벼릴 수 있다');
+      craft.click();
+      await until(() => {
+        const e = S.equipment();
+        return e && e.gear && e.gear.weapon && e.gear.weapon.key === 'stone_blade';
+      }, { ms: 6000, what: '무기 장착' });
+      assert.ok(GM.avatar.gear().weaponGrade > 0, '아바타 스프라이트가 벼린 것을 읽는다');
+
+      // 공장장이 없으면 윗단은 잠겨 있다 (조건 가시화 — 사라지지 않는다)
+      const elite = doc.querySelector('[data-craft="elite_blade"]');
+      assert.ok(elite, '잠긴 윗단도 목록에는 남는다');
+      assert.equal(elite.disabled, true, '공장장이 없으면 못 벼린다');
+    });
+
+    await t.test('★ §13-D-4 인첸트 — 특성 하나가 깃들고, 확률은 성녀가 바꾼다', async () => {
+      const before = JSON.stringify(S.equipment().enchant.odds);
+      const b = doc.querySelector('[data-enchant="weapon"]');
+      assert.ok(b, '인첸트 단추가 있다');
+      assert.equal(b.disabled, false);
+      b.click();
+      await until(() => {
+        const e = S.equipment();
+        return e && e.gear.weapon && e.gear.weapon.enchant;
+      }, { ms: 6000, what: '특성 부여' });
+      const ench = S.equipment().gear.weapon.enchant;
+      assert.ok(ench.trait && ench.grade, `특성 ${ench.name} 이 깃들었다`);
+
+      // 성녀가 앉으면 상위 등급 확률이 두 배가 된다
+      nation().roles = { ...(nation().roles || {}), saint: { holder: 'npc9', level: 1 } };
+      await step();
+      await until(() => JSON.stringify(S.equipment().enchant.odds) !== before, { ms: 6000, what: '확률 갱신' });
+      const odds = S.equipment().enchant.odds;
+      const upper = odds.filter((o) => o.upper).reduce((a, o) => a + o.chance, 0);
+      assert.ok(upper > 0.5, `성녀가 있으면 좋은 것이 붙을 확률이 절반을 넘는다 (${upper})`);
+      assert.equal(S.equipment().saint, true);
+    });
+
+    // ── ★ §13-D-5 연구와 철로 — 10장(끝이 없는 길) ──
+    await t.test('★ §13-D-5 연구 — 본부 [연구] 갈래에서 붙들고, 끝나는 날 석탄이 드러난다', async () => {
+      openChapterForDebug(rt.world, nation(), data, 10);
+      nation().tier = 4;
+      nation().gold = 8000;
+      for (const k of ['stone', 'ironOre', 'steel']) nation().resources[k] = 1200;
+      await step();
+      await until(() => !!S.research(), { ms: 6000, what: '연구 해금' });
+
+      let panel = openHq();
+      const tab = panel.querySelector('[data-hqtab="research"]');
+      assert.ok(tab, '본부에 [연구] 갈래가 생겼다');
+      tab.click();
+      panel = doc.querySelector('#context-panel');
+      assert.ok(panel.querySelector('[data-research="coal_mining"]'), '석탄 채굴이 목록에 있다');
+      const locked = panel.querySelector('[data-research-start="steam_engine"]');
+      assert.ok(locked, '잠긴 연구도 목록에서 사라지지 않는다 (조건 가시화)');
+      assert.equal(locked.disabled, true, '선행이 없으면 못 붙든다');
+
+      const go = panel.querySelector('[data-research-start="coal_mining"]');
+      assert.equal(go.disabled, false, '단계와 값이 차면 붙들 수 있다');
+      go.click();
+      await until(() => !!nation().research.active, { ms: 6000, what: '연구 착수' });
+
+      const days = data.research.defs.coal_mining.days;
+      for (let i = 0; i < days; i += 1) await step();
+      assert.ok(nation().research.done.coal_mining != null, '날이 차면 끝난다');
+      const coal = (rt.world.map.nodes || []).filter((n) => n.type === 'coal');
+      assert.ok(coal.length > 0, `석탄 노두가 드러났다 (${coal.length}곳)`);
+    });
+
+    await t.test('★ §13-D-5 철로 — 끌어서 깔면 그 위를 걷는 걸음이 두 배다', async () => {
+      nation().tier = 5;
+      nation().research.done.steam_engine = rt.world.tick;
+      nation().research.done.railway = rt.world.tick;
+      nation().resources.steel = 900;
+      await step();
+      await until(() => S.railInfo() && S.railInfo().open, { ms: 6000, what: '철로 해금' });
+
+      GM.build.openRail();
+      assert.equal(S.S.placing.kind, 'rail', '철로 배치 모드가 열렸다');
+      const town = S.myTown();
+      let line = null;
+      for (let d = 2; d <= 6 && !line; d += 1) {
+        const cand = [];
+        for (let k = 0; k <= 6; k += 1) {
+          const q = { x: town.x + d, y: town.y - 3 + k };
+          if (!GM.build.railTileOk(q.x, q.y)) { cand.length = 0; continue; }
+          cand.push(q);
+        }
+        if (cand.length >= 5) line = cand;
+      }
+      assert.ok(line, '철로를 깔 만한 줄을 찾았다');
+      const before = (nation().rails || []).length;
+      dragWorld(window, line);
+      await until(() => (nation().rails || []).length > before, { ms: 8000, what: '철로 조각' });
+      assert.ok(nation().rails.length >= 4, `${nation().rails.length}칸이 깔렸다`);
+      await step();
+      await until(() => S.rails().length > 0, { ms: 6000, what: '철로 뷰' });
+      const one = S.rails()[0];
+      assert.equal(S.onRail(one.x, one.y), true, '화면도 서버와 같은 자리를 안다');
+      S.setPlacing(null);
+    });
+
+    await t.test('콘솔이 조용하다', () => {
+      const noisy = errors.filter((e) => !/AudioContext|Not implemented|Could not parse CSS/i.test(e));
+      assert.deepEqual(noisy, [], noisy.join(' / '));
+    });
+  } finally {
+    if (dom) dom.window.close();
+    if (gameId) {
+      games.get(gameId)?.stop();
+      await rm(join(savesDir(), gameId), { recursive: true, force: true });
+    }
+    await new Promise((res) => http.close(res));
+  }
+});
+
+// ────────────────────────────────────────────────────────────────
 // 구경 모드 회귀 — 서버 없이도 화면이 돈다 (사슬도 함께 흉내 낸다)
 // ────────────────────────────────────────────────────────────────
 test('구경 모드(?mock=1) — 서버 없이도 첫 화면이 돌고, 사슬이 같은 규칙을 지킨다', async () => {

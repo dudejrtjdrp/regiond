@@ -37,9 +37,15 @@ async function boot() {
 function connect(base) {
   const socket = ioClient(base, { transports: ['websocket'], forceNew: true });
   socket.latest = {};
+  /* ★ 도착 순서도 함께 적어 둔다 — 계약이 말하는 것은 '순서'이지 '같은 순간'이 아니다.
+     payload 가 커지면 world 와 state 가 다른 프레임에 실려 오기도 하는데(규약이 자란 뒤 실제로 그랬다),
+     그때 latest 를 곧바로 들여다보면 아직 비어 있다. 순서를 적고, 없으면 기다려서 본다. */
+  socket.order = [];
   for (const evt of ['state', 'worldState', 'world']) {
-    socket.on(evt, (payload) => { socket.latest[evt] = payload; });
+    socket.on(evt, (payload) => { socket.latest[evt] = payload; socket.order.push(evt); });
   }
+  socket.awaitLatest = async (evt, timeout = 8000) =>
+    socket.latest[evt] ?? await socket.next(evt, timeout);
   socket.next = (evt, timeout = 8000) => new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`timeout: ${evt}`)), timeout);
     socket.once(evt, (payload) => { clearTimeout(timer); resolve(payload); });
@@ -84,8 +90,9 @@ test('E2E — 개척 시작에서 첫 웨이브까지 (v3 전체 루프)', async
 
     const rt = games.get(gameId);
     rt.stop();                                    // 일 틱은 테스트가 손으로 돌린다
-    const state0 = socket.latest.state;
+    const state0 = await socket.awaitLatest('state');
     assert.ok(state0, 'joined 뒤에 state 가 따라온다');
+    assert.deepEqual(socket.order.slice(0, 2), ['world', 'state'], '순서 계약: world 다음이 state 다');
     assert.equal(state0.tier.tier, 0);
     assert.equal(state0.nation.population, 0, '인구 0에서 시작');
     assert.equal(state0.nation.residents.length, 0);

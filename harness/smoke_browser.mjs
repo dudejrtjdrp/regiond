@@ -897,6 +897,132 @@ try {
     await ev('GM.state.applyCreatures([])');
   }
 
+  // ── 9-c. ★ GDD3 §13-D — RPG 계층 (캐릭터 창 · 스프라이트 반영 · 철로 배치) ──
+  //   앞장을 실브라우저로 다 밟기에는 시간이 너무 든다. 그래서 **서버에서 장을 열어 두고**,
+  //   화면 쪽은 언제나처럼 **진짜 키·진짜 마우스**로만 만진다 — 여기서 잡고 싶은 것은
+  //   ① 캐릭터 창이 진짜로 열리는가 ② 벼린 것이 도트에 실제로 반영되는가 ③ 철로가 끌려 깔리는가.
+  {
+    const gameId = await ev('GM.state.S.gameId');
+    const rt = srv.games.get(gameId);
+    if (!rt) fail('§13-D 준비', '게임을 찾지 못했다');
+    else {
+      const { openChapterForDebug } = await import(new URL('../server/engine/progression.js', import.meta.url).href);
+      const { loadGameData } = await import(new URL('../server/engine/data.js', import.meta.url).href);
+      const { completeStructure } = await import(new URL('../server/engine/structures.js', import.meta.url).href);
+      const gdata = loadGameData();
+      const nation = rt.world.nations.player;
+      openChapterForDebug(rt.world, nation, gdata, 10);
+      nation.tier = 5;
+      nation.gold = 9000;
+      for (const k of ['stone', 'wood', 'ironOre', 'steel', 'hide', 'wool']) nation.resources[k] = 900;
+      nation.research.done.coal_mining = rt.world.tick;
+      nation.research.done.steam_engine = rt.world.tick;
+      nation.research.done.railway = rt.world.tick;
+      const town = rt.world.map.towns.find((t) => t.isPlayer);
+      completeStructure(rt.world, nation, { building: 'smithy', tier: 1, x: town.x + 6, y: town.y + 5, placed: true }, gdata);
+      rt.broadcastState();
+
+      await until('GM.state.uiOn("panel.equipment")', { ms: 8000, what: '장비 해금' });
+
+      // ① 캐릭터 창 — 진짜 키보드 C
+      //   앞 단계에서 열어 둔 창이나 **재생 중인 컷신 장막**이 남아 있으면 손이 닿지 않는다.
+      //   (실브라우저에서 실제로 겪었다 — 승격 컷신의 전체 화면 캔버스가 단추 위를 덮고 있었다.)
+      await ev(`(function(){
+          var sk = document.querySelector('.cut-skip'); if (sk) sk.click();
+          document.querySelectorAll('.cut-back').forEach(function(n){ if (n.parentNode) n.parentNode.removeChild(n); });
+          while (GM.ui.anyModalOpen()) GM.ui.closeTopModal();
+          GM.hud.hideContext();})()`);
+      await sleep(300);
+      await ev('document.querySelector("#world-canvas").focus()');
+      await page.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'c', code: 'KeyC', windowsVirtualKeyCode: 67 });
+      await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'c', code: 'KeyC', windowsVirtualKeyCode: 67 });
+      const opened = await until('!!document.querySelector("[data-craft]")', { ms: 6000, what: '캐릭터 창' })
+        .catch(() => false);
+      must(opened, '★ §13-D-3 C 를 누르면 캐릭터 창이 열린다');
+
+      // ② 진짜 마우스로 벼리고, 도트가 실제로 달라지는가
+      if (opened) {
+        const before = await ev(`(function(){
+            var a = GM.state.you(); var app = (GM.state.S.you && GM.state.S.you.appearance) || {};
+            return GM.atlas.avatar(app, 0, 0, { tool: 'sword' }).toDataURL().length;})()`);
+        /* 목록이 길어 아래로 밀려 있으면 진짜 마우스가 닿지 않는다 — 눈에 보이는 자리로 굴려 놓고 누른다 */
+        await ev(`document.querySelector('[data-craft="steel_blade"]').scrollIntoView({ block: 'center' })`);
+        await sleep(200);
+        await clickSel('[data-craft="steel_blade"]');
+        const armed = await until('(function(){var e=GM.state.equipment();'
+          + 'return !!(e && e.gear && e.gear.weapon && e.gear.weapon.key === "steel_blade");})()',
+          { ms: 8000, what: '무기 장착' }).catch(() => false);
+        must(armed, '★ §13-D-3 진짜 클릭으로 강철검을 벼렸다');
+        const sprite = await ev(`(function(){
+            var app = (GM.state.S.you && GM.state.S.you.appearance) || {};
+            var g = GM.avatar.gear();
+            var a = GM.atlas.avatar(app, 0, 0, { tool: 'sword' }).toDataURL();
+            var b = GM.atlas.avatar(app, 0, 0, { tool: 'sword', gear: g }).toDataURL();
+            return JSON.stringify({ grade: g && g.weaponGrade, same: a === b });})()`).then(JSON.parse);
+        must(sprite.grade > 0 && !sprite.same,
+          '★ §13-D-3 벼린 것이 아바타 도트에 실제로 반영된다', JSON.stringify(sprite));
+        // 인첸트 — 특성 하나가 깃든다
+        await ev(`document.querySelector('[data-enchant="weapon"]').scrollIntoView({ block: 'center' })`);
+        await sleep(200);
+        await clickSel('[data-enchant="weapon"]');
+        const ench = await until('(function(){var e=GM.state.equipment();'
+          + 'return !!(e && e.gear.weapon && e.gear.weapon.enchant);})()', { ms: 8000, what: '특성 부여' })
+          .catch(() => false);
+        must(ench, '★ §13-D-4 진짜 클릭으로 특성이 깃들었다');
+        await ev('GM.ui.closeTopModal()');
+      }
+
+      // ③ 철로 — 진짜 마우스로 끌어서 깐다
+      await until('!!(GM.state.railInfo() && GM.state.railInfo().open)', { ms: 8000, what: '철로 해금' })
+        .catch(() => false);
+      /* 철로는 **지금 서 있는 자리 곁**에 깐다 — 화면 밖 좌표를 끌 수는 없다(카메라는 아바타를 따라간다) */
+      const spot = await ev(`(function(){
+          var t = GM.avatar.pos() || GM.state.myTown();
+          t = { x: Math.round(t.x), y: Math.round(t.y) };
+          for (var d = 3; d <= 8; d++) {
+            var line = [];
+            for (var k = -3; k <= 3; k++) {
+              var q = { x: t.x + d, y: t.y + k };
+              if (!GM.build.railTileOk(q.x, q.y)) { line.length = 0; continue; }
+              line.push(q);
+            }
+            if (line.length >= 5) return JSON.stringify(line);
+          }
+          return null;})()`);
+      if (!spot) fail('★ §13-D-5 철로를 깔 줄을 찾았다', '곧은 줄이 없다');
+      else {
+        const line = JSON.parse(spot);
+        const mid = line[Math.floor(line.length / 2)];
+        await ev(`GM.camera.moveTo(${mid.x}, ${mid.y}, true)`);
+        await sleep(500);
+        await ev('GM.build.openRail()');
+        const pts = [];
+        for (const q of line) pts.push(await worldPoint(q.x, q.y));
+        const usable = pts.filter((q) => q && q.inside);
+        if (usable.length < 3) fail('★ §13-D-5 철로 줄이 화면 안에 있다', `보이는 점 ${usable.length}개`);
+        else {
+          const rails0 = await ev('GM.state.rails().length');
+          await page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: usable[0].x, y: usable[0].y, button: 'left', clickCount: 1, buttons: 1 });
+          for (const q of usable.slice(1)) {
+            await page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: q.x, y: q.y, button: 'left', buttons: 1 });
+          }
+          const last = usable[usable.length - 1];
+          await page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: last.x, y: last.y, button: 'left', clickCount: 1, buttons: 0 });
+          const laid = await until(`GM.state.rails().length > ${rails0}`, { ms: 8000, what: '철로 조각' })
+            .catch(() => false);
+          must(laid, '★ §13-D-5 진짜 마우스로 끌어서 철로를 깔았다',
+            `철로 ${await ev('GM.state.rails().length')}칸`);
+          if (laid) {
+            const one = JSON.parse(await ev('JSON.stringify(GM.state.rails()[0])'));
+            must(await ev(`GM.state.onRail(${one.x}, ${one.y})`), '★ §13-D-5 화면도 서버와 같은 자리를 안다');
+            pass('철로 배치', `${await ev('GM.state.rails().length')}칸 · ×${await ev('GM.state.railInfo().speedMultiplier')}`);
+          }
+          await ev('GM.state.setPlacing(null)');
+        }
+      }
+    }
+  }
+
   // ── 10. ★ 밤낮 4구간 — 이름만이 아니라 **화면이 실제로 어두워지는가** (GDD3 §12-10) ──
   must(await ev(`(function(){
       GM.state.S.dayFraction = 0.1; var a = GM.state.phaseMeta().name;
