@@ -178,6 +178,23 @@ push 하고 2~4분 뒤 새 버전이 뜬다. Render 대시보드의 **Events** �
 > npm start       # http://localhost:3000
 > ```
 
+### 이력을 다시 쓴 뒤에는 — 딱 한 번 강제 푸시가 필요하다
+
+이 저장소는 커밋 이력을 **기능 단위 논리 커밋으로 다시 쪼개 썼다**(`docs/GDD3.md` §13-E).
+파일 내용은 한 바이트도 달라지지 않았지만 커밋의 족보가 통째로 바뀌었기 때문에,
+**이미 깃허브에 push 해 둔 적이 있다면** 위의 `git push` 가 `rejected … non-fast-forward` 로 거절된다.
+그럴 때만 아래 한 줄을 쓴다 (처음 올리는 사람은 필요 없다).
+
+```powershell
+cd C:\Users\dudej\Desktop\Develop\Game\Toji
+git push --force-with-lease origin main
+```
+
+`--force-with-lease` 는 **내가 마지막으로 받아 본 뒤로 깃허브 쪽이 그대로일 때만** 덮어쓴다.
+그 사이 누군가 다른 커밋을 밀어 올렸다면 거절되므로, 남의 작업을 소리 없이 지우는 `--force` 보다 안전하다.
+밀어 올린 뒤에는 **Render 가 `autoDeploy: true` 라 평소처럼 알아서 다시 배포한다**(2~4분).
+빌드 결과물은 이전과 동일하니 서비스 주소도 동작도 그대로다.
+
 ---
 
 ## 7. 문제가 생겼을 때
