@@ -2,7 +2,7 @@
 // 서버는 "누가 어떤 노드/일자리에 배치됐나"만 권위로 관리한다. 걷는 연출·경로는 클라의 몫이다.
 // ★ 이 모듈의 핵심 계약: laborAlloc 은 더 이상 슬라이더가 아니라 '배치의 파생값'이다.
 //   referenceMix 대로 배치하면 옛 balance.json labor.defaultAlloc 과 채집 계수가 그대로 재현된다.
-import { townOf, territoryRadius, dist, nodeById } from './world.js';
+import { townOf, territoryRadius, dist, nodeById, markDepleted } from './world.js';
 
 export const vCfg = (data) => data.world.villagers;
 export const labCfg = (data) => data.world.laborDerivation;
@@ -386,6 +386,11 @@ export function stepVillagers(world, nation, data, tick) {
 /**
  * 노드 고갈·재생. 산출 수치는 매크로 공식이 내므로 여기서 자원을 주지는 않는다 —
  * 고갈은 "숲이 옅어짐" 연출과 재배치 압력(가동 노드 수 = 노드 기여)만 만든다.
+ *
+ * ★ GDD3 §13-B-3 — 자원은 유한하다. 다 캔 자리는 **그루터기**로 남는다:
+ *   ① 잔량이 0 이 되면 depleted 가 되고 그 자리에서 되살아날 날(respawnAt)이 정해진다
+ *   ② 되살아나기를 기다리는 동안에는 regenPerTick 도 돌지 않는다 — 그루터기가 슬금슬금 나무가 되면 안 된다
+ *   ③ 그 날이 오면 잔량이 통째로 돌아온다(나무 2~4일 · 딸기 1일 · 바위·광맥 6일)
  */
 export function stepNodes(world, data, tick) {
   const types = data.world.nodes.types;
@@ -399,6 +404,21 @@ export function stepNodes(world, data, tick) {
     else if (n.workedTicks) n.workedTicks = 0;
     const def = types[n.type];
     if (!def || !(def.max > 0 || def.amount > 0)) continue;
+
+    // ── 그루터기 — 되살아날 날을 기다린다 ──
+    //   ★ 표(regrow.byType)에 없는 종류는 그루터기가 되지 않는다. 물목이 그렇다 —
+    //     물고기는 베어 낸 나무가 아니라 '몰려오는 것'이라 옛 규칙(regenPerTick)이 그대로 돈다.
+    if (n.depleted && n.respawnAt != null) {
+      if (tick < n.respawnAt) continue;
+      n.amount = n.max;
+      n.depleted = false;
+      n.respawnAt = null;
+      n.swings = 0;
+      n.stamp = tick;
+      changed.push(n.id);
+      continue;
+    }
+
     const before = n.amount;
     const drain = (def.drainPerWorker || 0) * (n.workers || 0);
     let regen = def.regenPerTick || 0;
@@ -409,7 +429,8 @@ export function stepNodes(world, data, tick) {
     }
     n.amount = Math.max(0, Math.min(n.max, n.amount - drain + regen));
     const wasDepleted = n.depleted;
-    n.depleted = n.max > 0 && n.amount <= 0;
+    if (n.max > 0 && n.amount <= 0) { markDepleted(n, data, tick); changed.push(n.id); continue; }
+    n.depleted = false;
     if (n.amount !== before || n.depleted !== wasDepleted) { n.stamp = tick; changed.push(n.id); }
   }
   return changed;

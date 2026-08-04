@@ -115,7 +115,8 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
   if (spec.drain > 0 && node.max > 0) {
     const drain = spec.drain * Math.pow(mult, swingCfg(data).drainExponent ?? 1);
     node.amount = Math.max(0, round2(node.amount - drain));
-    node.depleted = node.amount <= 0;
+    // ★ §13-B-3 — 다 캔 자리는 그루터기로 남고, 되살아날 날이 그 자리에서 정해진다
+    if (node.amount <= 0) markDepleted(node, data, world.tick);
   }
   // 거두면 곧바로 재파종된다 (다음 수확기까지 기다린다)
   if (data.world.nodes.types[node.type]?.harvest && cycleDone) {
@@ -145,6 +146,8 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
     swingsPerCycle: spec.swings,
     amount: round2(node.amount),
     depleted: Boolean(node.depleted),
+    // ★ §13-B-3 — 그루터기가 언제 되살아나는지. 화면이 '아직 아니다'를 그 자리에서 안다.
+    respawnAt: node.respawnAt ?? null,
     // ★ 재배 루프의 현재 상태 — 거두고 나면 곧바로 재파종되므로, 이 값을 함께 주지 않으면
     //   화면은 다음 일 틱(최대 10분)까지 '아직 여물어 있다'고 믿고 헛손질한다.
     readyAt: node.readyAt ?? null,

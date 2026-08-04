@@ -300,15 +300,27 @@
       if (S.fogAt(n.x, n.y) < 1) continue;
       var sh = GM.fx ? GM.fx.nodeShake(n.id) : 0;
       var p = GM.camera.worldToScreen(n.x - 0.5 + sh, n.y - 0.5);
+      /* ★ §13-B-3 — 다 캔 자리는 **그루터기**다. 아이콘을 어둡게 덮는 게 아니라 그루터기를 그린다. */
+      if (n.depleted) {
+        ctx.save();
+        ctx.globalAlpha = 0.85;
+        try { ctx.drawImage(GM.atlas.stump(n.type), Math.round(p.x), Math.round(p.y), Math.ceil(t), Math.ceil(t)); } catch (e0) {}
+        ctx.restore();
+        drawRegrowClock(n, p, t);
+        continue;
+      }
       var sp = GM.atlas.node(n.type, {
         stage: n.stage, rich: n.rich,
         thin: n.ratio !== undefined && n.ratio !== null && n.ratio < 0.4
       });
+      /* ★ §13-B-3 — 고갈이 임박하면 **옅어진다**. 남은 양이 fadeAt(35%) 아래로 내려가는 순간부터
+         비율에 비례해 투명해지므로, 멀리서도 '저 숲은 곧 끝난다'가 눈으로 읽힌다. */
+      var fadeAt = S.regrowCfg() ? S.regrowCfg().fadeAt : 0.35;
+      var ratio = (n.ratio == null) ? 1 : n.ratio;
+      var faded = ratio < fadeAt;
+      if (faded) { ctx.save(); ctx.globalAlpha = 0.42 + 0.58 * (ratio / Math.max(0.01, fadeAt)); }
       try { ctx.drawImage(sp, Math.round(p.x), Math.round(p.y), Math.ceil(t), Math.ceil(t)); } catch (e) {}
-      if (n.depleted) {
-        ctx.fillStyle = 'rgba(20,14,8,.42)';
-        ctx.fillRect(p.x, p.y, t, t);
-      }
+      if (faded) ctx.restore();
       if (n.harvestReady) {
         var g = 0.5 + 0.5 * Math.sin(animT / 260 + n.x);
         ctx.save();
@@ -333,6 +345,99 @@
         ctx.fillRect(p.x, p.y + t - 5, t, 5);
         ctx.fillStyle = '#8dbb6d';
         ctx.fillRect(p.x, p.y + t - 5, t * Math.min(1, n.workers / Math.max(1, n.slots)), 5);
+      }
+    }
+  }
+
+  /** 그루터기 위 작은 시계 — 며칠 뒤에 되살아나는지 (§13-B-3) */
+  function drawRegrowClock(n, p, t) {
+    if (n.respawnAt == null || t < 22) return;
+    var left = n.respawnAt - (S.S.view ? S.S.view.day : 0);
+    if (!(left > 0)) return;
+    ctx.save();
+    ctx.globalAlpha = 0.8;
+    ctx.fillStyle = 'rgba(20,14,8,.6)';
+    ctx.fillRect(p.x + t * 0.28, p.y - t * 0.26, t * 0.44, t * 0.3);
+    ctx.fillStyle = '#8dbb6d';
+    ctx.font = Math.max(8, Math.round(t * 0.26)) + 'px Galmuri11, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(Math.ceil(left)), p.x + t * 0.5, p.y - t * 0.11);
+    ctx.restore();
+  }
+
+  /* ══════════ 들에 사는 것들 (GDD3 §13-C) ══════════
+     ★ 위치의 주인은 **서버**다(주민과 정반대다 — 주민은 클라가 쥔다).
+       서버는 1초에 한 번만 좌표를 보내므로, 그 값을 그대로 찍으면 짐승이 1초에 한 번 튄다.
+       그래서 화면은 제 렌더 좌표를 따로 들고 서버 좌표로 **다가간다**(lerp).
+       처음 본 놈과 너무 멀리 벌어진 놈만 스냅한다 — §12-11 텔레포트 사고의 해법을 그대로 뒤집어 쓴 것이다. */
+  var wild = {};
+  var WILD_SNAP = 12;
+
+  function stepWild(dt) {
+    var list = S.creatureList();
+    var seen = {};
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i];
+      seen[c.id] = true;
+      var a = wild[c.id];
+      if (!a) { wild[c.id] = { x: c.x, y: c.y, dir: 1, frame: 0, ft: 0, hurt: 0 }; continue; }
+      var dx = c.x - a.x;
+      var dy = c.y - a.y;
+      var d = Math.hypot(dx, dy);
+      if (d > WILD_SNAP) { a.x = c.x; a.y = c.y; continue; }
+      if (d > 0.02) {
+        var step = Math.min(d, d * Math.min(1, dt * 6));
+        a.x += (dx / d) * step;
+        a.y += (dy / d) * step;
+        if (Math.abs(dx) > 0.02) a.dir = dx > 0 ? 1 : -1;
+        a.ft += dt;
+        if (a.ft > 0.22) { a.ft = 0; a.frame = a.frame ? 0 : 1; }
+      }
+      if (a.hurt > 0) a.hurt = Math.max(0, a.hurt - dt);
+    }
+    for (var k in wild) if (Object.prototype.hasOwnProperty.call(wild, k) && !seen[k]) delete wild[k];
+  }
+
+  function markWildHurt(id) { if (wild[id]) wild[id].hurt = 0.35; }
+
+  function drawWild() {
+    var list = S.creatureList();
+    if (!list.length) return;
+    var t = GM.camera.cam.tile;
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i];
+      var a = wild[c.id] || { x: c.x, y: c.y, frame: 0, dir: 1, hurt: 0 };
+      if (!GM.camera.onScreen(a.x, a.y, t * 2)) continue;
+      if (S.fogAt(Math.round(a.x), Math.round(a.y)) < 2) continue;   // 지금 눈에 보이는 것만
+      var p = GM.camera.worldToScreen(a.x - 0.5, a.y - 0.5);
+      var img = GM.atlas.wild(c.sp, a.frame, { hurt: a.hurt > 0 });
+      ctx.save();
+      if (a.dir < 0) {
+        ctx.translate(Math.round(p.x) + t, Math.round(p.y));
+        ctx.scale(-1, 1);
+        try { ctx.drawImage(img, 0, 0, Math.ceil(t), Math.ceil(t)); } catch (e) {}
+      } else {
+        try { ctx.drawImage(img, Math.round(p.x), Math.round(p.y), Math.ceil(t), Math.ceil(t)); } catch (e2) {}
+      }
+      ctx.restore();
+      /* 성이 난 놈은 발밑이 붉다 — 쫓기고 있다는 것을 한눈에 */
+      if (c.kind === 'predator' && c.state === 'chase') {
+        ctx.save();
+        ctx.globalAlpha = 0.5 + 0.3 * Math.sin(animT / 140);
+        ctx.strokeStyle = '#bc4749';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(p.x + t / 2, p.y + t * 0.92, t * 0.34, t * 0.16, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+      if (c.hp < c.maxHp && t >= 18) {
+        var w = t * 0.7;
+        ctx.fillStyle = 'rgba(20,14,8,.65)';
+        ctx.fillRect(p.x + (t - w) / 2, p.y - 5, w, 3);
+        ctx.fillStyle = c.kind === 'predator' ? '#bc4749' : '#8dbb6d';
+        ctx.fillRect(p.x + (t - w) / 2, p.y - 5, w * Math.max(0, c.hp / c.maxHp), 3);
       }
     }
   }

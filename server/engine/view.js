@@ -355,12 +355,19 @@ function nodeView(world, nation, n, data) {
     slots: def?.slots ?? 0,
     job: def?.job ?? null,
     // ★ GDD3 §3 — 노드별 스윙 카운트(서버 권위). 클라의 타격 이펙트가 이 값으로 주기를 맞춘다.
-    swingsPerCycle: swingSpec?.swings ?? null,
+    //   ★ §13-B-4 — 유적은 크기만큼 오래 걸린다: 노드에 박힌 값이 규격을 이긴다.
+    swingsPerCycle: n.swingsPerCycle ?? swingSpec?.swings ?? null,
     skill: swingSpec?.skill ?? null,
     mine: dist(n.x, n.y, ...townXY(world, nation)) <= territoryRadius(nation, data) + 0.001,
   };
   if (n.rich) v.rich = true;
   if (n.depleted) v.depleted = true;
+  // ★ §13-B-3 — 그루터기가 되살아날 날. 화면이 「곧 다시 자란다」를 그린다.
+  if (n.respawnAt != null) v.respawnAt = n.respawnAt;
+  if (n.cluster) v.cluster = n.cluster;
+  if (n.size != null) v.size = n.size;
+  if (n.ruinName) v.ruinName = n.ruinName;
+  if (n.concealed) v.wasConcealed = true;
   if (n.workers) v.workers = n.workers;
   if (n.swings) v.swings = n.swings;
   if (n.readyAt != null) v.readyAt = n.readyAt;
