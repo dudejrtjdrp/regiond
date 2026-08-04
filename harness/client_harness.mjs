@@ -1342,3 +1342,247 @@ test('구경 모드(?mock=1) — 서버 없이도 첫 화면이 돌고, 사슬�
     await new Promise((res) => http.close(res));
   }
 });
+
+// ────────────────────────────────────────────────────────────────
+// ★ GDD3 §14 — 플레이테스트 3차. 화면에서 실제로 무엇이 달라졌는가.
+//
+//   §14-1 주민 수치가 **몇 초 만에** 뜨는가 (옛 규칙은 154초였다)
+//   §14-2 밝기 슬라이더가 실제로 화면 다이얼을 움직이는가 · localStorage 에 남는가
+//   §14-3 동물 걸음이 고른가 (프레임 간 이동량의 흩어짐)
+//   §14-5 HUD 좌하단 HP·XP·단계 · 캐릭터 창의 능력치 분배
+//   §14-6 다운 카운트다운 화면
+//   §14-7 잠긴 건물 칸
+// ────────────────────────────────────────────────────────────────
+test('클라이언트 하니스 — §14 플레이테스트 3차 (즉시 수치·밝기·동물·나의 상태·다운·잠금)', async (t) => {
+  const errors = [];
+  const { openChapterForDebug } = await import('../server/engine/progression.js');
+  const { loadGameData } = await import('../server/engine/data.js');
+  const { spawnResident } = await import('../server/engine/residents.js');
+  const data = loadGameData();
+  await new Promise((res) => http.listen(0, '127.0.0.1', res));
+  const port = http.address().port;
+  const base = `http://127.0.0.1:${port}`;
+  let dom = null;
+  let gameId = null;
+
+  try {
+    dom = await boot(`${base}/?seed=20260805`, errors);
+    const { window } = dom;
+    const GM = window.GM;
+    const S = GM.state;
+    const doc = window.document;
+
+    doc.querySelector('#btn-new').click();
+    await until(() => doc.querySelector('#scene-found').hidden === false, { what: '개척 화면' });
+    const name = doc.querySelector('#found-name');
+    name.value = '하람';
+    name.dispatchEvent(new window.Event('input', { bubbles: true }));
+    doc.querySelector('#found-start').click();
+    await until(() => !!S.S.map, { ms: 15000, what: '월드 스냅샷' });
+    await until(() => !!(S.S.view && S.S.view.nation), { what: '정착지 상태' });
+    gameId = S.S.gameId;
+    const rt = games.get(gameId);
+    rt.stop();
+    const nation = () => rt.world.nations.player;
+    const step = () => post(base, '/api/debug/step', { gameId });
+    if (GM.opening.busy()) doc.querySelector('#opening-skip').click();
+    await until(() => !GM.opening.busy(), { what: '오프닝 종료' });
+
+    // ── ★ §14-1 주민 산출 즉시 반영 ────────────────────────────
+    await t.test('★ §14-1 주민 수치 — 20초 안에 곳간이 오르고 그 자리에 숫자가 뜬다', async () => {
+      openChapterForDebug(rt.world, nation(), data, 5);
+      const rng = rt.rng;
+      for (let i = 0; i < 3; i += 1) spawnResident(rt.world, nation(), data, rng);
+      await step();
+      await until(() => S.residents().length >= 3, { ms: 8000, what: '주민 뷰' });
+
+      // 가장 가까운 숲에 셋을 붙인다
+      const post0 = (S.S.view.nation.workPosts || [])
+        .find((p) => p.kind === 'node' && (p.jobs || []).includes('lumber'));
+      assert.ok(post0, '벌목 일터가 있다');
+      await sendNow(window, 'commandVillagers', {
+        ids: S.residents().map((r) => r.id), order: { type: 'work', nodeId: post0.id },
+      });
+      await until(() => S.residents().some((r) => r.yield && r.yield.perDay > 0),
+        { ms: 8000, what: '주민 산출 뷰' });
+
+      const wood0 = nation().resources.wood || 0;
+      const cycle = data.world.villagers.work.cyclesPerDay;
+      const cycleSec = data.balance.time.dayRealSeconds / cycle;
+      assert.ok(cycleSec <= 30, `사이클 ${cycleSec}초 — 사람이 지켜볼 수 있는 길이여야 한다`);
+
+      // 서버의 실시간 루프를 손으로 돌린다(하니스에는 타이머가 없다)
+      const { stepResidentWork } = await import('../server/engine/residents.js');
+      let first = null;
+      const seen = [];
+      for (let s = 1; s <= 60 && seen.length < 3; s += 1) {
+        const out = stepResidentWork(rt.world, nation(), data, 1);
+        if (out.credits.length) { if (first == null) first = s; seen.push(...out.credits); }
+      }
+      assert.ok(first != null && first <= 30,
+        `첫 수치가 ${first}초 — 옛 규칙(154초)보다 확실히 빨라야 한다`);
+      assert.ok((nation().resources.wood || 0) > wood0, '일 틱을 안 기다리고 곳간이 올랐다');
+
+      // 화면이 그 값을 실제로 띄우는가 — creditFloat 가 참을 돌려주면 뜬 것이다
+      const c = seen[0];
+      GM.camera.moveTo(c.x, c.y);
+      const shown = GM.world.creditFloat(c);
+      assert.equal(shown, true, '주민 자리에 수치가 떠야 한다');
+    });
+
+    // ── ★ §14-2 밝기 · 설정 ────────────────────────────────────
+    await t.test('★ §14-2 설정 — Esc·톱니로 열리고, 밝기 눈금이 화면 다이얼을 실제로 움직인다', async () => {
+      const veil0 = S.fogVeil();
+      const b0 = S.getBrightness();
+      doc.querySelector('#btn-settings').click();
+      const slider = doc.querySelector('#set-brightness');
+      assert.ok(slider, '밝기 눈금이 있다');
+      assert.ok(doc.querySelector('#set-volume'), '소리 눈금도 있다');
+
+      slider.value = String(S.brightnessCfg().max);
+      slider.dispatchEvent(new window.Event('input', { bubbles: true }));
+      assert.ok(S.getBrightness() > b0, '밝기 값이 올랐다');
+      assert.ok(S.fogVeil() < veil0, '덮는 장막이 얇아졌다');
+      assert.ok(S.liftBonus() > 0, '더하는 빛이 생겼다');
+      assert.equal(window.localStorage.getItem('gm.brightness'), String(S.getBrightness()),
+        '고른 값이 이 기기에 남는다');
+
+      const vol = doc.querySelector('#set-volume');
+      vol.value = '0.3';
+      vol.dispatchEvent(new window.Event('input', { bubbles: true }));
+      assert.equal(Math.round(GM.sfx.getVolume() * 100), 30);
+      assert.equal(window.localStorage.getItem('gm.volume'), '0.3');
+
+      S.setBrightness(b0);
+      window.GM.ui.closeTopModal();
+    });
+
+    // ── ★ §14-3 동물 보간 ──────────────────────────────────────
+    await t.test('★ §14-3 동물 — 서버 1초 스텝 사이를 등속으로 지난다 (프레임 간 흩어짐 작음)', async () => {
+      const { ensureCreatures, creatureViews } = await import('../server/engine/ecology.js');
+      ensureCreatures(rt.world, nation(), data);
+      // 아바타 곁에 한 마리를 세우고 일직선으로 걷게 한다
+      const av = GM.avatar.pos();
+      const c = nation().wild.creatures[0];
+      assert.ok(c, '들의 것이 하나는 있다');
+      c.x = Math.round(av.x + 6);
+      c.y = Math.round(av.y);
+      const speed = data.creatures.defs[c.sp].speed;
+
+      // 1초마다 좌표를 흘리고, 그 사이를 60fps 로 그린다
+      const dt = 1 / 60;
+      const steps = [];
+      /* net.js 가 하는 일 그대로 — applyCreatures 하나가 화면 목록과 지연 버퍼를 함께 민다
+         (app.js 의 S.on('creatures') 가 pushWild 를 부른다. 여기서 또 부르면 버퍼가 두 칸 밀린다). */
+      const feed = () => S.applyCreatures([{
+        id: c.id, sp: c.sp, name: '짐승', kind: 'animal',
+        x: c.x, y: c.y, hp: c.hp, maxHp: c.maxHp, ring: 0, state: 'wander',
+      }]);
+      feed();
+      for (let s = 0; s < 8; s += 1) {
+        for (let f = 0; f < 60; f += 1) {
+          /* wildPos 는 살아 있는 객체를 그대로 준다 — 값을 베껴 두지 않으면 앞뒤가 같아진다 */
+          const b = GM.world.wildPos(c.id);
+          const before = b ? { x: b.x, y: b.y } : null;
+          GM.world.stepWildForTest(dt);
+          const a2 = GM.world.wildPos(c.id);
+          if (before && a2) steps.push(Math.hypot(a2.x - before.x, a2.y - before.y));
+        }
+        c.x = Math.round((c.x + speed) * 100) / 100;   // 서버가 일직선으로 민다
+        feed();
+      }
+      // 첫 두 스텝은 버퍼가 차는 구간이라 뺀다
+      const tail = steps.slice(120);
+      const mean = tail.reduce((a, b) => a + b, 0) / tail.length;
+      assert.ok(mean > 0, '움직이기는 한다');
+      const sd = Math.sqrt(tail.reduce((a, b) => a + (b - mean) ** 2, 0) / tail.length);
+      const cv = sd / mean;
+      assert.ok(cv < 0.25,
+        `프레임 간 이동량이 고르지 않다 — 흩어짐 ${(cv * 100).toFixed(1)}% (등속이면 0 에 가깝다)`);
+      // 외삽 금지 — 서버가 멎으면 화면도 멎는다(앞질러 가지 않는다)
+      const cur = GM.world.wildPos(c.id);
+      const at = { x: cur.x, y: cur.y };
+      for (let f = 0; f < 240; f += 1) GM.world.stepWildForTest(dt);
+      const after = GM.world.wildPos(c.id);
+      assert.ok(Math.hypot(after.x - at.x, after.y - at.y) <= speed + 0.05,
+        '새 좌표가 안 오는데 앞질러 갔다 (외삽 금지)');
+    });
+
+    // ── ★ §14-5 나의 상태 ──────────────────────────────────────
+    await t.test('★ §14-5 HUD — 초상 옆 HP·XP·단계, 캐릭터 창에서 능력치 분배', async () => {
+      const me = doc.querySelector('#me-panel');
+      GM.hud.renderMe();
+      assert.equal(me.hidden, false, '나의 상태 판이 떠 있다');
+      assert.ok(me.querySelector('.me-bar.hp'), '체력 바가 있다');
+      assert.ok(me.querySelector('.me-bar.xp'), '눈금 바가 있다');
+      assert.ok(me.querySelector('.me-lv'), '단계 배지가 있다');
+
+      // 눈금을 억지로 올려 단계를 올린다 — 점수가 붙어야 한다
+      const player = nation().players[S.S.avatarId];
+      assert.ok(player, '내 장부가 있다');
+      player.skills.lumber.xp = data.skills.player.xpCurve[3];
+      await step();
+      await until(() => S.player() && S.player().progress.level >= 4, { ms: 8000, what: '단계 상승' });
+      assert.equal(S.player().progress.points, 3, '단계 4 = 남은 점수 3');
+
+      GM.equip.open();
+      const btn = doc.querySelector('[data-alloc="vitality"]');
+      assert.ok(btn, '캐릭터 창에 능력치 분배 단추가 있다');
+      assert.equal(btn.disabled, false);
+      const hp0 = S.player().maxHp;
+      btn.click();
+      await until(() => S.player().progress.stats.vitality.value >= 1, { ms: 6000, what: '체력 +1' });
+      assert.equal(S.player().progress.points, 2, '점수가 하나 줄었다');
+      assert.ok(S.player().maxHp > hp0, '최대 체력이 실제로 늘었다');
+      window.GM.ui.closeTopModal();
+    });
+
+    // ── ★ §14-6 다운 화면 ──────────────────────────────────────
+    await t.test('★ §14-6 다운 — 화면이 덮이고 초를 세다가, 일어나면 걷힌다', async () => {
+      GM.down.onDown({
+        avatarId: S.S.avatarId, downSeconds: data.skills.combat.downSeconds,
+        reviveHpRatio: data.skills.combat.reviveHpRatio,
+        invulnSeconds: data.skills.combat.invulnSeconds, by: '굶주린 늑대',
+      });
+      const veil = doc.querySelector('#down-veil');
+      assert.ok(veil, '쓰러진 화면이 덮인다');
+      assert.equal(doc.querySelector('#down-count').textContent, String(data.skills.combat.downSeconds));
+      assert.ok(GM.down.isDown());
+
+      const town = S.myTown();
+      GM.down.onRevived({
+        avatarId: S.S.avatarId, hp: 30, maxHp: 60,
+        invulnSeconds: data.skills.combat.invulnSeconds, x: town.x, y: town.y,
+      });
+      assert.equal(doc.querySelector('#down-veil'), null, '일어나면 화면이 걷힌다');
+      assert.equal(GM.down.isDown(), false);
+      GM.down.reset();
+    });
+
+    // ── ★ §14-7 잠긴 건물 ──────────────────────────────────────
+    await t.test('★ §14-7 건설 갈래 — 잠긴 것도 자물쇠와 해금 조건으로 보인다', async () => {
+      await step();
+      await until(() => (S.lockedBuildings() || []).length > 0, { ms: 8000, what: '잠긴 목록' });
+      GM.build.open('production');
+      const locked = [...doc.querySelectorAll('#place-bar .pb-item.locked')];
+      assert.ok(locked.length > 0, '생산 갈래에 잠긴 칸이 보인다');
+      for (const el of locked) {
+        assert.equal(el.disabled, true, '잠긴 칸은 눌리지 않는다');
+        assert.ok(/해금/.test(el.textContent), `해금 조건이 적혀 있어야 한다: ${el.textContent}`);
+      }
+      // ★ §14-8 — 단추와 갈래 제목에 「세우기」가 없다
+      assert.equal(doc.querySelector('#tb-build').textContent.includes('세우기'), false);
+      assert.ok(doc.querySelector('#tb-build').textContent.includes('건설'), '단추는 「건설」이다');
+      GM.build.close();
+    });
+
+    await t.test('콘솔이 조용하다', () => {
+      const noisy = errors.filter((e) => !/AudioContext|Not implemented|Could not parse CSS/i.test(e));
+      assert.deepEqual(noisy, [], noisy.join(' / '));
+    });
+  } finally {
+    if (dom) dom.window.close();
+    if (gameId) games.delete(gameId);
+    await new Promise((res) => http.close(res));
+  }
+});

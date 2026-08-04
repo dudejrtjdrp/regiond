@@ -13,7 +13,8 @@ import { createWorld } from '../server/engine/state.js';
 import { createRng } from '../server/engine/rng.js';
 import { applyCommand } from '../server/engine/commands.js';
 import { openChapterForDebug } from '../server/engine/progression.js';
-import { townOf, dist, ringAt, ringRadii } from '../server/engine/world.js';
+import { townOf, dist, ringAt, ringRadii, territoryRadius } from '../server/engine/world.js';
+import { round2 } from '../server/engine/economy.js';
 import { ensurePlayer } from '../server/engine/skills.js';
 import { step } from '../server/engine/tick.js';
 import {
@@ -164,8 +165,13 @@ test('★ §13-C-8 사냥 — 사거리 밖은 서버가 막는다', () => {
 test('★ §13-C-2 반격 — 때리면 덤빈다', () => {
   const { world, nation, town, rng } = scene(67);
   ensureWild(nation);
+  /* ★ §14-4 — 짐승은 이제 영토 안에 설 수 없다(들어오면 밀려난다).
+     그러니 이 장면은 **영토 밖**에서 벌어져야 한다: 사람이 들에 나가 멧돼지를 건드리는 그림이다. */
+  const out = territoryRadius(nation, data) + 4;
+  nation.avatars.lord.x = town.x + out;
+  nation.avatars.lord.y = town.y;
   nation.wild.creatures = [{
-    id: 'w1', sp: 'boar', x: town.x + 1, y: town.y, tx: town.x + 1, ty: town.y,
+    id: 'w1', sp: 'boar', x: town.x + out + 1, y: town.y, tx: town.x + out + 1, ty: town.y,
     hp: 46, maxHp: 46, ring: 1, state: 'wander', retarget: 0, atkCd: 0, provoked: 0, seen: false,
   }];
   const r = applyCommand(world, 'player', { type: 'combatSwing', targetId: 'w1', avatarId: 'lord', now: 1000 }, data, rng);
@@ -194,10 +200,13 @@ test('★ §13-C-2 다운 — 죽지 않는다. 모닥불 자리에서 일어난
   assert.equal(nation.avatars.lord.x, town.x, '모닥불 자리로 옮겨진다');
   assert.equal(nation.avatars.lord.y, town.y);
   assert.ok(events.some((e) => e.kind === 'player_down'));
-  // downSeconds 가 지나면 다시 선다
+  /* downSeconds 가 지나면 다시 선다.
+     ★ §14-6 — 온전한 몸이 아니라 **절반**으로 일어나고, 잠깐 아무도 건드리지 못한다. */
   for (let i = 0; i < data.skills.combat.downSeconds + 2; i += 1) stepEcology(world, nation, data, 1);
   assert.equal(nation.players.lord.downUntil, 0, '다시 일어선다');
-  assert.equal(nation.players.lord.hp, nation.players.lord.maxHp, '체력이 돌아온다');
+  assert.equal(nation.players.lord.hp,
+    round2(nation.players.lord.maxHp * data.skills.combat.reviveHpRatio), '체력 절반으로 일어난다');
+  assert.ok(nation.players.lord.invulnUntil > 0, '일어난 직후에는 무적이다');
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -239,8 +248,10 @@ test('★ §13-C-3 도감 — 마주치면 조우 수가 오른다 (같은 개�
   ensureWild(nation);
   nation.avatars.lord.x = town.x;
   nation.avatars.lord.y = town.y;
+  /* ★ §14-4 — 닭도 영토 안에는 못 든다. 경계 바로 밖에 세운다(눈에는 든다). */
+  const near = territoryRadius(nation, data) + 2;
   nation.wild.creatures = [{
-    id: 'w1', sp: 'chicken', x: town.x + 1, y: town.y, tx: town.x + 1, ty: town.y,
+    id: 'w1', sp: 'chicken', x: town.x + near, y: town.y, tx: town.x + near, ty: town.y,
     hp: 8, maxHp: 8, ring: 0, state: 'wander', retarget: 0, atkCd: 0, provoked: 0, seen: false,
   }];
   stepEcology(world, nation, data, 1);

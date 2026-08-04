@@ -410,14 +410,33 @@ try {
   must(await until('GM.state.chapter().id >= 2', { ms: 8000, what: '2장 열림' }).catch(() => false),
     '★ 목재 10을 모으니 스스로 2장(첫 지붕)이 열렸다');
   await sleep(300);
-  must(await ev(`!!document.querySelector('#tb-build')`), '이제서야 세우기 단추가 생겼다');
+  must(await ev(`!!document.querySelector('#tb-build')`), '이제서야 건설 단추가 생겼다');
   await clickSel('#tb-build');
   await until(`document.querySelector('#place-bar').hidden === false`, { what: '배치대' });
   const tabs = await ev(`[...document.querySelectorAll('#place-bar .pb-tab')].map(function(b){return b.getAttribute('data-cat');}).join(',')`);
   must(/housing/.test(tabs), '배치대에 주거 갈래가 있다', `갈래: ${tabs}`);
-  const items = await ev(`[...document.querySelectorAll('#place-bar .pb-item')].map(function(b){return b.getAttribute('data-place');}).join('|')`);
+  const items = await ev(`[...document.querySelectorAll('#place-bar .pb-item:not(.locked)')].map(function(b){return b.getAttribute('data-place');}).join('|')`);
   must(/천막/.test(items), '주거 갈래에 천막이 있다', items);
-  must(!/오두막|곡창|화살탑/.test(items), '★ 아직 못 짓는 것은 아예 목록에 없다', items);
+  /* ★ GDD3 §14-7 — 잠긴 건물은 이제 **보이되 눌리지 않는다**(흐림 + 자물쇠 + 해금 조건).
+     "없는 줄 알았다"를 막는 규칙이라, 검사도 「목록에 없다」가 아니라 「고를 수 없다」로 바뀐다. */
+  must(!/오두막|곡창|화살탑/.test(items), '★ 아직 못 짓는 것은 고를 수 없다', items);
+  /* ★ GDD3 §14-7 — 잠긴 칸이 흐림 + 자물쇠 + 해금 조건으로 실제로 그려지는가.
+     2장에서는 주거 갈래가 열려 있고 오두막·가옥·저택이 아직 잠겨 있다 — "없는 줄 알았다"가 나던 자리다. */
+  const lockedCards = JSON.parse(await ev(`JSON.stringify(
+      [].slice.call(document.querySelectorAll('#place-bar .pb-item.locked')).map(function (e) {
+        var r = e.getBoundingClientRect(); var st = getComputedStyle(e);
+        return { text: e.textContent, w: r.width, h: r.height,
+                 opacity: Number(st.opacity), gray: st.filter, disabled: e.disabled };
+      }))`));
+  must(lockedCards.length > 0, '★ §14-7 열린 갈래 안의 잠긴 건물이 목록에 보인다',
+    await ev(`JSON.stringify((GM.state.lockedBuildings()||[]).map(function(b){return b.key+':'+b.lockReason;}))`));
+  must(lockedCards.every((x) => x.disabled), '★ §14-7 잠긴 칸은 눌리지 않는다');
+  must(lockedCards.every((x) => x.opacity < 0.9), '★ §14-7 잠긴 칸은 흐리다',
+    JSON.stringify(lockedCards.map((x) => x.opacity)));
+  must(lockedCards.every((x) => /해금/.test(x.text)), '★ §14-7 잠긴 칸에 해금 조건이 적혀 있다',
+    JSON.stringify(lockedCards.map((x) => x.text)).slice(0, 220));
+  must(lockedCards.every((x) => x.w > 40 && x.h > 20), '★ §14-7 잠긴 칸이 실제로 자리를 차지한다(레이아웃 있음)');
+  pass('잠금 카드', `${lockedCards.length}칸 — 예: ${String(lockedCards[0].text).slice(0, 30)}`);
   const picked = await ev(`(function(){
       var b=[...document.querySelectorAll('#place-bar .pb-item')].filter(function(x){
         return !x.disabled && /천막/.test(x.getAttribute('data-place')||'');})[0];
@@ -716,64 +735,39 @@ try {
         return bright > 200;})()`), '화면 한가운데가 실제로 캄캄하지 않다', '아바타 둘레가 여전히 검다');
   }
 
-  // ── 9-b. ★ §13-A-3 주민 노동 수치 — "+1.2 목재" 가 정말로 뜨는가 ──
-  //   숫자가 뜨기만 하면 되는 게 아니다. **뜬 값이 그 주민의 하루 산출에서 나온 자루 하나**여야 한다.
+  // ── 9-b. ★ §14-1 주민 산출 즉시 반영 — 서버가 사이클마다 내고, 화면이 그 자리에 띄운다 ──
+  //   옛 규칙(§13-A-3)은 화면이 짐을 쌓아 하역할 때 숫자를 띄웠고, 그 순간까지 154초가 걸렸다.
+  //   이제 값은 서버가 낸다(residentWork). 검사도 그 계약을 그대로 밟는다:
+  //     ① 사이클 길이가 사람이 지켜볼 수 있는 길이인가  ② 그 값이 화면에 뜨는가  ③ 서식이 플레이어와 같은가
   {
-    const setup = await ev(`(function(){
-        var r = GM.state.residents()[0];
-        if (!r) return 'NO_RESIDENT';
-        // 그 주민에게서 가장 가까운 나무 — 걸어가는 데 검사 시간을 다 쓰지 않도록
-        var nd = null, bd = 1e9;
-        GM.state.nodeList().forEach(function (n) {
-          if (n.type !== 'forest' || n.depleted) return;
-          var d = Math.hypot(n.x - r.x, n.y - r.y);
-          if (d < bd) { bd = d; nd = n; }
-        });
-        if (!nd) return 'NO_NODE';
-        // 짐이 금세 차도록 하루를 짧게, 자루를 잘게 (검사 뒤 되돌린다)
+    const cycleSec = Number(await ev(`(function(){
         var c = GM.state.S.config;
-        window.__save = { day: c.time.dayRealSeconds, work: JSON.parse(JSON.stringify(c.world.villagers.work || {})) };
-        c.time.dayRealSeconds = 3;
-        c.world.villagers.work = { deliveriesPerDay: 10, swingSeconds: 0.4 };
-        // 부릴 곳을 나무 옆에 하나 놓아 나르는 길을 짧게 한다 (화면 전용, 검사 뒤 거둔다)
-        window.__crate = { id: '__smoke_crate', key: 'storage_crate', name: '저장 궤짝', tier: 1,
-                           x: nd.x + 1, y: nd.y, fw: 1, fh: 1, cx: nd.x + 1, cy: nd.y, hp: 40, maxHp: 40 };
-        GM.state.nation().structures.push(window.__crate);
-        r.job = 'lumber'; r.targetId = nd.id;
-        r.x = nd.x; r.y = nd.y; r.destX = nd.x; r.destY = nd.y;
-        r.yield = { resource: 'wood', perDay: 3.2 };
-        // 플로팅 수치를 엿본다
+        return c.time.dayRealSeconds / (c.world.villagers.work.cyclesPerDay || 30);})()`));
+    must(cycleSec > 0 && cycleSec <= 30, '★ §14-1 작업 사이클이 사람이 지켜볼 수 있는 길이다',
+      `사이클 ${cycleSec}초 (옛 규칙은 150초)`);
+
+    const shown = JSON.parse(await ev(`(function(){
+        var r = GM.state.residents()[0];
+        if (!r) return JSON.stringify({ err: 'NO_RESIDENT' });
         window.__floats = [];
         if (!window.__origFloat) window.__origFloat = GM.fx.floatText;
         GM.fx.floatText = function (x, y, t) { window.__floats.push(String(t)); return window.__origFloat.apply(null, arguments); };
-        return 'OK';})()`);
-    must(setup === 'OK', '★ §13-A-3 주민을 나무에 붙였다', `준비 실패: ${setup}`);
-    if (setup === 'OK') {
-      // 걸음·작업·나르기를 손으로 돌려 한 바퀴를 확실히 끝낸다(rAF 를 20초 기다리지 않는다)
-      const cycle = await ev(`(function(){
-          for (var i = 0; i < 4000; i++) GM.world.stepUnitsForTest(0.05);
-          var u = GM.world.unitPos(GM.state.residents()[0].id) || {};
-          return JSON.stringify({ phase: u.phase, carry: u.carry, floats: window.__floats.length });})()`);
-      const got = JSON.parse(cycle);
-      const woodFloats = JSON.parse(await ev('JSON.stringify(window.__floats.filter(function(t){return /목재/.test(t);}))'));
-      must(/^\+[0-9.]+ 목재$/.test(woodFloats[0] || ''),
-        '★ 주민이 하역할 때 "+N 목재" 가 뜬다 (플레이어와 같은 서식)',
-        `단계 ${got.phase} · 짐 ${got.carry} · 띄운 것 ${await ev('JSON.stringify(window.__floats.slice(-6))')}`);
-      const shown = JSON.parse(await ev(`JSON.stringify(window.__floats.filter(function(t){ return /목재/.test(t); }))`));
-      const vals = shown.map((t) => parseFloat(String(t).replace(/[^0-9.]/g, ''))).filter((n) => n > 0);
-      // 자루 하나 = 하루 산출 ÷ 하역 횟수 = 3.2 / 10 = 0.32
-      must(vals.length > 0 && vals.every((n) => n > 0 && n < 3.2),
-        '★ 뜬 값이 그 주민의 하루 산출 안에서 나온 자루 하나다', `값: ${vals.join(', ')}`);
-      pass('주민 노동 수치', `뜬 숫자 ${shown.slice(0, 3).join(' · ')}${shown.length > 3 ? ' …' : ''}`);
-      await ev(`(function(){
-          GM.fx.floatText = window.__origFloat;
-          var c = GM.state.S.config;
-          c.time.dayRealSeconds = window.__save.day;
-          c.world.villagers.work = window.__save.work;
-          var st = GM.state.nation().structures;
-          for (var i = st.length - 1; i >= 0; i--) if (st[i].id === '__smoke_crate') st.splice(i, 1);
-          return 1;})()`);
-    }
+        GM.camera.moveTo(r.x, r.y);
+        /* 서버가 보내는 것과 같은 모양의 사이클 하나를 흘려 넣는다(app.js 의 배선을 그대로 탄다) */
+        GM.state.emit('residentWork', {
+          tick: 0,
+          credits: [{ id: r.id, name: r.name, x: r.x, y: r.y, resource: 'wood', amount: 0.11, stored: 0.11 }],
+          resources: null,
+        });
+        var out = window.__floats.slice();
+        GM.fx.floatText = window.__origFloat;
+        return JSON.stringify({ floats: out });})()`));
+    must(!shown.err, '★ §14-1 주민이 있다', shown.err || '');
+    const woodFloats = (shown.floats || []).filter((t) => /목재/.test(t));
+    must(/^\+[0-9.]+ 목재$/.test(woodFloats[0] || ''),
+      '★ §14-1 주민 자리에 "+N 목재" 가 뜬다 (플레이어 스윙과 같은 서식)',
+      `띄운 것 ${JSON.stringify(shown.floats)}`);
+    pass('주민 노동 수치', `사이클 ${cycleSec}초 · 뜬 숫자 ${woodFloats.slice(0, 3).join(' · ')}`);
   }
 
   // ── 9-b. ★ 월드 2.0 · 생태계 (GDD3 §13-B·§13-C) ──
@@ -1091,6 +1085,86 @@ try {
   pass('밝기 하한 검사', `하한 ${minLuma} · 밤 ${night.lum.toFixed(1)} · 낮 ${day.lum.toFixed(1)}`
     + ` · 건설 모드 ${buildLuma.toFixed(1)} (밤 대비 ${dLuma >= 0 ? '+' : ''}${dLuma.toFixed(1)})`
     + ` · 장막 ${veils.normal} → ${veils.build}`);
+
+  // ── 10-c. ★ GDD3 §14-2 — 밝기 슬라이더가 **실제 캡처**를 밝게 만드는가 ──
+  //   설정 값이 화면 다이얼을 움직이는 것만으로는 모자란다. 진짜 픽셀이 밝아져야 한다.
+  const lumaAt = async (b) => {
+    await ev(`GM.app.holdDay(0.9); GM.state.setBrightness(${b});`);
+    await sleep(340);
+    return Number(await ev(`(function(){
+        var c=document.querySelector('#world-canvas'); var g=c.getContext('2d');
+        var d=g.getImageData(0,0,c.width,c.height).data; var s=0,n=0;
+        for (var i=0;i<d.length;i+=4*37){ s+=d[i]+d[i+1]+d[i+2]; n++; }
+        return s/(3*n);})()`));
+  };
+  const bcfg = await ev('JSON.stringify(GM.state.brightnessCfg())').then(JSON.parse);
+  const lumLow = await lumaAt(bcfg.min);
+  const lumMid = await lumaAt(bcfg.default);
+  const lumHigh = await lumaAt(bcfg.max);
+  await ev(`GM.state.setBrightness(${bcfg.default}); GM.app.holdDay(null);`);
+  must(lumHigh > lumMid && lumMid > lumLow, '★ §14-2 밝기 눈금이 진짜 픽셀을 밝힌다',
+    `${bcfg.min}→${lumLow.toFixed(1)} · ${bcfg.default}→${lumMid.toFixed(1)} · ${bcfg.max}→${lumHigh.toFixed(1)}`);
+  must(lumHigh - lumLow > 6, '★ 눈금을 끝까지 올리면 눈에 띄게 밝아진다',
+    `밝기 차 ${(lumHigh - lumLow).toFixed(1)}`);
+  //   설정 패널이 실제로 열리고 눈금이 있는가 (톱니 클릭)
+  await clickSel('#btn-settings');
+  await sleep(280);
+  must(await ev(`!!document.querySelector('#set-brightness')`), '★ §14-2 톱니로 설정 패널이 열린다');
+  must(await ev(`!!document.querySelector('#set-volume')`), '★ §14-2 소리 눈금도 있다');
+  await ev('GM.ui.closeTopModal()');
+  await sleep(160);
+  pass('밝기 슬라이더', `${lumLow.toFixed(1)} → ${lumMid.toFixed(1)} → ${lumHigh.toFixed(1)} (캡처 평균)`);
+
+  // ── 10-d. ★ GDD3 §14-3 — 동물 걸음이 고른가 (프레임 간 이동량의 흩어짐) ──
+  //   옛 지수 감쇠는 새 좌표가 온 직후 가장 빠르고 다음 좌표 직전에 거의 멎는다.
+  //   등속 보간이면 프레임마다 같은 거리를 간다 — 흩어짐(표준편차÷평균)이 0 에 가까워야 한다.
+  const wildCv = await ev(`(function(){
+      var S = GM.state, W = GM.world;
+      var id = 'smoke-w1', sp = (GM.state.cfg().creatures && GM.state.cfg().creatures.order && GM.state.cfg().creatures.order[0]) || 'chicken';
+      var av = GM.avatar.pos();
+      var x = Math.round(av.x + 5), y = Math.round(av.y);
+      var feed = function (px) {
+        S.applyCreatures([{ id: id, sp: sp, name: '짐승', kind: 'animal', x: px, y: y,
+                            hp: 8, maxHp: 8, ring: 0, state: 'wander' }]);
+      };
+      feed(x);
+      var steps = [], dt = 1 / 60;
+      for (var s = 0; s < 6; s++) {
+        for (var f = 0; f < 60; f++) {
+          var a = W.wildPos(id); var bx = a ? a.x : 0, by = a ? a.y : 0;
+          W.stepWildForTest(dt);
+          var c2 = W.wildPos(id);
+          if (c2) steps.push(Math.hypot(c2.x - bx, c2.y - by));
+        }
+        x += 1.5; feed(x);
+      }
+      S.applyCreatures([]);
+      var tail = steps.slice(120);
+      var m = tail.reduce(function (p, q) { return p + q; }, 0) / tail.length;
+      var sd = Math.sqrt(tail.reduce(function (p, q) { return p + (q - m) * (q - m); }, 0) / tail.length);
+      return JSON.stringify({ mean: m, sd: sd, cv: m > 0 ? sd / m : 99 });
+    })()`).then(JSON.parse);
+  must(wildCv.mean > 0, '★ §14-3 동물이 서버 좌표 사이를 실제로 걷는다');
+  must(wildCv.cv < 0.25, '★ §14-3 프레임 간 이동량이 고르다 (등속 보간 · 끊김 없음)',
+    `흩어짐 ${(wildCv.cv * 100).toFixed(1)}% (옛 지수 감쇠는 147%)`);
+  pass('동물 보간', `프레임 평균 ${wildCv.mean.toFixed(4)}칸 · 흩어짐 ${(wildCv.cv * 100).toFixed(1)}%`);
+
+  // ── 10-e. ★ GDD3 §14-5 · §14-7 — 나의 상태 판과 잠긴 건물 칸 ──
+  const me = await ev(`(function(){
+      GM.hud.renderMe();
+      var p = document.querySelector('#me-panel');
+      if (!p || p.hidden) return JSON.stringify({ ok: false });
+      return JSON.stringify({ ok: true,
+        hp: !!p.querySelector('.me-bar.hp'), xp: !!p.querySelector('.me-bar.xp'),
+        lv: (p.querySelector('.me-lv') || {}).textContent || null,
+        box: (function(){ var r = p.getBoundingClientRect(); return { w: r.width, h: r.height, x: r.left, y: r.top }; })() });
+    })()`).then(JSON.parse);
+  must(me.ok && me.hp && me.xp && me.lv, '★ §14-5 좌하단에 초상 · 체력 바 · 눈금 바 · 단계가 있다',
+    JSON.stringify(me));
+  must(me.box && me.box.w > 60 && me.box.h > 24, '★ §14-5 나의 상태 판이 실제로 자리를 차지한다',
+    JSON.stringify(me.box));
+
+  pass('나의 상태', `단계 ${me.lv} · 체력·눈금 바 있음`);
 
   // ── 11. 프레임 시간 (GDD3 §8 — 60fps 목표) ──
   //   ★ 프레임 '간격'은 60fps 로 맞물려 돌면 늘 16.7ms 다 — 그 값이 16ms 아래로 내려갈 일이 없다.

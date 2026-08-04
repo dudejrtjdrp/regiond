@@ -2,7 +2,116 @@
 
 > 임의 변경 금지. 바꿔야 하면 **이 파일을 먼저 고치고** 서버·클라를 따라 고친다.
 > 서버 판번호는 `server/index.js` 의 `PROTOCOL = '3.2'`, 클라는 `public/js/state.js` 의 `GM.PROTOCOL` 과 **반드시 같아야** 한다.
-> 설계 근거는 `docs/GDD3.md`(§1~§10 엔드리스 정착지 성장 · **§11 진행 감독** · **§12 플레이테스트 1차** · **§13 플레이테스트 2차**), 공간 계층은 `docs/WORLD.md`.
+> 설계 근거는 `docs/GDD3.md`(§1~§10 엔드리스 정착지 성장 · **§11 진행 감독** · **§12 플레이테스트 1차** · **§13 플레이테스트 2차** · **§14 플레이테스트 3차**), 공간 계층은 `docs/WORLD.md`.
+
+---
+
+## 0-T. v3.2 안 델타 — **플레이테스트 3차** (GDD3 §14)
+
+**판번호를 올리지 않는다.** 더하기만 했다 — 땅도 세이브도 그대로다(`world.schema` **5** 유지).
+옛 세이브에 없는 것(`player.stats.alloc` · `player.invulnUntil` · `villager.work`)은 처음 읽는 순간
+`ensurePlayer` / `ensureWork` 가 빈 값으로 채운다. 새 건물(`ranch`)이 하나 늘었을 뿐이라 지도는 안 건드린다.
+
+### 0-T-1. 신설 — 명령 (C→S)
+
+| 명령 | 뜻 | ack |
+|---|---|---|
+| `allocStat {stat, count?}` | ★ §14-5 — 레벨업으로 받은 점수를 능력치 하나에 준다. **리스펙 없음** | `{ok, stat, given, alloc, points, player}` |
+
+`stat` 은 `vitality`(체력) / `strength`(힘) / `agility`(민첩) / `luck`(행운).
+남은 점수보다 많이 청하면 **가진 만큼만** 준다(`given`). 하나도 없으면 `NO_POINTS`, 없는 능력치면 `BAD_STAT`.
+신원은 세션이 정한다(`IDENTITY_COMMANDS`) — 클라가 보낸 `avatarId` 는 믿지 않는다.
+
+### 0-T-2. 신설 — 이벤트 (S→C)
+
+| 이벤트 | 언제 | 페이로드 | 클라가 할 일 |
+|---|---|---|---|
+| `residentWork` | ★ §14-1 — 주민의 작업 사이클이 끝날 때(실시간 저빈도 루프) | `{tick, credits:[{id,name,x,y,resource,amount,stored}], resources}` | 그 사람 자리에 수치를 띄우고 자원칸을 갱신 |
+| `playerRevived` | ★ §14-6 — 쓰러진 사람이 일어날 때 | `{avatarId, hp, maxHp, invulnSeconds, x, y}` | 카운트다운 걷기 + 무적 표시 |
+
+`residentWork.resources` 는 **그 순간의 창고 잔고 전량**(권위값)이다 — 화면은 이 값을 그대로 받아 적는다.
+`credits[].amount` 는 낸 몫, `stored` 는 곳간에 실제로 들어간 몫이다(가득 차면 다르다 — §13-A-5).
+
+### 0-T-3. 주민 산출의 박자 (§14-1) — **하루 합계 동일성이 계약이다**
+
+```
+사이클 길이 = balance.time.dayRealSeconds ÷ world.villagers.work.cyclesPerDay   (기본 600 ÷ 30 = 20초)
+사이클 몫   = residentYield(u,…).perDay ÷ cyclesPerDay
+일 틱 정산  = residentSettle() = residentGather() − (그 하루에 이미 곳간에 들어간 몫)
+```
+
+* 서버는 사람마다 `u.work.produced`(낸 몫 — 하루 몫을 넘기지 않는 뚜껑)와 `u.work.credited`(곳간에 실제로
+  들어간 몫 — 일 틱이 나머지를 셈할 때 쓰는 값)를 **따로** 든다. 둘을 가르지 않으면 `deposit` 이
+  소수 둘째 자리에서 끊는 먼지가 쌓여 하루 합계가 어긋난다(실측 오차 2.4%).
+* 접속자가 없으면 실시간 루프가 멎으므로 `credited` 가 비고, 일 틱이 하루치를 통째로 낸다 — **어느 쪽이든 합계는 같다.**
+* 노는 사람·공사(buildPoints)는 실시간으로 적립하지 않는다(일 틱이 통째로 맡는다).
+* 운반 연출(`world.villagers.work.deliveriesPerDay`)은 이제 **장식**이다. 크레딧과 무관하다.
+
+### 0-T-4. 짐승의 영토 진입 금지 · 목장 (§14-4)
+
+* `stepEcology` 의 한 걸음은 ① 울타리를 가로지르면(§13-C-2) ② **영토 안으로 들어서면** 무효다.
+* 이미 영토 안에 있으면 본부 반대쪽으로 곧게 **밀어낸다**(경로 탐색 없음, 울타리도 따지지 않는다 —
+  안에 갇힌 짐승을 울타리가 붙들면 영영 못 나간다). 미는 동안에는 물지도 도망가지도 않는다.
+* 도감 조우 판정은 걸음보다 **먼저** 센다 — 밀려나는 놈도 눈에는 들었기 때문이다.
+* **목장**(`ranch`, 생산 2×3, 티어 4)이 서면 `creatures.ranch.radius`(6) 안쪽만은 `kind:'animal'` 에게 열린다.
+  포식자는 목장이 있어도 못 든다. 목장 산출은 `buildings.ranch.tiers[].flatOutput`(고기·털·가죽)이 정본이다.
+* 웨이브 적은 이 규칙을 타지 않는다 — 그쪽은 `battle.js` 의 별도 계층이다.
+
+### 0-T-5. 플레이어 레벨 · 능력치 (§14-5)
+
+* **레벨은 새 숫자가 아니다.** 다섯 스킬 XP 의 **총합**이 `skills.player.xpCurve` 를 탄다.
+  그래서 기존 스킬 장부와 언제나 정합이고, 스킬을 고루 올려도 손해가 없다.
+* 레벨업마다 `statPerLevel`(1) 점. **남은 점수 = (레벨−1)×perLevel − 쓴 점수** — 저장하는 값은 `alloc` 뿐이다.
+* 훅(전부 서버 계산):
+
+| 능력치 | 붙는 자리 | 값 |
+|---|---|---|
+| 체력 `vitality` | `playerMaxHp` | 점당 최대 HP +10 |
+| 힘 `strength` | `yieldMultiplier`(수확) · `swingDamage`(피해) | 점당 +4% |
+| 민첩 `agility` | `swingCooldownMs` · 아바타 걸음(클라가 `progress.effects.moveSpeed` 를 곱한다) | 쿨 −2% / 걸음 +3% (쿨 감소 상한 `cooldownCap` 50%) |
+| 행운 `luck` | 사냥 드롭(`huntSwing`) · 인첸트 상위 등급 무게(`upperBoost`) | 점당 +3% |
+
+* 뷰: `you.player.progress = {level, xp, from, need, ratio, points, spent, order, stats, effects}`.
+  `you.player.maxHp` 는 언제나 `playerMaxHp` 가 낸 값이다(능력치를 준 그 순간 늘어난다).
+
+### 0-T-6. 다운 · 부활 (§14-6)
+
+`data/skills.json` `combat`: `downSeconds` **10** · `reviveHpRatio` **0.5** · `invulnSeconds` **3** ·
+`downMoralePenalty` 0.03(그대로).
+
+* 쓰러진 자리에서 아바타는 곧바로 본부로 옮겨진다. `player_down` 이벤트에 `downSeconds` ·
+  `reviveHpRatio` · `invulnSeconds` · `moralePenalty` 가 함께 실린다(첫 다운 설명 카드가 이 값으로 쓰인다).
+* 시계는 **두 곳**이 돌린다 — 생태계 루프(`ecology.stepEcology`)와 전투 서브틱(`battle.stepBattle`).
+  둘 다 같은 문(체력 절반 · 무적 · 본부 자리)을 쓰고, 각각 `playerRevived` / `battleTick` 의
+  `playerRevived` 항목으로 알린다.
+* **무적 동안에는 어떤 피해도 들어오지 않는다**(짐승의 `bite`, 웨이브의 근접 타격 둘 다).
+
+### 0-T-7. 건설 탭의 잠긴 항목 (§14-7)
+
+`state.nation.lockedBuildings[]` — **이미 열린 갈래 안**의 아직 잠긴 건물들.
+
+```
+{key, name, category, requiresTier, unlocked:false, multi, cost, gold, buildPoints,
+ affordable:false, lockKind:'chapter'|'tier', lockChapter, lockTier, lockReason}
+```
+
+* `lockReason` 은 화면에 그대로 나가는 글이다 — `"7장 「낯선 발자국」에서 해금"` · `"읍(티어 4)에서 해금"`.
+* **갈래가 통째로 안 열렸으면 한 줄도 실리지 않는다.** §11-1(잠긴 계층은 부재)은 갈래·시스템 단위에만,
+  §12-3(조건 가시화)은 개별 건물에 적용한다 — §14-7 이 못 박은 경계다.
+* 본부(`hq`)와 조각(`piece`)은 목록에서 뺀다(배치대에서 고르는 것이 아니다).
+
+### 0-T-8. 밝기 · 설정 (§14-2)
+
+* `world.light.phases[]` 의 `alpha` / `lift` 와 `fogVeil` / `buildVeil` / `minLuma` 를 한 단계 올렸다
+  (밤 alpha 0.60→**0.46** · 낮 lift 0.09→**0.15** · fogVeil 0.30→**0.24** · minLuma 48→**56**).
+* 그 위에 **플레이어의 밝기 슬라이더**(`world.light.brightness`, 기본 1.0)가 곱해진다:
+  덮는 어둠 `× (1 − (b−1)×darkPerStep)`, 더하는 빛 `+ (b−1)×liftPerStep`.
+  **서버는 이 값을 모른다** — `localStorage['gm.brightness']` 에만 산다. 소리 크기는 `localStorage['gm.volume']`.
+
+### 0-T-9. 명칭 (§14-8)
+
+배치대·단추·안내문의 「세우기」는 전부 **「건설」**이다. `harness/check_ui.mjs` 가 금칙어로 막는다
+(`public/js/*.js` 의 화면 문자열 + `index.html` + `data/chapters.json` · `data/balance.json`).
 
 ---
 
