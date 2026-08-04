@@ -7,7 +7,10 @@ import { roleSummary } from './npc.js';
 import { difficultyView, difficultyPreset } from './difficulty.js';
 import { canSeeTacticHint, tacticOptions, waveTacticHint } from './tactics.js';
 import { buildAdvices } from './advisor.js';
-import { townOf, territoryRadius, encodeTerrain, dist } from './world.js';
+import { townOf, territoryRadius, encodeTerrain, dist, ringRadii } from './world.js';
+// ★ GDD3 §13-C — 상시 생태계 · 도감
+import { creatureViews } from './ecology.js';
+import { codexView } from './codex.js';
 import {
   deriveLabor, nodeContribution, listTargets, isHarvestReady, jobsForTarget, fieldStageView,
 } from './villagers.js';
@@ -168,7 +171,11 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
       cosmetics: hooks.cosmetics,
       clientStats: hooks.clientStats ?? {},
       nodeContribution: nodeContributionView(world, nation, data),
+      // ★ GDD3 §13-B-5 — 위험 띠. HUD 가 지금 내가 어느 띠에 서 있는지를 이 값으로 읽는다.
+      rings: ringRadii(nation, data),
     },
+    // ★ GDD3 §13-C-3 — 도감(J). 조우·처치 수는 서버가 권위로 세고, 잠긴 층은 필드 자체가 없다.
+    codex: codexView(nation, data),
     // ★ GDD3 §6 — 웨이브·전투. 7장 전에는 세 블록 모두 null 이다(위협 게이지도 없다).
     wave: wavesOn ? waveView(world, nation, viewerRole, data, hooks) : null,
     battle: wavesOn ? battleView(nation, data) : null,

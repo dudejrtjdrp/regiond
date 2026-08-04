@@ -1,7 +1,9 @@
 // 실시간 액션 — docs/GDD3.md §3. 스윙(actionSwing)이 이 게임의 손맛이다.
 // ★ 아키텍처: 이 명령들은 '일 틱'을 기다리지 않는다. 소켓에서 즉시 처리되고 곧바로 결과가 돌아간다.
 //   서버가 정본으로 쥐는 것 — 스윙 쿨타임(플레이어 단위) · 사거리 · 노드별 스윙 카운트 · 노드 잔량.
-import { nodeById, townOf, territoryRadius, dist } from './world.js';
+import { nodeById, townOf, territoryRadius, dist, markDepleted } from './world.js';
+// ★ GDD3 §13-C-3 — 도감. 유적을 뒤진 기록도 서버가 권위로 쥔다.
+import { recordRuin } from './codex.js';
 import {
   ensurePlayer, canSwing, markSwing, grantXp, yieldMultiplier, toolFor,
   swingCooldownMs, skillsCfg, swingCfg, skillLevel,
@@ -127,11 +129,17 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
   }
   node.stamp = world.tick;
 
-  // 유적은 자원 대신 탐사 게이지가 찬다
+  // 유적은 자원 대신 탐사 게이지가 찬다 — ★ §13-B-4 클수록 빨리 차고 값진 것이 나온다
   let ruin = null;
   if (spec.ruinGauge && cycleDone) {
-    nation.ruinGauge = (nation.ruinGauge || 0) + spec.ruinGauge;
-    ruin = { gauge: nation.ruinGauge, threshold: data.ruins.gaugeThreshold };
+    const gain = node.ruinGauge ?? spec.ruinGauge;
+    nation.ruinGauge = (nation.ruinGauge || 0) + gain;
+    nation.ruinGradeBoost = Math.max(nation.ruinGradeBoost || 0, node.gradeBoost || 0);
+    ruin = {
+      gauge: nation.ruinGauge, threshold: data.ruins.gaugeThreshold,
+      size: node.size ?? 1, name: node.ruinName ?? null, gradeBoost: node.gradeBoost || 0,
+    };
+    recordRuin(nation, node, world.tick);
   }
 
   const xpCfg = swingCfg(data);

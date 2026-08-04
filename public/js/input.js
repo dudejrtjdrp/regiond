@@ -264,6 +264,8 @@
       case 'f': GM.build.openFence(); break;
       case 'p': GM.residents.openPanel(); break;
       case 'k': GM.skills.open(); break;
+      /* ★ GDD3 §13-C-3 — 도감 */
+      case 'j': GM.codex.open(); break;
       case 'c': GM.combat.openThreat(); break;
       case 'l': GM.chronicle.open(); break;
       case 'h': centerTown(); break;

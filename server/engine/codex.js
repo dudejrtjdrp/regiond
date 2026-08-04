@@ -1,0 +1,133 @@
+// 도감 — docs/GDD3.md §13-C-3. **서버가 조우·처치 수의 정본을 쥔다.**
+//
+// 왜 서버인가. 도감은 「무엇을 보았고 무엇을 잡았는가」의 기록이고, 그것은 곧 플레이 이력이다.
+// 화면이 세면 새로고침 한 번에 사라지고, 멀티에서 동료와 어긋난다. 그래서 카운트는 nation.codex 에 살고
+// 스냅샷과 함께 저장된다 — 같은 정착지에 접속한 사람은 같은 도감을 본다.
+//
+// 층은 넷이다(data/creatures.json codex):
+//   조우 0      → 실루엣만. 이름조차 없다.
+//   조우 1+     → 이름·서식이 열린다.
+//   처치 statsAt(5)+  → 능력치와 드롭표가 열린다.
+//   처치 loreAt(20)+  → 일화가 열린다. 이 문장은 **표현 계층**이 쓴다(자료의 lore 가 밑글이다).
+//
+// 유적 탭은 따로다 — 어떤 유적을 발견했고 얼마나 뒤졌는지가 남는다(§13-B-4).
+// ★ 자료 접근자는 여기서 직접 만든다 — ecology.js 에서 끌어오면 두 모듈이 서로를 부르는 고리가 된다.
+const creatureCfg = (data) => data.creatures;
+const creatureDefs = (data) => data.creatures.defs;
+
+export function ensureCodex(nation) {
+  const c = (nation.codex ||= {});
+  c.species ||= {};
+  c.ruins ||= {};
+  return c;
+}
+
+function entry(nation, key) {
+  const c = ensureCodex(nation);
+  return (c.species[key] ||= { encounters: 0, kills: 0, firstTick: null, lastTick: null });
+}
+
+/** 처음 마주친 순간 — 같은 개체는 한 번만 센다(ecology 가 creature.seen 으로 표시한다) */
+export function recordEncounter(nation, key, tick = 0) {
+  const e = entry(nation, key);
+  e.encounters += 1;
+  if (e.firstTick == null) e.firstTick = tick;
+  e.lastTick = tick;
+  return e;
+}
+
+export function recordKill(nation, key, tick = 0) {
+  const e = entry(nation, key);
+  e.kills += 1;
+  if (e.encounters === 0) e.encounters = 1;      // 잡았으면 본 것이다
+  e.lastTick = tick;
+  return e;
+}
+
+export const speciesStat = (nation, key) =>
+  ensureCodex(nation).species[key] ?? { encounters: 0, kills: 0, firstTick: null, lastTick: null };
+
+// ────────────────────────────────────────────────────────────────
+// 유적 기록 (§13-B-4)
+// ────────────────────────────────────────────────────────────────
+/** 지도에 나타난 순간 */
+export function recordRuinFound(nation, node, tick = 0) {
+  if (!node || node.type !== 'ruin') return null;
+  const c = ensureCodex(nation);
+  const r = (c.ruins[node.id] ||= {
+    id: node.id, size: node.size ?? 1, name: node.ruinName ?? '옛 자취',
+    x: node.x, y: node.y, foundTick: tick, cycles: 0, concealed: Boolean(node.concealed),
+  });
+  return r;
+}
+
+/** 한 주기를 뒤졌다 */
+export function recordRuin(nation, node, tick = 0) {
+  const r = recordRuinFound(nation, node, tick);
+  if (!r) return null;
+  r.cycles = (r.cycles || 0) + 1;
+  r.lastTick = tick;
+  return r;
+}
+
+// ────────────────────────────────────────────────────────────────
+// 뷰 — state.codex (PROTOCOL v3.2)
+// ────────────────────────────────────────────────────────────────
+/**
+ * 종별 카드. **잠긴 층은 필드 자체가 없다** — 화면이 회색 글씨로라도 흘리지 못하게 한다
+ * (§11-1 「잠긴 계층은 비활성이 아니라 부재다」의 도감판).
+ */
+export function codexView(nation, data) {
+  const cfg = creatureCfg(data).codex;
+  const defs = creatureDefs(data);
+  const order = data.creatures.order;
+  const species = order.map((key) => {
+    const def = defs[key];
+    const st = speciesStat(nation, key);
+    const card = {
+      key,
+      kind: def.kind,
+      ring: def.ring,
+      encounters: st.encounters,
+      kills: st.kills,
+      known: st.encounters >= (cfg.nameAt ?? 1),
+      // 층 셋 중 어디까지 열렸는지 — 화면이 진행바를 그린다
+      next: st.encounters < (cfg.nameAt ?? 1)
+        ? { what: 'name', need: cfg.nameAt ?? 1, have: st.encounters, unit: '조우' }
+        : (st.kills < (cfg.statsAt ?? 5)
+          ? { what: 'stats', need: cfg.statsAt ?? 5, have: st.kills, unit: '처치' }
+          : (st.kills < (cfg.loreAt ?? 20)
+            ? { what: 'lore', need: cfg.loreAt ?? 20, have: st.kills, unit: '처치' }
+            : null)),
+    };
+    if (st.encounters >= (cfg.nameAt ?? 1)) {
+      card.name = def.name;
+      card.habitat = def.habitatName ?? (def.habitat || []).join('·');
+    }
+    if (st.kills >= (cfg.statsAt ?? 5)) {
+      card.stats = { hp: def.hp, speed: def.speed, dps: def.dps ?? 0, aggroRadius: def.aggroRadius ?? 0 };
+      card.drops = Object.entries(def.drops || {}).map(([res, n]) => ({
+        resource: res, amount: n, name: data.resources.meta[res]?.name ?? res,
+      }));
+    }
+    if (st.kills >= (cfg.loreAt ?? 20)) card.lore = def.lore ?? null;
+    return card;
+  });
+
+  const ruins = Object.values(ensureCodex(nation).ruins)
+    .sort((a, b) => (b.size - a.size) || ((a.foundTick ?? 0) - (b.foundTick ?? 0)))
+    .map((r) => ({ ...r }));
+
+  return {
+    thresholds: { name: cfg.nameAt ?? 1, stats: cfg.statsAt ?? 5, lore: cfg.loreAt ?? 20 },
+    species,
+    ruins,
+    totals: {
+      seen: species.filter((s) => s.encounters > 0).length,
+      total: species.length,
+      killed: species.reduce((a, s) => a + s.kills, 0),
+      ruinsFound: ruins.length,
+      ruinsExplored: ruins.filter((r) => (r.cycles || 0) > 0).length,
+    },
+  };
+}

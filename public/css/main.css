@@ -1250,3 +1250,40 @@ body.cutscene .toasts{bottom:74px}
 .cal-badge .sky-arc{display:block; margin-left:8px; image-rendering:pixelated}
 .cal-badge.clickable,#badge-tier.clickable{cursor:pointer}
 #badge-tier.clickable:hover{border-color:var(--gold-deep)}
+
+/* ── ★ 도감 (GDD3 §13-C-3) ─────────────────────────────────
+   조우 0 이면 실루엣, 한 번 마주치면 이름과 사는 곳, 다섯을 잡으면 능력치,
+   스물을 잡으면 이야기. 잠긴 층은 회색이 아니라 **없다** — 카드가 자라나는 그림이다. */
+.codex-tabs{display:flex; gap:6px; margin:8px 0 10px}
+.codex-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(196px,1fr)); gap:9px;
+  max-height:430px; overflow:auto; padding-right:4px}
+.codex-card{padding:9px 10px;
+  background:linear-gradient(180deg,var(--paper-lit) 0 5px,var(--paper) 5px 100%);
+  border:3px solid var(--paper-deep); display:flex; flex-direction:column; gap:4px}
+.codex-card.unknown{background:rgba(40,32,48,.10); border-color:rgba(60,50,44,.35)}
+.codex-art{display:flex; justify-content:center; align-items:center; height:52px}
+.codex-sprite{image-rendering:pixelated; width:48px; height:48px}
+.codex-name{font-size:15px; color:var(--wood-dark); text-align:center}
+.codex-card.unknown .codex-name{color:var(--ink-dim)}
+.codex-kind{font-size:11.5px; color:var(--gold-deep); text-align:center}
+.codex-habitat{font-size:12px; color:var(--ink2); text-align:center; line-height:1.5}
+.codex-habitat.dim{color:var(--ink-dim)}
+.codex-stats{display:flex; flex-wrap:wrap; gap:3px 10px; font-size:12px; color:var(--ink2); justify-content:center}
+.codex-stats .st b{color:var(--wood-dark); margin-right:3px}
+.codex-stats .st i{font-style:normal}
+.codex-drops{display:flex; flex-wrap:wrap; gap:4px; align-items:center; justify-content:center; font-size:12px}
+.codex-drops .lbl{color:var(--ink-dim)}
+.codex-drops .drop{padding:1px 5px; background:rgba(200,150,90,.22); border:2px solid var(--paper-deep); color:var(--wood-dark)}
+.codex-lore{margin:2px 0 0; font-size:12px; color:var(--ink2); line-height:1.6}
+.codex-foot{display:flex; flex-direction:column; gap:2px; margin-top:auto; padding-top:5px;
+  border-top:2px solid var(--paper-deep); font-size:11.5px; color:var(--ink-dim)}
+.codex-foot .nxt{color:var(--green-deep)}
+.codex-foot .nxt.done{color:var(--gold-deep)}
+.codex-ruins{display:flex; flex-direction:column; gap:5px; max-height:400px; overflow:auto}
+.codex-ruin{display:flex; align-items:center; gap:10px; padding:6px 9px; cursor:pointer;
+  background:rgba(255,255,255,.28); border-left:3px solid var(--purple, #8367a8); font-size:12.5px}
+.codex-ruin:hover{background:rgba(255,255,255,.5)}
+.codex-ruin .sz{color:var(--gold-deep); min-width:34px}
+.codex-ruin .nm{color:var(--wood-dark); flex:1 1 auto}
+.codex-ruin .pos,.codex-ruin .cy{color:var(--ink-dim)}
+.codex-ruin .hid{color:var(--red-deep)}

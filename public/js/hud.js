@@ -295,7 +295,7 @@
   function toolbarSig() {
     return [canBuildNow() ? 1 : 0, S.uiOn('panel.fence') ? 1 : 0,
             S.uiOn('panel.residents') ? 1 : 0, S.uiOn('panel.skills') ? 1 : 0,
-            S.uiOn('hud.threat') ? 1 : 0].join('');
+            S.uiOn('hud.threat') ? 1 : 0, S.uiOn('panel.codex') ? 1 : 0].join('');
   }
 
   function renderToolbar() {
@@ -327,6 +327,13 @@
       tb(bar, 'tb-skills', 'tools', '솜씨 (K)', '농사·벌목·채광·건설·전투 다섯 가지',
         '스윙마다 오르고, 오를수록 손이 빨라지고 거두는 몫이 늘어납니다.',
         function () { GM.skills.open(); });
+    }
+    /* ★ GDD3 §13-C-3 — 도감. 사냥이 열리는 3장(허기)부터 나타난다. */
+    if (S.uiOn('panel.codex')) {
+      tb(bar, 'tb-codex', 'book', '도감 (J)', '만난 것과 잡은 것을 모아 둡니다',
+        '마주치면 이름과 사는 곳이 열리고, 다섯을 잡으면 능력치와 나오는 것이, 스물을 잡으면 이야기가 열립니다. ' +
+        '뒤진 유적도 따로 남습니다.',
+        function () { GM.codex.open(); });
     }
     if (S.uiOn('hud.threat')) {
       tb(bar, 'tb-defense', 'shield', '방어 (C)', '울타리·터렛·민병을 한눈에',
