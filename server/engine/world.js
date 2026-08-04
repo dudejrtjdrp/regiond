@@ -143,8 +143,12 @@ function presetFor(pos, t) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// 자원 노드
+// 자원 노드 — ★ GDD3 §13-B: 랜덤 산포 폐지, 군락(cluster) 배치
 // ────────────────────────────────────────────────────────────────
+export const clusterCfg = (data) => data.world.nodes.clusters;
+export const regrowCfg = (data) => data.world.nodes.regrow;
+export const ruinSizeCfg = (data) => data.world.nodes.ruinSizes;
+
 function makeNode(id, type, x, y, def, rng) {
   const rich = def.richChance > 0 ? rng.chance(def.richChance) : false;
   return {
@@ -163,89 +167,281 @@ function makeNode(id, type, x, y, def, rng) {
     readyAt: def.harvest ? 0 : null,
     swings: 0,
     stamp: 0,
+    // ★ §13-B-3 — 다 캔 자리는 그루터기로 남고 이 틱에 되살아난다(null = 아직 안 죽었다)
+    respawnAt: null,
   };
 }
 
 /**
- * 노드 배치 — 지형 조건 + 같은 종류끼리 최소 거리(체비셰프) + 태그국 인근 제한.
+ * 이 노드가 되살아나기까지의 게임일. 없으면 null(= 영영 되살아나지 않는다).
+ * 범위 [a,b] 면 그 사이에서 뽑는다 — 숲이 한날한시에 통째로 되살아나지 않게 하는 흔들림이다.
+ */
+export function regrowDays(type, data, rng = null) {
+  const spec = regrowCfg(data)?.byType?.[type];
+  if (!Array.isArray(spec) || !spec.length) return null;
+  const [a, b] = spec.length > 1 ? spec : [spec[0], spec[0]];
+  if (b <= a) return a;
+  return rng ? rng.int(a, b) : Math.round((a + b) / 2);
+}
+
+/**
+ * 노드 하나를 '다 캔 자리'로 만든다. 되살아날 날을 그 자리에서 정해 둔다.
+ * ★ 결정론: rng 를 넘기지 않으면 노드 id 와 틱으로 뽑는다 — 실시간 스윙(actions.js)은 월드 rng 를
+ *   건드리면 안 되기 때문이다(같은 시드로 돌린 시뮬이 어긋난다).
+ */
+export function markDepleted(node, data, tick, rng = null) {
+  if (!node) return node;
+  node.amount = 0;
+  node.depleted = true;
+  const days = regrowDays(node.type, data, rng ?? pseudoRng(node.id, tick));
+  node.respawnAt = days == null ? null : tick + days;
+  node.stamp = tick;
+  return node;
+}
+
+/** id·틱에서 뽑은 작은 결정론 난수 — 월드 rng 를 축내지 않고 흔들림만 얻는다 */
+function pseudoRng(seedStr, tick) {
+  let h = 2166136261 ^ tick;
+  const s = String(seedStr);
+  for (let i = 0; i < s.length; i += 1) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const v = ((h >>> 0) % 10000) / 10000;
+  return { next: () => v, int: (a, b) => a + Math.floor(v * (b - a + 1)) };
+}
+
+// ── 스폰 링 (§13-B-5) ───────────────────────────────────────────
+export const ringsCfg = (data) => data.world.rings;
+
+/**
+ * 본부에서의 거리로 정하는 위험 띠.
+ *   링0 = 영토 + ring0Margin (온순한 짐승만) / 링1 = 그 밖 ring1Span 까지 / 링2 = 그 너머
+ * 영토가 자라면 링0 도 함께 자란다 — 정착지가 커질수록 안전한 땅이 넓어진다.
+ */
+export function ringRadii(nation, data) {
+  const cfg = ringsCfg(data);
+  const r0 = territoryRadius(nation, data) + (cfg?.ring0Margin ?? 10);
+  return { r0, r1: r0 + (cfg?.ring1Span ?? 22) };
+}
+
+export function ringAt(world, nation, x, y, data) {
+  const town = townOf(world, nation?.id ?? 'player');
+  if (!town) return 0;
+  const { r0, r1 } = ringRadii(nation, data);
+  const d = dist(town.x, town.y, x, y);
+  if (d <= r0) return 0;
+  if (d <= r1) return 1;
+  return 2;
+}
+
+/** 이 도읍 둘레 얼마 안에는 자원 노드가 한 톨도 없는가 (§13-B-2) */
+function clearRadiusOf(town, data) {
+  const c = clusterCfg(data);
+  return town.isPlayer ? (c?.clearRadius ?? 0) : (c?.aiClearRadius ?? 0);
+}
+
+/**
+ * 노드 하나가 앉을 수 있는 자리인가.
+ * ① 지도 안 ② 지형이 맞다 ③ 어느 도읍의 빈 땅(clearRadius)도 아니다
+ * ④ 도읍 한복판이 아니다 ⑤ 같은 종류끼리 최소 간격 ⑥ 이미 다른 노드가 선 칸이 아니다
+ */
+function spotOk(ctx, type, def, x, y, relax = false) {
+  const { map, data, towns, byType, taken, size, tIndex } = ctx;
+  if (x < 1 || y < 1 || x >= size - 1 || y >= size - 1) return false;
+  const terr = terrainAt(map, x, y);
+  const wants = def.terrains || (def.terrain != null ? [def.terrain] : null);
+  // ★ 첫 군락 보장(nearGuarantee)은 지형을 느슨하게 본다 — 마차가 어디에 서든 8~13타일 안에
+  //   첫 나무·첫 열매가 있어야 사슬 1~3장이 굴러간다. 물가만은 예외다(strictTerrain).
+  const loose = relax && !def.strictTerrain;
+  if (wants && !loose) { if (!wants.some((c) => tIndex[c] === terr)) return false; }
+  else if (terr === tIndex.water && !(wants || []).includes('water')) return false;   // 물 위에는 안 선다
+  for (const tw of towns) {
+    if (cheb(tw.x, tw.y, x, y) <= 1) return false;
+    if (dist(tw.x, tw.y, x, y) <= clearRadiusOf(tw, data)) return false;
+  }
+  if (taken.has(`${x},${y}`)) return false;
+  return !tooClose(byType[type] || [], x, y, def.minSpacing);
+}
+
+function pushNode(ctx, type, def, x, y) {
+  const node = makeNode(`n${ctx.nextId}`, type, x, y, def, ctx.rng);
+  ctx.nextId += 1;
+  (ctx.byType[type] ||= []).push(node);
+  ctx.taken.add(`${x},${y}`);
+  ctx.nodes.push(node);
+  return node;
+}
+
+/**
+ * 군락 하나를 심는다 — 씨앗 한 점을 중심으로 원 안에 같은 종류를 흩뿌린다.
+ * 반지름 안 균등 분포(√r)라 가운데가 빽빽하지 않고 '들'처럼 퍼진다.
+ * @returns {{id,type,x,y,r,n}|null} 한 그루도 못 심었으면 null
+ */
+function growCluster(ctx, type, def, cx, cy, size, radius, relax = false) {
+  const grown = [];
+  let tries = 0;
+  const maxTries = size * 26 + 40;
+  while (grown.length < size && tries < maxTries) {
+    tries += 1;
+    const a = ctx.rng.float(0, Math.PI * 2);
+    const r = Math.sqrt(ctx.rng.next()) * radius;
+    const x = Math.round(cx + Math.cos(a) * r);
+    const y = Math.round(cy + Math.sin(a) * r);
+    if (!spotOk(ctx, type, def, x, y, relax)) continue;
+    grown.push(pushNode(ctx, type, def, x, y));
+  }
+  if (!grown.length) return null;
+  const cluster = {
+    id: `cl${ctx.nextClusterId++}`, type,
+    x: Math.round(cx), y: Math.round(cy),
+    r: Math.round(radius * 10) / 10, n: grown.length,
+  };
+  for (const n of grown) n.cluster = cluster.id;
+  ctx.clusters.push(cluster);
+  return cluster;
+}
+
+/** 군락 씨앗 자리 고르기 — 플레이어 도읍에서 centerRadius 밖, 지형이 맞는 칸 */
+function pickClusterCenter(ctx, def, opts = {}) {
+  const { rng, size, map, data, tIndex, playerTown } = ctx;
+  const c = clusterCfg(data);
+  const loose = opts.relax && !def.strictTerrain;
+  const wants = loose ? null : (def.terrains || (def.terrain != null ? [def.terrain] : null));
+  const ring = opts.ring ?? null;
+  for (let i = 0; i < 400; i += 1) {
+    let x;
+    let y;
+    if (ring && playerTown) {
+      const a = rng.float(0, Math.PI * 2);
+      const r = rng.float(ring[0], ring[1]);
+      x = Math.round(playerTown.x + Math.cos(a) * r);
+      y = Math.round(playerTown.y + Math.sin(a) * r);
+    } else if (opts.anchors) {
+      const anchor = rng.pick(opts.anchors);
+      const a = rng.float(0, Math.PI * 2);
+      const r = rng.float(3, def.nearTownRadius ?? 24);
+      x = Math.round(anchor.x + Math.cos(a) * r);
+      y = Math.round(anchor.y + Math.sin(a) * r);
+    } else {
+      x = rng.int(2, size - 3);
+      y = rng.int(2, size - 3);
+    }
+    if (x < 2 || y < 2 || x >= size - 2 || y >= size - 2) continue;
+    const terr = terrainAt(map, x, y);
+    if (wants && !wants.some((k) => tIndex[k] === terr)) continue;
+    if (!wants && terr === tIndex.water) continue;
+    if (!ring && playerTown && dist(playerTown.x, playerTown.y, x, y) < (c?.centerRadius ?? 0)) continue;
+    return { x, y };
+  }
+  return null;
+}
+
+/**
+ * 자원 노드 배치 — ★ GDD3 §13-B-1·2 **군락**.
+ *
+ * 예전에는 종류마다 count 만큼을 지도 전체에 고르게 흩뿌렸다. 그래서 나무 한 그루, 바위 한 덩이가
+ * 사방에 널려 어디를 봐도 같은 그림이었고, 시작 영토 한복판에도 자원이 박혀 건물 놓을 자리가 없었다.
+ * 이제는 씨앗 하나에 여럿을 붙여 **숲 군락·딸기 들·바위 지대·강가 어장**을 만들고, 도읍 둘레
+ * clearRadius 안에는 한 톨도 두지 않는다. 첫 군락은 8~14타일 띠에 반드시 놓는다(nearGuarantee).
+ *
  * ★ 유막은 유전 태그국 인근에만, 철광맥은 철광맥 태그국 인근에만 생긴다 (WORLD.md §1 태그 정합).
+ * @returns {{nodes, nextNodeId, clusters}}
  */
 export function generateNodes(map, towns, rng, data, nationTags) {
   const cfg = worldCfg(data);
-  const size = cfg.size;
-  const tIndex = terrainIndex(data);
-  const nodes = [];
-  const byType = {};
-  let nextId = 1;
+  const cCfg = clusterCfg(data);
+  const ctx = {
+    map, data, rng, towns, size: cfg.size, tIndex: terrainIndex(data),
+    nodes: [], byType: {}, taken: new Set(), clusters: [],
+    nextId: 1, nextClusterId: 1,
+    playerTown: towns.find((t) => t.isPlayer) ?? null,
+  };
 
   const taggedTowns = (tags) => towns.filter((tw) => (nationTags[tw.nationId] || []).some((g) => tags.includes(g)));
 
+  // ── ① 도읍 코앞의 첫 군락 — 사슬 1~3장이 이 거리를 전제로 굴러간다 ──
+  //   지형이 안 맞으면 ⓐ 지형을 느슨하게 보고(물가만 예외) ⓑ 그래도 안 되면 띠를 넓혀 다시 찾는다.
+  //   "마차가 어디에 섰든 8~13타일 안에 첫 나무가 있다"가 이 블록의 약속이다.
+  for (const g of cCfg?.nearGuarantee || []) {
+    const def = cfg.nodes.types[g.type];
+    if (!def) continue;
+    for (let k = 0; k < (g.clusters ?? 1); k += 1) {
+      let center = null;
+      let ring = [...g.ring];
+      let relax = false;
+      for (let attempt = 0; attempt < 6 && !center; attempt += 1) {
+        center = pickClusterCenter(ctx, def, { ring, relax });
+        if (center) break;
+        if (!relax) relax = true;                        // ⓐ 지형 완화
+        else { ring = [ring[0], ring[1] + 6]; relax = false; }   // ⓑ 띠 넓히기
+      }
+      if (!center) continue;
+      const n = rng.int(g.size[0], g.size[1]);
+      const radius = def.cluster ? rng.float(def.cluster.radius[0], def.cluster.radius[1]) : 3;
+      growCluster(ctx, g.type, def, center.x, center.y, n, radius, relax);
+    }
+  }
+
+  // ── ② 나머지 군락 — 종류마다 count 를 채울 때까지 씨앗을 뿌린다 ──
   for (const type of cfg.nodes.order) {
     const def = cfg.nodes.types[type];
     if (!def || !(def.count > 0)) continue;
-    byType[type] = [];
-    const wantTerrain = def.terrain != null ? tIndex[def.terrain] : null;
+    if (type === 'ruin') continue;                       // 유적은 군락이 아니다(아래 ③)
+    ctx.byType[type] ||= [];
     const anchors = def.nearTags ? taggedTowns(def.nearTags) : null;
-    if (anchors && anchors.length === 0) continue;      // 태그 보유국이 없으면 아예 안 난다
-    let tries = 0;
-    const maxTries = def.count * 240;
-    while (byType[type].length < def.count && tries < maxTries) {
-      tries += 1;
-      let x;
-      let y;
-      if (anchors) {
-        const anchor = rng.pick(anchors);
-        const r = rng.float(3, def.nearTownRadius ?? 24);
-        const a = rng.float(0, Math.PI * 2);
-        x = Math.round(anchor.x + Math.cos(a) * r);
-        y = Math.round(anchor.y + Math.sin(a) * r);
-      } else {
-        x = rng.int(1, size - 2);
-        y = rng.int(1, size - 2);
-      }
-      if (x < 1 || y < 1 || x >= size - 1 || y >= size - 1) continue;
-      if (wantTerrain != null && terrainAt(map, x, y) !== wantTerrain) continue;
-      if (def.terrain == null && terrainAt(map, x, y) === tIndex.water) continue;
-      if (tooClose(byType[type], x, y, def.minSpacing)) continue;
-      if (towns.some((tw) => cheb(tw.x, tw.y, x, y) <= 1)) continue;
-      const node = makeNode(`n${nextId}`, type, x, y, def, rng);
-      nextId += 1;
-      byType[type].push(node);
-      nodes.push(node);
+    if (anchors && anchors.length === 0) continue;       // 태그 보유국이 없으면 아예 안 난다
+    const cl = def.cluster ?? { size: [1, 1], radius: [0.5, 0.5] };
+    let guard = 0;
+    let dry = 0;                                         // 헛손질 연속 횟수 — 한 번 실패로 포기하지 않는다
+    while (ctx.byType[type].length < def.count && guard++ < def.count * 6 + 400 && dry < 60) {
+      const center = pickClusterCenter(ctx, def, { anchors });
+      if (!center) { dry += 1; continue; }
+      const want = Math.min(rng.int(cl.size[0], cl.size[1]), def.count - ctx.byType[type].length);
+      const radius = rng.float(cl.radius[0], cl.radius[1]);
+      const made = growCluster(ctx, type, def, center.x, center.y, Math.max(1, want), radius);
+      dry = made ? 0 : dry + 1;
     }
   }
 
-  // 도읍 주변 시작 자원 보장 — 부족하면 초기 영토 안 빈 자리에 끼워 넣는다
-  const guard = cfg.nodes.startGuarantee;
-  const guardRadius = Math.floor(cfg.territory.baseRadius * guard.radiusRatio);
-  for (const town of towns) {
-    for (const [type, need] of Object.entries(guard.counts)) {
-      const def = cfg.nodes.types[type];
-      if (!def) continue;
-      if (def.nearTags && !(nationTags[town.nationId] || []).some((g) => def.nearTags.includes(g))) continue;
-      const have = () => (byType[type] || []).filter((n) => dist(n.x, n.y, town.x, town.y) <= guardRadius).length;
-      let attempts = 0;
-      while (have() < need && attempts < 900) {
-        attempts += 1;
-        const a = rng.float(0, Math.PI * 2);
-        const r = rng.float(2.5, guardRadius);
-        const x = Math.round(town.x + Math.cos(a) * r);
-        const y = Math.round(town.y + Math.sin(a) * r);
-        if (x < 1 || y < 1 || x >= size - 1 || y >= size - 1) continue;
-        if (cheb(town.x, town.y, x, y) <= 1) continue;
-        if (terrainAt(map, x, y) === tIndex.water && type !== 'water') continue;
-        if (type === 'water' && terrainAt(map, x, y) !== tIndex.water) continue;
-        if (nodes.some((n) => n.x === x && n.y === y)) continue;
-        if (tooClose(byType[type] || [], x, y, def.minSpacing)) continue;
-        const node = makeNode(`n${nextId}`, type, x, y, def, rng);
-        nextId += 1;
-        (byType[type] ||= []).push(node);
-        nodes.push(node);
-      }
-    }
-  }
+  // ── ③ 유적 — ★ §13-B-4 크기 1×1~4×4. 클수록 멀고 사납고 값지다 ──
+  placeRuins(ctx, cfg, rng, data);
 
-  return { nodes, nextNodeId: nextId };
+  return { nodes: ctx.nodes, nextNodeId: ctx.nextId, clusters: ctx.clusters };
+}
+
+/**
+ * 유적 배치. 크기표(ruinSizes.table)에서 무게로 하나를 뽑고, 그 크기가 요구하는
+ * **최소 거리·최소 링**을 만족하는 자리에만 세운다 — 큰 유적일수록 멀고 사나운 땅에 있다.
+ * 일부는 은닉(concealed)이라 가까이 가거나 정찰이 닿아야 지도에 나타난다.
+ */
+function placeRuins(ctx, cfg, rng, data) {
+  const def = cfg.nodes.types.ruin;
+  if (!def || !(def.count > 0)) return;
+  const table = ruinSizeCfg(data)?.table || [];
+  if (!table.length) return;
+  const player = ctx.playerTown;
+  const entries = table.map((t) => ({ value: t, weight: t.weight }));
+  const ring1 = (cfg.territory.baseRadius) + (ringsCfg(data)?.ring0Margin ?? 10);
+  const ring2 = ring1 + (ringsCfg(data)?.ring1Span ?? 22);
+  ctx.byType.ruin ||= [];
+  let guard = 0;
+  while (ctx.byType.ruin.length < def.count && guard++ < def.count * 60) {
+    const spec = rng.weighted(entries);
+    const x = rng.int(2, ctx.size - 3);
+    const y = rng.int(2, ctx.size - 3);
+    if (!spotOk(ctx, 'ruin', def, x, y)) continue;
+    if (player) {
+      const d = dist(player.x, player.y, x, y);
+      if (d < (spec.minDistance ?? 0)) continue;
+      const ring = d <= ring1 ? 0 : (d <= ring2 ? 1 : 2);
+      if (ring < (spec.minRing ?? 0)) continue;
+    }
+    const node = pushNode(ctx, 'ruin', def, x, y);
+    node.size = spec.size;
+    node.ruinName = spec.name;
+    node.swingsPerCycle = spec.swings;
+    node.ruinGauge = spec.gauge;
+    node.gradeBoost = spec.gradeBoost ?? 0;
+    node.concealed = rng.chance(spec.concealChance ?? 0);
+  }
 }
 
 function tooClose(list, x, y, spacing) {
@@ -273,10 +469,12 @@ export function generateWorldMap(seed, data, opts = {}) {
   const towns = generateTowns(map, rng, data, nationDefs);
   const nationTags = { player: opts.playerTags ?? [] };
   for (const def of nationDefs) nationTags[def.id] = def.tags || [];
-  const { nodes, nextNodeId } = generateNodes(map, towns, rng, data, nationTags);
+  const { nodes, nextNodeId, clusters } = generateNodes(map, towns, rng, data, nationTags);
   map.towns = towns;
   map.nodes = nodes;
   map.nextNodeId = nextNodeId;
+  // ★ §13-B-1 — 군락 목록. 클라가 이 원들을 보고 바닥 질감을 달리 칠한다(지역이 '지역'으로 읽히게).
+  map.clusters = clusters;
   map.caravans = buildCaravans(towns, cfg);
   return map;
 }
@@ -346,10 +544,47 @@ export function addNode(world, type, x, y, data, { rich = false, tick = 0 } = {}
     id, type, x, y, rich,
     richness: rich ? (def.richMultiplier ?? 2) : 1,
     amount: def.amount ?? 0, max: def.amount ?? 0,
-    depleted: false, hidden: false, workers: 0, readyAt: null, stamp: tick,
+    depleted: false, hidden: false, workers: 0, readyAt: null, stamp: tick, respawnAt: null,
   };
   world.map.nodes.push(node);
   return node;
+}
+
+/**
+ * 자국이 일하러 갈 수 있는 노드 — ★ GDD3 §13-B-2.
+ * 영토 안은 비워 두었으므로 '영토 안'만 보면 아무도 일하지 못한다. 반경은 영토 + workRadiusBonus 다.
+ */
+export function workableNodes(world, nation, data, { includeHidden = false } = {}) {
+  const town = townOf(world, nation.id);
+  if (!town) return [];
+  const r = territoryRadius(nation, data) + (data.world.villagers.workRadiusBonus ?? 0);
+  return (world.map?.nodes || []).filter((n) => {
+    if (n.hidden && !includeHidden) return false;
+    if (n.concealed && !n.revealed) return false;
+    return dist(n.x, n.y, town.x, town.y) <= r + 0.001;
+  });
+}
+
+/** 은닉 유적이 드러났는가 — 아바타·주민이 revealRadius 안에 닿으면 지도에 나타난다 (§13-B-4) */
+export function revealConcealed(world, nation, data, tick = 0) {
+  const radius = ruinSizeCfg(data)?.revealRadius ?? 5;
+  const eyes = [
+    ...Object.values(nation.avatars || {}),
+    ...(nation.villagers || []),
+  ];
+  if (!eyes.length) return [];
+  const found = [];
+  for (const n of world.map?.nodes || []) {
+    if (!n.concealed || n.revealed) continue;
+    for (const e of eyes) {
+      if (dist(e.x, e.y, n.x, n.y) > radius) continue;
+      n.revealed = true;
+      n.stamp = tick;
+      found.push(n);
+      break;
+    }
+  }
+  return found;
 }
 
 // ────────────────────────────────────────────────────────────────

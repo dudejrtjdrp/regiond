@@ -130,16 +130,25 @@ function needOrder(world, nation, data, ctx) {
   return [...new Set(out)];
 }
 
-function pickNode(world, nation, data, kind) {
+/**
+ * 봇이 다음에 두드릴 자리.
+ * ★ GDD3 §13-B-2 — 자원 군락이 영토 **밖**에 앉으면서, 영토 안만 뒤지면 아무것도 못 찾는다.
+ *   반경은 주민 일자리와 같은 자(영토 + workRadiusBonus)를 쓰고, 고르는 기준은 도읍이 아니라
+ *   **지금 봇이 서 있는 자리**다 — 사람은 발밑의 군락을 마저 캐지, 매번 집으로 돌아갔다 오지 않는다.
+ */
+function pickNode(world, nation, data, kind, fromX = null, fromY = null) {
   const town = townOf(world, nation.id);
-  const r = territoryRadius(nation, data);
-  const types = kind === 'wood' ? ['forest'] : kind === 'stone' ? ['rock'] : ['fertile', 'field', 'water'];
+  const r = territoryRadius(nation, data) + (data.world.villagers.workRadiusBonus ?? 0);
+  const ox = fromX == null ? town.x : fromX;
+  const oy = fromY == null ? town.y : fromY;
+  const types = kind === 'wood' ? ['forest'] : kind === 'stone' ? ['rock'] : ['berry', 'fertile', 'field', 'water'];
   let best = null;
   let bd = Infinity;
   for (const n of world.map?.nodes || []) {
     if (n.hidden || n.depleted || !types.includes(n.type)) continue;
-    const d = dist(n.x, n.y, town.x, town.y);
-    if (d > r + 0.001) continue;
+    if (n.concealed && !n.revealed) continue;
+    if (dist(n.x, n.y, town.x, town.y) > r + 0.001) continue;
+    const d = dist(n.x, n.y, ox, oy);
     if (d < bd) { bd = d; best = n; }
   }
   return best;
@@ -165,6 +174,17 @@ export function botSwings(world, nation, data, rng, opts = {}) {
 
   const baseCd = data.skills.swing.baseCooldownSec * 1000;
   const share = Math.max(1, Math.floor(budget / order.length));
+  /* ★ GDD3 §13-B-2 — **걷는 데도 하루가 든다.**
+     자원이 영토 밖으로 나간 뒤로 봇을 노드 위에 공짜로 순간이동시키면, 사람이 실제로 겪는
+     왕복 시간이 통째로 사라져 시뮬이 게임을 실제보다 후하게 잰다.
+     그래서 걸음을 스윙 몫으로 환산해 하루 예산에서 깎는다 —
+     한 스윙 시간(1.2초)에 아바타가 걷는 거리(4.6칸/초 × 1.2초 ≈ 5.5칸)가 환산 단위다. */
+  const walkPerSwing = data.world.simulation.botWalkTilesPerSwing ?? 5.5;
+  const travelCost = (tx, ty) => {
+    const a = avatars[BOT_AVATAR];
+    const d = dist(a.x, a.y, tx, ty);
+    return Math.floor(d / Math.max(0.5, walkPerSwing));
+  };
   for (const kind of order) {
     let quota = share;
     let misses = 0;
@@ -173,11 +193,15 @@ export function botSwings(world, nation, data, rng, opts = {}) {
       if (kind === 'site') {
         const site = (nation.construction || [])[0];
         if (!site) break;
+        const walk = travelCost(site.x, site.y);
+        if (walk > 0) { done += walk; now += walk * (baseCd + 20); if (done >= budget) break; }
         avatars[BOT_AVATAR].x = site.x; avatars[BOT_AVATAR].y = site.y;
         res = applyCommand(world, nation.id, { type: 'actionSwing', siteId: site.id, avatarId: BOT_AVATAR, now }, data, rng);
       } else {
-        const node = pickNode(world, nation, data, kind);
+        const node = pickNode(world, nation, data, kind, avatars[BOT_AVATAR].x, avatars[BOT_AVATAR].y);
         if (!node) break;
+        const walk = travelCost(node.x, node.y);
+        if (walk > 0) { done += walk; now += walk * (baseCd + 20); if (done >= budget) break; }
         avatars[BOT_AVATAR].x = node.x; avatars[BOT_AVATAR].y = node.y;
         res = applyCommand(world, nation.id, { type: 'actionSwing', nodeId: node.id, avatarId: BOT_AVATAR, now }, data, rng);
       }

@@ -52,14 +52,14 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
   const node = nodeById(world, nodeId);
   if (!node) return err('BAD_NODE', '그런 자리가 없습니다.');
   if (node.hidden) return err('HIDDEN_NODE', '아직 드러나지 않은 자리입니다.');
+  if (node.concealed && !node.revealed) return err('HIDDEN_NODE', '아직 드러나지 않은 자리입니다.');
   const spec = nodeSwingSpec(node.type, data);
   if (!spec) return err('NOT_WORKABLE', '여기서는 거둘 것이 없습니다.');
   if (node.depleted) return err('DEPLETED', '다 캐낸 곳입니다.');
 
-  const town = townOf(world, nation.id);
-  if (!town || dist(node.x, node.y, town.x, town.y) > territoryRadius(nation, data) + 0.001) {
-    return err('OUT_OF_TERRITORY', '우리 땅이 아닙니다.');
-  }
+  /* ★ GDD3 §13-B-2 — **영토 밖 채집은 언제나 허용된다.**
+     자원 군락이 영토 바깥 8~20타일에 앉게 된 이상, 「우리 땅이 아닙니다」로 막으면 1장부터 게임이 멎는다.
+     서버가 지키는 것은 그대로 셋이다: 아바타가 손 닿는 거리에 있는가 · 쿨타임 · 노드 잔량. */
   const range = swingCfg(data).rangeTiles;
   const av = nation.avatars?.[player.id];
   if (av && dist(av.x, av.y, node.x, node.y) > range + 0.6) {

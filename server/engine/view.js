@@ -369,6 +369,16 @@ function nodeView(world, nation, n, data) {
   return v;
 }
 
+/** 화면에 실릴 수 있는 노드인가 — 숨은 지하 자원과 **아직 못 찾은 은닉 유적**은 빠진다 (§13-B-4) */
+const nodeVisible = (n) => !n.hidden && !(n.concealed && !n.revealed);
+
+/** 군락 목록 — 탐사된 것만. 클라가 이 원들로 바닥 질감을 달리 칠한다 (§13-B-1) */
+function clusterViews(world, nation) {
+  return (world.map?.clusters || [])
+    .filter((c) => isExplored(nation, c.x, c.y))
+    .map((c) => ({ id: c.id, type: c.type, x: c.x, y: c.y, r: c.r, n: c.n }));
+}
+
 function townXY(world, nation) {
   const t = townOf(world, nation.id);
   return t ? [t.x, t.y] : [-999, -999];
@@ -392,8 +402,12 @@ export function buildWorldSnapshot(world, nationId, data) {
     seed: map.seed,
     terrain: { codes: [...data.world.terrain.codes], rle: encodeTerrain(map) },
     nodes: (map.nodes || [])
-      .filter((n) => !n.hidden && isExplored(nation, n.x, n.y))
+      .filter((n) => nodeVisible(n) && isExplored(nation, n.x, n.y))
       .map((n) => nodeView(world, nation, n, data)),
+    // ★ GDD3 §13-B-1 — 자원 군락. 숲 군락·딸기 들·바위 지대·강가 어장이 '지역'으로 읽히게 한다.
+    clusters: clusterViews(world, nation),
+    // ★ GDD3 §13-B-5 — 스폰 링 경계(본부 기준). 화면이 서버와 같은 식으로 링2 경고를 잰다.
+    rings: ringRadii(nation, data),
     towns: (map.towns || []).map((t) => ({
       nationId: t.nationId, name: world.nations[t.nationId]?.name ?? t.nationId,
       x: t.x, y: t.y, isPlayer: Boolean(t.isPlayer),
@@ -421,7 +435,7 @@ export function buildWorldDiff(world, nationId, data, sinceTick = -1) {
   const changedChunks = new Set(fogChunks.map((c) => `${c[0]},${c[1]}`));
   const nodes = [];
   for (const n of world.map?.nodes || []) {
-    if (n.hidden || !isExplored(nation, n.x, n.y)) continue;
+    if (!nodeVisible(n) || !isExplored(nation, n.x, n.y)) continue;
     const key = `${Math.floor(n.x / chunk)},${Math.floor(n.y / chunk)}`;
     const fresh = n.stamp > sinceTick || n.stamp === world.tick;
     if (fresh || changedChunks.has(key)) nodes.push(nodeView(world, nation, n, data));
@@ -463,7 +477,7 @@ export function buildRevealDiff(world, nationId, data, chunks) {
   const keys = new Set(chunks.map(([cx, cy]) => `${cx},${cy}`));
   const nodes = [];
   for (const n of world.map?.nodes || []) {
-    if (n.hidden || !isExplored(nation, n.x, n.y)) continue;
+    if (!nodeVisible(n) || !isExplored(nation, n.x, n.y)) continue;
     if (!keys.has(`${Math.floor(n.x / fog.chunk)},${Math.floor(n.y / fog.chunk)}`)) continue;
     nodes.push(nodeView(world, nation, n, data));
   }
@@ -473,6 +487,7 @@ export function buildRevealDiff(world, nationId, data, chunks) {
     reveal: true,
     fog: chunks.map(([cx, cy]) => encodeChunk(fog, cx, cy)),
     nodes,
+    clusters: clusterViews(world, nation),
     towns: (world.map?.towns || [])
       .filter((t) => keys.has(`${Math.floor(t.x / fog.chunk)},${Math.floor(t.y / fog.chunk)}`))
       .map((t) => ({

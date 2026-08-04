@@ -209,6 +209,18 @@
       },
       "drain": 2
     },
+    "berry": {
+      "_note": "★ GDD3 §13-B-1 — 딸기 들. 밭처럼 여물기를 기다리지 않는다(requiresRipe 없음). 대신 한 덤불이 품은 양이 작아 금세 바닥나고(drain), 하루면 다시 열린다(world.json nodes.regrow.berry). 초반 식량을 밭 하나에 걸지 않게 해 주는 두 번째 손이다.",
+      "skill": "farm",
+      "swings": 2,
+      "yield": {
+        "grain": 2
+      },
+      "cycleBonus": {
+        "grain": 3
+      },
+      "drain": 3
+    },
     "rock": {
       "skill": "mining",
       "swings": 4,
@@ -303,6 +315,9 @@
     "downSeconds": 12,
     "downMoralePenalty": 0.03,
     "xpPerHit": 3,
-    "xpPerKill": 12
+    "xpPerKill": 12,
+    "huntRangeTiles": 2.8,
+    "xpPerHuntKill": 10,
+    "_huntNote": "★ GDD3 §13-C-8 — 사냥. 웨이브 전투가 아닐 때도 combatSwing 이 통한다: 사거리 안 짐승·야생 적을 친다. 쓰러뜨리면 그 자리에서 드롭이 곳간으로 들어가고 도감의 처치 수가 오른다."
   }
 }

@@ -45,10 +45,13 @@ export function listTargets(world, nation, data) {
     if (c.x == null) continue;
     out.push({ id: c.id, kind: 'site', post: 'site', name: `${data.buildings[c.building]?.name ?? c.building} 공사`, x: c.x, y: c.y, slots: cfg.postSlots.site });
   }
+  // ★ GDD3 §13-B-2 — 자원 군락은 영토 **밖**에 앉는다. 그래서 일자리 반경도 영토를 넘는다.
+  //   (영토 안만 보면 노드가 하나도 없어 배치가 통째로 무너진다 — 군락 개편의 필수 짝이다.)
   const town2 = town;
-  const radius = territoryRadius(nation, data);
+  const radius = territoryRadius(nation, data) + (vCfg(data).workRadiusBonus ?? 0);
   for (const n of world.map?.nodes || []) {
     if (n.hidden || n.depleted) continue;
+    if (n.concealed && !n.revealed) continue;
     if (!town2 || dist(n.x, n.y, town2.x, town2.y) > radius + 0.001) continue;
     const def = data.world.nodes.types[n.type];
     if (!def) continue;

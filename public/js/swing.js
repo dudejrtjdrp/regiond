@@ -90,7 +90,9 @@
 
   function nodeWorkable(n) {
     if (!n || n.depleted) return false;
-    if (!S.inTerritory(n.x, n.y) && n.type !== 'ruin') return false;
+    /* ★ GDD3 §13-B-2 — **영토 밖 채집은 언제나 허용된다.**
+       자원 군락이 영토 바깥에 앉게 된 이상 「우리 땅이 아니다」로 막으면 1장부터 게임이 멎는다.
+       (서버도 같은 규칙이다 — actions.swingNode 의 OUT_OF_TERRITORY 를 함께 걷어 냈다.) */
     if (n.type === 'field' || n.type === 'fertile') return !!n.harvestReady;
     return true;
   }

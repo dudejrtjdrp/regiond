@@ -196,7 +196,7 @@ test('클라이언트 하니스 — 목표 카드가 가리키는 대로만 1장
       assert.equal(doc.querySelector('#shell').hidden, true, '게임 화면은 아직 숨어 있다');
       const health = await (await fetch(`${base}/api/health`)).json();
       assert.equal(GM.PROTOCOL, health.protocol, '화면과 서버의 규약 판번호가 같다');
-      assert.equal(GM.PROTOCOL, '3.1');
+      assert.equal(GM.PROTOCOL, '3.2');
     });
 
     // ── 2. 개척 시작 ─────────────────────────────────────────
@@ -265,7 +265,8 @@ test('클라이언트 하니스 — 목표 카드가 가리키는 대로만 1장
       const node = S.nodeById(targets[0].id);
       assert.ok(node, '그 자리는 화면이 아는 노드다');
       assert.equal(node.type, 'forest');
-      assert.ok(S.inTerritory(node.x, node.y), '우리 땅 안이다');
+      // ★ GDD3 §13-B-2 — 자원 군락은 영토 **밖**에 있다. 걸어갈 만한 거리인지만 본다.
+      assert.ok(S.inWorkRange(node.x, node.y), '걸어갈 만한 자리다');
       // 카드를 누르면 시선이 그리로 뛴다
       GM.quest.jumpToGoal();
       assert.ok(Math.hypot(GM.camera.cam.tx - node.x, GM.camera.cam.ty - node.y) < 3, '카메라가 목표로 뛰었다');
@@ -331,13 +332,14 @@ test('클라이언트 하니스 — 목표 카드가 가리키는 대로만 1장
      *   quest.onError 가 「석재가 필요해요 — 바위는 회색 언덕에 있습니다」와 함께 노드를 찍어 준다.
      *   여기서는 같은 규칙(가장 가까운 그 자원 노드)을 그대로 써서 캔다.
      */
-    const SOURCE = { wood: ['forest'], stone: ['rock'], grain: ['water', 'field', 'fertile'] };
+    // ★ §13-B-1 — 딸기 들이 초반 식량의 두 번째 손이다
+    const SOURCE = { wood: ['forest'], stone: ['rock'], grain: ['berry', 'water', 'field', 'fertile'] };
     async function gather(resource, amount, budget = 40) {
       const types = SOURCE[resource] || ['forest'];
       for (let i = 0; i < budget && (nation().resources[resource] || 0) < amount; i += 1) {
         const me = GM.avatar.pos() || S.myTown();
         const node = S.nodeList()
-          .filter((n) => types.includes(n.type) && !n.depleted && S.inTerritory(n.x, n.y)
+          .filter((n) => types.includes(n.type) && !n.depleted && S.inWorkRange(n.x, n.y)
             && (n.type === 'fertile' || n.type === 'field' ? !!n.harvestReady : true))
           .sort((a, b) => Math.hypot(a.x - me.x, a.y - me.y) - Math.hypot(b.x - me.x, b.y - me.y))[0];
         if (!node) return false;
@@ -732,7 +734,7 @@ test('클라이언트 하니스 — 목표 카드가 가리키는 대로만 1장
       const v = S.residents()[0];
       assert.ok(v, '지켜볼 주민이 있다');
       const far = S.nodeList()
-        .filter((n) => !n.depleted && S.inTerritory(n.x, n.y))
+        .filter((n) => !n.depleted && S.inWorkRange(n.x, n.y))
         .sort((a, b) => Math.hypot(b.x - v.x, b.y - v.y) - Math.hypot(a.x - v.x, a.y - v.y))[0];
       assert.ok(far, '멀리 있는 일터가 있다');
       await sendNow(window, 'commandVillagers', { ids: [v.id], order: { type: 'work', nodeId: far.id } });
@@ -1093,7 +1095,7 @@ test('구경 모드(?mock=1) — 서버 없이도 첫 화면이 돌고, 사슬�
     assert.ok(S.goalTargets().length > 0, '마커가 가리킬 자리가 있다');
 
     /* 스윙 한 번 — 구경 모드도 ack 를 돌려준다 */
-    const forest = S.nodeList().find((n) => n.type === 'forest' && S.inTerritory(n.x, n.y));
+    const forest = S.nodeList().find((n) => n.type === 'forest' && S.inWorkRange(n.x, n.y));
     assert.ok(forest, '구경 모드에도 나무가 있다');
     window.GM.avatar.setPos(forest.x + 1, forest.y);
     await sleep(80);

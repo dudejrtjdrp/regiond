@@ -30,7 +30,9 @@ function scene(seed = 5, chapter = 4) {
   return { world, nation, town, rng: createRng(seed) };
 }
 
-function nearestNode(world, town, type, radius = 6) {
+/* ★ GDD3 §13-B-2 — 자원 군락은 영토(반경 6) **밖** 8~14타일에 앉는다.
+   그래서 기본 반경을 시작 탐사 반경(14)에 맞춘다 — 마차에서 내리자마자 눈에 보이는 거리다. */
+function nearestNode(world, town, type, radius = 16) {
   return (world.map.nodes || [])
     .filter((n) => n.type === type && !n.hidden && dist(n.x, n.y, town.x, town.y) <= radius)
     .sort((a, b) => dist(a.x, a.y, town.x, town.y) - dist(b.x, b.y, town.x, town.y))[0] ?? null;
@@ -96,7 +98,7 @@ test('XP 곡선 — Lv1에서 시작해 maxLevel 에서 멈춘다', () => {
 test('actionSwing — 서버가 쿨타임을 판정한다 (연타는 거부)', () => {
   const { world, nation, town, rng } = scene(21);
   const node = nearestNode(world, town, 'forest');
-  assert.ok(node, '시작 영토에 숲이 보장된다');
+  assert.ok(node, '영토 바로 밖에 숲 군락이 보장된다');
   nation.avatars.lord.x = node.x;
   nation.avatars.lord.y = node.y;
 
@@ -132,7 +134,7 @@ test('actionSwing — 노드별 스윙 카운트가 주기를 만든다(주기 �
   assert.ok(results.at(-1).gained.wood > results[0].gained.wood, '주기 보너스가 얹힌다');
 });
 
-test('actionSwing — 사거리 밖·영토 밖·고갈은 서버가 막는다', () => {
+test('actionSwing — 사거리 밖·고갈은 서버가 막는다 (★ §13-B-2: 영토 밖 채집은 언제나 허용)', () => {
   const { world, nation, town, rng } = scene(29);
   const node = nearestNode(world, town, 'forest');
   nation.avatars.lord.x = node.x + 20;
@@ -170,7 +172,7 @@ test('actionSwing — 노드 잔량이 획득에 비례해 줄어든다 (무한 
 test('actionSwing — 밭은 여물어야 거둔다(재배 루프)', () => {
   const { world, nation, town, rng } = scene(37);
   const node = nearestNode(world, town, 'fertile');
-  assert.ok(node, '시작 영토에 기름진 땅이 보장된다');
+  assert.ok(node, '영토 바로 밖에 기름진 땅이 보장된다');
   nation.avatars.lord.x = node.x;
   nation.avatars.lord.y = node.y;
   let now = 0;

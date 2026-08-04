@@ -117,6 +117,11 @@ export function createNation(id, name, opts, data, rng) {
     ap: { current: b.actionPoints.max, max: b.actionPoints.max, day: 0 },
     apState: { inspiredDepts: [], workedNodes: [] },
     ruinGauge: 0,
+    // ★ GDD3 §13-B-4 — 뒤진 유적 중 가장 큰 것의 등급 보정. 다음에 열 상자의 급을 밀어 올린다.
+    ruinGradeBoost: 0,
+    // ★ GDD3 §13-C — 들에 사는 것들 · 도감(조우·처치 장부)
+    wild: { creatures: [], nextId: 1, respawnQueue: [], rngState: null, acc: 0 },
+    codex: { species: {}, ruins: {} },
     survey: null,
     autoAssist: b.advisor.autoAssistDefault,
     autoAssistIdleTicks: 0,
@@ -132,7 +137,7 @@ export function createWorld({ gameId, seed = 42, data, playerName = '플레이�
 
   const world = {
     gameId: gameId ?? `g_${seed}_${Date.now().toString(36)}`,
-    schema: 4,                       // ★ v3.1 = 진행 감독 + 256×256. schema<4 세이브는 읽지 않는다.
+    schema: 5,                       // ★ v3.2 = 월드 2.0(군락·유한 자원·유적 크기) + 생태계. schema<5 세이브는 읽지 않는다.
     seed,
     difficulty: difficultyKey,
     rngState: rng.getState(),
@@ -202,12 +207,14 @@ export { townOf };
 // ────────────────────────────────────────────────────────────────
 // 세이브 정책
 // v1(8×8 타일)·v2(시즌 오픈월드)·**v3(128×128 · 티어 해금)** 스냅샷은 이관하지 않는다.
-// ★ v3.1 에서 월드가 256×256 이 되고 해금의 정본이 장(chapter)으로 옮겨졌다 —
-//   옛 스냅샷을 억지로 이어 붙이면 지도 크기와 사슬 상태가 어긋난다. 만나면 버리고 새로 판다.
+// ★ v3.1 에서 월드가 256×256 이 되고 해금의 정본이 장(chapter)으로 옮겨졌다.
+// ★ v3.2(schema 5) 에서 **땅 자체가 다시 그려졌다** — 자원이 군락으로 앉고, 시작 영토가 비워지고,
+//   유적에 크기가 생기고, 들에 짐승이 산다. 옛 지도에는 군락도 딸기 들도 없고 영토 한복판에
+//   나무가 박혀 있다. 억지로 이어 붙이면 「새 규칙 위에 옛 땅」이 되므로 만나면 버리고 새로 판다.
 // ────────────────────────────────────────────────────────────────
 export function isLegacySnapshot(world) {
   if (!world) return false;
-  return !(world.schema >= 4);
+  return !(world.schema >= 5);
 }
 
 export function migrateWorld(world, data) {

@@ -111,6 +111,7 @@
   /* ── 자원 자리(노드) ── */
   var NODES = {
     forest:  { name: '나무',      color: '#3f6130', job: 'lumber', res: 'wood',    verb: '벤다',   skill: 'lumber', icon: 'tree' },
+    berry:   { name: '딸기 덤불', color: '#b8434f', job: 'farm',   res: 'grain',   verb: '딴다',   skill: 'farm',   icon: 'grain' },
     rock:    { name: '바위',      color: '#7e848c', job: 'quarry', res: 'stone',   verb: '캔다',   skill: 'mining', icon: 'stone' },
     fertile: { name: '기름진 땅', color: '#c8a24a', job: 'farm',   res: 'grain',   verb: '거둔다', skill: 'farm',   icon: 'farmTile' },
     water:   { name: '물가',      color: '#4a6fa5', job: 'farm',   res: 'grain',   verb: '건진다', skill: 'farm',   icon: 'ship' },
@@ -289,6 +290,12 @@
       localFog: new Uint8Array(size * size),
       localDisc: [],
       nodes: nodes, nodeArr: null, nodesDirty: true,
+      /* ★ GDD3 §13-B-1 — 자원 군락. 바닥 질감을 지역마다 달리 칠하는 근거다. */
+      clusters: w.clusters || [],
+      /* ★ GDD3 §13-B-5 — 위험 띠 경계(본부 기준 반지름 둘) */
+      rings: w.rings || null,
+      /* ★ GDD3 §13-C — 들에 사는 것들. 서버가 좌표의 주인이고 화면은 그 사이를 보간한다. */
+      creatures: [],
       towns: w.towns || [],
       caravans: w.caravans || [],
       territory: w.territory || null,
@@ -328,6 +335,18 @@
       });
     }
     if (d.territory && d.territory.radius != null) m.territory = d.territory;
+    /* ★ §13-B-1·5 — 군락과 위험 띠. 둘 다 id/값을 통째로 갈아 끼운다(누적이 아니다). */
+    if (d.clusters && d.clusters.length) {
+      var seen = {};
+      var merged = d.clusters.slice();
+      for (var ci = 0; ci < merged.length; ci++) seen[merged[ci].id] = true;
+      for (var cj = 0; cj < (m.clusters || []).length; cj++) {
+        if (!seen[m.clusters[cj].id]) merged.push(m.clusters[cj]);
+      }
+      m.clusters = merged;
+    }
+    if (d.rings) m.rings = d.rings;
+    if (d.creatures) applyCreatures(d.creatures);
     /* ★ §12-6 — 상단은 무역이 열린 뒤에야 목록에 실린다. 열리기 전에는 늘 빈 배열이 온다. */
     if (d.caravans) m.caravans = d.caravans;
     if (d.camps) m.camps = d.camps;
@@ -523,6 +542,56 @@
     return out;
   }
   function nodeById(id) { return (S.map && S.map.nodes[id]) || null; }
+
+  /* ★ GDD3 §13-C — 들에 사는 것들.
+     위치의 정본은 **서버**다(주민과 반대다 — 주민은 클라가 쥔다). 대신 서버는 1초에 한 번만 보내므로
+     화면은 이 좌표로 튀지 않고 그리로 다가간다(world.js 가 보간한다). 여기서는 마지막 사실만 적어 둔다. */
+  function applyCreatures(list) {
+    var m = S.map;
+    if (!m) return;
+    m.creatures = Array.isArray(list) ? list : [];
+    emit('creatures', m.creatures);
+  }
+  function creatureList() { return (S.map && S.map.creatures) || []; }
+  function clusterList() { return (S.map && S.map.clusters) || []; }
+  /**
+   * ★ GDD3 §13-B-2 — 손이 닿는 일터의 반경.
+   * 자원 군락이 영토 **밖**에 앉으면서 「우리 땅 안인가」는 더 이상 일할 수 있는지의 기준이 아니다.
+   * 주민 배치·마커·하니스가 전부 이 자를 쓴다(서버 villagers.listTargets 와 같은 식).
+   */
+  function workReach() {
+    var t = S.map && S.map.territory;
+    var bonus = (S.config && S.config.world && S.config.world.villagers
+      && S.config.world.villagers.workRadiusBonus) || 26;
+    return ((t && t.radius) || 6) + bonus;
+  }
+  function inWorkRange(x, y) {
+    var t = S.map && S.map.territory;
+    if (!t || t.cx == null) return true;
+    return Math.hypot(x - t.cx, y - t.cy) <= workReach() + 0.001;
+  }
+  /** ★ §13-B-5 — 지금 이 자리가 몇 번째 위험 띠인가 (서버가 준 경계로 화면도 같은 식으로 잰다) */
+  function ringOfPoint(x, y) {
+    var m = S.map;
+    var t = m && m.territory;
+    if (!m || !m.rings || !t || t.cx == null) return 0;
+    var d = Math.hypot(x - t.cx, y - t.cy);
+    if (d <= m.rings.r0) return 0;
+    if (d <= m.rings.r1) return 1;
+    return 2;
+  }
+  /** ★ §13-C-3 — 도감. 서버가 조우·처치를 세고 잠긴 층은 필드 자체가 없다. */
+  function codex() { return (S.view && S.view.codex) || null; }
+  /** ★ §13-B-3 — 재생 다이얼(옅어짐 문턱). 서버 자료가 정본이고 없으면 폴백 값으로 돈다(구경 모드). */
+  function regrowCfg() {
+    var c = S.config && S.config.world && S.config.world.nodes && S.config.world.nodes.regrow;
+    return c || { byType: {}, fadeAt: 0.35 };
+  }
+  /** ★ §13-B-5 — 링 다이얼(경고 띠·문구) */
+  function ringsCfg() {
+    var c = S.config && S.config.world && S.config.world.rings;
+    return c || { warnRing: 2, warnText: '여기서부터는 사나운 것들의 땅입니다.' };
+  }
   function nodeAt(x, y) {
     var list = nodeList();
     for (var i = 0; i < list.length; i++) if (list[i].x === x && list[i].y === y) return list[i];
@@ -1130,6 +1199,9 @@
 
     mapSize: mapSize, terrainAt: terrainAt, terrainKey: terrainKey, terrainMeta: terrainMeta,
     fogAt: fogAt, nodeList: nodeList, nodeById: nodeById, nodeAt: nodeAt, nodeMeta: nodeMeta,
+    applyCreatures: applyCreatures, creatureList: creatureList, clusterList: clusterList,
+    ringOfPoint: ringOfPoint, codex: codex, regrowCfg: regrowCfg, ringsCfg: ringsCfg,
+    workReach: workReach, inWorkRange: inWorkRange,
     myTown: myTown, territory: territory, inTerritory: inTerritory,
     residents: residents, residentById: residentById,
     structures: structures, structureById: structureById, sites: sites, siteById: siteById,

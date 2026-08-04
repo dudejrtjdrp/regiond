@@ -46,6 +46,7 @@
     "_note": "자원 노드. amount 는 그 자리가 품은 총량이고 regenPerTick 은 하루 재생량이다 — 이 둘이 장기 채집 속도의 진짜 상한이다(스윙 속도는 '얼마나 빨리 캐느냐'만 정한다). slots 는 한 노드에 붙을 수 있는 주민 수.",
     "order": [
       "forest",
+      "berry",
       "rock",
       "fertile",
       "water",
@@ -72,7 +73,46 @@
           "greatwood": 2
         },
         "contributes": "wood",
-        "contributionWeight": 1
+        "contributionWeight": 1,
+        "cluster": {
+          "size": [
+            8,
+            20
+          ],
+          "radius": [
+            3.5,
+            6.0
+          ]
+        }
+      },
+      "berry": {
+        "_note": "★ GDD3 §13-B-1 — 딸기 들. 들판에 흩어진 열매 덤불이 아니라 '들'로 뭉쳐 난다. 하루면 다시 열리므로(regrow 1일) 초반 식량의 든든한 뒷배가 되지만 한 자리에서 나오는 총량은 작다. 주민은 붙지 않는다(jobTargets 에 없다) — 열매 따기는 아바타의 손이다.",
+        "name": "딸기 들",
+        "terrains": [
+          "grass",
+          "fertile"
+        ],
+        "job": "farm",
+        "resource": "grain",
+        "count": 220,
+        "minSpacing": 1,
+        "slots": 2,
+        "amount": 12,
+        "regenPerTick": 0,
+        "drainPerWorker": 0,
+        "richChance": 0.16,
+        "richMultiplier": 2,
+        "cluster": {
+          "size": [
+            4,
+            9
+          ],
+          "radius": [
+            2.0,
+            3.5
+          ]
+        },
+        "contributes": null
       },
       "rock": {
         "name": "바위 노두",
@@ -88,7 +128,17 @@
         "richChance": 0.15,
         "richMultiplier": 2,
         "contributes": "stone",
-        "contributionWeight": 1.8
+        "contributionWeight": 1.8,
+        "cluster": {
+          "size": [
+            5,
+            12
+          ],
+          "radius": [
+            2.5,
+            4.5
+          ]
+        }
       },
       "fertile": {
         "name": "기름진 땅",
@@ -106,7 +156,17 @@
         "harvest": true,
         "contributes": "grain",
         "_note": "자연 밭터. 일부러 드물게 둔다 — 농사 자리를 늘리려면 개간(reclaimField)으로 밭을 일궈야 한다(WORLD.md §3). 이 수가 곧 '가동 밭 노드 수'라 노드 기여(+1%/노드)의 출발점이고, 옛 타일 지정 8칸과 같은 자리에 오도록 맞춰 두었다.",
-        "contributionWeight": 1
+        "contributionWeight": 1,
+        "cluster": {
+          "size": [
+            3,
+            7
+          ],
+          "radius": [
+            2.0,
+            3.5
+          ]
+        }
       },
       "water": {
         "_note": "어로 자리. amount 는 그 물목에 든 물고기다 — 아바타가 훑으면 줄고(data/skills.json nodes.water.drain) 며칠에 걸쳐 다시 몰려온다. richChance 는 0 으로 둔다(월드 생성 난수를 소비하지 않아 지도 재현성이 유지된다). 주민 어부는 두지 않는다 — 물가 노동은 아바타의 손기술이다(GDD3 §3), 배치된 백성은 농사 부처로만 잡힌다.",
@@ -115,14 +175,26 @@
         "job": "farm",
         "resource": "grain",
         "count": 170,
-        "minSpacing": 5,
+        "minSpacing": 2,
         "slots": 3,
         "amount": 20,
         "regenPerTick": 4,
         "drainPerWorker": 0,
         "richChance": 0,
         "richMultiplier": 1,
-        "contributes": null
+        "contributes": null,
+        "cluster": {
+          "size": [
+            4,
+            10
+          ],
+          "radius": [
+            2.5,
+            4.5
+          ]
+        },
+        "strictTerrain": true,
+        "_spacingNote": "★ §13-B-1 — 강가 어장은 물목이 붙어 있어야 '어장'이다. 옛 간격 5는 고르게 흩뿌리던 시절의 값이다. strictTerrain: 물가는 물 위에만 — 첫 군락 보장에서도 지형을 완화하지 않는다."
       },
       "iron": {
         "name": "철광맥",
@@ -130,7 +202,7 @@
         "job": "mine",
         "resource": "ironOre",
         "count": 110,
-        "minSpacing": 5,
+        "minSpacing": 2,
         "slots": 3,
         "amount": 90,
         "regenPerTick": 0,
@@ -145,7 +217,17 @@
         "flatYield": {
           "ironOre": 2
         },
-        "contributes": null
+        "contributes": null,
+        "cluster": {
+          "size": [
+            3,
+            6
+          ],
+          "radius": [
+            2.5,
+            4.0
+          ]
+        }
       },
       "oil": {
         "name": "유막",
@@ -153,7 +235,7 @@
         "job": "mine",
         "resource": "oil",
         "count": 52,
-        "minSpacing": 6,
+        "minSpacing": 3,
         "slots": 3,
         "amount": 70,
         "regenPerTick": 0,
@@ -169,7 +251,17 @@
         "flatYield": {
           "oil": 1
         },
-        "contributes": null
+        "contributes": null,
+        "cluster": {
+          "size": [
+            2,
+            5
+          ],
+          "radius": [
+            2.5,
+            4.0
+          ]
+        }
       },
       "ruin": {
         "name": "고대 유적",
@@ -206,22 +298,160 @@
         "contributionWeight": 1
       }
     },
-    "startGuarantee": {
-      "_note": "정착지 주변 시작 자원 보장 — 티어 0 반경(baseRadius) 안에 이만큼은 반드시 있다. 마차에서 내린 자리에서 곧바로 도끼질을 시작할 수 있어야 한다(GDD3 §2).",
-      "radiusRatio": 1,
-      "counts": {
-        "forest": 6,
-        "rock": 4,
-        "fertile": 3,
-        "ruin": 1
-      }
-    },
     "contribution": {
       "_note": "노드 기여 — 백성이 붙어 일하는 노드 1곳당 해당 산출 +perNode×weight, rich 면 곱절, 상한 +20%. 콥더글러스에 곱하지 않고 산출 마지막에 (1+기여) 한 번만 적용한다. ★ GDD3: 부처 산출이 도는 티어(production.departmentsFromTier) 이상에서만 의미가 있다.",
       "perNode": 0.0065,
       "cap": 0.2,
       "requiresEmotionDay": true,
       "maturityTicks": 2
+    },
+    "clusters": {
+      "_note": "★ GDD3 §13-B-1·2 — 랜덤 산포 폐지. 자원은 이제 **군락**으로 앉는다: 씨앗 한 점을 고르고 그 둘레 원 안에 같은 종류를 여럿 심는다. 그래서 숲은 숲답게 뭉치고, 딸기 들·바위 지대·강가 어장이 '지역'으로 읽힌다(클라는 map.clusters 로 바닥 질감을 달리 칠한다). clearRadius 안에는 자원 노드가 한 톨도 없다 — 시작 영토(6)에 여유 2를 더한 값이고, 건물을 놓을 자리가 깨끗해야 한다는 요구(§13-B-2)의 정본이다. centerRadius 는 군락 '씨앗'이 앉을 수 있는 최소 거리라, 큰 군락은 티어 2 반경 밖에서 자란다. nearGuarantee 는 그 띠 안에 반드시 놓이는 첫 군락들이다 — 마차에서 내려 8~13타일만 걸으면 첫 나무·첫 열매·첫 물가가 있다(사슬 1~3장이 이 거리를 전제로 굴러간다). 첫 군락의 띠는 시작 탐사 반경(fog.startExploredRadius=14) 안에 들도록 잡는다 — 마차에서 내리자마자 눈에 보여야 '가서 베어라'가 성립한다.",
+      "clearRadius": 8,
+      "centerRadius": 11,
+      "ring": [
+        8,
+        20
+      ],
+      "nearGuarantee": [
+        {
+          "type": "forest",
+          "clusters": 2,
+          "size": [
+            6,
+            9
+          ],
+          "ring": [
+            8,
+            12
+          ]
+        },
+        {
+          "type": "berry",
+          "clusters": 1,
+          "size": [
+            4,
+            6
+          ],
+          "ring": [
+            8,
+            12
+          ]
+        },
+        {
+          "type": "water",
+          "clusters": 1,
+          "size": [
+            3,
+            5
+          ],
+          "ring": [
+            8,
+            14
+          ]
+        },
+        {
+          "type": "fertile",
+          "clusters": 1,
+          "size": [
+            3,
+            4
+          ],
+          "ring": [
+            9,
+            13
+          ]
+        },
+        {
+          "type": "rock",
+          "clusters": 1,
+          "size": [
+            4,
+            6
+          ],
+          "ring": [
+            9,
+            13
+          ]
+        }
+      ],
+      "aiClearRadius": 6
+    },
+    "regrow": {
+      "_note": "★ GDD3 §13-B-3 — 자원은 유한하다. 다 캔 자리는 **그루터기**로 남고(depleted) 여기 적힌 게임일이 지나면 되살아난다. 되살아나기를 기다리는 동안에는 regenPerTick 도 돌지 않는다 — 그루터기가 슬금슬금 자라 다시 나무가 되는 그림은 없다. 나무 2~4일 · 딸기 1일 · 바위와 광맥 6일이 스펙이고, 물가는 여기 없다 — 물고기는 그루터기가 아니라 '몰려오는 것'이라 옛 규칙(regenPerTick, 하루 4마리씩)을 그대로 쓴다. 표에 없는 종류는 다 그렇게 돈다.",
+      "byType": {
+        "forest": [
+          2,
+          4
+        ],
+        "berry": [
+          1,
+          1
+        ],
+        "rock": [
+          6,
+          6
+        ],
+        "iron": [
+          6,
+          6
+        ],
+        "oil": [
+          6,
+          6
+        ]
+      },
+      "fadeAt": 0.35
+    },
+    "ruinSizes": {
+      "_note": "★ GDD3 §13-B-4 — 유적은 1×1부터 4×4까지다. 클수록 뒤지는 데 오래 걸리고(swings), 탐사 게이지가 빨리 차고(gauge), 나오는 물건의 등급이 높다(gradeBoost). 대신 더 멀거나(minDistance) 사나운 땅(minRing)에 있고, 일부는 가까이 가거나 정찰해야 드러난다(concealChance). 무게(weight)는 뽑기 비율이다.",
+      "revealRadius": 5,
+      "table": [
+        {
+          "size": 1,
+          "weight": 0.44,
+          "swings": 4,
+          "gauge": 1,
+          "gradeBoost": 0,
+          "minDistance": 10,
+          "minRing": 0,
+          "concealChance": 0.12,
+          "name": "옛 자취"
+        },
+        {
+          "size": 2,
+          "weight": 0.31,
+          "swings": 8,
+          "gauge": 2,
+          "gradeBoost": 1,
+          "minDistance": 26,
+          "minRing": 1,
+          "concealChance": 0.28,
+          "name": "무너진 터"
+        },
+        {
+          "size": 3,
+          "weight": 0.18,
+          "swings": 14,
+          "gauge": 3,
+          "gradeBoost": 2,
+          "minDistance": 44,
+          "minRing": 1,
+          "concealChance": 0.46,
+          "name": "잊힌 신전"
+        },
+        {
+          "size": 4,
+          "weight": 0.07,
+          "swings": 22,
+          "gauge": 5,
+          "gradeBoost": 3,
+          "minDistance": 62,
+          "minRing": 2,
+          "concealChance": 0.62,
+          "name": "죽은 자의 성채"
+        }
+      ]
     }
   },
   "towns": {
@@ -448,7 +678,9 @@
       "_note": "★ GDD3 §13-A-3 — 주민 노동 연출과 수치의 동기화 다이얼. 짐은 흐른 시간만큼 쌓이고(초당 perDay÷하루길이), 한 자루(perDay÷deliveriesPerDay)가 차면 저장고로 나른다. 부리는 순간 그 자루의 값이 \"+1.2 목재\"로 뜬다 — 하루 동안 뜬 숫자의 합이 서버가 국고에 넣는 값과 같다. deliveriesPerDay 를 올리면 자주 나르되 한 번에 뜨는 숫자가 작아진다.",
       "deliveriesPerDay": 4,
       "swingSeconds": 0.9
-    }
+    },
+    "workRadiusBonus": 26,
+    "_workRadiusNote": "★ GDD3 §13-B-2 — 자원 군락이 영토 밖에 앉으면서 주민의 일터도 영토를 넘는다. 일자리 판정 반경 = 영토 반경 + workRadiusBonus. 이 값이 0 이면 영토 안이 텅 비어 아무도 일하지 못한다."
   },
   "laborDerivation": {
     "_note": "★ 매크로 접합의 핵심(WORLD.md §5). laborAlloc 은 이제 슬라이더가 아니라 '배치의 파생값'이다. referenceMix 는 60유닛의 '정확한 60분의 n'(농18·벌8·채5·광2·공7·건7·방9·무2·정2)이라 반올림 오차가 0이고, 부처별 환산 배수(defaultAlloc[dept] ÷ 그 부처의 referenceMix 합)를 곱하면 옛 balance.json labor.defaultAlloc(농40/공20/건16/방20/무역4)과 채집 계수(목재 1.8·석재 0.9)가 '정확히' 재현된다. 그래서 새 게임을 방치해도 검증된 밸런스로 굴러간다. 바꾸려면 시뮬 6/6 을 다시 확인할 것.",
@@ -719,9 +951,10 @@
     "defaultVacant": "trade"
   },
   "simulation": {
-    "_note": "시뮬 봇(server/sim/policy.js) 다이얼 — 좌표 없는 비율 배치 API(setVillagerMix)와 자동 자리 건설(buildStart)로만 움직인다. 플레이어 스윙 노동은 평균치로 근사한다(data/waves.json simulation).",
+    "_note": "시뮬 봇(server/sim/policy.js) 다이얼 — 좌표 없는 비율 배치 API(setVillagerMix)와 자동 자리 건설(buildStart)로만 움직인다. 플레이어 스윙 노동은 평균치로 근사한다(data/waves.json simulation). ★ GDD3 §13-B-2 — 자원이 영토 밖으로 나간 뒤로는 **걷는 데도 하루가 든다**: botWalkTilesPerSwing 은 스윙 한 번의 시간(1.2초)에 아바타가 걷는 거리(4.6칸/초)다. 봇이 자리를 옮길 때 그만큼을 하루 예산에서 깎아, 공짜 순간이동으로 게임을 실제보다 후하게 재지 않는다.",
     "botScoutShare": 0.03333333333333333,
-    "botPlayerSwingsPerDay": 90
+    "botPlayerSwingsPerDay": 90,
+    "botWalkTilesPerSwing": 5.5
   },
   "fences": {
     "_note": "울타리·석벽 조각 배치 — placeFence {points:[{x,y}...]} 로 드래그한 선을 조각으로 쪼갠다. 조각마다 내구도(hp)가 있고 목책(tier1)→석벽(tier2)으로 올린다(upgradeFence). gate:true 조각은 문이다. 값·내구도는 data/buildings.json fence/gate 에서 온다.",
@@ -787,5 +1020,12 @@
     "fogVeil": 0.3,
     "buildVeil": 0.18,
     "minLuma": 48
+  },
+  "rings": {
+    "_note": "★ GDD3 §13-B-5 — 본부에서 멀어질수록 세상이 사나워진다. 링0(영토+근교)은 온순한 짐승만, 링1은 약한 포식자, 링2는 강하고 빠른 적이다. 경계는 '영토 반경 + margin' 이라 정착지가 자라면 안전한 땅도 함께 넓어진다. warnRing 에 처음 발을 들이면 경고 한 번(토스트 + 화면 가장자리 붉은 기)이 뜨고, 되돌아 나갔다 다시 들어가면 또 한 번 뜬다.",
+    "ring0Margin": 10,
+    "ring1Span": 22,
+    "warnRing": 2,
+    "warnText": "여기서부터는 사나운 것들의 땅입니다."
   }
 }

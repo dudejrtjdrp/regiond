@@ -420,11 +420,17 @@ function targetsFor(world, nation, target, data) {
   const near = (a, b) => dist(a.x, a.y, av.x, av.y) - dist(b.x, b.y, av.x, av.y);
 
   if (target.type === 'node') {
+    /* ★ GDD3 §13-B-2 — 자원 군락은 **영토 밖** 8~20타일에 앉는다. 그러니 목표 마커도 영토를 넘어야
+       가리킬 것이 있다(영토 안만 뒤지면 「나무를 베세요」인데 가리킬 나무가 없는 사고가 난다).
+       반경은 주민 일자리와 같은 자 — 영토 + workRadiusBonus — 를 쓴다. 다만 화살표는
+       **아바타에서 가까운 순** 세 개라, 멀리 있는 군락이 뽑혀도 화면을 어지럽히지 않는다. */
     const types = new Set(target.nodeTypes || []);
     const town = townOf(world, nation.id);
-    const radius = nation.territory?.radius ?? data.world.territory.baseRadius;
+    const radius = (nation.territory?.radius ?? data.world.territory.baseRadius)
+      + (data.world.villagers.workRadiusBonus ?? 0);
     const cands = (world.map?.nodes || []).filter((n) => {
       if (n.hidden || n.depleted || !types.has(n.type)) return false;
+      if (n.concealed && !n.revealed) return false;
       if (!town) return false;
       return dist(n.x, n.y, town.x, town.y) <= radius + 0.001;
     });

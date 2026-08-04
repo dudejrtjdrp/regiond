@@ -97,6 +97,45 @@
     }
   }
 
+  /* ══════════ 자원 군락 바닥 (GDD3 §13-B-1) ══════════
+     군락은 '노드 여럿'이 아니라 **지역**이다. 그 지역이 지역으로 읽히려면 발밑이 달라야 한다 —
+     숲 군락은 짙은 이끼, 딸기 들은 붉은 기, 바위 지대는 잿빛 자갈, 강가 어장은 젖은 모래.
+     지형 청크를 다시 굽지 않고 반투명 원을 얹는다: 지형 캐시를 건드리지 않아 티어업·재접속에도 흔들림이 없다. */
+  var CLUSTER_TINT = {
+    forest:  { fill: 'rgba(48,84,44,.20)',  edge: 'rgba(48,84,44,.10)' },
+    berry:   { fill: 'rgba(150,60,70,.16)', edge: 'rgba(150,60,70,.08)' },
+    rock:    { fill: 'rgba(126,132,140,.20)', edge: 'rgba(126,132,140,.09)' },
+    water:   { fill: 'rgba(196,178,132,.20)', edge: 'rgba(196,178,132,.09)' },
+    fertile: { fill: 'rgba(178,140,58,.18)', edge: 'rgba(178,140,58,.08)' },
+    iron:    { fill: 'rgba(150,96,72,.16)', edge: 'rgba(150,96,72,.07)' },
+    oil:     { fill: 'rgba(88,72,140,.16)', edge: 'rgba(88,72,140,.07)' }
+  };
+
+  function drawClusters() {
+    var list = S.clusterList();
+    if (!list || !list.length) return;
+    var t = GM.camera.cam.tile;
+    ctx.save();
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i];
+      var tint = CLUSTER_TINT[c.type];
+      if (!tint) continue;
+      var rad = (c.r + 1.4) * t;
+      if (!GM.camera.onScreen(c.x, c.y, rad * 2)) continue;
+      if (S.fogAt(c.x, c.y) < 1) continue;
+      var p = GM.camera.worldToScreen(c.x, c.y);
+      var g = ctx.createRadialGradient(p.x, p.y, Math.max(1, rad * 0.25), p.x, p.y, rad);
+      g.addColorStop(0, tint.fill);
+      g.addColorStop(0.68, tint.edge);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   /* ══════════ 전장의 안개 ══════════ */
   function drawFog() {
     var m = S.S.map;
@@ -1148,12 +1187,13 @@
   var VERB = {
     forest: 'E — 나무 베기', rock: 'E — 돌 캐기', iron: 'E — 광맥 캐기', oil: 'E — 기름 긷기',
     water: 'E — 물고기 잡기', fertile: 'E — 거두기', field: 'E — 거두기', ruin: 'E — 유적 살피기',
-    site: 'E — 짓기', enemy: 'E — 베기'
+    berry: 'E — 열매 따기', site: 'E — 짓기', enemy: 'E — 베기', wild: 'E — 사냥하기'
   };
 
   function verbFor(t) {
     if (!t) return null;
     if (t.kind === 'enemy') return VERB.enemy;
+    if (t.kind === 'wild') return 'E — ' + (t.obj && t.obj.name ? t.obj.name : '짐승') + ' 사냥';
     if (t.kind === 'site') {
       var name = t.obj && t.obj.name ? t.obj.name : '공사';
       return 'E — ' + name + ' 짓기';
@@ -1302,6 +1342,7 @@
 
     var tile = GM.camera.cam.tile;
     drawTerrain();
+    drawClusters();
     drawTerritory();
     if (GM.fx) GM.fx.drawStumps(ctx, tile);
     drawNodes();
@@ -1309,6 +1350,7 @@
     drawStructures();
     drawCamps();
     drawMoveMarker();
+    drawWild();
     drawResidents();
     if (GM.combat && GM.combat.drawUnits) GM.combat.drawUnits(ctx, tile, animT);
     drawAvatars();

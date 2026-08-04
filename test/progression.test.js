@@ -272,10 +272,13 @@ test('마커 — 서버가 목표의 대상 후보를 좌표와 함께 내려 �
   const t = townOf(w, 'player');
   const v = chapterView(w, n, data);
   assert.ok(v.goal.targets.length > 0);
+  /* ★ GDD3 §13-B-2 — 자원 군락은 영토 **밖**에 앉는다. 마커가 영토 안만 뒤지면 가리킬 나무가 없다.
+     그래서 반경은 주민 일자리와 같은 자 — 영토 + workRadiusBonus — 를 쓴다. */
+  const reach = n.territory.radius + data.world.villagers.workRadiusBonus;
   for (const tg of v.goal.targets) {
     assert.equal(tg.kind, 'node');
     assert.ok(Number.isFinite(tg.x) && Number.isFinite(tg.y));
-    assert.ok(dist(tg.x, tg.y, t.x, t.y) <= n.territory.radius + 0.001, '영토 안(=안개 밖)의 자리만 가리킨다');
+    assert.ok(dist(tg.x, tg.y, t.x, t.y) <= reach + 0.001, '걸어갈 만한 자리만 가리킨다');
   }
 
   // 배치대를 가리켜야 하는 칸은 월드 좌표 대신 단추를 가리킨다

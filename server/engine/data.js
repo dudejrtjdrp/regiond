@@ -136,7 +136,21 @@ export function publicWorld(d = loadGameData()) {
         contributes: v.contributes ?? null,
       }])),
       contribution: { perNode: w.nodes.contribution.perNode, cap: w.nodes.contribution.cap },
+      // ★ GDD3 §13-B — 군락·재생·유적 크기. 화면이 바닥 질감과 「옅어짐」을 같은 규칙으로 그린다.
+      clusters: w.nodes.clusters ? {
+        clearRadius: w.nodes.clusters.clearRadius, ring: [...(w.nodes.clusters.ring || [])],
+      } : null,
+      regrow: w.nodes.regrow ? { byType: structuredClone(w.nodes.regrow.byType), fadeAt: w.nodes.regrow.fadeAt } : null,
+      ruinSizes: w.nodes.ruinSizes ? {
+        revealRadius: w.nodes.ruinSizes.revealRadius,
+        table: (w.nodes.ruinSizes.table || []).map((t) => ({ size: t.size, name: t.name, swings: t.swings })),
+      } : null,
     },
+    // ★ GDD3 §13-B-5 — 스폰 링. 화면이 링2 경고를 서버와 **같은 식으로** 잰다.
+    rings: w.rings ? {
+      ring0Margin: w.rings.ring0Margin, ring1Span: w.rings.ring1Span,
+      warnRing: w.rings.warnRing, warnText: w.rings.warnText,
+    } : null,
     territory: { baseRadius: w.territory.baseRadius },
     // ★ GDD3 §13-A-2 — 화면 밝기 다이얼(밤 하한·낮 상향·안개 장막). 화면이 이 표만 보고 조명을 켠다.
     light: w.light ? {

@@ -70,7 +70,7 @@ test('E2E — 개척 시작에서 첫 웨이브까지 (v3 전체 루프)', async
     const worldP = once(socket, 'world');
     const joined = await send(socket, 'join', { gameId, playerName: '개척자', seed: 4242, avatarId: 'p1' });
     assert.equal(joined.ok, true, JSON.stringify(joined));
-    assert.equal(joined.protocol, '3.1');
+    assert.equal(joined.protocol, '3.2');
     assert.equal(joined.tier, 0, '마차에서 내린 자리는 티어 0');
     assert.ok(joined.config.tiers && joined.config.skills && joined.config.waves, 'config 에 v3 블록이 실린다');
 
@@ -106,9 +106,14 @@ test('E2E — 개척 시작에서 첫 웨이브까지 (v3 전체 루프)', async
 
     // ── 2. 스윙 노동 ───────────────────────────────────────────
     const town = world.towns.find((t) => t.isPlayer);
-    const forests = world.nodes.filter((n) => n.type === 'forest' && n.mine);
-    const rocks = world.nodes.filter((n) => n.type === 'rock' && n.mine);
-    assert.ok(forests.length > 0 && rocks.length > 0, '시작 영토에 숲·바위가 보장된다');
+    /* ★ GDD3 §13-B-2 — 시작 영토 안은 **빈 땅**이다(건물 놓을 자리를 비워 둔다).
+       첫 군락은 영토 바로 밖 8~14타일에 있고, 시작 탐사 반경 안이라 처음부터 눈에 보인다. */
+    const dTown = (n) => Math.hypot(n.x - town.x, n.y - town.y);
+    assert.equal(world.nodes.filter((n) => n.mine).length, 0, '시작 영토 안에는 자원 노드가 하나도 없다');
+    const forests = world.nodes.filter((n) => n.type === 'forest').sort((a, b) => dTown(a) - dTown(b));
+    const rocks = world.nodes.filter((n) => n.type === 'rock').sort((a, b) => dTown(a) - dTown(b));
+    assert.ok(forests.length > 0 && rocks.length > 0, '영토 바로 밖에 숲 군락·바위 지대가 보장된다');
+    assert.ok(dTown(forests[0]) <= 16, `첫 나무까지 ${dTown(forests[0]).toFixed(1)}타일 — 왕복이 부담스럽지 않다`);
     const forest = forests[0];
     assert.equal(forest.swingsPerCycle, data.skills.nodes.forest.swings);
 
@@ -380,6 +385,7 @@ test('E2E — 멀티 왕복 (초대 코드 · 외형 · 채팅 · 스윙 중계 
   const { http, games, base } = await boot();
   const a = connect(base);
   const b = connect(base);
+  let back = null;                    // ★ 되돌아온 접속 — 도중에 넘어져도 finally 가 반드시 닫는다
   const gameId = `e2e_multi_${Date.now()}`;
   try {
     await send(a, 'join', { gameId, playerName: '가온', avatarId: '가온', seed: 7 });
@@ -402,8 +408,9 @@ test('E2E — 멀티 왕복 (초대 코드 · 외형 · 채팅 · 스윙 중계 
 
     // 스윙은 방 안의 다른 접속자에게 연출용으로 중계된다
     const town = rt.world.map.towns.find((t) => t.isPlayer);
+    // ★ §13-B-2 — 나무는 영토 밖 군락에 있다. 시작 탐사 반경(14) 안에서 가장 가까운 것을 고른다.
     const node = rt.world.map.nodes.find((x) => x.type === 'forest'
-      && dist(x.x, x.y, town.x, town.y) <= data.tiers.levels[0].radius);
+      && dist(x.x, x.y, town.x, town.y) <= data.world.fog.startExploredRadius);
     const swingP = once(b, 'swing');
     await send(a, 'lordMove', { x: node.x, y: node.y });
     await send(a, 'actionSwing', { nodeId: node.id, now: 5_000_000 });
@@ -437,13 +444,19 @@ test('E2E — 멀티 왕복 (초대 코드 · 외형 · 채팅 · 스윙 중계 
     assert.equal(member.online, false, '나간 사람은 명부에서 꺼진다');
     assert.equal(rt.world.nations.player.online, true, '남은 사람이 있으면 정착지는 깨어 있다');
 
-    const back = connect(base);
+    back = connect(base);
+    /* ★ 접속 순서 계약(PROTOCOL §3-0)은 joined → chatHistory → avatars → **world → state → worldState** 다.
+       world 를 받은 그 자리에서 state 를 단정하면 안 된다 — 둘은 다른 입출력 차례에 도착할 수 있고,
+       실제로 월드 스냅샷이 커지자(군락·링) 갈라졌다. 각각을 제 이름으로 기다린다. */
+    const worldBackP = once(back, 'world', 8000);
+    const stateBackP = once(back, 'state', 8000);
     const rejoin = await send(back, 'join', { gameId, playerName: '나래', avatarId: '나래' });
     assert.equal(rejoin.ok, true, JSON.stringify(rejoin));
     assert.equal(rejoin.gameId, gameId, '같은 정착지로 돌아온다');
-    const worldBack = await once(back, 'world', 8000).catch(() => back.latest.world);
+    const worldBack = await worldBackP.catch(() => back.latest.world);
+    const stateBack = await stateBackP.catch(() => back.latest.state);
     assert.ok(worldBack || back.latest.world, '돌아온 사람도 지도를 다시 받는다');
-    assert.ok(back.latest.state, '상태도 다시 온다');
+    assert.ok(stateBack || back.latest.state, '상태도 다시 온다');
     assert.equal(rt.world.nations.player.members.find((m) => m.avatarId === '나래').online, true,
       '명부에 다시 불이 들어온다');
     assert.equal(rt.world.nations.player.roles.farm.owner, '나래', '맡았던 자리는 그대로다');
@@ -453,14 +466,15 @@ test('E2E — 멀티 왕복 (초대 코드 · 외형 · 채팅 · 스윙 중계 
     await send(back, 'chat', { text: '다녀왔네' });
     assert.equal((await chatBackP).from.name, '나래', '돌아온 사람의 말이 남에게 닿는다');
     const node2 = rt.world.map.nodes.find((x) => x.type === 'forest'
-      && dist(x.x, x.y, town.x, town.y) <= data.tiers.levels[0].radius);
+      && dist(x.x, x.y, town.x, town.y) <= data.world.fog.startExploredRadius);
     await send(back, 'lordMove', { x: node2.x, y: node2.y });
     const swingBack = await send(back, 'actionSwing', { nodeId: node2.id, now: 9_000_000 });
     assert.equal(swingBack.ok, true, JSON.stringify(swingBack.error));
     assert.ok(swingBack.resources, '돌아온 사람의 스윙 ack 에도 잔고가 실린다');
-    back.close();
   } finally {
-    a.close(); b.close();
+    /* 소켓 하나라도 살아 있으면 http.close() 가 영영 돌아오지 않아 실패한 테스트가 **아무 말 없이 멎는다**.
+       무엇이 어긋났는지 보려면 여기서 전부 닫아야 한다. */
+    a.close(); b.close(); back?.close();
     games.get(gameId)?.stop();
     await new Promise((res) => http.close(res));
     await rm(join(savesDir(), gameId), { recursive: true, force: true });
