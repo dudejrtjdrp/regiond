@@ -443,7 +443,12 @@
       "fence": 20
     },
     "reassignOnDepletion": true,
-    "moveTilesPerTick": 12
+    "moveTilesPerTick": 12,
+    "work": {
+      "_note": "★ GDD3 §13-A-3 — 주민 노동 연출과 수치의 동기화 다이얼. 짐은 흐른 시간만큼 쌓이고(초당 perDay÷하루길이), 한 자루(perDay÷deliveriesPerDay)가 차면 저장고로 나른다. 부리는 순간 그 자루의 값이 \"+1.2 목재\"로 뜬다 — 하루 동안 뜬 숫자의 합이 서버가 국고에 넣는 값과 같다. deliveriesPerDay 를 올리면 자주 나르되 한 번에 뜨는 숫자가 작아진다.",
+      "deliveriesPerDay": 4,
+      "swingSeconds": 0.9
+    }
   },
   "laborDerivation": {
     "_note": "★ 매크로 접합의 핵심(WORLD.md §5). laborAlloc 은 이제 슬라이더가 아니라 '배치의 파생값'이다. referenceMix 는 60유닛의 '정확한 60분의 n'(농18·벌8·채5·광2·공7·건7·방9·무2·정2)이라 반올림 오차가 0이고, 부처별 환산 배수(defaultAlloc[dept] ÷ 그 부처의 referenceMix 합)를 곱하면 옛 balance.json labor.defaultAlloc(농40/공20/건16/방20/무역4)과 채집 계수(목재 1.8·석재 0.9)가 '정확히' 재현된다. 그래서 새 게임을 방치해도 검증된 밸런스로 굴러간다. 바꾸려면 시뮬 6/6 을 다시 확인할 것.",

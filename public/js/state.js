@@ -831,6 +831,21 @@
     return S.placing ? l.buildVeil : l.fogVeil;
   }
 
+  /* ── ★ 주민 노동 다이얼 (GDD3 §13-A-3) ───────────────
+     화면의 짐 쌓임·나르기 주기가 이 표를 따른다. 서버 설정이 정본, 아래는 폴백. */
+  var WORK_FALLBACK = { deliveriesPerDay: 4, swingSeconds: 0.9 };
+  function villagerWorkCfg() {
+    var w = worldCfg();
+    var k = w && w.villagers && w.villagers.work;
+    if (!k) return WORK_FALLBACK;
+    return {
+      deliveriesPerDay: k.deliveriesPerDay > 0 ? k.deliveriesPerDay : WORK_FALLBACK.deliveriesPerDay,
+      swingSeconds: k.swingSeconds > 0 ? k.swingSeconds : WORK_FALLBACK.swingSeconds,
+    };
+  }
+  /** 게임 하루가 실제로 몇 초인가 — 주민이 초당 얼마를 버는지 재는 분모 */
+  function dayRealSeconds() { return timeCfg().dayRealSeconds || 600; }
+
   /* ── 역할 ──────────────────────────────────────────── */
   function myRole() {
     var n = nation();
@@ -1064,6 +1079,7 @@
     enemyMeta: enemyMeta, directionMeta: directionMeta,
     timeCfg: timeCfg, phaseIndex: phaseIndex, phaseMeta: phaseMeta, isNight: isNight,
     lightCfg: lightCfg, fogVeil: fogVeil,
+    villagerWorkCfg: villagerWorkCfg, dayRealSeconds: dayRealSeconds,
 
     myRole: myRole, syncYou: syncYou, hasRole: hasRole, roleHolder: roleHolder, isVacant: isVacant,
     holderName: holderName, mandateOpen: mandateOpen, members: members,

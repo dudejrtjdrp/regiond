@@ -44,6 +44,18 @@
 
 설정을 못 받으면 `public/js/state.js` 의 폴백 표로 돈다(구경 모드). **두 표의 값은 같아야 한다.**
 
+### 0-Y-3. 주민 노동 수치 (§13-A-3)
+
+| 구분 | 이름 | 한 줄 설명 |
+|---|---|---|
+| 뷰 | `residents[].yield` | ★ 신설 — `{resource, perDay}`. **그 주민이 하루에 국고에 넣는 값.** 채집직이 아니거나 산출이 0이면 필드 자체가 없다 |
+| 자료 | `world.villagers.work` | ★ 신설 — `{deliveriesPerDay, swingSeconds}`. 화면의 짐 쌓임·나르기 주기 |
+
+**불변식:** `Σ residents[].yield.perDay` = 그날 일 틱이 `nation.resources` 에 더하는 값.
+서버는 `residentYield()` 한 함수로 이 둘을 낸다. 화면은 짐을 **흐른 시간만큼**
+(`perDay ÷ dayRealSeconds` 초당) 쌓고, 한 자루(`perDay ÷ deliveriesPerDay`)가 차면 날라 부리며
+그 자루의 값을 `"+1.2 목재"` 로 띄운다 — 하루 동안 뜬 숫자의 합이 곧 국고 증가분이다.
+
 ### 0-Z. v3.1 안 델타 — **플레이테스트 1차 반영** (GDD3 §12)
 
 판번호는 3.1 그대로다(호환을 깨는 삭제가 없다). 아래는 **더해진 계약**이다.

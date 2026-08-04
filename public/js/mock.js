@@ -599,10 +599,14 @@
           id: 'player', name: (opts.playerName || '그대') + '의 정착지', isPlayer: true, tags: [], tagNames: [],
           town: { x: W.cx, y: W.cy }, territory: { radius: W.radius, cx: W.cx, cy: W.cy },
           residents: W.residents.map(function (r) {
+            /* ★ §13-A-3 — 구경 모드도 하루 산출을 실어 준다. 없으면 짐이 안 쌓여 나르지 않는다. */
+            var per = { lumber: 3.2, farm: 2.4, quarry: 1.7, mine: 0.9 }[r.job];
+            var rk = { lumber: 'wood', farm: 'grain', quarry: 'stone', mine: 'ironOre' }[r.job];
             return { id: r.id, name: r.name, appearance: r.appearance, job: r.job,
                      jobName: { lumber: '나무꾼', farm: '농부', idle: '쉬는 중' }[r.job] || '일꾼',
                      x: r.x, y: r.y, destX: r.destX, destY: r.destY, targetId: r.targetId,
-                     militia: false, represents: 1, selectable: true };
+                     militia: false, represents: 1, selectable: true,
+                     yield: per && rk ? { resource: rk, perDay: per } : undefined };
           }),
           housing: { population: W.population, capacity: capacity(),
                      freeBeds: Math.max(0, capacity() - W.population),

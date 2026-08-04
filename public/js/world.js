@@ -574,7 +574,17 @@
     return false;
   }
 
-  /** ★ §12-9 노동 루프 — 서버 수치와 무관한 순수 연출이다 */
+  /**
+   * ★ §12-9 노동 루프 + ★ §13-A-3 실제 수치.
+   *
+   * 예전엔 순수 연출이었다 — 0.9초마다 휘두르고 네 번이면 지고 날라 **숫자 없이** 부렸다.
+   * 그래서 "주민이 일하는 건 보이는데 국고에 들어가는지 모르겠다"가 나왔다.
+   * (실측: 산출은 국고에 제대로 들어가고 있었다. 다만 일 틱 10분에 한 번 소리 없이 뭉텅이로.)
+   *
+   * 이제 짐은 **흐른 시간만큼 실제로 쌓인다**: 초당 perDay ÷ 하루길이.
+   * 한 자루(perDay ÷ deliveriesPerDay)가 차면 그때 나르고, 부리는 순간 그 자루의 값을 띄운다.
+   * 그래서 하루 동안 뜬 숫자의 합 = 서버가 국고에 넣는 값이다. 연출과 셈이 같은 시계를 본다.
+   */
   function stepWork(v, a, dt) {
     var res = CARRY_JOBS[v.job];
     var node = v.targetId ? S.nodeById(v.targetId) : null;
@@ -582,19 +592,25 @@
     a.home = a.home || { x: node.x, y: node.y };
     a.home.x = node.x; a.home.y = node.y;
 
+    var wk = S.villagerWorkCfg();
+    var perDay = (v.yield && v.yield.resource === res) ? (v.yield.perDay || 0) : 0;
+    var sack = perDay > 0 ? perDay / Math.max(1, wk.deliveriesPerDay) : 0;
+    var perSec = perDay / Math.max(1, S.dayRealSeconds());
+
     if (a.phase === 'work') {
       a.swingT = (a.swingT || 0) + dt;
-      a.pose = Math.max(0, 1 - (a.swingT % 0.9) / 0.42);      // 0.9초마다 한 번 휘두른다
+      a.pose = Math.max(0, 1 - (a.swingT % wk.swingSeconds) / (wk.swingSeconds * 0.47));
       faceTo(a, node.x - a.x, node.y - a.y);
-      if (a.swingT - (a.lastHit || 0) >= 0.9) {
+      a.carry = (a.carry || 0) + perSec * dt;                 // ★ 짐은 시간과 함께 쌓인다
+      if (a.swingT - (a.lastHit || 0) >= wk.swingSeconds) {
         a.lastHit = a.swingT;
         if (GM.fx) {
           GM.fx.shakeNode(node.id, 0.45);
           GM.fx.debris(node.x, node.y, S.nodeMeta(node.type).color, 3, 0.6);
         }
-        a.carry = (a.carry || 0) + 1;
       }
-      if ((a.carry || 0) >= 4) { a.phase = 'haul'; a.drop = dropSpot(a); a.swingT = 0; a.pose = 0; }
+      /* 자루가 찼으면 나른다. 산출이 0인 사람(고갈된 노드 등)은 나르지 않는다 — 헛걸음을 보이지 않는다. */
+      if (sack > 0 && a.carry >= sack) { a.phase = 'haul'; a.drop = dropSpot(a); a.swingT = 0; a.pose = 0; }
       return true;
     }
     if (a.phase === 'haul') {
@@ -605,11 +621,17 @@
     if (a.phase === 'unload') {
       a.unloadT = (a.unloadT || 0) + dt;
       if (a.unloadT > 0.55) {
-        // 하역 — 자원 팝을 소량 (숫자는 서버가 정한다. 이건 "일이 흘러간다"는 그림일 뿐이다)
+        /* ★ §13-A-3 하역 — 연출과 수치가 같은 순간에 터진다.
+           숫자는 플레이어의 스윙과 **같은 서식**("+1.2 목재")으로, 제자리에서 떠오르며 사라진다. */
+        var got = a.carry || 0;
         if (GM.fx) {
           GM.fx.dust(a.x, a.y, 4, '#c8a874');
-          // 숫자는 붙이지 않는다 — 실제 셈은 서버의 일 틱이 한다. 여기서는 "무언가 들어갔다"만 보인다.
-          GM.fx.resourcePop(a.x, a.y - 0.4, res, '', (S.resourceMeta(res) || {}).color);
+          var meta = S.resourceMeta(res) || {};
+          if (got > 0.049) {
+            GM.fx.floatText(a.x, a.y - 0.9, '+' + U.fmt(got, got < 10 ? 1 : 0) + ' ' + (meta.name || res),
+              meta.color || '#f6e6a8', 12);
+          }
+          GM.fx.resourcePop(a.x, a.y - 0.4, res, '', meta.color);
         }
         a.carry = 0;
         a.phase = 'return';

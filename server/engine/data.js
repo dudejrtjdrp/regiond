@@ -160,6 +160,8 @@ export function publicWorld(d = loadGameData()) {
         .filter(([k]) => !k.startsWith('_'))
         .map(([k, v]) => [k, { nodeTypes: [...(v.nodeTypes || [])], posts: [...(v.posts || [])] }])),
       postSlots: { ...w.villagers.postSlots },
+      // ★ GDD3 §13-A-3 — 노동 연출과 수치를 같은 시계에 맞추는 다이얼
+      work: w.villagers.work ? { ...w.villagers.work } : null,
       moveTilesPerTick: w.villagers.moveTilesPerTick,
     },
     laborDerivation: {

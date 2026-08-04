@@ -208,35 +208,51 @@ const JOB_RESOURCE = {
 };
 
 /**
+ * ★ GDD3 §13-A-3 — 주민 **한 사람**의 하루 산출. 국고 적립과 화면 표시가 **이 함수 하나**를 쓴다.
+ *
+ * 왜 갈라냈나: 실측해 보니 주민 산출은 국고에 제대로 들어가고 있었다(벌목 3명 → 하루 +15.36).
+ * 문제는 **보이지 않는다**는 것이었다 — 일 틱(10분)에 한 번 소리 없이 뭉텅이로 들어가는 동안
+ * 화면은 40번쯤 지고 나르는 시늉만 했다. 화면이 띄울 숫자가 국고에 실제로 들어가는 값과
+ * 반드시 같으려면, 두 쪽이 같은 함수에서 값을 받아야 한다.
+ *
+ * @param {object|null} node 이 주민이 붙어 있는 자원 노드(없으면 건물 일자리)
+ * @returns {{kind:'resource'|'buildPoints'|'none', resource?:string, perDay:number, idle?:boolean}}
+ */
+export function residentYield(u, node, data) {
+  const cfg = gatherCfg(data);
+  if (!u) return { kind: 'none', perDay: 0 };
+  if (u.job === 'idle') return { kind: 'resource', resource: 'grain', perDay: cfg.idleGrainPerDay, idle: true };
+  if (u.job === 'build') return { kind: 'buildPoints', perDay: cfg.buildPointsPerResidentPerDay };
+  const res = JOB_RESOURCE[u.job];
+  if (!res) return { kind: 'none', perDay: 0 };
+  if (node && node.type === 'oil') return { kind: 'resource', resource: 'oil', perDay: cfg.perResidentPerDay.oil };
+  let amount = cfg.perResidentPerDay[res] || 0;
+  if (!node) amount *= 0.5;                         // 일자리(건물)에 붙어 있으면 절반
+  else if (node.depleted) amount = 0;
+  else if (node.rich) amount *= cfg.richMultiplier;
+  if (node && node.type === 'iron') amount = cfg.perResidentPerDay.ironOre;
+  return { kind: 'resource', resource: res, perDay: round2(amount) };
+}
+
+/** 주민이 지금 붙어 있는 노드 (건물 일자리면 null) */
+export const nodeOfResident = (world, u) =>
+  (u?.targetId ? (world?.map?.nodes || []).find((n) => n.id === u.targetId) : null) || null;
+
+/**
  * 주민 개별 노동 산출(하루). 노드에 붙은 주민만 낸다.
+ * ★ §13-A-3 — 합산만 한다. 한 사람 몫은 residentYield 가 정본이다.
  * @returns {{resources:{}, buildPoints:number, workers:number}}
  */
 export function residentGather(world, nation, data) {
-  const cfg = gatherCfg(data);
   const out = { resources: {}, buildPoints: 0, workers: 0 };
   const nodeById = new Map((world.map?.nodes || []).map((n) => [n.id, n]));
   for (const u of nation.villagers || []) {
-    if (u.job === 'idle') {
-      out.resources.grain = (out.resources.grain || 0) + cfg.idleGrainPerDay;
-      continue;
-    }
-    if (u.job === 'build') {
-      out.buildPoints += cfg.buildPointsPerResidentPerDay;
-      out.workers += 1;
-      continue;
-    }
-    const res = JOB_RESOURCE[u.job];
-    if (!res) continue;
-    const node = u.targetId ? nodeById.get(u.targetId) : null;
-    let amount = cfg.perResidentPerDay[res] || 0;
-    if (!node) amount *= 0.5;                       // 일자리(건물)에 붙어 있으면 절반
-    else if (node.depleted) amount = 0;
-    else if (node.rich) amount *= cfg.richMultiplier;
-    if (node && node.type === 'iron') amount = cfg.perResidentPerDay.ironOre;
-    if (node && node.type === 'oil') { out.resources.oil = (out.resources.oil || 0) + cfg.perResidentPerDay.oil; out.workers += 1; continue; }
-    if (amount <= 0) continue;
-    out.resources[res] = (out.resources[res] || 0) + amount;
-    out.workers += 1;
+    const node = u.targetId ? (nodeById.get(u.targetId) ?? null) : null;
+    const y = residentYield(u, node, data);
+    if (y.kind === 'buildPoints') { out.buildPoints += y.perDay; out.workers += 1; continue; }
+    if (y.kind !== 'resource' || !(y.perDay > 0)) continue;
+    out.resources[y.resource] = (out.resources[y.resource] || 0) + y.perDay;
+    if (!y.idle) out.workers += 1;
   }
   for (const k of Object.keys(out.resources)) out.resources[k] = round2(out.resources[k]);
   out.buildPoints = round2(out.buildPoints);
@@ -303,20 +319,27 @@ export function housingView(nation, data) {
   };
 }
 
-export function residentViews(nation, data) {
+export function residentViews(nation, data, world = null) {
   const names = data.world.villagers.jobNames;
   const per = peoplePerUnit(nation, data);
-  return (nation.villagers || []).map((u) => ({
-    id: u.id,
-    name: u.name ?? u.id,
-    appearance: u.appearance ?? null,
-    job: u.job,
-    jobName: names[u.job] ?? u.job,
-    x: u.x, y: u.y,
-    destX: u.destX ?? u.x, destY: u.destY ?? u.y,
-    targetId: u.targetId ?? null,
-    militia: u.job === 'defense',
-    represents: per,
-    selectable: true,
-  }));
+  return (nation.villagers || []).map((u) => {
+    /* ★ §13-A-3 — 이 사람이 하루에 얼마를 버는가. 국고에 적립되는 값과 **같은 함수**가 낸다.
+       화면은 이 값을 흐른 시간만큼 쪼개어 "+1.2 목재" 를 띄우므로, 뜬 숫자의 합 = 국고 증가분이다. */
+    const y = residentYield(u, nodeOfResident(world, u), data);
+    return {
+      id: u.id,
+      name: u.name ?? u.id,
+      appearance: u.appearance ?? null,
+      job: u.job,
+      jobName: names[u.job] ?? u.job,
+      x: u.x, y: u.y,
+      destX: u.destX ?? u.x, destY: u.destY ?? u.y,
+      targetId: u.targetId ?? null,
+      militia: u.job === 'defense',
+      represents: per,
+      selectable: true,
+      ...(y.kind === 'resource' && y.perDay > 0 && !y.idle
+        ? { yield: { resource: y.resource, perDay: y.perDay } } : {}),
+    };
+  });
 }

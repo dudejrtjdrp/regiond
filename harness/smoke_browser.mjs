@@ -715,6 +715,66 @@ try {
         return bright > 200;})()`), '화면 한가운데가 실제로 캄캄하지 않다', '아바타 둘레가 여전히 검다');
   }
 
+  // ── 9-b. ★ §13-A-3 주민 노동 수치 — "+1.2 목재" 가 정말로 뜨는가 ──
+  //   숫자가 뜨기만 하면 되는 게 아니다. **뜬 값이 그 주민의 하루 산출에서 나온 자루 하나**여야 한다.
+  {
+    const setup = await ev(`(function(){
+        var r = GM.state.residents()[0];
+        if (!r) return 'NO_RESIDENT';
+        // 그 주민에게서 가장 가까운 나무 — 걸어가는 데 검사 시간을 다 쓰지 않도록
+        var nd = null, bd = 1e9;
+        GM.state.nodeList().forEach(function (n) {
+          if (n.type !== 'forest' || n.depleted) return;
+          var d = Math.hypot(n.x - r.x, n.y - r.y);
+          if (d < bd) { bd = d; nd = n; }
+        });
+        if (!nd) return 'NO_NODE';
+        // 짐이 금세 차도록 하루를 짧게, 자루를 잘게 (검사 뒤 되돌린다)
+        var c = GM.state.S.config;
+        window.__save = { day: c.time.dayRealSeconds, work: JSON.parse(JSON.stringify(c.world.villagers.work || {})) };
+        c.time.dayRealSeconds = 3;
+        c.world.villagers.work = { deliveriesPerDay: 10, swingSeconds: 0.4 };
+        // 부릴 곳을 나무 옆에 하나 놓아 나르는 길을 짧게 한다 (화면 전용, 검사 뒤 거둔다)
+        window.__crate = { id: '__smoke_crate', key: 'storage_crate', name: '저장 궤짝', tier: 1,
+                           x: nd.x + 1, y: nd.y, fw: 1, fh: 1, cx: nd.x + 1, cy: nd.y, hp: 40, maxHp: 40 };
+        GM.state.nation().structures.push(window.__crate);
+        r.job = 'lumber'; r.targetId = nd.id;
+        r.x = nd.x; r.y = nd.y; r.destX = nd.x; r.destY = nd.y;
+        r.yield = { resource: 'wood', perDay: 3.2 };
+        // 플로팅 수치를 엿본다
+        window.__floats = [];
+        if (!window.__origFloat) window.__origFloat = GM.fx.floatText;
+        GM.fx.floatText = function (x, y, t) { window.__floats.push(String(t)); return window.__origFloat.apply(null, arguments); };
+        return 'OK';})()`);
+    must(setup === 'OK', '★ §13-A-3 주민을 나무에 붙였다', `준비 실패: ${setup}`);
+    if (setup === 'OK') {
+      // 걸음·작업·나르기를 손으로 돌려 한 바퀴를 확실히 끝낸다(rAF 를 20초 기다리지 않는다)
+      const cycle = await ev(`(function(){
+          for (var i = 0; i < 4000; i++) GM.world.stepUnitsForTest(0.05);
+          var u = GM.world.unitPos(GM.state.residents()[0].id) || {};
+          return JSON.stringify({ phase: u.phase, carry: u.carry, floats: window.__floats.length });})()`);
+      const got = JSON.parse(cycle);
+      const woodFloats = JSON.parse(await ev('JSON.stringify(window.__floats.filter(function(t){return /목재/.test(t);}))'));
+      must(/^\+[0-9.]+ 목재$/.test(woodFloats[0] || ''),
+        '★ 주민이 하역할 때 "+N 목재" 가 뜬다 (플레이어와 같은 서식)',
+        `단계 ${got.phase} · 짐 ${got.carry} · 띄운 것 ${await ev('JSON.stringify(window.__floats.slice(-6))')}`);
+      const shown = JSON.parse(await ev(`JSON.stringify(window.__floats.filter(function(t){ return /목재/.test(t); }))`));
+      const vals = shown.map((t) => parseFloat(String(t).replace(/[^0-9.]/g, ''))).filter((n) => n > 0);
+      // 자루 하나 = 하루 산출 ÷ 하역 횟수 = 3.2 / 10 = 0.32
+      must(vals.length > 0 && vals.every((n) => n > 0 && n < 3.2),
+        '★ 뜬 값이 그 주민의 하루 산출 안에서 나온 자루 하나다', `값: ${vals.join(', ')}`);
+      pass('주민 노동 수치', `뜬 숫자 ${shown.slice(0, 3).join(' · ')}${shown.length > 3 ? ' …' : ''}`);
+      await ev(`(function(){
+          GM.fx.floatText = window.__origFloat;
+          var c = GM.state.S.config;
+          c.time.dayRealSeconds = window.__save.day;
+          c.world.villagers.work = window.__save.work;
+          var st = GM.state.nation().structures;
+          for (var i = st.length - 1; i >= 0; i--) if (st[i].id === '__smoke_crate') st.splice(i, 1);
+          return 1;})()`);
+    }
+  }
+
   // ── 10. ★ 밤낮 4구간 — 이름만이 아니라 **화면이 실제로 어두워지는가** (GDD3 §12-10) ──
   must(await ev(`(function(){
       GM.state.S.dayFraction = 0.1; var a = GM.state.phaseMeta().name;

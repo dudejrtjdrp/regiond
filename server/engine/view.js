@@ -94,7 +94,7 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
       town: town ? { x: town.x, y: town.y } : null,
       territory: { radius: territoryRadius(nation, data), cx: town?.x ?? null, cy: town?.y ?? null },
       // ★ GDD3 §4 — 주민은 실인원이다
-      residents: residentViews(nation, data),
+      residents: residentViews(nation, data, world),
       housing: housingView(nation, data),
       peoplePerUnit: round2(peoplePerUnit(nation, data)),
       villagerMix: derived ? { counts: derived.counts, mix: round3Map(derived.mix), units: derived.units } : null,
@@ -439,7 +439,7 @@ export function buildWorldDiff(world, nationId, data, sinceTick = -1) {
     structures: (nation.structures || []).map((s) => structureView(nation, s, data)),
     sites: (nation.construction || []).map((c) => siteView(nation, c, data)),
     fences: fenceViews(nation, data),
-    residents: residentViews(nation, data),
+    residents: residentViews(nation, data, world),
     camps: campViews(world, nation, null, data),
     avatars: avatarViews(nation, data),
   };
