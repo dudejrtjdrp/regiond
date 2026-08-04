@@ -155,7 +155,7 @@
           "stone": 60
         },
         "buildPoints": 20,
-        "residents": 4,
+        "residents": 5,
         "hp": 180,
         "attractiveness": 0.06
       },
@@ -166,7 +166,7 @@
           "steel": 10
         },
         "buildPoints": 32,
-        "residents": 5,
+        "residents": 8,
         "hp": 260,
         "attractiveness": 0.09
       },
@@ -177,14 +177,14 @@
           "steel": 40
         },
         "buildPoints": 46,
-        "residents": 7,
+        "residents": 12,
         "hp": 360,
         "attractiveness": 0.12
       }
     ],
     "footprint": [
       2,
-      2
+      3
     ]
   },
   "manor": {
@@ -203,7 +203,7 @@
           "steel": 30
         },
         "buildPoints": 36,
-        "residents": 6,
+        "residents": 8,
         "hp": 300,
         "attractiveness": 0.1
       },
@@ -214,7 +214,7 @@
           "steel": 80
         },
         "buildPoints": 52,
-        "residents": 8,
+        "residents": 13,
         "hp": 420,
         "attractiveness": 0.14
       },
@@ -225,14 +225,14 @@
           "steel": 160
         },
         "buildPoints": 72,
-        "residents": 11,
+        "residents": 20,
         "hp": 560,
         "attractiveness": 0.18
       }
     ],
     "footprint": [
       3,
-      3
+      4
     ]
   },
   "storage_crate": {
@@ -322,7 +322,7 @@
         },
         "buildPoints": 5,
         "flatOutput": {
-          "wood": 1.5
+          "wood": 2.0
         },
         "hp": 40
       },
@@ -333,14 +333,14 @@
         },
         "buildPoints": 10,
         "flatOutput": {
-          "wood": 3
+          "wood": 3.4
         },
         "hp": 60
       }
     ],
     "footprint": [
       1,
-      1
+      2
     ]
   },
   "granary": {
@@ -352,7 +352,7 @@
     "multi": true,
     "role": "farm",
     "desc": "거둔 것을 썩히지 않는다.",
-    "storageCap": 150,
+    "storageCap": 200,
     "workSlots": 3,
     "job": "farm",
     "tiers": [
@@ -363,7 +363,7 @@
         },
         "buildPoints": 14,
         "output": {
-          "grain": 0.15
+          "grain": 0.2
         },
         "storageBonus": 0.4,
         "hp": 130
@@ -375,7 +375,7 @@
         },
         "buildPoints": 24,
         "output": {
-          "grain": 0.3
+          "grain": 0.32
         },
         "storageBonus": 0.8,
         "hp": 200
@@ -387,7 +387,7 @@
         },
         "buildPoints": 36,
         "output": {
-          "grain": 0.5
+          "grain": 0.46
         },
         "storageBonus": 1.2,
         "hp": 290
@@ -395,7 +395,7 @@
     ],
     "footprint": [
       2,
-      2
+      3
     ]
   },
   "sawmill": {
@@ -416,10 +416,10 @@
         },
         "buildPoints": 16,
         "gatherBonus": {
-          "wood": 0.15
+          "wood": 0.2
         },
         "flatOutput": {
-          "wood": 2
+          "wood": 3.0
         },
         "hp": 140
       },
@@ -430,10 +430,10 @@
         },
         "buildPoints": 26,
         "gatherBonus": {
-          "wood": 0.3
+          "wood": 0.32
         },
         "flatOutput": {
-          "wood": 4
+          "wood": 5.0
         },
         "hp": 210
       },
@@ -445,16 +445,16 @@
         },
         "buildPoints": 40,
         "gatherBonus": {
-          "wood": 0.5
+          "wood": 0.46
         },
         "flatOutput": {
-          "wood": 7
+          "wood": 7.5
         },
         "hp": 300
       }
     ],
     "footprint": [
-      2,
+      3,
       2
     ]
   },
@@ -476,10 +476,10 @@
         },
         "buildPoints": 16,
         "gatherBonus": {
-          "stone": 0.15
+          "stone": 0.2
         },
         "flatOutput": {
-          "stone": 1.5
+          "stone": 2.5
         },
         "hp": 140
       },
@@ -490,10 +490,10 @@
         },
         "buildPoints": 26,
         "gatherBonus": {
-          "stone": 0.3
+          "stone": 0.32
         },
         "flatOutput": {
-          "stone": 3
+          "stone": 4.2
         },
         "hp": 210
       },
@@ -505,16 +505,16 @@
         },
         "buildPoints": 40,
         "gatherBonus": {
-          "stone": 0.5
+          "stone": 0.46
         },
         "flatOutput": {
-          "stone": 5
+          "stone": 6.2
         },
         "hp": 300
       }
     ],
     "footprint": [
-      2,
+      3,
       2
     ]
   },
@@ -588,9 +588,9 @@
         },
         "buildPoints": 16,
         "flatOutput": {
-          "meat": 0.8,
-          "wool": 0.3,
-          "hide": 0.25
+          "meat": 1.1,
+          "wool": 0.42,
+          "hide": 0.35
         },
         "hp": 120
       },
@@ -601,9 +601,9 @@
         },
         "buildPoints": 26,
         "flatOutput": {
-          "meat": 1.4,
-          "wool": 0.55,
-          "hide": 0.45
+          "meat": 1.9,
+          "wool": 0.73,
+          "hide": 0.61
         },
         "hp": 180
       },
@@ -615,15 +615,15 @@
         },
         "buildPoints": 38,
         "flatOutput": {
-          "meat": 2.2,
-          "wool": 0.9,
-          "hide": 0.75
+          "meat": 3.4,
+          "wool": 1.28,
+          "hide": 1.07
         },
         "hp": 260
       }
     ],
     "footprint": [
-      2,
+      3,
       3
     ]
   },
@@ -636,7 +636,7 @@
     "multi": true,
     "role": "build",
     "desc": "창고가 크면 잉여가 썩지 않는다.",
-    "storageCap": 250,
+    "storageCap": 420,
     "workSlots": 3,
     "job": "trade",
     "tiers": [
@@ -672,7 +672,7 @@
       }
     ],
     "footprint": [
-      2,
+      3,
       3
     ]
   },
@@ -694,7 +694,7 @@
           "stone": 120
         },
         "buildPoints": 24,
-        "factoryBonus": 0.15,
+        "factoryBonus": 0.22,
         "hp": 160
       },
       {
@@ -704,7 +704,7 @@
           "steel": 30
         },
         "buildPoints": 36,
-        "factoryBonus": 0.3,
+        "factoryBonus": 0.36,
         "hp": 240
       },
       {
@@ -714,13 +714,13 @@
           "steel": 90
         },
         "buildPoints": 52,
-        "factoryBonus": 0.5,
+        "factoryBonus": 0.52,
         "hp": 340
       }
     ],
     "footprint": [
-      2,
-      2
+      3,
+      3
     ]
   },
   "smithy": {
@@ -742,7 +742,7 @@
           "ironOre": 20
         },
         "buildPoints": 22,
-        "toolDiscount": 0.08,
+        "toolDiscount": 0.12,
         "militiaDps": 1,
         "hp": 150
       },
@@ -753,7 +753,7 @@
           "steel": 30
         },
         "buildPoints": 34,
-        "toolDiscount": 0.16,
+        "toolDiscount": 0.2,
         "militiaDps": 2,
         "hp": 220
       },
@@ -764,14 +764,14 @@
           "steel": 90
         },
         "buildPoints": 48,
-        "toolDiscount": 0.25,
+        "toolDiscount": 0.3,
         "militiaDps": 3.5,
         "hp": 310
       }
     ],
     "footprint": [
-      2,
-      2
+      3,
+      3
     ]
   },
   "mine_shaft": {
@@ -792,7 +792,8 @@
         },
         "buildPoints": 24,
         "flatOutput": {
-          "ironOre": 2
+          "ironOre": 2,
+          "iron_ore": 3.0
         },
         "hp": 150
       },
@@ -804,7 +805,8 @@
         },
         "buildPoints": 36,
         "flatOutput": {
-          "ironOre": 4.5
+          "ironOre": 4.5,
+          "iron_ore": 5.0
         },
         "hp": 220
       },
@@ -816,14 +818,15 @@
         },
         "buildPoints": 52,
         "flatOutput": {
-          "ironOre": 8
+          "ironOre": 8,
+          "iron_ore": 7.5
         },
         "hp": 310
       }
     ],
     "footprint": [
-      2,
-      2
+      3,
+      3
     ]
   },
   "mill": {
@@ -845,10 +848,10 @@
         },
         "buildPoints": 28,
         "output": {
-          "grain": 0.12
+          "grain": 0.16
         },
         "flatOutput": {
-          "grain": 4
+          "grain": 5.5
         },
         "hp": 170
       },
@@ -860,10 +863,10 @@
         },
         "buildPoints": 42,
         "output": {
-          "grain": 0.24
+          "grain": 0.26
         },
         "flatOutput": {
-          "grain": 8
+          "grain": 9.0
         },
         "hp": 250
       },
@@ -875,17 +878,17 @@
         },
         "buildPoints": 60,
         "output": {
-          "grain": 0.4
+          "grain": 0.38
         },
         "flatOutput": {
-          "grain": 13
+          "grain": 13.5
         },
         "hp": 350
       }
     ],
     "footprint": [
-      2,
-      2
+      3,
+      3
     ]
   },
   "fence": {
@@ -1082,8 +1085,8 @@
           "steel": 20
         },
         "buildPoints": 24,
-        "permanentDefense": 30,
-        "militiaSlots": 4,
+        "permanentDefense": 40,
+        "militiaSlots": 6,
         "militiaBonus": 0.25,
         "hp": 190
       },
@@ -1094,8 +1097,8 @@
           "steel": 60
         },
         "buildPoints": 38,
-        "permanentDefense": 70,
-        "militiaSlots": 8,
+        "permanentDefense": 92,
+        "militiaSlots": 11,
         "militiaBonus": 0.5,
         "hp": 280
       },
@@ -1106,15 +1109,15 @@
           "steel": 130
         },
         "buildPoints": 54,
-        "permanentDefense": 150,
-        "militiaSlots": 13,
+        "permanentDefense": 195,
+        "militiaSlots": 17,
         "militiaBonus": 0.85,
         "hp": 400
       }
     ],
     "footprint": [
       3,
-      3
+      4
     ]
   },
   "ballista": {
@@ -1176,8 +1179,8 @@
       }
     ],
     "footprint": [
-      1,
-      1
+      2,
+      2
     ]
   },
   "cannon": {
@@ -1237,8 +1240,8 @@
       }
     ],
     "footprint": [
-      1,
-      1
+      2,
+      3
     ]
   },
   "campfire": {
@@ -1390,7 +1393,8 @@
         },
         "buildPoints": 22,
         "logisticsTier": 1,
-        "hp": 150
+        "hp": 150,
+        "attractiveness": 0.1
       },
       {
         "cost": {
@@ -1400,7 +1404,8 @@
         },
         "buildPoints": 34,
         "logisticsTier": 2,
-        "hp": 220
+        "hp": 220,
+        "attractiveness": 0.16
       },
       {
         "cost": {
@@ -1410,11 +1415,12 @@
         },
         "buildPoints": 48,
         "logisticsTier": 3,
-        "hp": 310
+        "hp": 310,
+        "attractiveness": 0.24
       }
     ],
     "footprint": [
-      2,
+      3,
       3
     ]
   },
@@ -1437,8 +1443,8 @@
         },
         "buildPoints": 30,
         "logisticsTier": 2,
-        "attractiveness": 0.08,
-        "goldPerDay": 3,
+        "attractiveness": 0.1,
+        "goldPerDay": 4,
         "hp": 180
       },
       {
@@ -1449,8 +1455,8 @@
         },
         "buildPoints": 44,
         "logisticsTier": 3,
-        "attractiveness": 0.12,
-        "goldPerDay": 7,
+        "attractiveness": 0.16,
+        "goldPerDay": 8,
         "hp": 260
       },
       {
@@ -1461,14 +1467,14 @@
         },
         "buildPoints": 62,
         "logisticsTier": 3,
-        "attractiveness": 0.17,
-        "goldPerDay": 13,
+        "attractiveness": 0.24,
+        "goldPerDay": 14,
         "hp": 360
       }
     ],
     "footprint": [
       3,
-      3
+      4
     ]
   },
   "shrine": {
@@ -1488,8 +1494,8 @@
           "steel": 30
         },
         "buildPoints": 30,
-        "populationCap": 90,
-        "attractiveness": 0.1,
+        "populationCap": 120,
+        "attractiveness": 0.12,
         "moraleBonus": 0.04,
         "hp": 200
       },
@@ -1500,8 +1506,8 @@
           "steel": 80
         },
         "buildPoints": 46,
-        "populationCap": 160,
-        "attractiveness": 0.15,
+        "populationCap": 190,
+        "attractiveness": 0.18,
         "moraleBonus": 0.07,
         "hp": 290
       },
@@ -1512,15 +1518,15 @@
           "steel": 180
         },
         "buildPoints": 66,
-        "populationCap": 260,
-        "attractiveness": 0.2,
+        "populationCap": 300,
+        "attractiveness": 0.26,
         "moraleBonus": 0.1,
         "hp": 400
       }
     ],
     "footprint": [
-      3,
-      3
+      4,
+      4
     ]
   },
   "consulate": {
@@ -1536,33 +1542,33 @@
     "tiers": [
       {
         "gold": 60,
-        "tariffReduction": 0.01,
+        "tariffReduction": 0.015,
         "hp": 160
       },
       {
         "gold": 80,
-        "tariffReduction": 0.01,
+        "tariffReduction": 0.028,
         "hp": 180
       },
       {
         "gold": 110,
-        "tariffReduction": 0.01,
+        "tariffReduction": 0.042,
         "hp": 200
       },
       {
         "gold": 150,
-        "tariffReduction": 0.01,
+        "tariffReduction": 0.056,
         "hp": 220
       },
       {
         "gold": 200,
-        "tariffReduction": 0.01,
+        "tariffReduction": 0.07,
         "hp": 240
       }
     ],
     "footprint": [
-      3,
-      3
+      4,
+      4
     ]
   },
   "monument": {
@@ -1581,9 +1587,9 @@
           "steel": 80
         },
         "buildPoints": 45,
-        "attractiveness": 0.15,
+        "attractiveness": 0.18,
         "moraleBonus": 0.06,
-        "prestige": 10,
+        "prestige": 12,
         "hp": 320
       },
       {
@@ -1593,9 +1599,9 @@
           "steel": 180
         },
         "buildPoints": 64,
-        "attractiveness": 0.22,
+        "attractiveness": 0.28,
         "moraleBonus": 0.09,
-        "prestige": 25,
+        "prestige": 22,
         "hp": 450
       },
       {
@@ -1605,15 +1611,15 @@
           "steel": 340
         },
         "buildPoints": 88,
-        "attractiveness": 0.3,
+        "attractiveness": 0.4,
         "moraleBonus": 0.12,
-        "prestige": 50,
+        "prestige": 36,
         "hp": 600
       }
     ],
     "footprint": [
-      2,
-      2
+      3,
+      3
     ]
   },
   "lamp": {

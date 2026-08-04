@@ -29,15 +29,16 @@ test('§12-1 풋프린트 — 모든 건물이 칸 수를 갖고, 표가 스펙�
     const f = footprint(key, data);
     assert.ok(f.w >= 1 && f.h >= 1, `${key} 풋프린트`);
   }
+  /* ★ §15-B-3 재조정 — 뒤에 열리는 건물일수록 넓게 자리 잡는다(그 값은 아래 단조 검사가 지킨다). */
   const want = {
-    tent: [1, 1], hut: [2, 2], granary: [2, 2], well: [2, 2],
-    storage: [2, 3], trading_post: [2, 3],
-    sawmill: [2, 2], quarry_camp: [2, 2], smithy: [2, 2], smelter: [2, 2],
-    barracks: [3, 3], shrine: [3, 3], market: [3, 3],
-    house: [2, 2], manor: [3, 3], appraisal_post: [2, 2],
-    arrow_tower: [1, 1], ballista: [1, 1], cannon: [1, 1],
+    tent: [1, 1], hut: [2, 2], granary: [2, 3], well: [2, 2],
+    storage: [3, 3], trading_post: [3, 3],
+    sawmill: [3, 2], quarry_camp: [3, 2], smithy: [3, 3], smelter: [3, 3],
+    barracks: [3, 4], shrine: [4, 4], market: [3, 4],
+    house: [2, 3], manor: [3, 4], appraisal_post: [2, 2],
+    arrow_tower: [1, 1], ballista: [2, 2], cannon: [2, 3],
     lamp: [1, 1], banner: [1, 1], garden: [1, 1], fountain: [1, 1],
-    campfire: [4, 4],
+    campfire: [4, 4], consulate: [4, 4], monument: [3, 3], woodpile: [1, 2],
   };
   for (const [key, [w, h]] of Object.entries(want)) {
     const f = footprint(key, data);
@@ -49,8 +50,8 @@ test('§12-1 풋프린트 — 앵커는 좌상단, 1×1 이면 옛 좌표와 완
   assert.deepEqual(anchorFromCell('tent', 10, 20, data), { x: 10, y: 20 });
   assert.deepEqual(centerOf('tent', 10, 20, data), { x: 10, y: 20 });
   // 3×3 은 커서 칸이 한가운데가 되도록 물려 잡는다
-  assert.deepEqual(anchorFromCell('shrine', 10, 20, data), { x: 9, y: 19 });
-  assert.deepEqual(centerOf('shrine', 9, 19, data), { x: 10, y: 20 });
+  assert.deepEqual(anchorFromCell('monument', 10, 20, data), { x: 9, y: 19 });
+  assert.deepEqual(centerOf('monument', 9, 19, data), { x: 10, y: 20 });
   // 사각형 사이 간격 — 1×1 끼리면 체비쇼프 거리와 같은 값
   const a = footRect('tent', 0, 0, data);
   const b = footRect('tent', 2, 0, data);

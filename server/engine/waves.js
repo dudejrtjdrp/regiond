@@ -78,8 +78,16 @@ export function waveSpec(index, data, { difficultyMultiplier = 1, settlementScal
 export function defenseIndex(nation, data) {
   const cfg = wavesCfg(data).settlementScale;
   const m = battleCfg(data).militia;
+  /* ★ §15-B — 터렛의 몫은 화력만이 아니라 **닿는 넓이**다.
+     옛 식은 dps 만 셌다. 그래서 §15-A 로 사거리가 늘고 노포·화포가 초반에 열리자,
+     실제 방어력은 크게 올랐는데 규모 보정은 그 절반만 알아챘다(실측: 웨이브5 생존율 65%→90%).
+     사거리가 길수록 적이 사정권에 머무는 시간이 길고 = 같은 dps 가 더 많은 피해를 낸다.
+     rangeReference 는 그 항이 1이 되는 기준 사거리(화살탑 1단계)다. */
+  const rangeRef = cfg?.turretRangeReference ?? 0;
   let turret = 0;
-  for (const t of turretList(nation, data)) turret += t.dps;
+  for (const t of turretList(nation, data)) {
+    turret += rangeRef > 0 ? t.dps * (t.range / rangeRef) : t.dps;
+  }
   const defenders = (nation.villagers || []).filter((u) => u.job === 'defense').length;
   const trained = Math.min(defenders, militiaSlots(nation, data));
   const militiaDps = (trained * (1 + militiaBonus(nation, data))

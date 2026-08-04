@@ -145,7 +145,7 @@ export function createWorld({ gameId, seed = 42, data, playerName = '플레이�
 
   const world = {
     gameId: gameId ?? `g_${seed}_${Date.now().toString(36)}`,
-    schema: 5,                       // ★ v3.2 = 월드 2.0(군락·유한 자원·유적 크기) + 생태계. schema<5 세이브는 읽지 않는다.
+    schema: 6,                       // ★ §15-B-3 = 건물 풋프린트 재조정. schema<6 세이브는 읽지 않는다(아래 주석).
     seed,
     difficulty: difficultyKey,
     rngState: rng.getState(),
@@ -220,9 +220,13 @@ export { townOf };
 //   유적에 크기가 생기고, 들에 짐승이 산다. 옛 지도에는 군락도 딸기 들도 없고 영토 한복판에
 //   나무가 박혀 있다. 억지로 이어 붙이면 「새 규칙 위에 옛 땅」이 되므로 만나면 버리고 새로 판다.
 // ────────────────────────────────────────────────────────────────
+// ★ GDD3 §15-B-3(schema 6) — **건물이 차지하는 자리가 바뀌었다**. 저택이 3×3에서 3×4로,
+//   성지가 3×3에서 4×4로 늘었다. 옛 세이브의 좌표를 그대로 읽으면 이미 서 있는 건물끼리
+//   겹치고(간격 규칙 위반) 노드를 깔고 앉는다 — 새로 놓을 수도, 헐 수도 없는 자리가 생긴다.
+//   자리를 재배치하는 이관은 「어디로 옮길지」를 서버가 임의로 정하는 일이라 세이브보다 나쁘다.
 export function isLegacySnapshot(world) {
   if (!world) return false;
-  return !(world.schema >= 5);
+  return !(world.schema >= 6);
 }
 
 export function migrateWorld(world, data) {

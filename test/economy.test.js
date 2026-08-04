@@ -79,11 +79,12 @@ test('장관 보정 O — 공석 0.65, 재임 1.00+0.08×Lv, 상한 1.50', () =>
   assert.equal(officerFactor(n, 'farm', data, 0), 1.5, '상한 1.50');
 });
 
-test('건물 보너스 B — 곡창 티어 +15/30/50%', () => {
+/* ★ §15-B-3 로 곡창이 2×2→2×3 이 되면서 산출도 그만큼 올랐다(+20/32/46%). 자리 값을 치른 몫이다. */
+test('건물 보너스 B — 곡창 티어 +20/32/46%', () => {
   const world = createWorld({ seed: 4, data, assignments: npcAssignments(data) });
   const n = world.nations.player;
   n.roles.farm.level = 0;
-  for (const [tier, expected] of [[0, 1.0], [1, 1.15], [2, 1.30], [3, 1.50]]) {
+  for (const [tier, expected] of [[0, 1.0], [1, 1.20], [2, 1.32], [3, 1.46]]) {
     n.buildings.granary = tier;
     assert.ok(Math.abs(buildingFactor(n, 'grain', data) - expected) < 1e-9, `T${tier} → ${expected}`);
   }

@@ -396,9 +396,10 @@ test('§13-A-5 뷰가 상한과 「가득」 목록을 실어 보낸다', () => 
   assert.equal(v.nation.storage.full.includes('wood'), false);
 });
 
-test('§13-A-5 저장 계열 다이얼이 스펙대로다 (궤짝 80 · 저장고 250 · 티어 ×1.6)', () => {
+/* ★ §15-B-3 — 저장고가 2×3→3×3 이 되면서 몫도 250→420 으로 올랐다(곡창 150→200). */
+test('§13-A-5 저장 계열 다이얼이 스펙대로다 (궤짝 80 · 저장고 420 · 티어 ×1.6)', () => {
   assert.equal(data.buildings.storage_crate.storageCap, 80);
-  assert.equal(data.buildings.storage.storageCap, 250);
+  assert.equal(data.buildings.storage.storageCap, 420);
   assert.equal(data.balance.storage.capPerTierMultiplier, 1.6);
   assert.ok(data.balance.storage.hqBase > 0, '본부에도 기본 상한이 있다');
   // 같은 계열은 전부 같은 시스템을 쓴다 — storageCap 을 가진 건물이 곧 저장 계열
