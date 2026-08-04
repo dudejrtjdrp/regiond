@@ -1,0 +1,64 @@
+{
+  "_note": "★ GDD3 §13-D-5 — 기술 트리. 본부 [연구] 탭에서 하나씩 붙든다. 여는 문은 셋: ① 정착지 티어 ② 선행 연구 ③ 값(골드+자원). 값은 착수할 때 한 번에 치르고, 그날부터 days 게임일이 지나야 끝난다 — 한 번에 하나만 붙든다. 잠긴 연구도 **목록에서 사라지지 않는다**: 조건 가시화 원칙(§12-3)대로 빨강으로 무엇이 얼마나 모자란지 적어 둔다. 티어 문턱은 tiers.json 의 인구 조건과 맞물린다(4=읍 25명 · 5=도시 45명 · 6=왕도 70명).",
+  "order": ["coal_mining", "steam_engine", "railway", "refining"],
+  "defs": {
+    "coal_mining": {
+      "name": "석탄 채굴",
+      "line": "검은 돌이 오래 탄다는 것을 알아냈다.",
+      "desc": "석탄 노두가 정착지 바깥 띠(링1~2)에 드러난다. 석탄은 연료가 되는 새 자원이다.",
+      "requiresTier": 4,
+      "requires": [],
+      "days": 2,
+      "gold": 300,
+      "cost": { "stone": 150, "ironOre": 60 },
+      "spawn": { "node": "coal", "clusters": 6, "size": [4, 8], "ring": [1, 2] },
+      "unlocks": { "resources": ["coal"], "nodes": ["coal"] }
+    },
+    "steam_engine": {
+      "name": "증기기관",
+      "line": "물이 끓어 쇠를 움직인다.",
+      "desc": "생산 갈래 건물이 내는 몫이 15% 는다.",
+      "requiresTier": 5,
+      "requires": ["coal_mining"],
+      "days": 3,
+      "gold": 700,
+      "cost": { "steel": 80, "coal": 120 },
+      "effects": { "productionBonus": 0.15 },
+      "unlocks": {}
+    },
+    "railway": {
+      "name": "철로",
+      "line": "쇠를 깔면 걸음이 두 배가 된다.",
+      "desc": "철로 조각을 끌어서 깐다. 그 위를 걷는 주민은 두 배로 빠르다.",
+      "requiresTier": 5,
+      "requires": ["steam_engine"],
+      "days": 2,
+      "gold": 500,
+      "cost": { "steel": 120, "coal": 80 },
+      "unlocks": { "features": ["rails"], "commands": ["placeRail", "removeRail"] }
+    },
+    "refining": {
+      "name": "정유",
+      "line": "땅이 검은 물을 내놓는다.",
+      "desc": "유막이 정착지 바깥 띠에 드러난다. 석유를 캘 수 있다.",
+      "requiresTier": 6,
+      "requires": ["steam_engine"],
+      "days": 4,
+      "gold": 1200,
+      "cost": { "steel": 150, "coal": 200 },
+      "spawn": { "node": "oil", "clusters": 4, "size": [2, 5], "ring": [1, 2] },
+      "unlocks": { "resources": ["oil"], "nodes": ["oil"] }
+    }
+  },
+  "rails": {
+    "_note": "철로 조각 — 울타리와 같은 '끌어서 놓기'지만 선분이 아니라 **칸**이다. 위를 걷는 주민의 걸음이 speedMultiplier 배가 된다. 값은 칸마다 강재. 물 위에는 못 깐다.",
+    "costPerTile": { "steel": 3 },
+    "speedMultiplier": 2,
+    "maxTiles": 600,
+    "maxPointsPerRequest": 64,
+    "maxSegmentSpan": 24,
+    "blockedTerrain": ["water"],
+    "refundRatio": 0.5,
+    "requiresTerritoryMargin": 30
+  }
+}

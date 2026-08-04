@@ -1322,6 +1322,27 @@ body.cutscene .toasts{bottom:74px}
 .arrive-card .ac-top{margin:5px 0 0; font-size:11.5px; color:var(--green-deep)}
 
 /* ── §13-D-2·5 본부 갈래 (정착지 / 모집 / 연구) ── */
+.hq-tabs{display:flex; gap:4px; margin-bottom:8px; flex-wrap:wrap}
+.hq-tabs .tab{display:inline-flex; align-items:center; gap:5px; padding:4px 9px; font-size:12.5px;
+  background:rgba(255,255,255,.3); border:2px solid var(--paper-deep); color:var(--ink2); cursor:pointer}
+.hq-tabs .tab:hover{background:rgba(255,255,255,.55)}
+.hq-tabs .tab.on{background:var(--paper-lit); border-color:var(--gold-deep); color:var(--wood-dark)}
+
+/* ── §13-D-5 연구 ── */
+.rs-list{display:flex; flex-direction:column; gap:7px; margin-top:6px}
+.rs-item{padding:7px 9px; background:rgba(255,255,255,.26); border-left:3px solid var(--paper-deep);
+  display:flex; flex-direction:column; gap:4px}
+.rs-item.ready{border-left-color:var(--green-deep); background:rgba(150,190,120,.16)}
+.rs-item.active{border-left-color:#7fb3ff; background:rgba(127,179,255,.14)}
+.rs-item.done{opacity:.72; border-left-color:var(--gold-deep)}
+.rs-item .rs-h{display:flex; align-items:center; gap:6px}
+.rs-item .rs-h b{color:var(--wood-dark); font-size:13.5px}
+.rs-tag{margin-left:auto; font-size:11px; padding:1px 6px; color:var(--ink-dim);
+  background:rgba(60,50,44,.1); border:1px solid var(--paper-deep)}
+.rs-tag.ok{color:var(--gold-deep)}
+.rs-d{margin:0; font-size:12px; color:var(--ink2); line-height:1.55}
+.rs-line{margin:0; font-size:12px; color:var(--gold-deep); font-style:italic}
+
 /* ── §13-D-3·4 캐릭터 창 ── */
 .eqwrap{display:flex; flex-direction:column; gap:10px}
 .eq-warn{margin:0; padding:6px 9px; font-size:12.5px; color:var(--red-deep);

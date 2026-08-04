@@ -156,6 +156,8 @@
     /* ★ v3 신설 이벤트 */
     socket.on('tierUp', function (p) { S.emit('tierUp', p); });
     socket.on('residentArrived', function (p) { S.emit('residentArrived', p); });
+    /* ★ GDD3 §13-D-5 — 연구 완료. 새 노두가 드러나는 순간이라 지도를 다시 청한다. */
+    socket.on('researchDone', function (p) { S.emit('researchDone', p); });
     socket.on('buildingDone', function (p) { S.emit('buildingDone', p); });
     socket.on('waveIncoming', function (p) { S.emit('waveIncoming', p); });
     socket.on('battleStart', function (p) { S.set({ battle: p }); S.emit('battleStart', p); });

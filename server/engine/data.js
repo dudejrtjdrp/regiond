@@ -6,8 +6,10 @@ import { publicAppearance, publicChat } from './social.js';
 import { publicBuildings } from './structures.js';
 import { publicWaves } from './waves.js';
 import { publicChapters } from './progression.js';
+// ★ GDD3 §13-D — RPG 계층의 공개본(규칙만). 사람마다·나라마다의 실제 값은 state 로만 간다.
 import { publicStats } from './traits.js';
 import { publicEquipment } from './equipment.js';
+import { publicResearch } from './research.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = join(here, '..', '..', 'data');
@@ -44,6 +46,7 @@ export function loadGameData({ reload = false } = {}) {
     creatures: readJson('creatures.json'),
     // ★ GDD3 §13-D — RPG 계층: 장비·인첸트의 규격과 기술 트리
     equipment: readJson('equipment.json'),
+    research: readJson('research.json'),
   };
   data.artifactsByKey = Object.fromEntries(data.artifacts.list.map((a) => [a.key, a]));
   cache = data;
@@ -262,6 +265,8 @@ export function publicConfig() {
     recruit: { ...d.balance.residents.recruit, cost: { ...d.balance.residents.recruit.cost } },
     // ★ GDD3 §13-D-3·4 — 장비·인첸트 규격(티어·재료·특성표). 내가 무엇을 끼고 있는지는 state 로만 간다.
     equipment: publicEquipment(d),
+    // ★ GDD3 §13-D-5 — 기술 트리 규격(선행·값·날수·해금). 어디까지 했는지는 state.research 로만 간다.
+    research: publicResearch(d),
     world: publicWorld(d),
     time: {
       dayRealSeconds: d.balance.time.dayRealSeconds,

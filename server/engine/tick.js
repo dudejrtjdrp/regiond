@@ -45,6 +45,8 @@ import {
 import { startBattle, runBattle } from './battle.js';
 // ★ GDD3 §13-A-5 — 산출도 곳간 상한을 넘기지 못한다(서버 권위)
 import { deposit } from './storage.js';
+// ★ GDD3 §13-D-5 — 기술 트리. 값은 착수할 때 치르고, 날은 여기서 흐른다.
+import { stepResearch, productionBonus } from './research.js';
 // ★ GDD3 §13-B·C — 은닉 유적 발견 · 상시 생태계 · 사냥꾼 오두막
 import { revealConcealed } from './world.js';
 import { stepEcologyDay, huntYield, cullForHunters } from './ecology.js';
@@ -160,6 +162,14 @@ export function step(state, inputs = [], rng = null, data = loadGameData(), opts
     if (hunt.workers > 0) cullForHunters(world, nation, data);
     // 은닉 유적 — 주민의 발길이 닿아도 드러난다
     for (const n of revealConcealed(world, nation, data, tick)) recordRuinFound(nation, n, tick);
+    /* ★ GDD3 §13-D-5 — 붙들고 있는 연구의 하루. 다 되는 날 석탄·석유 노두가 링1~2 에 드러난다. */
+    for (const e of stepResearch(world, nation, data, r)) {
+      events.push({ tick, ...e });
+      chronicle(world, {
+        kind: 'research', title: e.data.name,
+        text: e.data.line ?? `${e.data.name} 연구가 끝났다.`, data: e.data,
+      }, data);
+    }
   }
 
   // ── 4. 소비·재고 ───────────────────────────────────────────────
@@ -450,7 +460,11 @@ export function produceNation(world, nation, data, hooks) {
     for (const key of ['grain', 'wood', 'stone', 'ironOre', 'oil', 'steel', 'fuel']) out[key] ??= 0;
   }
 
-  // ── 건물 정액 산출 (두 체제 공통, 레이트 기준) ──
+  /* ── 건물 정액 산출 (두 체제 공통, 레이트 기준) ──
+     ★ GDD3 §13-D-5 — 증기기관이 여기에 얹힌다. 「생산 건물 효율 +15%」의 자리는 바로 이곳이다:
+     사람이 캐는 몫(residentGather)이나 부처 공식이 아니라, **건물이 저 혼자 내는 몫**이 는다.
+     시뮬 봇은 연구를 하지 않으므로 체크포인트에는 닿지 않는다. */
+  const techBonus = 1 + productionBonus(nation, data);
   const flatBuild = flatOutputs(nation, data);
   out.flatOutput = flatBuild;
   out.techBonus = round2(techBonus);

@@ -136,6 +136,18 @@
       GM.residents.arrived(p);
     });
 
+    /* ★ GDD3 §13-D-5 — 연구가 끝났다. 석탄·석유는 그 순간 땅에 드러나므로 지도를 다시 청한다. */
+    S.on('researchDone', function (p) {
+      if (!inGame || !p) return;
+      GM.sfx.play('unlock');
+      U.banner({ icon: 'research', kind: 'good', title: p.name + ' 연구가 끝났다',
+                 sub: p.line || p.desc || '', ms: 3600 });
+      if (p.spawnedNodes) {
+        U.toast('새 노두 ' + p.spawnedNodes + '곳이 정착지 바깥에 드러났습니다.', 'good', 4600);
+        GM.net.send('requestWorld', {});
+      }
+    });
+
     /* ★ 완공 · 개축 */
     S.on('buildingDone', function (p) {
       if (!inGame || !p) return;

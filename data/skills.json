@@ -243,6 +243,18 @@
       },
       "drain": 2
     },
+    "coal": {
+      "_note": "★ GDD3 §13-D-5 — 석탄 노두. 「석탄 채굴」 연구가 열기 전에는 이런 자리가 세상에 없다. 철광맥보다 조금 얕게(swings 4) 캐되 한 자리가 품은 양이 크지 않다.",
+      "skill": "mining",
+      "swings": 4,
+      "yield": {
+        "coal": 1.4
+      },
+      "cycleBonus": {
+        "coal": 2.5
+      },
+      "drain": 2
+    },
     "oil": {
       "skill": "mining",
       "swings": 5,

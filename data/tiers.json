@@ -1,5 +1,5 @@
 {
-  "_note": "정착지 성장 아크 — docs/GDD3.md §1. 게임의 척추다. 모든 해금(건물·기능·UI)이 이 표에 걸린다. 영토 반경은 티어가 정하고(개척령 폐지), 티어업은 큰 이벤트로 연대기에 남는다. requires 는 '전부 만족'이며, 조건이 갖춰지면 그 틱에 자동으로 오른다. speedBonus 는 전역 작업 속도(스윙 쿨 감소)에 곱해진다.",
+  "_note": "★ GDD3 §13-D-5 — unlocks.research 는 그 단계에 이르러야 붙들 수 있는 연구다(연구의 문턱은 research.json requiresTier 가 정본이고, 이 줄은 승격 카드가 「무엇이 열리는가」를 보이기 위한 거울이다). 정착지 성장 아크 — docs/GDD3.md §1. 게임의 척추다. 모든 해금(건물·기능·UI)이 이 표에 걸린다. 영토 반경은 티어가 정하고(개척령 폐지), 티어업은 큰 이벤트로 연대기에 남는다. requires 는 '전부 만족'이며, 조건이 갖춰지면 그 틱에 자동으로 오른다. speedBonus 는 전역 작업 속도(스윙 쿨 감소)에 곱해진다.",
   "speedBonusPerTier": 0.05,
   "maxDefinedTier": 6,
   "levels": [
@@ -59,7 +59,8 @@
       "unlocks": {
         "buildings": ["mill", "market", "shrine", "barracks", "ballista", "manor", "fountain"],
         "features": ["orders", "council", "artifacts"],
-        "ui": ["panel.orders", "panel.council"]
+        "ui": ["panel.orders", "panel.council"],
+        "research": ["coal_mining"]
       },
       "line": "장이 서고 법이 선다."
     },
@@ -80,7 +81,7 @@
       "name": "왕도",
       "radius": 29,
       "requires": { "population": 70 },
-      "unlocks": { "buildings": [], "features": ["prestige"], "ui": ["panel.prestige"] },
+      "unlocks": { "buildings": [], "features": ["prestige"], "ui": ["panel.prestige"], "research": ["refining"] },
       "line": "끝이 없는 길에 들어섰다."
     }
   ],

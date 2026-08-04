@@ -273,6 +273,8 @@ class GameRuntime {
       case 'tier_up': io.to(this.gameId).emit('tierUp', e.data); break;
       // ★ GDD3 §4 · §13-D-1 — 주민 도착(이름·외형·능력치와 함께)
       case 'resident_arrived': io.to(this.gameId).emit('residentArrived', e.data); break;
+      // ★ GDD3 §13-D-5 — 연구가 끝났다(석탄·석유 노두가 드러나는 순간이기도 하다)
+      case 'research_done': io.to(this.gameId).emit('researchDone', e.data); break;
       case 'building_done': io.to(this.gameId).emit('buildingDone', e.data); break;
       case 'wave_incoming': io.to(this.gameId).emit('waveIncoming', e.data); break;
       case 'wave_held':

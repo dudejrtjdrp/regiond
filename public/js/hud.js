@@ -52,7 +52,8 @@
     S.RESOURCES.forEach(function (r) {
       if (!showAll && S.BASIC3.indexOf(r.key) < 0) return;
       var v = (n.resources && n.resources[r.key]) || 0;
-      if (showAll && v <= 0 && ['ironOre', 'oil', 'steel', 'fuel'].indexOf(r.key) >= 0) return;
+      /* ★ §13-D-5 — 석탄도 '아직 한 톨도 없으면' 칸을 차지하지 않는다(연구 전에는 세상에 없다) */
+      if (showAll && v <= 0 && ['ironOre', 'coal', 'oil', 'steel', 'fuel'].indexOf(r.key) >= 0) return;
       out.push({ key: r.key, name: r.name, value: v, digits: 0 });
     });
     if (S.uiOn('hud.population')) {

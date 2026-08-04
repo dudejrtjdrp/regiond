@@ -383,6 +383,9 @@ export function stepVillagers(world, nation, data, tick) {
   return nation.villagers;
 }
 
+/** 이 사람이 지금 얼마나 빠른가 — 화면의 걷기 연출이 서버와 같은 셈을 쓰게 한다 (§13-D-5) */
+export function villagerSpeed(nation, u, data) {
+  const base = vCfg(data).moveTilesPerTick;
 /**
  * 노드 고갈·재생. 산출 수치는 매크로 공식이 내므로 여기서 자원을 주지는 않는다 —
  * 고갈은 "숲이 옅어짐" 연출과 재배치 압력(가동 노드 수 = 노드 기여)만 만든다.

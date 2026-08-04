@@ -788,9 +788,12 @@
       "opens": {
         "buildings": [],
         "features": [
-          "highTierUpgrade"
+          "highTierUpgrade",
+          "research"
         ],
-        "ui": [],
+        "ui": [
+          "panel.research"
+        ],
         "commands": [
           "ordersSet"
         ]

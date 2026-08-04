@@ -18,6 +18,8 @@
     { key: 'wood',    name: '목재',   color: '#a3703f' },
     { key: 'stone',   name: '석재',   color: '#9aa0a8' },
     { key: 'ironOre', name: '철광석', color: '#b07050' },
+    /* ★ GDD3 §13-D-5 — 「석탄 채굴」 연구가 열기 전에는 세상에 한 톨도 없다 */
+    { key: 'coal',    name: '석탄',   color: '#4a4a52' },
     { key: 'oil',     name: '석유',   color: '#6f5aa8' },
     { key: 'steel',   name: '강재',   color: '#a8bccc' },
     { key: 'fuel',    name: '연료',   color: '#e08541' },
@@ -120,6 +122,7 @@
     fertile: { name: '기름진 땅', color: '#c8a24a', job: 'farm',   res: 'grain',   verb: '거둔다', skill: 'farm',   icon: 'farmTile' },
     water:   { name: '물가',      color: '#4a6fa5', job: 'farm',   res: 'grain',   verb: '건진다', skill: 'farm',   icon: 'ship' },
     iron:    { name: '철광맥',    color: '#b07050', job: 'mine',   res: 'ironOre', verb: '캔다',   skill: 'mining', icon: 'ore' },
+    coal:    { name: '석탄 노두',  color: '#4a4a52', job: 'mine',   res: 'coal',    verb: '캔다',   skill: 'mining', icon: 'coal' },
     oil:     { name: '유막',      color: '#6f5aa8', job: 'mine',   res: 'oil',     verb: '퍼낸다', skill: 'mining', icon: 'oil' },
     ruin:    { name: '옛 자취',   color: '#b39ad6', job: 'scout',  res: null,      verb: '살핀다', skill: 'build',  icon: 'gem' },
     field:   { name: '밭',        color: '#e0c65a', job: 'farm',   res: 'grain',   verb: '거둔다', skill: 'farm',   icon: 'farmTile' }
@@ -720,6 +723,13 @@
   }
   function equipCfg() { var c = cfg(); return (c && c.equipment) || null; }
   function equipment() { var y = you(); return (y && y.equipment) || null; }
+  function research() { var n = nation(); return (n && n.research) || null; }
+  function researchOf(key) {
+    var r = research();
+    if (!r) return null;
+    for (var i = 0; i < (r.list || []).length; i++) if (r.list[i].key === key) return r.list[i];
+    return null;
+  }
   function workPosts() { var n = nation(); return (n && n.workPosts) || []; }
   function camps() {
     var n = nation();
@@ -1233,6 +1243,7 @@
     recruitInfo: recruitInfo, statsCfg: statsCfg, statDefs: statDefs, statOrder: statOrder,
     statName: statName, jobFitStats: jobFitStats, statFit: statFit,
     equipCfg: equipCfg, equipment: equipment,
+    research: research, researchOf: researchOf,
     jobMeta: jobMeta, stageName: stageName,
 
     selectResidents: selectResidents, selectTarget: selectTarget,

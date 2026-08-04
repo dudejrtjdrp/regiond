@@ -33,6 +33,7 @@ import { huntSwing } from './ecology.js';
 import { settlementTier, promoteSettlement, nextTierStatus, tierDef } from './tiers.js';
 import { recruitResident, recruitStatus } from './residents.js';
 import { craftEquipment, enhanceEquipment, enchantEquipment, equipmentView } from './equipment.js';
+import { startResearch, researchView, placeRail, removeRail } from './research.js';
 import {
   featureUnlocked, buildingUnlocked, departmentsActive, commandUnlocked, setFlag, checkTrace,
   evaluateProgress, currentChapter,
@@ -299,6 +300,11 @@ function runCommand(world, nationId, cmd, data, rng) {
       return ok({ ...res, equipment: equipmentView(nation, player, data), resources: { ...nation.resources }, gold: round2(nation.gold) });
     }
 
+    case 'startResearch': {
+      const res = startResearch(world, nation, cmd, data);
+      if (!res.ok) return res;
+      return ok({ ...res, research: researchView(nation, data), resources: { ...nation.resources }, gold: round2(nation.gold) });
+    }
     case 'placeFence': {
       const res = placeFence(world, nation, cmd, data);
       return res.ok ? ok(res) : res;

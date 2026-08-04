@@ -111,6 +111,7 @@
         "wood": 3.2,
         "stone": 1.7,
         "ironOre": 0.9,
+        "coal": 1.1,
         "oil": 0.45
       },
       "richMultiplier": 1.6,

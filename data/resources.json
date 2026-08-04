@@ -1,11 +1,12 @@
 {
-  "_note": "★ GDD3 §13-C-1 — 사냥이 열리면서 고기·가죽·털이 들어왔다. foodValue 가 붙은 자원은 곳간의 곡물이 떨어졌을 때 사람을 먹인다(고기 1 = 곡물 3). autoExport:false 면 자동 수출이 손대지 않는다 — 먹을 것과 만들 것을 등 뒤에서 팔아 치우면 안 된다.",
-  "order": ["grain", "wood", "stone", "ironOre", "oil", "steel", "fuel", "meat", "hide", "wool"],
+  "_note": "★ GDD3 §13-D-5 — 석탄(coal)은 「석탄 채굴」 연구가 열기 전에는 한 톨도 나지 않는다(노두가 아예 없다). 연료 계열이라 자동 수출이 손대지 않는다. ★ GDD3 §13-C-1 — 사냥이 열리면서 고기·가죽·털이 들어왔다. foodValue 가 붙은 자원은 곳간의 곡물이 떨어졌을 때 사람을 먹인다(고기 1 = 곡물 3). autoExport:false 면 자동 수출이 손대지 않는다 — 먹을 것과 만들 것을 등 뒤에서 팔아 치우면 안 된다.",
+  "order": ["grain", "wood", "stone", "ironOre", "coal", "oil", "steel", "fuel", "meat", "hide", "wool"],
   "meta": {
     "grain":   { "name": "곡물",   "tier": 1, "referencePrice": 1.0, "stockCoefficient": 1.0,  "icon": "grain" },
     "wood":    { "name": "목재",   "tier": 1, "referencePrice": 0.6, "stockCoefficient": 0.5,  "icon": "wood" },
     "stone":   { "name": "석재",   "tier": 1, "referencePrice": 0.8, "stockCoefficient": 0.3,  "icon": "stone" },
     "ironOre": { "name": "철광석", "tier": 1, "referencePrice": 1.2, "stockCoefficient": 0.4,  "icon": "ore" },
+    "coal":    { "name": "석탄",   "tier": 1, "referencePrice": 1.8, "stockCoefficient": 0.18, "icon": "coal", "autoExport": false, "requiresResearch": "coal_mining" },
     "oil":     { "name": "석유",   "tier": 1, "referencePrice": 2.5, "stockCoefficient": 0.15, "icon": "oil", "requiresTag": "oilfield" },
     "steel":   { "name": "강재",   "tier": 2, "referencePrice": 2.0, "stockCoefficient": 0.24, "icon": "steel" },
     "fuel":    { "name": "연료",   "tier": 2, "referencePrice": 2.2, "stockCoefficient": 0.1,  "icon": "fuel" },

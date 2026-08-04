@@ -321,13 +321,28 @@ export function residentYield(u, node, data, outdoor = false) {
   }
   const res = JOB_RESOURCE[u.job];
   if (!res) return { kind: 'none', perDay: 0 };
-  if (node && node.type === 'oil') return { kind: 'resource', resource: 'oil', perDay: cfg.perResidentPerDay.oil };
+  if (node && node.type === 'oil') {
+    return { kind: 'resource', resource: 'oil', perDay: round2(cfg.perResidentPerDay.oil * factor), factor };
+  }
+  // ★ §13-D-5 — 석탄. 「석탄 채굴」 연구가 열기 전에는 이런 자리가 없으므로 이 갈래도 닿지 않는다.
+  if (node && node.type === 'coal') {
+    return { kind: 'resource', resource: 'coal', perDay: round2((cfg.perResidentPerDay.coal ?? cfg.perResidentPerDay.ironOre) * factor), factor };
+  }
   let amount = cfg.perResidentPerDay[res] || 0;
   if (!node) amount *= 0.5;                         // 일자리(건물)에 붙어 있으면 절반
   else if (node.depleted) amount = 0;
   else if (node.rich) amount *= cfg.richMultiplier;
   if (node && node.type === 'iron') amount = cfg.perResidentPerDay.ironOre;
-  return { kind: 'resource', resource: res, perDay: round2(amount) };
+  return { kind: 'resource', resource: res, perDay: round2(amount * factor), factor };
+}
+
+/**
+ * 이 자리가 영토 밖인가 — 산출 표시(뷰)와 국고 적립(일 틱)이 **같은 답**을 써야 한다.
+ * 그러지 않으면 「뜬 숫자의 합 = 국고 증가분」이 깨진다(§13-A-3 의 약속).
+ */
+export function isOutdoorNode(world, nation, node, data) {
+  if (!node || !world || !nation) return false;
+  return !inTerritory(world, nation, node.x, node.y, data);
 }
 
 /** 주민이 지금 붙어 있는 노드 (건물 일자리면 null) */
@@ -344,7 +359,7 @@ export function residentGather(world, nation, data) {
   const nodeById = new Map((world.map?.nodes || []).map((n) => [n.id, n]));
   for (const u of nation.villagers || []) {
     const node = u.targetId ? (nodeById.get(u.targetId) ?? null) : null;
-    const y = residentYield(u, node, data);
+    const y = residentYield(u, node, data, isOutdoorNode(world, nation, node, data));
     if (y.kind === 'buildPoints') { out.buildPoints += y.perDay; out.workers += 1; continue; }
     if (y.kind !== 'resource' || !(y.perDay > 0)) continue;
     out.resources[y.resource] = (out.resources[y.resource] || 0) + y.perDay;

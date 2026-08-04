@@ -51,6 +51,7 @@
       "fertile",
       "water",
       "iron",
+      "coal",
       "oil",
       "ruin",
       "field"
@@ -228,6 +229,29 @@
             4.0
           ]
         }
+      },
+      "coal": {
+        "_note": "★ GDD3 §13-D-5 — 석탄 노두. 월드 생성에는 한 톨도 나지 않는다(count 0) — 「석탄 채굴」 연구가 링1~2에 심는다. 그래서 옛 지도에도 뒤늦게 생길 수 있고, 이 자원 하나 때문에 세이브를 버릴 까닭이 없다.",
+        "name": "석탄 노두",
+        "terrains": [
+          "rock",
+          "grass"
+        ],
+        "job": "mine",
+        "resource": "coal",
+        "count": 0,
+        "minSpacing": 1,
+        "slots": 3,
+        "amount": 80,
+        "regenPerTick": 0,
+        "drainPerWorker": 1,
+        "richChance": 0.18,
+        "richMultiplier": 2,
+        "flatYield": {
+          "coal": 1.4
+        },
+        "createdBy": "research",
+        "contributes": null
       },
       "oil": {
         "name": "유막",
@@ -594,6 +618,7 @@
       "mine": {
         "nodeTypes": [
           "iron",
+          "coal",
           "oil"
         ],
         "posts": [

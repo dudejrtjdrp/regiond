@@ -10,6 +10,8 @@
      예전에는 패널이 **열린 순간의 값**으로 한 번 그려지고 끝이라, 도끼질로 곡물이 늘어도
      닫았다 열기 전까지는 숫자가 굳어 있었다. 'live' 마다 여기 있는 본부를 다시 그린다. */
   var openHqId = null;
+  /* ★ GDD3 §13-D — 본부 패널의 갈래. 정착지 / 모집 / 연구. 열려 있는 갈래를 기억한다. */
+  var hqTab = 'settle';
 
   function open(structureId) {
     var b = S.structureById(structureId);
@@ -67,7 +69,26 @@
    *   "영토가 넓어지는 조건을 모르겠다"에 대한 답이다. 지금 단계·다음 단계 조건표(초록/빨강+현재값/필요값)·
    *   주민 유입 조건과 다음 사람까지의 진행바, 그리고 조건이 다 차면 켜지는 [승격] 단추.
    */
+  /** 본부 갈래 단추 줄 — 열린 것만 그린다(잠긴 계층은 부재, §11-1) */
+  function hqTabs(b) {
+    var tabs = [{ key: 'settle', name: '정착지', icon: 'tier' }];
     if (S.recruitInfo()) tabs.push({ key: 'recruit', name: '모집', icon: 'person' });
+    if (S.research()) tabs.push({ key: 'research', name: '연구', icon: 'research' });
+    if (tabs.length < 2) return null;
+    if (!tabs.some(function (t) { return t.key === hqTab; })) hqTab = 'settle';
+    var row = U.el('div', 'hq-tabs');
+    tabs.forEach(function (t) {
+      var btn = U.el('button', 'tab' + (hqTab === t.key ? ' on' : ''));
+      btn.type = 'button';
+      btn.setAttribute('data-hqtab', t.key);
+      btn.appendChild(GM.icons.img(t.icon, 16));
+      btn.appendChild(U.el('span', null, t.name));
+      btn.onclick = function () { hqTab = t.key; openSettlement(b); };
+      row.appendChild(btn);
+    });
+    return row;
+  }
+
   /* ══════════ ★ §13-D-2 — 모집 갈래 ══════════ */
   function recruitBody(b) {
     var r = S.recruitInfo();
@@ -83,17 +104,76 @@
     return body;
   }
 
+  /* ══════════ ★ §13-D-5 — 연구 갈래 ══════════ */
+  function researchBody(b) {
+    var r = S.research();
+    var body = U.el('div', 'settle');
+    if (r.active) {
+      var cur = null;
+      (r.list || []).forEach(function (x) { if (x.key === r.active.key) cur = x; });
+      if (cur) {
+        var g = U.makeGauge({ height: 18, color: '#7fb3ff' });
+        g.setValue(U.clamp(cur.progress || 0, 0, 1),
+          cur.name + ' — 남은 ' + U.fmt(cur.remainingDays, 1) + '일',
+          '붙들고 있는 연구', '한 번에 하나만 붙듭니다. 값은 이미 치렀습니다.');
+        body.appendChild(g);
+      }
+    }
+    var list = U.el('div', 'rs-list');
+    (r.list || []).forEach(function (x) {
+      var row = U.el('div', 'rs-item' + (x.done ? ' done' : '') + (x.active ? ' active' : '') + (x.ready ? ' ready' : ''));
+      row.setAttribute('data-research', x.key);
+      var head = U.el('div', 'rs-h');
+      head.appendChild(GM.icons.img('research', 18));
+      head.appendChild(U.el('b', null, x.name));
+      if (x.done) head.appendChild(U.el('span', 'rs-tag ok', '끝남'));
+      else if (x.active) head.appendChild(U.el('span', 'rs-tag', '진행 중'));
+      else head.appendChild(U.el('span', 'rs-tag', x.days + '일'));
+      row.appendChild(head);
+      row.appendChild(U.el('p', 'rs-d', x.desc || ''));
+      if (!x.done) {
         var rl = U.el('div', 'req-list');
         (x.reqs || []).forEach(function (q) {
           rl.appendChild(reqRow(q.ok, q.text, q.have, q.need, q.unit, q.dec));
         });
         row.appendChild(rl);
+        var btn = U.btn('연구한다', 'btn-small', function () { doResearch(x.key, b); });
+        btn.setAttribute('data-research-start', x.key);
+        btn.disabled = !x.ready;
+        U.tipSet(btn, x.name, x.active ? '이미 붙들고 있습니다'
+          : (x.busy ? '다른 연구를 먼저 끝내야 합니다'
+            : (x.ready ? '값을 치르고 그날부터 ' + x.days + '일' : '아직 조건이 모자랍니다')));
+        row.appendChild(btn);
+      } else if (x.line) {
+        row.appendChild(U.el('p', 'rs-line', x.line));
+      }
+      list.appendChild(row);
+    });
+    body.appendChild(list);
+  function doResearch(key, b) {
+    GM.net.send('startResearch', { key: key }, function (res) {
+      if (!res) return;
+      if (!res.ok) { U.toast((res.error && res.error.message) || '아직 연구할 수 없습니다.', 'warn', 3400); GM.sfx.play('deny'); return; }
+      U.toast('연구를 시작했습니다.', 'good', 2600);
+      GM.sfx.play('unlock');
+      openSettlement(b);
+    });
+  }
+
   function openSettlement(b) {
     openHqId = b && b.id ? b.id : null;
     var t = S.tier();
     var nx = t.next;
     var h = S.housing() || {};
     var arr = h.arrival || null;
+    var tabRow = hqTabs(b);
+
+    if (tabRow && hqTab !== 'settle') {
+      var alt = U.el('div');
+      alt.appendChild(tabRow);
+      alt.appendChild(hqTab === 'recruit' ? recruitBody(b) : researchBody(b));
+      var altActs = [];
+      if (hqTab === 'recruit') {
         var rr = S.recruitInfo() || {};
         var costText = Object.keys(rr.cost || {}).map(function (k) {
           return S.resourceMeta(k).name + ' ' + U.fmt(rr.cost[k], 0);
@@ -116,6 +196,17 @@
       }
       altActs.push({ label: '닫는다', cls: 'btn-ghost', onClick: function () { S.clearSelection(); GM.hud.hideContext(); } });
       GM.hud.showContext({
+        icon: hqTab === 'recruit' ? 'person' : 'research',
+        title: b.name + ' — ' + (hqTab === 'recruit' ? '모집' : '연구'),
+        facts: [{ k: '단계', v: t.tier + ' · ' + t.name },
+                { k: '사는 사람', v: (h.population || 0) + ' / ' + (h.capacity || 0) + '자리' }],
+        extra: alt,
+        actions: altActs,
+        note: hqTab === 'recruit' ? '자연히 찾아오는 사람은 그대로 옵니다.'
+                                  : '한 번에 하나만 붙듭니다. 값은 시작할 때 치릅니다.'
+      });
+      return;
+    }
 
     var body = U.el('div', 'settle');
     if (tabRow) body.appendChild(tabRow);
