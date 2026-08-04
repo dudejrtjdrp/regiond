@@ -441,17 +441,25 @@
       if (!next) return [];
       var out = [];
       var rq = next.requires || {};
-      if (rq.population) out.push({ key: 'population', ok: W.population >= rq.population, need: rq.population, have: W.population, text: '주민 ' + rq.population + '명' });
+      /* ★ §13-A-1 — 구경 모드도 실서버와 **같은 모양의 행**을 낸다(kind·dec).
+         화면의 단일 정본(state.js reqLive)이 여기서도 그대로 돌아야 한다. */
+      if (rq.population) {
+        out.push({ key: 'population', kind: 'population', ok: W.population >= rq.population,
+                   need: rq.population, have: W.population, dec: 0, text: '주민 ' + rq.population + '명' });
+      }
       if (rq.structures) {
         Object.keys(rq.structures).forEach(function (k) {
-          out.push({ key: k, ok: countStructure(k) >= rq.structures[k], need: rq.structures[k],
-                     have: countStructure(k), text: (BUILD[k] ? BUILD[k].name : k) + ' ' + rq.structures[k] + '채' });
+          out.push({ key: 'structure:' + k, kind: 'structure', building: k,
+                     ok: countStructure(k) >= rq.structures[k], need: rq.structures[k],
+                     have: countStructure(k), dec: 0,
+                     text: (BUILD[k] ? BUILD[k].name : k) + ' ' + rq.structures[k] + '채' });
         });
       }
       if (rq.resources) {
         Object.keys(rq.resources).forEach(function (k) {
-          out.push({ key: k, ok: (W.resources[k] || 0) >= rq.resources[k], need: rq.resources[k],
-                     have: Math.floor(W.resources[k] || 0),
+          out.push({ key: 'resource:' + k, kind: 'resource', resource: k,
+                     ok: Math.floor(W.resources[k] || 0) >= rq.resources[k], need: rq.resources[k],
+                     have: Math.floor(W.resources[k] || 0), dec: 0,
                      text: (k === 'grain' ? '식량' : k) + ' ' + rq.resources[k] });
         });
       }

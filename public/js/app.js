@@ -102,6 +102,8 @@
       if (!inGame) return;
       GM.hud.update();
       GM.quest.update();
+      /* ★ §13-A-1 — 열려 있는 정착지 패널의 조건 행도 함께 따라온다 */
+      GM.structure.refreshOpen();
     });
 
     S.on('events', function (list) {
@@ -255,6 +257,7 @@
     GM.skills.update();
     GM.chronicle.update();
     GM.combat.updateThreat();
+    GM.structure.refreshOpen();      /* ★ §13-A-1 — 조건 행은 늘 지금 값이다 */
     var sel = S.S.selection;
     if (sel && (sel.residents.length || sel.nodeId || sel.structureId || sel.siteId || sel.fenceId)) {
       GM.residents.renderPanel();

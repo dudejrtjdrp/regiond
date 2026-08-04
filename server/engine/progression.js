@@ -11,6 +11,8 @@
 // ★ 국가 단위: 장 상태는 nation.progress 에 산다 — 같은 정착지에 접속한 사람은 같은 장을 함께 본다(멀티 공유).
 import { townOf, dist, terrainNameAt } from './world.js';
 import { tierUnlockedList, settlementTier } from './tiers.js';
+// ★ GDD3 §13-A-1 — 목표 카드의 have 도 조건 행과 같은 계측기를 쓴다.
+import { haveResource, haveStructures, havePopulation } from './requirements.js';
 
 export const chaptersCfg = (data) => data.chapters;
 export const chapterList = (data) => data.chapters.chapters;
@@ -149,9 +151,7 @@ export function departmentsActive(nation, data) {
 // ────────────────────────────────────────────────────────────────
 const stepKey = (ch, st) => `${ch.id}:${st.key}`;
 
-function structureCount(nation, key) {
-  return (nation.structures || []).filter((s) => s.key === key).length;
-}
+const structureCount = haveStructures;
 
 function totalSwings(nation, skill) {
   let n = 0;
@@ -173,15 +173,15 @@ export function measure(world, nation, cond, data) {
       return { ok: have >= cond.count, have, need: cond.count };
     }
     case 'resource': {
-      const have = Math.floor(nation.resources?.[cond.resource] || 0);
+      const have = Math.floor(haveResource(nation, cond.resource));
       return { ok: have >= cond.amount, have, need: cond.amount };
     }
     case 'structure': {
-      const have = structureCount(nation, cond.building);
+      const have = haveStructures(nation, cond.building);
       return { ok: have >= (cond.count ?? 1), have, need: cond.count ?? 1 };
     }
     case 'population': {
-      const have = Math.floor(nation.population || 0);
+      const have = havePopulation(nation);
       return { ok: have >= cond.count, have, need: cond.count };
     }
     case 'fenceSegments': {

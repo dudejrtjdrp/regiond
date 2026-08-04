@@ -644,29 +644,69 @@
     return u || { buildings: [], features: [], ui: [], commands: [] };
   }
 
+  /* ══════════ ★ 조건 한 줄의 단일 정본 — 클라 몫 (GDD3 §13-A-1) ══════════
+
+     실측한 버그: 곡물 46을 들고 있는데 정착지 패널은 「곡물 12/20」이라고 했다.
+     서버 셈은 늘 옳았다. 어긋난 것은 **잰 시각**이다 — 스윙은 실시간 명령이라 뷰를 새로 만들지
+     않으므로, 창고 숫자만 ack 로 앞서 가고 tier.next.reqs 는 하루 전 값에 박혀 있었다.
+
+     그래서 화면은 서버가 준 have 를 **그대로 믿지 않는다.** 행에 실려 온 kind 를 보고
+     지금 장부로 다시 잰다. 목표 카드에만 있던 이 규칙을 조건 행 전부로 넓힌 것이 이 함수다.
+     티어 조건·유입 조건·목표 카드가 전부 여기 하나를 지난다. */
+  function reqLive(r) {
+    if (!r) return r;
+    var n = nation();
+    var raw = null;
+    if (n) {
+      if (r.kind === 'resource' && r.resource) raw = Number((n.resources || {})[r.resource]) || 0;
+      else if (r.kind === 'structure' && r.building) {
+        raw = structures().filter(function (s) { return s.key === r.building; }).length;
+      } else if (r.kind === 'population') raw = Math.floor(n.population || 0);
+    }
+    /* 서버만 아는 것(빈 잠자리·소문 따위)은 다시 재지 않고 그대로 쓴다 */
+    if (raw == null) return r;
+    var p = Math.pow(10, r.dec || 0);
+    var have = Math.floor(raw * p) / p;
+    /* ok 와 have 는 반드시 **같은 값**에서 나온다 — 「20/20 인데 단추가 꺼져 있다」를 막는다 */
+    return {
+      key: r.key, kind: r.kind, resource: r.resource, building: r.building,
+      text: r.text, unit: r.unit, detail: r.detail, dec: r.dec || 0,
+      need: r.need, have: have, ok: have >= r.need,
+    };
+  }
+  /** 조건 표 한 장을 통째로 지금 값으로 (없으면 빈 배열) */
+  function reqList(rows) {
+    if (!rows || !rows.length) return [];
+    return rows.map(reqLive);
+  }
+  /** 이 표가 전부 찼는가 — 승격 단추의 활성 여부도 서버 스냅샷이 아니라 이걸로 정한다 */
+  function reqReady(rows) {
+    var l = reqList(rows);
+    if (!l.length) return false;
+    for (var i = 0; i < l.length; i++) if (!l[i].ok) return false;
+    return true;
+  }
+
   /* ── ★ 진행 감독 — 콘텐츠 사슬 (GDD3 §11-2) ────────── */
   /** 지금 열려 있는 장. 서버가 정본이고 화면은 이것만 보고 길잡이를 그린다. */
   function chapter() { return (S.view && S.view.chapter) || null; }
   /** 지금 목표 카드 한 장 (없으면 null — 「한숨 돌려도 됩니다」) */
   function goal() { var c = chapter(); return (c && c.goal) || null; }
   /**
-   * 목표의 진행도 — 서버가 준 have/need 를 바탕으로, 자원 목표는 **화면의 실시간 장부**로 덮는다.
+   * 목표의 진행도.
+   * ★ §13-A-1 — 조건 행과 **같은 함수**(reqLive)를 지난다. 목표 카드만 실시간이던 시절은 끝났다.
    * (스윙 ack 이 창고를 바로 갱신하므로 일 틱을 기다리지 않고 숫자가 움직인다.)
    */
   function goalProgress() {
     var g = goal();
     if (!g) return null;
-    var have = g.have, need = g.need;
     var c = g.condition || {};
-    var n = nation();
-    if (c.type === 'resource' && n && n.resources) {
-      have = Math.min(need, Math.floor(n.resources[c.resource] || 0));
-    } else if (c.type === 'population' && n) {
-      have = Math.min(need, Math.floor(n.population || 0));
-    } else if (c.type === 'structure' && n) {
-      have = Math.min(need, structures().filter(function (s) { return s.key === c.building; }).length);
-    }
-    return { have: have, need: need, ratio: need > 0 ? Math.min(1, have / need) : 1, done: have >= need };
+    var r = reqLive({
+      key: 'goal', kind: c.type, resource: c.resource, building: c.building,
+      need: g.need, have: g.have, ok: g.done, dec: 0,
+    });
+    var have = Math.min(r.need, r.have);
+    return { have: have, need: r.need, ratio: r.need > 0 ? Math.min(1, have / r.need) : 1, done: have >= r.need };
   }
   /** 이 자원이 지금 목표가 요구하는 것인가 — 자원 팝에 「(천막까지 6)」을 붙이는 근거 */
   function goalRemaining(resource) {
@@ -975,6 +1015,7 @@
 
     nation: nation, ap: ap,
     tier: tier, tierNo: tierNo, unlocked: unlocked, uiOn: uiOn, featOn: featOn, buildingOn: buildingOn,
+    reqLive: reqLive, reqList: reqList, reqReady: reqReady,
     chapter: chapter, goal: goal, goalProgress: goalProgress, goalRemaining: goalRemaining,
     goalTargets: goalTargets, cmdOn: cmdOn,
     you: you, player: player, swingInfo: swingInfo, skillOf: skillOf, swingTarget: swingTarget,

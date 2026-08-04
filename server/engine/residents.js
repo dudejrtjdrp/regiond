@@ -7,6 +7,8 @@ import {
 } from './structures.js';
 import { featureUnlocked, departmentsActive } from './progression.js';
 import { round2, round3, clamp } from './economy.js';
+// ★ GDD3 §13-A-1 — 유입 조건도 티어 조건과 **같은 공장**에서 찍는다.
+import { resourceReq, countReq } from './requirements.js';
 
 export const residentCfg = (data) => data.balance.residents;
 export const arrivalCfg = (data) => data.balance.residents.arrival;
@@ -72,25 +74,28 @@ export function arrivalStatus(nation, data) {
   const gd = grainDays(nation, data);
   const unlocked = featureUnlocked(nation, 'residentArrival', data);
   const pop = Math.floor(nation.population || 0);
-  const needGrain = round2(cfg.requiresGrainDays * Math.max(1, pop) * data.balance.population.grainPerCapita);
+  // ★ §13-A-1 — 보여 주는 need 와 실제로 막는 문턱을 **같은 식**으로 맞춘다.
+  //   grainDays = 곡물 ÷ max(1, 인구×1인분) 이므로, 문턱도 같은 분모를 써야 "다 찼는데 안 된다"가 없다.
+  //   (지금 다이얼 grainPerCapita=1 에서는 옛 값과 한 톨도 다르지 않다.)
+  const needGrain = round2(cfg.requiresGrainDays * Math.max(1, pop * data.balance.population.grainPerCapita));
 
   // 조건 하나하나를 초록/빨강으로 그릴 수 있는 표 (§12-3 전역 원칙)
+  // ★ §13-A-1 — 곡물 행은 resourceReq 로 찍는다. 화면이 지금 국고로 다시 잴 수 있게 kind·resource 가 붙는다.
   const reqs = [
-    {
-      key: 'unlocked', ok: unlocked, text: '사람이 찾아올 만한 곳',
+    countReq({
+      key: 'unlocked', text: '사람이 찾아올 만한 곳',
       have: unlocked ? 1 : 0, need: 1,
       detail: unlocked ? '소문이 났습니다' : '오두막을 세우면 소문이 납니다',
-    },
-    {
-      key: 'beds', ok: beds > 0, text: '빈 잠자리',
+    }),
+    countReq({
+      key: 'beds', text: '빈 잠자리',
       have: beds, need: 1, unit: '자리',
       detail: `잠자리 ${capacity(nation, data)}개 중 ${beds}개가 비었습니다`,
-    },
-    {
-      key: 'grain', ok: !(gd < cfg.requiresGrainDays && pop > 0), text: '먹일 것',
-      have: round2(nation.resources?.grain || 0), need: pop > 0 ? needGrain : 0, unit: '',
+    }),
+    resourceReq(nation, 'grain', pop > 0 ? needGrain : 0, data, {
+      key: 'grain', text: '먹일 것', unit: '', dec: 1,
       detail: `식량 여유 ${round2(gd)}일치 (${cfg.requiresGrainDays}일치는 있어야 합니다)`,
-    },
+    }),
   ];
   const bad = reqs.find((r) => !r.ok);
   const REASON = {

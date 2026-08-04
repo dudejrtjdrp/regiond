@@ -6,25 +6,59 @@
   var GM = global.GM = global.GM || {};
   var S = GM.state, U = GM.ui;
 
+  /* ★ GDD3 §13-A-1 — 지금 열려 있는 정착지 패널을 다시 그리기 위한 표지.
+     예전에는 패널이 **열린 순간의 값**으로 한 번 그려지고 끝이라, 도끼질로 곡물이 늘어도
+     닫았다 열기 전까지는 숫자가 굳어 있었다. 'live' 마다 여기 있는 본부를 다시 그린다. */
+  var openHqId = null;
+
   function open(structureId) {
     var b = S.structureById(structureId);
     if (!b) { GM.hud.hideContext(); return; }
     S.selectTarget('structureId', structureId);
     /* ★ GDD3 §12-2 — 본부를 누르면 건물 정보가 아니라 **정착지 패널**이 열린다 */
     if (b.hq) { openSettlement(b); return; }
+    openHqId = null;
     render(b);
+  }
+
+  /** 정착지 패널이 열려 있으면 지금 값으로 다시 그린다 (app.js 의 'live'·'change' 가 부른다) */
+  function refreshOpen() {
+    if (!openHqId) return;
+    var p = U.qs('#context-panel');
+    if (!p || p.hidden) { openHqId = null; return; }
+    var b = S.structureById(openHqId);
+    if (!b) { openHqId = null; return; }
+    openSettlement(b);
   }
 
   /* ══════════ ★ 조건 한 줄 (GDD3 §12-3 전역 원칙) ══════════
      충족 = 초록 체크 / 미충족 = 빨강 + 흐림 + 「현재값/필요값」. 화면 어디서나 같은 얼굴이다. */
-  function reqRow(ok, text, have, need, unit) {
+  function reqRow(ok, text, have, need, unit, dec) {
+    var d = dec || 0;
     var row = U.el('div', 'req-row ' + (ok ? 'ok' : 'bad'));
     row.appendChild(U.el('span', 'rq-mark', ok ? '✔' : '✕'));
     row.appendChild(U.el('span', 'rq-t', text));
     if (need != null) {
       row.appendChild(U.el('span', 'rq-v',
-        ok ? (U.fmt(need, 0) + (unit || '')) : (U.fmt(have, 0) + '/' + U.fmt(need, 0) + (unit || ''))));
+        ok ? (num(need, d) + (unit || '')) : (num(have, d) + '/' + num(need, d) + (unit || ''))));
     }
+    return row;
+  }
+  /* 소수 자리는 있을 때만 — 「곡물 1.5」는 살리고 「곡물 20.0」은 만들지 않는다 */
+  function num(v, dec) {
+    var s = U.fmt(v, dec || 0);
+    return dec ? s.replace(/\.?0+$/, '') : s;
+  }
+
+  /**
+   * ★ GDD3 §13-A-1 — **조건 행을 그리는 유일한 문**.
+   *   서버 스냅샷의 have 를 그대로 믿지 않고 S.reqLive 로 지금 장부에 다시 물은 뒤 그린다.
+   *   정착지 패널·주민 패널·티어 배지가 전부 이 함수를 지나므로, 「곡물 46인데 12/20」이 다시 날 수 없다.
+   */
+  function reqRowOf(r) {
+    var v = S.reqLive(r) || r;
+    var row = reqRow(v.ok, v.text, v.have, v.need, v.unit, v.dec);
+    if (v.detail) U.tipSet(row, v.text, v.detail);
     return row;
   }
 
@@ -34,6 +68,7 @@
    *   주민 유입 조건과 다음 사람까지의 진행바, 그리고 조건이 다 차면 켜지는 [승격] 단추.
    */
   function openSettlement(b) {
+    openHqId = b && b.id ? b.id : null;
     var t = S.tier();
     var nx = t.next;
     var h = S.housing() || {};
@@ -51,9 +86,7 @@
     if (nx) {
       body.appendChild(U.el('h4', 'se-sec', '다음 단계 조건'));
       var list = U.el('div', 'req-list');
-      (nx.reqs || []).forEach(function (r) {
-        list.appendChild(reqRow(r.ok, r.text, r.have, r.need));
-      });
+      (nx.reqs || []).forEach(function (r) { list.appendChild(reqRowOf(r)); });
       body.appendChild(list);
       body.appendChild(U.el('p', 'se-line',
         '오르면 땅이 반경 ' + U.fmt(nx.fromRadius, 0) + ' → ' + U.fmt(nx.radius, 0) + ' 로 넓어지고, '
@@ -64,11 +97,7 @@
     body.appendChild(U.el('h4', 'se-sec', '사람이 찾아오는 조건'));
     if (arr) {
       var rl = U.el('div', 'req-list');
-      (arr.reqs || []).forEach(function (r) {
-        var row = reqRow(r.ok, r.text, r.have, r.need, r.unit);
-        if (r.detail) U.tipSet(row, r.text, r.detail);
-        rl.appendChild(row);
-      });
+      (arr.reqs || []).forEach(function (r) { rl.appendChild(reqRowOf(r)); });
       body.appendChild(rl);
 
       var g = U.makeGauge({ height: 18, color: '#6a994e' });
@@ -92,12 +121,16 @@
 
     var acts = [];
     if (nx) {
-      var missing = (nx.reqs || []).filter(function (r) { return !r.ok; });
+      /* ★ §13-A-1 — 단추의 활성 여부도 서버 스냅샷이 아니라 지금 장부로 정한다.
+         조건 행이 다 초록인데 단추만 꺼져 있는 어긋남을 원천에서 없앤다. */
+      var live = S.reqList(nx.reqs);
+      var ready = live.length ? S.reqReady(nx.reqs) : Boolean(nx.ready);
+      var missing = live.filter(function (r) { return !r.ok; });
       acts.push({
         label: '승격한다 — ' + nx.name, cls: 'btn-primary', id: 'se-promote',
-        disabled: !nx.ready,
-        tip: nx.ready ? '지금 올릴 수 있습니다' : ('아직 모자랍니다 — ' + missing.map(function (r) {
-          return r.text + ' ' + U.fmt(r.have, 0) + '/' + U.fmt(r.need, 0);
+        disabled: !ready,
+        tip: ready ? '지금 올릴 수 있습니다' : ('아직 모자랍니다 — ' + missing.map(function (r) {
+          return r.text + ' ' + num(r.have, r.dec) + '/' + num(r.need, r.dec);
         }).join(' · ')),
         detail: '땅이 넓어지고 말뚝이 새 자리에 박힙니다.',
         onClick: function () {
@@ -415,5 +448,6 @@
   }
 
   GM.structure = { open: open, openSite: openSite, openFence: openFence, openNode: openNode,
-                   openSettlement: openSettlement, reqRow: reqRow };
+                   openSettlement: openSettlement, reqRow: reqRow, reqRowOf: reqRowOf,
+                   refreshOpen: refreshOpen };
 })(window);

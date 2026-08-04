@@ -199,7 +199,7 @@
       if (!h.arrival.open && h.arrival.reqs) {
         var rl = U.el('div', 'req-list');
         h.arrival.reqs.forEach(function (r) {
-          rl.appendChild(GM.structure.reqRow(r.ok, r.text, r.have, r.need, r.unit));
+          rl.appendChild(GM.structure.reqRowOf(r));   /* ★ §13-A-1 — 조건 행은 한 문으로만 */
         });
         body.appendChild(rl);
       }

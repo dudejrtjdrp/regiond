@@ -190,7 +190,8 @@
       col.appendChild(U.el('span', 'bt-sub', nx ? ('다음 — ' + nx.name) : '끝이 없는 길'));
       tb.appendChild(col);
       if (nx) {
-        var reqs = nx.reqs || [];
+        /* ★ §13-A-1 — 배지도 서버 스냅샷이 아니라 지금 장부로 다시 잰 값을 그린다 */
+        var reqs = S.reqList(nx.reqs);
         var okN = reqs.filter(function (r) { return r.ok; }).length;
         var g = U.el('span', 'bt-pips');
         reqs.forEach(function (r) { g.appendChild(U.el('i', 'pip' + (r.ok ? ' on' : ''))); });
@@ -198,7 +199,7 @@
         /* ★ §12-3 — 조건마다 현재값/필요값을 그대로 보여 준다 */
         U.tipSet(tb, t.name + ' — 다음은 ' + nx.name,
           reqs.map(function (r) {
-            return (r.ok ? '✔ ' : '✕ ') + r.text + ' (' + U.fmt(r.have, 0) + '/' + U.fmt(r.need, 0) + ')';
+            return (r.ok ? '✔ ' : '✕ ') + r.text + ' (' + U.fmt(r.have, r.dec || 0) + '/' + U.fmt(r.need, r.dec || 0) + ')';
           }).join('\n') +
           '\n땅이 반경 ' + nx.radius + '까지 넓어집니다. (' + okN + '/' + reqs.length + ')' +
           '\n\n눌러서 정착지 패널을 엽니다 — 승격도 거기서 합니다.');

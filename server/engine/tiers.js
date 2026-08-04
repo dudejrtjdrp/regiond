@@ -2,6 +2,8 @@
 // 티어가 영토 반경·건물 해금·기능 해금·전역 작업 속도를 전부 결정한다.
 // ★ 옛 '개척령(expand)'은 폐기됐다 — 영토는 티어가 오르면 저절로 넓어진다.
 import { townOf, dist } from './world.js';
+// ★ GDD3 §13-A-1 — 조건 행은 한 곳에서만 나온다. 여기서 직접 nation.resources 를 더듬지 않는다.
+import { resourceReq, structureReq, populationReq, haveStructures } from './requirements.js';
 
 export const tiersCfg = (data) => data.tiers;
 
@@ -43,37 +45,22 @@ export function tierSpeedBonus(nation, data) {
 // 조건 판정
 // ────────────────────────────────────────────────────────────────
 /** 이 나라가 지은(완공된) 건물 중 key 인 것의 수 */
-export function structureCount(nation, key) {
-  return (nation.structures || []).filter((s) => s.key === key).length;
-}
+export const structureCount = haveStructures;
 
 /**
  * 다음 티어 조건 상태.
- * @returns {Array<{key,ok,need,have,text}>}
+ * ★ GDD3 §13-A-1 — 행은 전부 requirements.js 가 찍는다. 이 함수는 순서만 정한다.
+ * @returns {Array<{key,kind,ok,need,have,text,dec}>}
  */
 export function requirementStatus(nation, requires, data) {
   const out = [];
   const req = requires || {};
-  if (req.population != null) {
-    out.push({
-      key: 'population', ok: nation.population >= req.population,
-      need: req.population, have: Math.floor(nation.population),
-      text: `주민 ${req.population}명`,
-    });
-  }
+  if (req.population != null) out.push(populationReq(nation, req.population));
   for (const [key, count] of Object.entries(req.structures || {})) {
-    const have = structureCount(nation, key);
-    out.push({
-      key: `structure:${key}`, ok: have >= count, need: count, have,
-      text: `${data.buildings[key]?.name ?? key} ${count}채`,
-    });
+    out.push(structureReq(nation, key, count, data));
   }
   for (const [res, amount] of Object.entries(req.resources || {})) {
-    const have = nation.resources?.[res] || 0;
-    out.push({
-      key: `resource:${res}`, ok: have >= amount, need: amount, have: Math.floor(have),
-      text: `${data.resources.meta[res]?.name ?? res} ${amount}`,
-    });
+    out.push(resourceReq(nation, res, amount, data));
   }
   return out;
 }

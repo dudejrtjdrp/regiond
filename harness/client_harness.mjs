@@ -586,11 +586,54 @@ test('클라이언트 하니스 — 목표 카드가 가리키는 대로만 1장
       const nx = S.tier().next;
       if (nx) {
         assert.ok(btn, '[승격] 단추가 있다');
-        assert.equal(btn.disabled, !nx.ready, '조건을 채웠을 때만 눌린다');
+        assert.equal(btn.disabled, !S.reqReady(nx.reqs), '조건을 채웠을 때만 눌린다');
       }
       // 본부는 이전·철거 단추가 아예 없다
       assert.equal(doc.querySelector('#st-demolish'), null, '본부에는 [헌다] 단추가 없다');
       assert.equal(doc.querySelector('#st-relocate'), null, '본부에는 [옮긴다] 단추가 없다');
+      GM.hud.hideContext();
+    });
+
+    // ── 10-b-2. ★ §13-A-1 조건 수량 미반영 버그 회귀 ──────────
+    await t.test('★ §13-A-1 조건 수량 — 곡물 46을 들고 있으면 조건 행도 46이다 (12/20 금지)', async () => {
+      const nx0 = S.tier().next;
+      if (!nx0) return;                                   // 엔드리스 구간이면 검사할 조건이 없다
+      const row = (nx0.reqs || []).find((r) => r.kind === 'resource' || r.kind === 'population');
+      assert.ok(row, '다시 잴 수 있는 조건 행이 하나는 있다');
+      assert.ok(row.kind, '행이 스스로 종류를 밝힌다');
+      // 그 행이 읽는 실시간 장부를 손에 쥔다
+      const put = (v) => {
+        if (row.kind === 'resource') S.nation().resources[row.resource] = v;
+        else S.nation().population = v;
+      };
+
+      // 서버 스냅샷은 일부러 낡게 둔다 — 스윙 ack 만 창고를 앞서 갱신한 그 순간을 그대로 만든다
+      const stale = Math.max(0, row.need - 8);
+      row.have = stale; row.ok = false; nx0.ready = false;
+      put(row.need + 26);                                 // 예: 곡물 46
+
+      const b = S.hq();
+      GM.structure.open(b.id);
+      const panel = doc.querySelector('#context-panel');
+      const line = [...panel.querySelectorAll('.req-row')]
+        .find((r) => r.querySelector('.rq-t').textContent === row.text);
+      assert.ok(line, `조건 줄 「${row.text}」 을 찾았다`);
+      assert.ok(line.classList.contains('ok'), '지금 국고로 다시 재어 충족으로 칠해진다');
+      assert.equal(line.querySelector('.rq-v').textContent, String(row.need),
+        `낡은 스냅샷(${stale}/${row.need})이 아니라 지금 값으로 그린다`);
+
+      // 배지 · 목표 카드 · 승격 단추까지 같은 한 곳을 지난다
+      const live = S.reqList(nx0.reqs).find((r) => r.key === row.key);
+      assert.equal(live.have, row.need + 26, 'S.reqLive 가 지금 장부를 읽는다');
+      assert.equal(live.ok, true);
+
+      // 열려 있는 패널은 'live' 한 번이면 스스로 따라온다 (닫았다 열 필요가 없다)
+      put(stale);
+      GM.structure.refreshOpen();
+      const again = [...doc.querySelectorAll('#context-panel .req-row')]
+        .find((r) => r.querySelector('.rq-t').textContent === row.text);
+      assert.ok(again.classList.contains('bad'), '줄어들면 그 자리에서 빨강으로 돌아온다');
+      assert.equal(again.querySelector('.rq-v').textContent, `${stale}/${row.need}`);
       GM.hud.hideContext();
     });
 
