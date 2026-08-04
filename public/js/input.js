@@ -242,9 +242,14 @@
     if (e.key === 'Escape') {
       if (S.S.placing) { S.setPlacing(null); GM.build.close(); return; }
       if (U.anyModalOpen()) { U.closeTopModal(); return; }
+      /* 고른 것이 있으면 먼저 물린다 — 그다음 Esc 가 설정을 연다(§14-2) */
+      var sel = S.S.selection || {};
+      var hadSelection = !!(sel.residents && sel.residents.length) || !!sel.nodeId
+        || !!sel.structureId || !!sel.siteId || !!sel.fenceId;
       U.coachClear();
       S.clearSelection();
       GM.hud.hideContext();
+      if (!hadSelection && GM.app.inGame()) GM.settings.open();
       return;
     }
     if (typing(e)) return;

@@ -1271,15 +1271,19 @@
     /* 구간의 한가운데를 '그 구간다운' 색으로 두고, 앞뒤 25%를 이웃과 섞는다 */
     var k = local < 0.25 ? (0.5 - local * 2) : (local > 0.75 ? (local - 0.75) * 2 : 0);
     var toward = local < 0.25 ? S.DAY_PHASES[(i + 3) % 4] : nxt;
+    /* ★ §14-2 — 자료의 값에 플레이어의 밝기 슬라이더를 곱한다(1.0 이면 자료 그대로) */
+    var dark = S.darkScale();
+    var lift = S.liftBonus();
     return {
       idx: i,
-      alpha: U.lerp(cur.alpha, toward.alpha, k),
+      alpha: Math.max(0, U.lerp(cur.alpha, toward.alpha, k) * dark),
       tint: k > 0 ? U.mix(cur.tint, toward.tint, k) : cur.tint,
       /* ★ §13-A-2 — 어둠(alpha)과 나란히 빛(lift)도 섞는다. 낮은 따뜻하게, 밤은 달빛으로. */
-      lift: U.lerp(cur.lift || 0, toward.lift || 0, k),
+      lift: Math.max(0, U.lerp(cur.lift || 0, toward.lift || 0, k) + lift),
       liftColor: k > 0 ? U.mix(cur.liftColor || '#ffffff', toward.liftColor || '#ffffff', k) : (cur.liftColor || '#ffffff'),
       sky: cur.sky, ground: cur.ground,
-      skyK: 1 - Math.abs(local - 0.5) * 0.8
+      skyK: (1 - Math.abs(local - 0.5) * 0.8) * dark,
+      dark: dark
     };
   }
 
@@ -1321,7 +1325,8 @@
     }
     /* ③ 밤 광원 — 모닥불·본부·가로등·창문
        ★ §13-A-2 — 세기를 밤 어둠(다이얼) 대비 상대값으로 잰다. 밤을 완화해도 등불은 그대로 밝다. */
-    var maxA = (S.DAY_PHASES[3] && S.DAY_PHASES[3].alpha) || 0.44;
+    /* 밤 어둠의 최대치도 밝기 슬라이더를 탄다 — 밝게 해도 등불이 꺼지지 않게 같은 자로 잰다(§14-2) */
+    var maxA = (((S.DAY_PHASES[3] && S.DAY_PHASES[3].alpha) || 0.44) * (ph.dark || 1)) || 0.01;
     var lightOn = maxA * 0.45;
     if (ph.idx !== 3 && ph.alpha < lightOn) return;
     var strength = U.clamp((ph.alpha - lightOn) / Math.max(0.01, maxA - lightOn), 0, 1);

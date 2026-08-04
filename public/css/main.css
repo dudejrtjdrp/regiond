@@ -1404,6 +1404,16 @@ body.cutscene .toasts{bottom:74px}
 .eq-saint{margin:0; font-size:12px; color:var(--ink-dim)}
 .eq-saint.on{color:var(--green-deep)}
 
+/* ══════════ ★ GDD3 §14-2 설정 패널 (밝기·소리) ══════════ */
+.setwrap{display:flex; flex-direction:column; gap:14px}
+.set-row{display:flex; flex-direction:column; gap:5px}
+.set-head{display:flex; align-items:baseline; justify-content:space-between}
+.set-head b{color:var(--wood-dark); font-size:14px}
+.set-val{font-size:13px; color:var(--gold-deep); font-variant-numeric:tabular-nums}
+.set-slider{width:100%; height:22px; margin:0; accent-color:var(--gold-deep); cursor:pointer}
+.set-row .hint{margin:0}
+.set-foot{display:flex; justify-content:flex-end}
+
 @media (max-width:720px){
   .eq-slots{grid-template-columns:1fr}
   .eq-row{grid-template-columns:1fr; gap:4px}

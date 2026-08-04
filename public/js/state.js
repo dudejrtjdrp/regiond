@@ -179,7 +179,10 @@
     { key: 'night',   name: '밤',   tint: '#16214a', alpha: 0.60, lift: 0.05, liftColor: '#b9cdff', vision: 0.80,
       sky: 'rgba(20,30,74,.20)', ground: 'rgba(14,20,52,.22)' }
   ];
-  var LIGHT_FALLBACK = { phases: DAY_PHASES_FALLBACK, fogVeil: 0.30, buildVeil: 0.18, minLuma: 48 };
+  var LIGHT_FALLBACK = {
+    phases: DAY_PHASES_FALLBACK, fogVeil: 0.30, buildVeil: 0.18, minLuma: 48,
+    brightness: { min: 0.6, max: 1.6, step: 0.05, default: 1, darkPerStep: 1, liftPerStep: 0.22 }
+  };
   /* 화면이 실제로 읽는 표 — 설정이 오면 lightCfg() 가 갈아 끼운다 */
   var DAY_PHASES = DAY_PHASES_FALLBACK.slice();
 
@@ -943,6 +946,7 @@
       fogVeil: l.fogVeil != null ? l.fogVeil : LIGHT_FALLBACK.fogVeil,
       buildVeil: l.buildVeil != null ? l.buildVeil : LIGHT_FALLBACK.buildVeil,
       minLuma: l.minLuma != null ? l.minLuma : LIGHT_FALLBACK.minLuma,
+      brightness: l.brightness || LIGHT_FALLBACK.brightness,
     };
     DAY_PHASES.length = 0;
     for (var i = 0; i < l.phases.length; i++) DAY_PHASES.push(l.phases[i]);
@@ -1274,6 +1278,9 @@
     enemyMeta: enemyMeta, directionMeta: directionMeta,
     timeCfg: timeCfg, phaseIndex: phaseIndex, phaseMeta: phaseMeta, isNight: isNight,
     lightCfg: lightCfg, fogVeil: fogVeil,
+    /* ★ GDD3 §14-2 — 밝기 슬라이더 */
+    brightnessCfg: brightnessCfg, getBrightness: getBrightness, setBrightness: setBrightness,
+    darkScale: darkScale, liftBonus: liftBonus,
     villagerWorkCfg: villagerWorkCfg, dayRealSeconds: dayRealSeconds,
     storageLimit: storageLimit, storageFull: storageFull, storageInfo: storageInfo,
 

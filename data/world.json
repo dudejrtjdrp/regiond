@@ -1044,9 +1044,9 @@
         "ground": "rgba(14,20,52,.17)"
       }
     ],
-    "fogVeil": 0.3,
-    "buildVeil": 0.18,
-    "minLuma": 48
+    "fogVeil": 0.24,
+    "buildVeil": 0.14,
+    "minLuma": 56,
     "brightness": {
       "_note": "★ GDD3 §14-2 — 설정 패널의 밝기 슬라이더. 1.0 이 자료 그대로다. 올리면 덮는 어둠(alpha·fogVeil)이 줄고 더하는 빛(lift)이 는다. 화면(public/js/settings.js)이 localStorage 에 적어 두고, 서버는 이 값을 모른다 — 보기의 문제이지 규칙의 문제가 아니기 때문이다.",
       "min": 0.6,

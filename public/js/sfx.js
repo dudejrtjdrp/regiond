@@ -5,9 +5,19 @@
   var GM = global.GM = global.GM || {};
 
   var ctx = null, master = null, muted = false, ready = false;
+  /* ★ GDD3 §14-2 — VOL 은 이제 '가장 크게 했을 때'의 세기이고, 실제 세기는 vol(0~1) 배수가 정한다.
+     설정 패널의 소리 눈금이 이 값을 옮기고 localStorage 에 적어 둔다. 0 으로 내리면 음소거와 같다. */
   var VOL = 0.055;
+  var DEFAULT_VOL = 0.7;
+  var vol = DEFAULT_VOL;
 
   try { muted = localStorage.getItem('gm.muted') === '1'; } catch (e) {}
+  try {
+    var stored = parseFloat(localStorage.getItem('gm.volume'));
+    if (isFinite(stored) && stored >= 0 && stored <= 1) vol = stored;
+  } catch (e2) {}
+
+  function level() { return muted ? 0 : VOL * vol; }
 
   function ensure() {
     if (ctx) return ctx;
@@ -16,7 +26,7 @@
     try {
       ctx = new AC();
       master = ctx.createGain();
-      master.gain.value = muted ? 0 : VOL;
+      master.gain.value = level();
       master.connect(ctx.destination);
       ready = true;
     } catch (e) { ctx = null; }
@@ -136,7 +146,7 @@
   };
 
   function play(name) {
-    if (muted) return;
+    if (muted || vol <= 0) return;
     var f = BANK[name];
     if (f) { ensure(); try { f(); } catch (e) {} }
   }
@@ -144,11 +154,24 @@
   function setMuted(v) {
     muted = !!v;
     try { localStorage.setItem('gm.muted', muted ? '1' : '0'); } catch (e) {}
-    if (master) master.gain.value = muted ? 0 : VOL;
+    if (master) master.gain.value = level();
     return muted;
   }
   function toggle() { setMuted(!muted); if (!muted) play('tap'); return muted; }
-  function isMuted() { return muted; }
+  function isMuted() { return muted || vol <= 0; }
+
+  /* ★ GDD3 §14-2 — 설정 패널의 소리 눈금(0~1). 0 으로 내리면 음소거와 같다. */
+  function getVolume() { return muted ? 0 : vol; }
+  function defaultVolume() { return DEFAULT_VOL; }
+  function setVolume(v) {
+    var n = Math.max(0, Math.min(1, Number(v)));
+    if (!isFinite(n)) n = DEFAULT_VOL;
+    vol = n;
+    try { localStorage.setItem('gm.volume', String(n)); } catch (e) {}
+    if (n > 0 && muted) setMuted(false);
+    if (master) master.gain.value = level();
+    return n;
+  }
 
   /* 클릭 가능한 곳은 전부 "만지는 맛"이 나야 한다 — 버튼 클릭에 기본 효과음 */
   function init() {
@@ -160,5 +183,6 @@
   }
 
   GM.sfx = { play: play, toggle: toggle, setMuted: setMuted, isMuted: isMuted, init: init,
+             getVolume: getVolume, setVolume: setVolume, defaultVolume: defaultVolume,
              isReady: function () { return ready; } };
 })(window);

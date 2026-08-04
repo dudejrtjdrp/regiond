@@ -18,6 +18,12 @@
       U.toast(m ? '소리를 껐습니다.' : '소리를 켰습니다.', 'good', 1800);
     };
     U.qs('#btn-help').onclick = openHelp;
+    /* ★ GDD3 §14-2 — 톱니: 밝기·소리. Esc 로도 열린다(input.js). */
+    var gear = U.qs('#btn-settings');
+    if (gear) {
+      gear.onclick = function () { GM.settings.open(); };
+      U.tipSet(gear, '설정', '화면 밝기와 소리 크기를 고칩니다. Esc 로도 열립니다.');
+    }
     var look = U.qs('#btn-look');
     if (look) {
       look.onclick = function () { GM.charcreate.openEditor(); };
@@ -666,6 +672,7 @@
      ['울타리', 'F 를 누르고 지도를 끌면 선을 따라 조각이 섭니다. Shift 를 누른 채 끝내면 문이 됩니다.'],
      ['주민', '끌어서 고르고 오른쪽 단추로 일터를 지정합니다. 사람은 빈 잠자리와 식량이 있으면 스스로 찾아옵니다.'],
      ['싸움', '무리가 몰려오면 검을 들고 직접 붙을 수 있습니다. 쓰러져도 죽지 않습니다 — 모닥불에서 다시 일어납니다.'],
+     ['보기 고치기', 'Esc 또는 오른쪽 위 톱니로 설정을 엽니다. 화면 밝기와 소리 크기를 여기서 고칩니다.'],
      ['함께 하기', '오른쪽 명부에서 초대 코드를 건네고, Enter 로 한 줄을 나눕니다.']].forEach(function (r) {
       var li = U.el('li');
       li.appendChild(U.el('b', null, r[0] + ' — '));
