@@ -310,6 +310,11 @@ class GameRuntime {
       }
       // ★ GDD3 §13-C-2 — 들의 것에게 물렸다 / 쓰러져 모닥불에서 일어난다
       case 'player_down': io.to(this.gameId).emit('playerDown', e.data); break;
+      /* ★ P1 — **일어남에 전용 채널이 없었다.**
+         쓰러짐(playerDown)만 나가고 일어남은 events 로만 흘러, 화면을 덮은 장막이 영영 걷히지 않았다
+         — 그 뒤의 모든 클릭이 막혔다(실브라우저 연기 검사가 「가려짐: down-veil」로 잡았다).
+         규약(§0-T)에는 처음부터 적혀 있던 문이다 — 다운 자체가 드물어 눈에 안 띄었을 뿐이다. */
+      case 'player_revived': io.to(this.gameId).emit('playerRevived', e.data); break;
       case 'wild_hit': io.to(this.gameId).emit('wildHit', e.data); break;
       case 'camp_spotted': io.to(this.gameId).emit('campSpotted', e.data); break;
       case 'camp_scouted': io.to(this.gameId).emit('campScouted', e.data); break;

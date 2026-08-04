@@ -66,7 +66,13 @@
       var left = Math.max(0, (until - Date.now()) / 1000);
       parts.count.textContent = String(Math.ceil(left));
       parts.fill.style.width = Math.round((left / total) * 100) + '%';
-      if (left <= 0) { clearInterval(timer); timer = null; }
+      /* ★ 스스로 걷는 안전장치 — 서버의 「일어났다」가 오지 않아도 장막은 반드시 걷힌다.
+         화면을 덮은 채 남으면 그 뒤의 모든 클릭이 막혀 게임이 멎는다(실제로 그 사고가 났다).
+         넉넉히 2초를 더 기다린 뒤 걷는다: 정상 흐름에서는 그 전에 playerRevived 가 온다. */
+      if (left <= 0) {
+        clearInterval(timer); timer = null;
+        setTimeout(function () { if (veil) remove(); }, 2000);
+      }
     }, 100);
     if (!explained()) {
       markExplained();
