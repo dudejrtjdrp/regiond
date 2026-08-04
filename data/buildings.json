@@ -990,7 +990,10 @@
     "desc": "값싸고 여러 기 세운다. 빠른 적에게 잘 듣는다.",
     "counters": [
       "pirate",
-      "wolf"
+      "wolf",
+      "stray_dog",
+      "rabbit",
+      "deer"
     ],
     "tiers": [
       {
@@ -1001,9 +1004,10 @@
         "buildPoints": 10,
         "turret": {
           "dps": 6,
-          "range": 7
+          "range": 8
         },
-        "hp": 110
+        "hp": 110,
+        "name": "나무 화살탑"
       },
       {
         "cost": {
@@ -1013,9 +1017,10 @@
         "buildPoints": 18,
         "turret": {
           "dps": 10,
-          "range": 8
+          "range": 9
         },
-        "hp": 160
+        "hp": 160,
+        "name": "돌 화살탑"
       },
       {
         "cost": {
@@ -1026,9 +1031,10 @@
         "buildPoints": 28,
         "turret": {
           "dps": 15,
-          "range": 9
+          "range": 10
         },
-        "hp": 230
+        "hp": 230,
+        "name": "강철 화살탑"
       }
     ],
     "footprint": [
@@ -1092,53 +1098,58 @@
   "ballista": {
     "name": "노포",
     "category": "military",
-    "requiresTier": 4,
+    "requiresTier": 3,
     "maxTier": 3,
     "multi": true,
-    "desc": "관통. 큰 것 하나를 잡는 데 쓴다.",
+    "desc": "관통. 가장 멀리 쏜다 — 큰 것 하나를 잡는 데 쓴다.",
     "counters": [
       "dragon",
-      "ogre"
+      "ogre",
+      "bear",
+      "boar",
+      "direwolf"
     ],
     "tiers": [
       {
         "cost": {
-          "wood": 80,
-          "stone": 40,
-          "steel": 20
+          "wood": 140,
+          "stone": 50
         },
-        "buildPoints": 14,
+        "buildPoints": 16,
         "turret": {
-          "dps": 14,
-          "range": 9
-        },
-        "hp": 120
-      },
-      {
-        "cost": {
-          "wood": 150,
-          "stone": 90,
-          "steel": 50
-        },
-        "buildPoints": 24,
-        "turret": {
-          "dps": 22,
-          "range": 10
-        },
-        "hp": 180
-      },
-      {
-        "cost": {
-          "wood": 250,
-          "stone": 160,
-          "steel": 110
-        },
-        "buildPoints": 36,
-        "turret": {
-          "dps": 32,
+          "dps": 12,
           "range": 11
         },
-        "hp": 250
+        "hp": 120,
+        "name": "나무 노포"
+      },
+      {
+        "cost": {
+          "wood": 240,
+          "stone": 110,
+          "steel": 40
+        },
+        "buildPoints": 26,
+        "turret": {
+          "dps": 20,
+          "range": 12
+        },
+        "hp": 180,
+        "name": "강철 노포"
+      },
+      {
+        "cost": {
+          "wood": 380,
+          "stone": 190,
+          "steel": 100
+        },
+        "buildPoints": 38,
+        "turret": {
+          "dps": 30,
+          "range": 13
+        },
+        "hp": 250,
+        "name": "거치 노포"
       }
     ],
     "footprint": [
@@ -1149,53 +1160,56 @@
   "cannon": {
     "name": "화포",
     "category": "military",
-    "requiresTier": 5,
+    "requiresTier": 3,
     "maxTier": 3,
     "multi": true,
-    "desc": "값비싸고 무겁다. 성문을 두드리는 것들에게 쓴다.",
+    "desc": "느리고 무겁다. 가까이 붙은 무리를 한 번에 쓸어버린다.",
     "counters": [
       "viking",
-      "bandit"
+      "bandit",
+      "bandit_scout"
     ],
     "tiers": [
       {
         "cost": {
-          "stone": 60,
-          "steel": 40
+          "stone": 150,
+          "wood": 50
         },
-        "gold": 80,
-        "buildPoints": 20,
+        "buildPoints": 22,
         "turret": {
-          "dps": 28,
+          "dps": 24,
+          "range": 7
+        },
+        "hp": 150,
+        "name": "돌 던지개"
+      },
+      {
+        "cost": {
+          "stone": 240,
+          "steel": 70
+        },
+        "gold": 140,
+        "buildPoints": 34,
+        "turret": {
+          "dps": 38,
           "range": 8
         },
-        "hp": 150
+        "hp": 220,
+        "name": "화포"
       },
       {
         "cost": {
-          "stone": 120,
-          "steel": 90
+          "stone": 360,
+          "steel": 160
         },
-        "gold": 160,
-        "buildPoints": 32,
+        "gold": 260,
+        "buildPoints": 48,
         "turret": {
-          "dps": 42,
+          "dps": 55,
           "range": 9
         },
-        "hp": 220
-      },
-      {
-        "cost": {
-          "stone": 200,
-          "steel": 180
-        },
-        "gold": 300,
-        "buildPoints": 46,
-        "turret": {
-          "dps": 60,
-          "range": 10
-        },
-        "hp": 310
+        "hp": 310,
+        "name": "중포"
       }
     ],
     "footprint": [

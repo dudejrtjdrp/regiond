@@ -380,10 +380,10 @@ test('§14-7 열린 갈래 안의 잠긴 건물은 까닭과 함께 실린다', 
   assert.match(ranch.lockReason, /티어 4/);
 });
 
-test('§14-7 군사 갈래가 열린 뒤에는 병영·노포도 까닭과 함께 보인다', () => {
+test('§14-7 군사 갈래가 열린 뒤에도 아직 이른 건물은 까닭과 함께 보인다', () => {
   const w = newWorld(60);
   const n = w.nations.player;
-  __openChapter(n, 7);          // 7장 — 울타리·초소·화살탑이 열린다
+  __openChapter(n, 7);          // 7장 — 울타리·초소·터렛 3종이 열린다 (★ §15-A-5)
   const v = buildNationView(w, 'player', null, data, { avatarId: 'lord' });
   const locked = v.nation.lockedBuildings || [];
   const mil = locked.filter((b) => b.category === 'military');
@@ -391,9 +391,13 @@ test('§14-7 군사 갈래가 열린 뒤에는 병영·노포도 까닭과 함�
   const barracks = mil.find((b) => b.key === 'barracks');
   assert.ok(barracks);
   assert.match(barracks.lockReason, /9장/);
-  const cannon = mil.find((b) => b.key === 'cannon');
-  assert.ok(cannon);
-  assert.match(cannon.lockReason, /티어 5/);
+  /* ★ §15-A-5 가 §14-7 의 예시를 갈아치웠다: 화포는 이제 7장에 함께 열린다(초반 최소 3종).
+     그래서 여기서는 「잠긴 목록에 없다」가 옳은 검사다. */
+  assert.equal(mil.find((b) => b.key === 'cannon'), undefined, '화포는 7장에 이미 열려 있다');
+  const buildable = (v.nation.buildable || []).map((b) => b.key);
+  for (const key of ['arrow_tower', 'ballista', 'cannon']) {
+    assert.ok(buildable.includes(key), `${key} 는 7장 배치대에 있다`);
+  }
 });
 
 test('§14-7 해금 조건 글은 장 이름을 그대로 적는다 (화살탑 = 7장 「낯선 발자국」)', () => {

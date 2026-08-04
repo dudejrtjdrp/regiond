@@ -513,6 +513,8 @@
           "gate",
           "watchpost",
           "arrow_tower",
+          "ballista",
+          "cannon",
           "banner"
         ],
         "features": [
@@ -627,6 +629,8 @@
           "gate",
           "watchpost",
           "arrow_tower",
+          "ballista",
+          "cannon",
           "banner",
           "trading_post",
           "garden"
@@ -708,6 +712,8 @@
           "gate",
           "watchpost",
           "arrow_tower",
+          "ballista",
+          "cannon",
           "banner",
           "trading_post",
           "garden",
@@ -716,7 +722,6 @@
           "smithy",
           "mine_shaft",
           "barracks",
-          "ballista",
           "market"
         ],
         "features": [

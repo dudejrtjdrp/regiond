@@ -106,6 +106,8 @@
           "mine_shaft",
           "trading_post",
           "arrow_tower",
+          "ballista",
+          "cannon",
           "garden"
         ],
         "features": [
@@ -137,7 +139,6 @@
           "market",
           "shrine",
           "barracks",
-          "ballista",
           "manor",
           "fountain"
         ],
@@ -166,7 +167,6 @@
       "unlocks": {
         "buildings": [
           "consulate",
-          "cannon",
           "monument"
         ],
         "features": [
