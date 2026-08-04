@@ -1,5 +1,6 @@
 {
-  "order": ["grain", "wood", "stone", "ironOre", "oil", "steel", "fuel"],
+  "_note": "★ GDD3 §13-C-1 — 사냥이 열리면서 고기·가죽·털이 들어왔다. foodValue 가 붙은 자원은 곳간의 곡물이 떨어졌을 때 사람을 먹인다(고기 1 = 곡물 3). autoExport:false 면 자동 수출이 손대지 않는다 — 먹을 것과 만들 것을 등 뒤에서 팔아 치우면 안 된다.",
+  "order": ["grain", "wood", "stone", "ironOre", "oil", "steel", "fuel", "meat", "hide", "wool"],
   "meta": {
     "grain":   { "name": "곡물",   "tier": 1, "referencePrice": 1.0, "stockCoefficient": 1.0,  "icon": "grain" },
     "wood":    { "name": "목재",   "tier": 1, "referencePrice": 0.6, "stockCoefficient": 0.5,  "icon": "wood" },
@@ -7,6 +8,9 @@
     "ironOre": { "name": "철광석", "tier": 1, "referencePrice": 1.2, "stockCoefficient": 0.4,  "icon": "ore" },
     "oil":     { "name": "석유",   "tier": 1, "referencePrice": 2.5, "stockCoefficient": 0.15, "icon": "oil", "requiresTag": "oilfield" },
     "steel":   { "name": "강재",   "tier": 2, "referencePrice": 2.0, "stockCoefficient": 0.24, "icon": "steel" },
-    "fuel":    { "name": "연료",   "tier": 2, "referencePrice": 2.2, "stockCoefficient": 0.1,  "icon": "fuel" }
+    "fuel":    { "name": "연료",   "tier": 2, "referencePrice": 2.2, "stockCoefficient": 0.1,  "icon": "fuel" },
+    "meat":    { "name": "고기",   "tier": 1, "referencePrice": 1.6, "stockCoefficient": 0.22, "icon": "meat", "foodValue": 3, "autoExport": false },
+    "hide":    { "name": "가죽",   "tier": 1, "referencePrice": 1.4, "stockCoefficient": 0.12, "icon": "hide", "autoExport": false },
+    "wool":    { "name": "털",     "tier": 1, "referencePrice": 1.1, "stockCoefficient": 0.10, "icon": "wool", "autoExport": false }
   }
 }

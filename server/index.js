@@ -674,6 +674,13 @@ io.on('connection', (socket) => {
         if (type === 'combatSwing' && nation.battle) {
           io.to(s.gameId).emit('battleTick', { ...battleSnapshot(nation, data), events: [] });
         }
+        // ★ §13-C-8 — 사냥한 놈이 쓰러졌으면 방 전체가 그 자리에서 사라진 것을 본다
+        //   (1초 뒤 저빈도 방송을 기다리면 죽은 짐승이 잠깐 더 서 있다)
+        if (type === 'combatSwing' && out.hunt && out.killed) {
+          io.to(s.gameId).emit('creatures', {
+            tick: rt.world.tick, list: creatureViews(rt.world, nation, data),
+          });
+        }
         return undefined;
       }
 

@@ -604,6 +604,14 @@ function consumeAndStock(world, nation, data) {
     nation.resources.grain = round2(have - need);
     nation.rationing = false;
     nation.starvationDays = 0;
+  } else if (eatFallback(nation, round2(need - have), data)) {
+    /* ★ GDD3 §13-C-1 — 곡물이 떨어지면 **곳간의 고기가 사람을 먹인다**(고기 1 = 곡물 3).
+       사냥이 식량 경제의 두 번째 다리라는 뜻이고, 굶주림 판정은 그 다리까지 무너진 뒤에야 선다.
+       고기가 없으면(=지금까지의 모든 판) 이 갈래는 통째로 건너뛰므로 옛 곡선이 한 톨도 안 바뀐다. */
+    nation.resources.grain = 0;
+    nation.rationing = false;
+    nation.starvationDays = 0;
+    events.push({ kind: 'ate_meat', data: { short: round2(need - have) } });
   } else {
     nation.resources.grain = 0;
     nation.rationing = true;
@@ -621,6 +629,33 @@ function consumeAndStock(world, nation, data) {
   const spoiled = applySpoilage(nation, data);
   if (Object.keys(spoiled).length) events.push({ kind: 'spoilage', data: spoiled });
   return events;
+}
+
+/**
+ * 곡물이 모자란 만큼을 다른 먹을 것으로 메운다 (§13-C-1).
+ * foodValue 가 붙은 자원(지금은 고기 하나)이 그 대상이고, **전부 메웠을 때만** true 다 —
+ * 반쯤 메우고 굶주림을 면하게 하면 「고기 1점으로 흉년을 넘긴다」가 되어 버린다.
+ * @returns {boolean} 굶주림을 면했는가
+ */
+function eatFallback(nation, shortfall, data) {
+  if (!(shortfall > 0)) return true;
+  const foods = Object.entries(data.resources.meta)
+    .filter(([, m]) => (m.foodValue ?? 0) > 0)
+    .sort((a, b) => (a[1].foodValue ?? 0) - (b[1].foodValue ?? 0));
+  if (!foods.length) return false;
+  let left = shortfall;
+  const plan = [];
+  for (const [res, meta] of foods) {
+    if (left <= 0.0001) break;
+    const stock = nation.resources[res] || 0;
+    if (stock <= 0) continue;
+    const units = Math.min(stock, left / meta.foodValue);
+    plan.push([res, units]);
+    left = round2(left - units * meta.foodValue);
+  }
+  if (left > 0.0001) return false;                     // 다 못 메웠다 — 굶주림 판정으로 넘긴다
+  for (const [res, units] of plan) nation.resources[res] = round2((nation.resources[res] || 0) - units);
+  return true;
 }
 
 function updatePopulationAndMorale(world, nation, data, rng) {
@@ -668,6 +703,8 @@ function autoExport(nation, data, hooks) {
     if (gold >= cap) break;
     if (res === 'grain' && nation.rationing) continue;
     const meta = data.resources.meta[res];
+    // ★ §13-C-1 — 먹을 것과 만들 것(고기·가죽·털)은 등 뒤에서 팔지 않는다
+    if (meta.autoExport === false) continue;
     const floor = nation.exportFloors?.[res] ?? 0;
     const reserve = Math.max(nation.population * (meta.stockCoefficient ?? 0) * reserveDays, floor);
     const surplus = (nation.resources[res] || 0) - reserve;

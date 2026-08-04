@@ -158,11 +158,16 @@
         ],
         "features": [
           "fishing",
-          "reclaimField"
+          "reclaimField",
+          "hunt",
+          "codex"
         ],
-        "ui": [],
+        "ui": [
+          "panel.codex"
+        ],
         "commands": [
-          "reclaimField"
+          "reclaimField",
+          "combatSwing"
         ]
       },
       "steps": [
@@ -220,7 +225,8 @@
           "title": "사람이 찾아옵니다",
           "text": "빈 잠자리와 식량이 있으면 이웃이 걸어 들어옵니다."
         }
-      }
+      },
+      "_huntNote": "★ GDD3 §13-C-8 — 사냥은 '허기' 장에서 열린다. 열매·물고기와 나란히 놓이는 세 번째 먹을 것이고, 도감(J)도 이때 함께 열린다(그 전에는 단추 자체가 없다)."
     },
     {
       "id": 4,
@@ -518,8 +524,7 @@
           "upgradeFence",
           "repairFence",
           "removeFence",
-          "setBattlePlan",
-          "combatSwing"
+          "setBattlePlan"
         ]
       },
       "steps": [

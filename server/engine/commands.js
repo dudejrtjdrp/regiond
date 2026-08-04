@@ -27,6 +27,8 @@ import { placeFence, upgradeFence, repairFence, removeFence } from './fences.js'
 import { actionSwing } from './actions.js';
 import { revealAvatar } from './fog.js';
 import { combatSwing } from './battle.js';
+// ★ GDD3 §13-C-8 — 웨이브 밖의 검. 들에 사는 것들을 벤다.
+import { huntSwing } from './ecology.js';
 import { settlementTier, promoteSettlement, nextTierStatus, tierDef } from './tiers.js';
 import {
   featureUnlocked, buildingUnlocked, departmentsActive, commandUnlocked, setFlag, checkTrace,
@@ -141,7 +143,12 @@ function runCommand(world, nationId, cmd, data, rng) {
       return res.ok ? ok(res) : res;
     }
     case 'combatSwing': {
-      const res = combatSwing(world, nation, cmd, data, now);
+      /* ★ GDD3 §13-C-8 — 같은 명령이 두 자리에서 쓰인다.
+         웨이브 전투 중이면 밀려온 적을, 아니면 들에 사는 짐승·야생 적을 벤다.
+         (명령을 새로 만들지 않은 까닭: 손에 든 것은 같은 검이고 규칙도 같다 — 쿨타임·사거리·다운.) */
+      const res = (nation.battle && !nation.battle.over)
+        ? combatSwing(world, nation, cmd, data, now)
+        : huntSwing(world, nation, cmd, data, now);
       return res.ok ? ok(res) : res;
     }
 

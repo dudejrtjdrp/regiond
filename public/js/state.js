@@ -10,7 +10,7 @@
   var GM = global.GM = global.GM || {};
 
   /* ★ 규약 판번호 — server/index.js 의 PROTOCOL 과 반드시 같아야 한다. */
-  GM.PROTOCOL = '3.1';
+  GM.PROTOCOL = '3.2';
 
   /* ── 재화 ───────────────────────────────────────────── */
   var RESOURCES = [
@@ -20,7 +20,11 @@
     { key: 'ironOre', name: '철광석', color: '#b07050' },
     { key: 'oil',     name: '석유',   color: '#6f5aa8' },
     { key: 'steel',   name: '강재',   color: '#a8bccc' },
-    { key: 'fuel',    name: '연료',   color: '#e08541' }
+    { key: 'fuel',    name: '연료',   color: '#e08541' },
+    /* ★ GDD3 §13-C-1 — 사냥이 들여온 셋. 고기는 곳간의 곡물이 떨어졌을 때 사람을 먹인다. */
+    { key: 'meat',    name: '고기',   color: '#c4614c' },
+    { key: 'hide',    name: '가죽',   color: '#9a7448' },
+    { key: 'wool',    name: '털',     color: '#e2ddd0' }
   ];
   /* 야영지 HUD 는 이 셋만 보여준다 (GDD3 §2) */
   var BASIC3 = ['wood', 'grain', 'stone'];

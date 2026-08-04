@@ -60,6 +60,15 @@
       if (best) return { kind: 'enemy', id: best.id, x: best.x, y: best.y, obj: best, skill: 'combat' };
     }
 
+    /* ★ GDD3 §13-C-8 — 웨이브 밖에서는 들에 사는 것들이 검의 상대다.
+       사슴 한 마리가 고기 셋이고, 늑대는 이쪽이 안 베면 저쪽이 문다.
+       사냥이 열리기 전(3장 '허기' 이전)에는 이 갈래 자체가 없다 — 잠긴 것은 부재다(§11-1). */
+    if (S.featOn('hunt') && GM.world && GM.world.nearestWild) {
+      var hr = (S.combatCfg().huntRangeTiles) || S.combatCfg().rangeTiles || 2.8;
+      var w = GM.world.nearestWild(me.x, me.y, hr);
+      if (w) return { kind: 'wild', id: w.c.id, x: w.x, y: w.y, obj: w.c, skill: 'combat', species: w.c.sp };
+    }
+
     var r = S.swingRange();
     var bestT = null, bestD = 1e9;
     S.sites().forEach(function (c) {
@@ -136,14 +145,14 @@
 
     /* 서버 판정을 기다리지 않고 쿨타임을 먼저 건다 — 왕복 사이에 두 번 쏘지 않게 */
     var pv = preview(t);
-    var guessCd = t.kind === 'enemy' ? guessCombatCooldown() : ((pv && pv.cooldownMs) || 1200);
+    var guessCd = (t.kind === 'enemy' || t.kind === 'wild') ? guessCombatCooldown() : ((pv && pv.cooldownMs) || 1200);
     cdSpan = guessCd;
     cdUntil = now() + guessCd;
 
     pending = { target: t, at: now(), impacted: false, ack: null, preview: pv };
     var mine = pending;
 
-    if (t.kind === 'enemy') {
+    if (t.kind === 'enemy' || t.kind === 'wild') {
       GM.net.send('combatSwing', { targetId: t.id }, function (res) { onAck(mine, res); });
     } else if (t.kind === 'site') {
       GM.net.send('actionSwing', { siteId: t.id }, function (res) { onAck(mine, res); });
@@ -239,6 +248,23 @@
 
   function applyResult(mine, res) {
     var t = mine.target;
+    /* ★ §13-C-8 사냥 — 맞으면 붉게 튀고, 쓰러지면 드롭이 그 자리에서 자원칸으로 빨려 들어간다 */
+    if (t.kind === 'wild') {
+      if (GM.world.markWildHurt) GM.world.markWildHurt(t.id);
+      GM.fx.floatText(t.x, t.y - 0.9, '-' + U.fmt(res.damage, res.damage < 10 ? 1 : 0), '#ffd06a', 14);
+      if (res.killed) {
+        GM.fx.debris(t.x, t.y, '#bc4749', 12, 1.5);
+        GM.fx.ring(t.x, t.y, '#ff9d99', 0.2, 1.4, 0.5);
+        GM.fx.hitStop(90);
+        GM.fx.shakeScreen(4.2, 0.24);
+        GM.sfx.play('kill');
+        if (res.gained) popGains(t, res.gained, 1);
+        U.toast((res.speciesName || '짐승') + '을(를) 잡았습니다.', 'good', 2600);
+      }
+      checkLevel(res);
+      stats.swings++;
+      return;
+    }
     if (t.kind === 'enemy') {
       GM.fx.floatText(t.x, t.y - 0.9, '-' + U.fmt(res.damage, res.damage < 10 ? 1 : 0), '#ffd06a', 14);
       if (res.killed) {
