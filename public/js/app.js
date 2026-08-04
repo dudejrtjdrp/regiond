@@ -136,6 +136,9 @@
       GM.residents.arrived(p);
     });
 
+    /* ★ GDD3 §14-3 — 들의 것들의 새 좌표. 화면은 이 값으로 튀지 않고 **한 스텝 뒤에서 등속으로** 지난다. */
+    S.on('creatures', function (list) { if (inGame) GM.world.pushWild(list); });
+
     /* ★ GDD3 §14-1 — 주민의 작업 사이클이 끝났다.
        서버는 이미 곳간에 넣었다. 화면은 ① 그 사람 자리에 수치를 띄우고 ② 자원칸이 그 값을 빨아들이게 한다. */
     S.on('residentWork', function (p) {
