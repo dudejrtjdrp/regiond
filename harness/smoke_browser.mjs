@@ -128,7 +128,7 @@ try {
   await new Promise((r) => http.listen(port, '127.0.0.1', r));
   const health = await getJson(`http://127.0.0.1:${port}/api/health`);
   must(health.ok, '서버가 문을 열었다', '/api/health 가 ok 가 아니다');
-  must(health.protocol === '3.1', '서버가 v3.1 규약을 쓴다', `protocol=${health.protocol}`);
+  must(health.protocol === '3.2', '서버가 v3.2 규약을 쓴다', `protocol=${health.protocol}`);
 
   // ── 크롬 ──
   const dp = await freePort();
@@ -310,12 +310,13 @@ try {
       var best = null, bd = 1e9;
       GM.state.nodeList().forEach(function(n){
         if (n.type !== 'forest' || n.depleted) return;
-        if (!GM.state.inTerritory(n.x, n.y)) return;
+        /* ★ GDD3 §13-B-2 — 숲 군락은 영토 **밖** 8~14타일에 있다. 걸어갈 만한 거리인지만 본다. */
+        if (!GM.state.inWorkRange(n.x, n.y)) return;
         var d = Math.hypot(n.x - t.x, n.y - t.y);
         if (d < bd) { bd = d; best = n; }
       });
       return best ? JSON.stringify({id:best.id, x:best.x, y:best.y}) : null;})()`);
-  must(!!treeRaw, '시작 영토에 벨 나무가 있다');
+  must(!!treeRaw, '★ §13-B-2 영토 바로 밖 숲 군락에 벨 나무가 있다');
   if (treeRaw) {
     const tree = JSON.parse(treeRaw);
     // 나무 옆 **걸을 수 있는** 빈 땅을 눌러 걸어간다 (진짜 마우스).
@@ -460,12 +461,12 @@ try {
       var me = GM.avatar.pos() || GM.state.myTown();
       return GM.state.nodeList().filter(function(n){
         if (types.indexOf(n.type) < 0 || n.depleted) return false;
-        if (!GM.state.inTerritory(n.x, n.y)) return false;
+        if (!GM.state.inWorkRange(n.x, n.y)) return false;   /* ★ §13-B-2 군락은 영토 밖이다 */
         if (n.type === 'fertile' || n.type === 'field') return !!n.harvestReady;
         return true;
       }).sort(function(a,b){ return Math.hypot(a.x-me.x,a.y-me.y) - Math.hypot(b.x-me.x,b.y-me.y); });
     }
-    var SRC = { wood:['forest'], stone:['rock'], grain:['water','field','fertile'] };
+    var SRC = { wood:['forest'], stone:['rock'], grain:['berry','water','field','fertile'] };
     async function gather(res, amount, budget){
       for (var i=0;i<budget && (GM.state.nation().resources[res]||0) < amount;i++){
         var n = nodesOf(SRC[res] || ['forest'])[0];
@@ -773,6 +774,127 @@ try {
           for (var i = st.length - 1; i >= 0; i--) if (st[i].id === '__smoke_crate') st.splice(i, 1);
           return 1;})()`);
     }
+  }
+
+  // ── 9-b. ★ 월드 2.0 · 생태계 (GDD3 §13-B·§13-C) ──
+  //   ① 군락이 '지역'으로 읽히는가 — 바닥 질감이 실제로 달라지는가(캡처 비교)
+  //   ② 사나운 땅에 발을 들이면 경고가 뜨는가
+  //   ③ 짐승을 잡으면 그 자리에서 드롭이 뜨는가
+  {
+    const clusters = Number(await ev('GM.state.clusterList().length'));
+    must(clusters > 0, '★ §13-B-1 군락이 지도에 실려 온다', `군락 ${clusters}곳`);
+
+    /** 어느 자리를 화면 한가운데 두고 캔버스 가운데 색을 잰다 */
+    const tintAt = async (x, y) => {
+      await ev(`(function(){ GM.camera.reset(${x}, ${y}); })()`);
+      await sleep(420);
+      return JSON.parse(await ev(`(function(){
+          var cv = document.querySelector('#world-canvas');
+          var g = cv.getContext('2d');
+          var w = cv.width, h = cv.height;
+          var d = g.getImageData(Math.round(w*0.42), Math.round(h*0.42), Math.round(w*0.16), Math.round(h*0.16)).data;
+          var r=0,gg=0,b=0,n=0;
+          for (var i=0;i<d.length;i+=4){ r+=d[i]; gg+=d[i+1]; b+=d[i+2]; n++; }
+          return JSON.stringify({ r:r/n, g:gg/n, b:b/n });})()`));
+    };
+    const spotRaw = await ev(`(function(){
+        var t = GM.state.myTown();
+        var list = GM.state.clusterList();
+        function nearest(type){
+          var best = null, bd = 1e9;
+          list.forEach(function(c){
+            if (c.type !== type) return;
+            var d = Math.hypot(c.x - t.x, c.y - t.y);
+            if (d < bd) { bd = d; best = c; }
+          });
+          return best;
+        }
+        var f = nearest('forest');
+        return JSON.stringify({ town: { x: t.x, y: t.y }, forest: f });})()`);
+    const spot = JSON.parse(spotRaw);
+    if (spot.forest) {
+      const plain = await tintAt(spot.town.x, spot.town.y);
+      const grove = await tintAt(spot.forest.x, spot.forest.y);
+      const greener = (grove.g - grove.r) - (plain.g - plain.r);
+      must(Math.abs(greener) > 1.2 || Math.abs(grove.r - plain.r) > 2,
+        '★ §13-B-1 군락 지역은 바닥 질감이 다르다 (숲 군락이 눈으로 읽힌다)',
+        `빈 땅 ${plain.r.toFixed(1)}/${plain.g.toFixed(1)}/${plain.b.toFixed(1)} · 숲 군락 ${grove.r.toFixed(1)}/${grove.g.toFixed(1)}/${grove.b.toFixed(1)}`);
+      pass('군락 바닥 질감', `숲 군락이 빈 땅보다 초록 기 ${greener.toFixed(1)}`);
+    }
+
+    // ② 링2 경고 — 사나운 땅으로 한 걸음
+    const ringRaw = await ev(`(async function(){
+        var t = GM.state.myTown();
+        var m = GM.state.S.map;
+        var r1 = (m.rings && m.rings.r1) || 40;
+        var x = Math.min(m.size - 3, Math.round(t.x + r1 + 6)), y = t.y;
+        window.__toasts = [];
+        var origToast = GM.ui.toast;
+        GM.ui.toast = function(msg, kind, ms){ window.__toasts.push(String(msg)); return origToast(msg, kind, ms); };
+        var res = await new Promise(function(done){ GM.net.send('lordMove', { x: x, y: y }, done); });
+        GM.ui.toast = origToast;
+        return JSON.stringify({ ring: res && res.ring, entered: res && res.ringEntered, text: res && res.ringText });})()`);
+    const ring = JSON.parse(ringRaw);
+    must(ring.ring === 2, '★ §13-B-5 사나운 땅(링2)에 발을 들였다', `띠 ${ring.ring}`);
+    must(ring.entered === true && !!ring.text, '★ §13-B-5 링2 경고가 서버에서 내려온다', ring.text || '문구 없음');
+    // 화면 가장자리 붉은 기 — 이펙트가 실제로 걸리는가
+    const edged = await ev(`(function(){ GM.fx.dangerEdge(1.6); GM.fx.step(0.2); GM.fx.drawLayer();
+        var cv = document.querySelector('#fx-layer'); var g = cv.getContext('2d');
+        var d = g.getImageData(2, Math.round(cv.height/2), 6, 6).data;
+        var r=0,n=0; for (var i=0;i<d.length;i+=4){ r+=d[i]*(d[i+3]/255); n++; }
+        return r/n;})()`);
+    must(Number(edged) > 8, '★ §13-B-5 화면 가장자리에 붉은 기가 한 번 인다', `가장자리 붉은 값 ${Number(edged).toFixed(1)}`);
+    await ev(`(function(){ var t = GM.state.myTown(); GM.avatar.setPos(t.x, t.y); GM.camera.reset(t.x, t.y); })()`);
+
+    // ③ 사냥 — 짐승을 눈앞에 세우고 검을 휘두른다
+    const huntRaw = await ev(`(async function(){
+        window.__floats2 = [];
+        var orig = GM.fx.floatText;
+        GM.fx.floatText = function(x,y,t,c,s){ window.__floats2.push(String(t)); return orig(x,y,t,c,s); };
+        var me = GM.avatar.pos();
+        var pack = { tick: 0, list: [{ id:'smoke_w', sp:'rabbit', name:'토끼', kind:'animal',
+          x: me.x + 1, y: me.y, hp: 7, maxHp: 7, ring: 0, state: 'wander' }] };
+        GM.state.applyCreatures(pack.list);
+        var seen = GM.world.nearestWild(me.x, me.y, 3);
+        GM.swing.invalidate();          /* 대상 기억이 70ms 남아 있어 옛 답을 줄 수 있다 */
+        var target = GM.swing.target();
+        GM.fx.floatText = orig;
+        return JSON.stringify({ found: !!seen, kind: target && target.kind, verb: GM.world.verbFor(target) });})()`);
+    const hunt = JSON.parse(huntRaw);
+    must(hunt.found === true, '★ §13-C 들의 것이 화면에 실린다');
+    must(hunt.kind === 'wild', '★ §13-C-8 검이 짐승을 겨눈다', `대상 ${hunt.kind}`);
+    must(/사냥/.test(hunt.verb || ''), '★ §13-C-8 「E — 사냥」 프롬프트가 뜬다', hunt.verb || '없음');
+    // 드롭 플로팅 — 서버 ack 없이도 같은 경로로 숫자가 뜨는지 확인한다
+    const drop = await ev(`(function(){
+        window.__floats3 = [];
+        var orig = GM.fx.floatText;
+        GM.fx.floatText = function(x,y,t,c,s){ window.__floats3.push(String(t)); return orig(x,y,t,c,s); };
+        var me = GM.avatar.pos();
+        GM.fx.floatText(me.x, me.y - 1, '-9', '#ffd06a', 14);
+        GM.fx.resourcePop(me.x, me.y, 'meat', '+1 고기');
+        GM.fx.floatText = orig;
+        return JSON.stringify({ floats: window.__floats3, pops: GM.fx.counts().pops });})()`);
+    const dropInfo = JSON.parse(drop);
+    must(dropInfo.pops > 0, '★ §13-C-8 사냥 드롭이 자원칸으로 날아간다', `자원 팝 ${dropInfo.pops}개`);
+    pass('사냥 연출', `겨냥 「${hunt.verb}」 · 타격 ${dropInfo.floats.join(' ')} · 드롭 팝 ${dropInfo.pops}`);
+
+    // 도감 — 단추와 화면
+    const codex = await ev(`(function(){
+        try {
+          if (!GM.state.uiOn('panel.codex')) return JSON.stringify({ locked: true });
+          var m = GM.codex.open();
+          var cards = document.querySelectorAll('.codex-card').length;
+          var unknown = document.querySelectorAll('.codex-card.unknown').length;
+          if (m) GM.ui.closeModal(m);
+          return JSON.stringify({ locked: false, cards: cards, unknown: unknown });
+        } catch (e) { return JSON.stringify({ err: String(e && (e.stack || e.message)) }); }})()`);
+    const cx = JSON.parse(codex);
+    must(!cx.err, '★ §13-C-3 도감이 예외 없이 열린다', cx.err || '');
+    if (!cx.locked && !cx.err) {
+      must(cx.cards > 0, '★ §13-C-3 도감이 열리고 종별 카드가 그려진다', `카드 ${cx.cards}장`);
+      must(cx.unknown > 0, '★ §13-C-3 아직 못 만난 것은 실루엣이다', `실루엣 ${cx.unknown}장`);
+    }
+    await ev('GM.state.applyCreatures([])');
   }
 
   // ── 10. ★ 밤낮 4구간 — 이름만이 아니라 **화면이 실제로 어두워지는가** (GDD3 §12-10) ──
