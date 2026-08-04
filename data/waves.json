@@ -1,0 +1,171 @@
+{
+  "_note": "엔드리스 침공 웨이브 — docs/GDD3.md §6. 시즌·고정 스케줄은 폐기됐다. 첫 위협은 정착지 티어 startTier 도달 후 firstDelayDays 뒤, 이후 intervalDays 간격으로 무한히 온다. 웨이브 파워 = basePower × growth^n × 난이도 배수 × 변형 배수(로테이션 한 바퀴마다). 전투는 결정론 서브틱 실시뮬(server/engine/battle.js)이고, 여기 있는 hp/dps/speed 가 그 시뮬의 입력이다.",
+  "startTier": 2,
+  "firstDelayDays": 6,
+  "intervalDays": [
+    5,
+    7
+  ],
+  "basePower": 520,
+  "growth": 1.07,
+  "rotation": [
+    "wolf",
+    "bandit",
+    "pirate",
+    "viking",
+    "ogre",
+    "dragon"
+  ],
+  "variant": {
+    "_note": "로테이션을 한 바퀴 돌 때마다 같은 적이 이름을 바꿔 돌아온다(변형). statMultiplier 는 유닛 하나를 더 굵게 만들 뿐 웨이브 총량(=파워)은 바꾸지 않는다 — 총량은 basePower·growth·settlementScale 이 쥔다. powerMultiplier 1.0 은 '변형만으로는 더 세지지 않는다'는 뜻이다(엔드리스 압력은 growth^n 과 규모 보정이 만든다).",
+    "powerMultiplier": 1,
+    "statMultiplier": 1.1,
+    "prefixes": [
+      "",
+      "굶주린 ",
+      "무리 지은 ",
+      "피에 젖은 ",
+      "전설의 "
+    ]
+  },
+  "types": {
+    "wolf": {
+      "name": "늑대 떼",
+      "hp": 55,
+      "dps": 6,
+      "speed": 2.5,
+      "powerCost": 10,
+      "weakTo": "sortie",
+      "direction": "north",
+      "sprite": "wolf",
+      "desc": "숲에서 내려온다. 빠르지만 무르다."
+    },
+    "bandit": {
+      "name": "도적",
+      "hp": 90,
+      "dps": 11,
+      "speed": 1.8,
+      "powerCost": 16,
+      "weakTo": "siege",
+      "direction": "west",
+      "sprite": "bandit",
+      "prefersLoot": true,
+      "desc": "곳간을 노린다. 울타리를 넘으려 든다."
+    },
+    "pirate": {
+      "name": "해적",
+      "hp": 110,
+      "dps": 14,
+      "speed": 1.9,
+      "powerCost": 20,
+      "weakTo": "fire",
+      "direction": "sea",
+      "sprite": "pirate",
+      "prefersLoot": true,
+      "desc": "바다에서 상륙한다. 불에 약하다."
+    },
+    "viking": {
+      "name": "바이킹",
+      "hp": 170,
+      "dps": 20,
+      "speed": 1.6,
+      "powerCost": 31,
+      "weakTo": "siege",
+      "direction": "north",
+      "sprite": "viking",
+      "structureDamageBonus": 1.5,
+      "desc": "성문을 부수러 온다. 농성이 듣는다."
+    },
+    "ogre": {
+      "name": "오우거",
+      "hp": 340,
+      "dps": 32,
+      "speed": 1.2,
+      "powerCost": 54,
+      "weakTo": "fire",
+      "direction": "east",
+      "sprite": "ogre",
+      "structureDamageBonus": 2,
+      "desc": "느리지만 울타리를 종잇장처럼 찢는다."
+    },
+    "dragon": {
+      "name": "드래곤",
+      "hp": 650,
+      "dps": 55,
+      "speed": 2.2,
+      "powerCost": 118,
+      "weakTo": "sortie",
+      "direction": "east",
+      "sprite": "dragon",
+      "flying": true,
+      "structureDamageBonus": 2.5,
+      "desc": "울타리를 넘어 곧장 마을 한복판으로 내려앉는다."
+    },
+    "_note": "적 종류. hp/powerCost 비(≈5.5)를 종류마다 같게 맞춰 두었다 — 파워가 곧 위협의 크기가 되도록 하기 위함이고, 종류의 개성은 속도·비행·건물 피해 배수·듣는 전술(weakTo)로 낸다."
+  },
+  "warn": {
+    "_note": "예고 — D-warnLeadDays 에 맵 가장자리에 선발대 캠프가 보인다(정찰 마커). 성녀가 있으면 도착일과 구성까지 정확히 열린다(예언), 없으면 '무언가 다가온다'는 흐린 경고만 온다.",
+    "campLeadDays": 2,
+    "hintLeadDays": 3,
+    "saint": {
+      "revealTiming": true,
+      "revealComposition": true,
+      "warnLeadDays": 4,
+      "damageBonus": 0.25
+    },
+    "withoutSaint": {
+      "jitterDays": 2
+    }
+  },
+  "battle": {
+    "_note": "실시뮬 다이얼. subtickSeconds 는 서브틱 길이(결정론 — 실시간 여부와 무관하게 같은 입력이면 같은 결과), maxSeconds 는 한 웨이브의 최대 길이다. 적은 접근하며 울타리·터렛·민병과 붙고, 마을 한복판에 닿으면 건물을 부수며 초당 lootRatioPerSecond 만큼 곳간을 헤집는다. ★ 이기려면 한 놈도 남기지 않고 쫓아내야 한다 — 시간이 다 되면 남은 적이 챙긴 것을 들고 물러간다(전멸도 게임오버도 없다).",
+    "subtickSeconds": 0.25,
+    "maxSeconds": 120,
+    "spawnRadiusTiles": 22,
+    "lootSeconds": 8,
+    "structureDamagePerSecond": 3,
+    "coreRadiusTiles": 2.5,
+    "meleeRangeTiles": 1.2,
+    "militia": {
+      "hp": 40,
+      "dps": 4,
+      "rangeTiles": 1.2,
+      "barracksHpBonusPerTier": 0.25,
+      "barracksDpsBonusPerTier": 0.25,
+      "downSeconds": 30,
+      "downMoralePenalty": 0.01,
+      "untrainedHpRatio": 0.6,
+      "untrainedDpsRatio": 0.35
+    },
+    "tacticDamageBonus": 0.12,
+    "tacticPenalty": 0.08,
+    "moralePenaltyOnBreach": 0.08,
+    "moraleBonusOnHold": 0.05,
+    "rewardGoldPerPower": 0.35,
+    "timelineMaxEvents": 900,
+    "lootRatioPerSecond": 0.0003,
+    "structureDamageFloor": 0.25
+  },
+  "simulation": {
+    "_note": "시뮬 봇(server/sim/policy.js)이 웨이브를 준비하는 다이얼. botPlayerDps 는 '플레이어가 검을 들고 참여한 평균치' 근사다 — GDD3 §10 의 '봇은 플레이어 행동 근사 포함' 요구를 만족한다.",
+    "botPlayerDps": 7.5,
+    "botPlayerCount": 1,
+    "botPrepareLeadDays": 3,
+    "botMilitiaShare": 0.3,
+    "botMaxTurretsPerWave": 2
+  },
+  "settlementScale": {
+    "_note": "★ 정착지 규모 보정(GDD3 §6 보강) — 웨이브 번호만 세는 1.18^n 은 '인구 0에서 시작해 폭발적으로 자라는' 정착지를 따라가지 못한다. 그래서 파워에 '지금 이 정착지가 갖춘 방어(터렛 DPS + 민병 DPS + 울타리 내구 × fenceWeight)'를 한 항으로 곱한다. reference 는 그 항이 1이 되는 기준 방어량이고, exponent<1 이라 투자할수록 이득이 남는다(따라오되 앞지르지는 않는다). ★ v3.2(GDD3 §12-4): 유입 가속으로 85일 인구가 37 → 52 로 늘었다. 기준 방어량(reference)도 그만큼 올려(70→88) 커진 정착지가 제 규모 때문에 벌 받지 않게 했다.",
+    "enabled": true,
+    "reference": 88,
+    "exponent": 0.85,
+    "fenceWeight": 0.02,
+    "min": 0.5,
+    "max": 8
+  },
+  "earlyRamp": {
+    "_note": "첫 위협 램프 — 처음 waves 번의 웨이브는 파워에 from→1 로 완만히 오르는 배수가 걸린다. ★ v3.1 재보정(GDD3 §11): 웨이브는 이제 티어 2가 아니라 7장(낯선 발자국)에서 시작하므로, 같은 번호의 웨이브가 훨씬 자란 정착지 위에 떨어진다. 그래서 곡선을 눌러 폈다 — basePower 245→560(첫 무리도 진짜 싸움이 되게), growth 1.18→1.07(뒷 웨이브가 순식간에 넘사벽이 되지 않게), 램프 0.5→0.42. 「마지막 망치질이 건물을 세운다」(actions.swingSite) 로 정착지가 더 빨리 자라게 된 것도 함께 반영했다. 근거는 harness/tune_waves.mjs 쓸어보기. ★ v3.2 재보정(GDD3 §12-4): 주민 유입을 당기자 사슬 전체가 12일쯤 앞당겨져, 같은 번호의 웨이브가 \"준비할 날이 6일 모자란\" 정착지 위에 떨어졌다(실측: 웨이브5 생존율 70% → 30%). 방어 투자는 인구가 아니라 **날수**(자재 적립)에 매이므로, 말미를 되돌려 주는 쪽으로 고쳤다 — firstDelayDays 2→6 · intervalDays [4,6]→[5,7] 로 첫 다섯 웨이브가 옛 날짜(대략 d16·d24·d31·d39·d45)에 다시 떨어지게 했고, 커진 정착지(인구 37→51)가 규모 보정으로 뒷 웨이브를 밀어올리는 몫만큼 growth 1.07→1.055 로 눌렀다.",
+    "waves": 7,
+    "from": 0.42
+  }
+}
