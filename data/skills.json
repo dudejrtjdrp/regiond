@@ -320,17 +320,19 @@
     "cycleBonus": 1.5
   },
   "combat": {
-    "_note": "전투 스윙(combatSwing) — 웨이브 전투 중에만 유효하다. 데미지 = damagePerSwing × (1 + yieldPerLevel×Lv) × 도구 배수. 플레이어는 죽지 않는다: 체력이 0이 되면 다운되어 downSeconds 뒤 모닥불에서 일어나고, 사기 페널티만 받는다.",
+    "_note": "전투 스윙(combatSwing) — 웨이브 전투 중에만 유효하다. 데미지 = damagePerSwing × (1 + yieldPerLevel×Lv) × 도구 배수. 플레이어는 죽지 않는다: 체력이 0이 되면 다운되어 downSeconds 뒤 모닥불에서 일어나고, 사기 페널티만 받는다. ★ GDD3 §14-6 — 다운 규칙을 못 박았다: downSeconds 10초 카운트다운 → 본부(모닥불)에서 HP reviveHpRatio(50%)로 일어나고 invulnSeconds(3초) 동안은 아무것도 그를 건드리지 못한다. 사기는 downMoralePenalty 만큼만 내려간다(소폭).",
     "damagePerSwing": 9,
     "rangeTiles": 2.5,
     "playerHp": 60,
-    "downSeconds": 12,
+    "downSeconds": 10,
     "downMoralePenalty": 0.03,
     "xpPerHit": 3,
     "xpPerKill": 12,
     "huntRangeTiles": 2.8,
     "xpPerHuntKill": 10,
-    "_huntNote": "★ GDD3 §13-C-8 — 사냥. 웨이브 전투가 아닐 때도 combatSwing 이 통한다: 사거리 안 짐승·야생 적을 친다. 쓰러뜨리면 그 자리에서 드롭이 곳간으로 들어가고 도감의 처치 수가 오른다."
+    "_huntNote": "★ GDD3 §13-C-8 — 사냥. 웨이브 전투가 아닐 때도 combatSwing 이 통한다: 사거리 안 짐승·야생 적을 친다. 쓰러뜨리면 그 자리에서 드롭이 곳간으로 들어가고 도감의 처치 수가 오른다.",
+    "reviveHpRatio": 0.5,
+    "invulnSeconds": 3
   },
   "player": {
     "_note": "★ GDD3 §14-5 — 플레이어의 레벨과 스탯. 레벨은 **다섯 스킬 XP의 총합**이 이 곡선을 타고 오른다(스킬 레벨과 따로 노는 두 번째 숫자가 아니라, 이미 있는 XP 를 한 번 더 세는 것이다 — 그래서 기존 스킬 장부와 언제나 정합이다). 레벨이 오를 때마다 스탯 포인트 1 을 주고, 캐릭터 창(C)에서 넷 중 하나에 준다. 리스펙은 없다(다이얼: respec). 서버가 정본이고 화면은 표시만 한다.\nxpCurve[i] 는 레벨 i+1 의 문턱이다. 스킬 곡선(xpCurve 위)의 다섯 배쯤을 잡아, 다섯 스킬을 고루 올린 사람이 스킬 레벨과 비슷한 속도로 오르게 했다.",

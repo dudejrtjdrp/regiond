@@ -103,9 +103,18 @@
       var me = GM.avatar.pos();
       if (me) GM.fx.floatText(me.x, me.y - 1.2, '-' + U.fmt(e.amount || 0, 0), '#ff9d99', 13);
     } else if (e.kind === 'playerDown') {
-      GM.fx.flash('#7d1c1c', 0.45, 0.7);
-      GM.sfx.play('bad');
-      U.banner({ icon: 'heart', kind: 'danger', title: '쓰러졌다', sub: '곧 모닥불 곁에서 일어납니다', ms: 3200 });
+      /* ★ GDD3 §14-6 — 전투 중에 쓰러져도 같은 화면이 뜬다(카운트다운 · 첫 다운 설명 카드). */
+      if (!e.targetId || e.targetId === S.S.avatarId) {
+        GM.down.onDown({
+          avatarId: e.targetId || S.S.avatarId,
+          downSeconds: S.combatCfg().downSeconds,
+          reviveHpRatio: S.combatCfg().reviveHpRatio,
+          invulnSeconds: S.combatCfg().invulnSeconds,
+          by: '몰려온 무리',
+        });
+      }
+    } else if (e.kind === 'playerRevived') {
+      if (!e.targetId || e.targetId === S.S.avatarId) GM.down.onRevived(e);
     } else if (e.kind === 'militiaDown') {
       var r = S.residentById(e.targetId);
       if (r) GM.fx.debris(r.x, r.y, '#bc4749', 6, 1);

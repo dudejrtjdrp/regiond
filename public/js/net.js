@@ -179,6 +179,7 @@
     socket.on('creatures', function (p) { S.applyCreatures(p && p.list); });
     socket.on('wildHit', function (p) { S.emit('wildHit', p); });
     socket.on('playerDown', function (p) { S.emit('playerDown', p); });
+    socket.on('playerRevived', function (p) { S.emit('playerRevived', p); });
 
     /* ★ GDD3 §14-1 — 주민의 작업 사이클이 끝났다. 서버가 이미 곳간에 넣은 값이 함께 온다:
        화면은 그 값을 그 사람 자리에 띄우고 자원칸을 곧바로 고쳐 쓴다(일 틱을 기다리지 않는다). */

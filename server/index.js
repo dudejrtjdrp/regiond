@@ -141,7 +141,7 @@ class GameRuntime {
       if (!watching) continue;
       ensureCreatures(this.world, nation, data);
       const { events } = stepEcology(this.world, nation, data, dt);
-      const painful = events.filter((e) => e.kind === 'player_down' || e.kind === 'wild_hit');
+      const painful = events.filter((e) => e.kind === 'player_down' || e.kind === 'wild_hit' || e.kind === 'player_revived');
       if (painful.length) this.emitImmediate(nation.id, painful);
       io.to(this.gameId).emit('creatures', {
         tick: this.world.tick,

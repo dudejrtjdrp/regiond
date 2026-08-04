@@ -136,6 +136,10 @@
       GM.residents.arrived(p);
     });
 
+    /* ★ GDD3 §14-6 — 쓰러짐과 일어남. 화면을 덮고 초를 세고, 첫 다운에는 규칙을 한 번 설명한다. */
+    S.on('playerDown', function (p) { if (inGame) GM.down.onDown(p); });
+    S.on('playerRevived', function (p) { if (inGame) GM.down.onRevived(p); });
+
     /* ★ GDD3 §14-3 — 들의 것들의 새 좌표. 화면은 이 값으로 튀지 않고 **한 스텝 뒤에서 등속으로** 지난다. */
     S.on('creatures', function (list) { if (inGame) GM.world.pushWild(list); });
 

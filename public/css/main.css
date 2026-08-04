@@ -1447,6 +1447,21 @@ body.cutscene .toasts{bottom:74px}
 .st-arow .st-ad{color:var(--ink-dim)}
 .st-arow .st-av{font-variant-numeric:tabular-nums; color:var(--gold-deep); min-width:22px; text-align:right}
 
+/* ══════════ ★ GDD3 §14-6 다운 화면 ══════════ */
+.down-veil{position:fixed; inset:0; z-index:70; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:10px; background:rgba(10,6,12,.62);
+  color:var(--paper-lit); text-align:center; animation:downIn .35s ease-out}
+.down-veil h2{margin:0; font-size:26px; color:#f0d0a0; text-shadow:2px 2px 0 rgba(0,0,0,.7)}
+.down-veil p{margin:0; font-size:14px; color:#e8dcc8}
+.down-count{font-size:56px; line-height:1; color:#f6cf7a; text-shadow:3px 3px 0 rgba(0,0,0,.7);
+  font-variant-numeric:tabular-nums}
+.down-ring{width:210px; height:8px; background:rgba(0,0,0,.5); border:1px solid rgba(246,207,122,.5)}
+.down-ring > i{display:block; height:100%; background:#f6cf7a}
+@keyframes downIn{from{opacity:0}to{opacity:1}}
+.invuln-tag{position:absolute; left:50%; transform:translateX(-50%); top:64px; z-index:8;
+  padding:3px 9px; background:rgba(20,16,24,.7); color:#b9cdff; font-size:12px;
+  border:1px solid rgba(185,205,255,.45)}
+
 @media (max-width:720px){
   .eq-slots{grid-template-columns:1fr}
   .eq-row{grid-template-columns:1fr; gap:4px}

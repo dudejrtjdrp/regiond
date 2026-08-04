@@ -15,7 +15,11 @@ import { aliveFences, blockingFence, damageFence, fenceMid } from './fences.js';
 import {
   nextWaveSpec, battleCfg, warnCfg, hasSaintSight, directionAngle, advanceWave, clearCamps,
 } from './waves.js';
-import { ensurePlayer, swingDamage, canSwing, markSwing, grantXp, combatSkillCfg, skillLevel } from './skills.js';
+import {
+  ensurePlayer, swingDamage, canSwing, markSwing, grantXp, combatSkillCfg, skillLevel,
+  // ★ GDD3 §14-5·§14-6 — 능력치가 낸 최대 HP · 일어난 직후의 무적
+  playerMaxHp, isInvulnerable,
+} from './skills.js';
 import { createRng, rngFromState } from './rng.js';
 import { round2, round3, clamp } from './economy.js';
 
@@ -214,11 +218,23 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
     found.entity.hp -= dmg;
     if (found.entity.hp <= 0) killEnemy(b, found.entity, data, 'player', vp.id ?? 'sim');
   }
+  /* ★ GDD3 §14-6 — 전투 중에 쓰러진 사람도 같은 규칙으로 일어난다:
+     체력 절반 · 짧은 무적 · 본부 자리. 생태계 루프(ecology.stepEcology)와 **같은 문**을 쓴다. */
+  const cCfg = combatSkillCfg(data);
   for (const p of Object.values(nation.players || {})) {
-    if (p.downUntil > 0) {
-      p.downUntil = Math.max(0, round2(p.downUntil - dt));
-      if (p.downUntil === 0) p.hp = p.maxHp;
-    }
+    if ((p.invulnUntil || 0) > 0) p.invulnUntil = Math.max(0, round2(p.invulnUntil - dt));
+    if (!(p.downUntil > 0)) continue;
+    p.downUntil = Math.max(0, round2(p.downUntil - dt));
+    if (p.downUntil > 0) continue;
+    p.maxHp = playerMaxHp(p, data);
+    p.hp = round2(p.maxHp * (cCfg.reviveHpRatio ?? 0.5));
+    p.invulnUntil = cCfg.invulnSeconds ?? 3;
+    const av = nation.avatars?.[p.id];
+    if (av) { av.x = b.core.x; av.y = b.core.y; }
+    push(b, {
+      t: round2(b.t), kind: 'playerRevived', targetId: p.id,
+      hp: p.hp, maxHp: p.maxHp, invulnSeconds: p.invulnUntil, x: b.core.x, y: b.core.y,
+    }, data);
   }
 
   // ── 4. 적 ───────────────────────────────────────────────────
@@ -239,8 +255,10 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
     if (near) {
       /* ★ §13-D-3 — 두른 것이 맞는 피해를 던다(플레이어에게만; 민병은 능력치가 그 몫을 한다). */
       const reduce = near.entity.kind === 'player' ? (equipEffects(near.entity.ref, data).reduction || 0) : 0;
-      const dmg = e.dps * dt * (1 - reduce);
       const target = near.entity.ref;
+      // ★ §14-6 — 막 일어난 사람은 잠깐 아무도 건드리지 못한다
+      if (near.entity.kind === 'player' && isInvulnerable(target)) continue;
+      const dmg = e.dps * dt * (1 - reduce);
       target.hp = round2((target.hp ?? 0) - dmg);
       if (target.hp <= 0) {
         if (near.entity.kind === 'militia') {

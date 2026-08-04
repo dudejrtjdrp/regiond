@@ -16,7 +16,11 @@ import {
 } from './world.js';
 import { isRuined } from './structures.js';
 import { rngFromState } from './rng.js';
-import { combatSkillCfg, ensurePlayer, canSwing, markSwing, grantXp, swingDamage, skillLevel } from './skills.js';
+import {
+  combatSkillCfg, ensurePlayer, canSwing, markSwing, grantXp, swingDamage, skillLevel,
+  // ★ GDD3 §14-5·§14-6 — 능력치가 낸 최대 HP · 일어난 직후의 무적 · 행운
+  playerMaxHp, isInvulnerable, statEffects, playerLevel,
+} from './skills.js';
 // ★ GDD3 §13-D-3 — 사냥에도 손에 든 것이 따라온다
 import { equipEffects } from './equipment.js';
 import { deposit } from './storage.js';
@@ -332,11 +336,29 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
   const size = world.map?.size ?? data.world.size;
   const codexRadius = creatureCfg(data).codex?.encounterRadius ?? 9;
 
-  // ── 쓰러진 사람 일으키기 (모닥불 부활) ──
+  /* ── 쓰러진 사람 일으키기 (모닥불 부활) ──
+     ★ GDD3 §14-6 — 일어나는 순간이 이제 **사건**이다: 체력 절반 · 짧은 무적 · 자리는 본부.
+        화면은 이 이벤트를 받아 카운트다운을 걷고 무적 표시를 띄운다. */
+  const cCfg = combatSkillCfg(data);
+  const town0 = townOf(world, nation.id);
   for (const p of Object.values(nation.players || {})) {
+    if ((p.invulnUntil || 0) > 0) p.invulnUntil = Math.max(0, round2(p.invulnUntil - dt));
     if ((p.downUntil || 0) <= 0) continue;
     p.downUntil = Math.max(0, round2(p.downUntil - dt));
-    if (p.downUntil === 0) p.hp = p.maxHp;
+    if (p.downUntil > 0) continue;
+    p.maxHp = playerMaxHp(p, data);
+    p.hp = round2(p.maxHp * (cCfg.reviveHpRatio ?? 0.5));
+    p.invulnUntil = cCfg.invulnSeconds ?? 3;
+    const av = nation.avatars?.[p.id];
+    if (av && town0) { av.x = town0.x; av.y = town0.y; }
+    events.push({
+      kind: 'player_revived', nationId: nation.id,
+      data: {
+        avatarId: p.id, hp: p.hp, maxHp: p.maxHp,
+        invulnSeconds: p.invulnUntil,
+        x: town0?.x ?? av?.x ?? 0, y: town0?.y ?? av?.y ?? 0,
+      },
+    });
   }
 
   let moved = 0;
@@ -417,13 +439,16 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
 function bite(world, nation, def, avatar, data) {
   const p = ensurePlayer(nation, avatar.id, data, avatar.name ?? null);
   if ((p.downUntil || 0) > 0) return null;
+  // ★ §14-6 — 막 일어난 사람은 잠깐 아무도 건드리지 못한다(연달아 쓰러지는 죽음의 굴레 방지)
+  if (isInvulnerable(p)) return null;
   const c = combatSkillCfg(data);
   const dmg = round2((def.dps || 0) * (data.creatures.sim.attackEverySeconds ?? 1.2));
   p.hp = round2(Math.max(0, (p.hp ?? p.maxHp) - dmg));
   if (p.hp > 0) {
     return { kind: 'wild_hit', nationId: nation.id, data: { avatarId: avatar.id, damage: dmg, hp: p.hp, by: def.name } };
   }
-  // 다운 — 모닥불 자리에서 일어난다
+  /* 다운 — ★ §14-6. 화면은 이 이벤트로 10초 카운트다운을 띄우고, 다 세면 player_revived 가 온다.
+     쓰러진 자리에서 그대로 세는 것이 아니라 **일어날 자리(본부)** 를 함께 알려 준다. */
   p.downUntil = c.downSeconds;
   nation.morale = Math.max(data.balance.morale.min, (nation.morale ?? 1) - c.downMoralePenalty);
   const town = townOf(world, nation.id);
@@ -432,6 +457,9 @@ function bite(world, nation, def, avatar, data) {
     kind: 'player_down', nationId: nation.id,
     data: {
       avatarId: avatar.id, by: def.name, downSeconds: c.downSeconds,
+      reviveHpRatio: c.reviveHpRatio ?? 0.5,
+      invulnSeconds: c.invulnSeconds ?? 3,
+      moralePenalty: c.downMoralePenalty,
       x: town?.x ?? avatar.x, y: town?.y ?? avatar.y,
     },
   };
@@ -492,7 +520,8 @@ export function huntSwing(world, nation, cmd, data, now = Date.now()) {
   if (target.hp <= 0) {
     killed = true;
     /* ★ §13-D-3 — 무기의 '사냥 효율'. 좋은 칼은 더 빨리 벨 뿐 아니라 더 곱게 발라낸다. */
-    const huntBonus = 1 + (gearFx.huntYield || 0);
+    // ★ §14-5 — 행운이 드롭에 얹힌다(점당 +3%). 손재주가 아니라 '운수'의 몫이다.
+    const huntBonus = 1 + (gearFx.huntYield || 0) + (statEffects(player, data).luck || 0);
     for (const [res, n] of Object.entries(def.drops || {})) {
       const got = deposit(nation, res, round2(n * huntBonus), data);
       if (got > 0) gained[res] = got;
