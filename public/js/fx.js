@@ -24,6 +24,9 @@
   var shake = { t: 0, dur: 0, power: 0 };
   var freezeUntil = 0;
   var flashes = [];      // 전체 화면 번쩍 {t,dur,color,alpha}
+  /* ★ GDD3 §13-B-5 — 사나운 땅(링2)에 발을 들인 순간 화면 **가장자리**가 한 번 붉어진다.
+     화면 전체를 물들이면 지금 하던 일이 안 보인다 — 가운데는 그대로 두고 테두리만 경고한다. */
+  var danger = { t: 0, dur: 0 };
 
   var layer = null, lctx = null, LW = 0, LH = 0;
 
@@ -205,6 +208,7 @@
       if (floats[i].t > floats[i].dur) floats.splice(i, 1);
     }
     for (i = flashes.length - 1; i >= 0; i--) { flashes[i].t += dt; if (flashes[i].t > flashes[i].dur) flashes.splice(i, 1); }
+    if (danger.dur > 0) danger.t += dt;
     var t0 = now();
     for (i = stumps.length - 1; i >= 0; i--) if (t0 - stumps[i].born > stumps[i].life) stumps.splice(i, 1);
     if (shake.t < shake.dur) shake.t += dt;
@@ -313,10 +317,42 @@
   }
 
   /* ══════════ 화면층 그리기 (자원 팝) ══════════ */
+  /** 사나운 땅 경고 — 가장자리 붉은 기 한 번 (§13-B-5) */
+  function dangerEdge(seconds) {
+    danger.dur = seconds || 1.6;
+    danger.t = 0;
+  }
+
+  function drawDangerEdge() {
+    if (danger.dur <= 0) return;
+    var k = danger.t / danger.dur;
+    if (k >= 1) { danger.dur = 0; return; }
+    var a = Math.sin(Math.PI * k) * 0.55;
+    var thick = Math.max(24, Math.min(LW, LH) * 0.16);
+    lctx.save();
+    lctx.globalAlpha = a;
+    var edges = [
+      [0, 0, LW, thick, 0, 0, 0, thick],
+      [0, LH - thick, LW, thick, 0, LH, 0, LH - thick],
+      [0, 0, thick, LH, 0, 0, thick, 0],
+      [LW - thick, 0, thick, LH, LW, 0, LW - thick, 0]
+    ];
+    for (var e = 0; e < edges.length; e++) {
+      var d = edges[e];
+      var g = lctx.createLinearGradient(d[4], d[5], d[6], d[7]);
+      g.addColorStop(0, 'rgba(188,71,73,.95)');
+      g.addColorStop(1, 'rgba(188,71,73,0)');
+      lctx.fillStyle = g;
+      lctx.fillRect(d[0], d[1], d[2], d[3]);
+    }
+    lctx.restore();
+  }
+
   function drawLayer() {
     if (!lctx) return;
     lctx.clearRect(0, 0, LW, LH);
     var i;
+    drawDangerEdge();
     for (i = 0; i < flashes.length; i++) {
       var fl = flashes[i];
       lctx.save();
@@ -351,6 +387,7 @@
   function reset() {
     parts = []; arcs = []; rings = []; floats = []; stumps = []; slashes = []; pops = [];
     flashes = []; shakes = {};
+    danger = { t: 0, dur: 0 };
     shake = { t: 0, dur: 0, power: 0 };
     freezeUntil = 0;
   }
@@ -361,6 +398,7 @@
     hitStop: hitStop, frozen: frozen, shakeScreen: shakeScreen, shakeOffset: shakeOffset, flash: flash,
     swingArc: swingArc, slash: slash, debris: debris, dust: dust, sparkle: sparkle,
     ring: ring, floatText: floatText, stump: stump, stumpList: stumpList,
+    dangerEdge: dangerEdge,
     shakeNode: shakeNode, nodeShake: nodeShake, resourcePop: resourcePop,
     counts: function () { return { parts: parts.length, pops: pops.length }; }
   };

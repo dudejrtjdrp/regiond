@@ -8,7 +8,8 @@ import { validateOrders } from './orders.js';
 import { reassign } from './npc.js';
 import { isLastPlace } from './ai_nation.js';
 import { performApAction, harvestNode, resolveRuinChoice } from './king.js';
-import { townOf } from './world.js';
+import { townOf, ringAt, revealConcealed } from './world.js';
+import { recordRuinFound } from './codex.js';
 import {
   validateAppearance, normalizeAppearance, pushChat, memberAppearance, upsertMember, normalizeMembers,
 } from './social.js';
@@ -315,7 +316,22 @@ function runCommand(world, nationId, cmd, data, rng) {
       const revealed = moved ? revealAvatar(nation, data, world.tick, x, y) : [];
       // ★ 7장 정찰 — 「안개 속 낯선 발자국」은 그 자리까지 걸어가야 열린다(시간이 아니라 발걸음).
       if (moved && nation.isPlayer) checkTrace(world, nation, data);
-      return ok({ avatar: avatars[who], moved, revealed });
+      /* ★ GDD3 §13-B-4·5 — 걸어 들어간 자리가 여는 것 둘.
+         ① 은닉 유적은 가까이 가야 지도에 나타난다 ② 위험 띠(링)를 넘으면 그 사실을 ack 에 실어 준다.
+         링은 서버가 정본으로 판정한다 — 화면이 제 셈으로 경고를 띄우면 영토가 자란 뒤 어긋난다. */
+      const found = moved && nation.isPlayer ? revealConcealed(world, nation, data, world.tick) : [];
+      for (const n of found) recordRuinFound(nation, n, world.tick);
+      const ring = nation.isPlayer ? ringAt(world, nation, x, y, data) : 0;
+      const lastRing = prev?.ring ?? 0;
+      if (avatars[who]) avatars[who].ring = ring;
+      const warnAt = data.world.rings?.warnRing ?? 2;
+      return ok({
+        avatar: avatars[who], moved, revealed,
+        ring,
+        ringEntered: ring >= warnAt && lastRing < warnAt,
+        ringText: ring >= warnAt ? (data.world.rings?.warnText ?? null) : null,
+        revealedNodes: found.map((n) => n.id),
+      });
     }
 
     case 'setAppearance': {

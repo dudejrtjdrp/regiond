@@ -118,7 +118,21 @@
     var rx = Math.round(me.x), ry = Math.round(me.y);
     if (!force && (now - lastReport < 900 || (rx === lastX && ry === lastY))) return;
     lastReport = now; lastX = rx; lastY = ry;
-    GM.net.send('lordMove', { x: rx, y: ry });
+    /* ★ GDD3 §13-B-4·5 — 발걸음이 여는 것 둘. 서버가 ack 로 알려 준다:
+       ① 은닉 유적을 찾았다 ② 사나운 땅(링2)에 처음 발을 들였다.
+       링 판정은 **서버가** 한다 — 영토가 자라면 안전한 땅도 함께 자라므로 화면이 제 셈으로 하면 어긋난다. */
+    GM.net.send('lordMove', { x: rx, y: ry }, function (res) {
+      if (!res || !res.ok) return;
+      if (res.ringEntered && GM.fx) {
+        U.toast(res.ringText || '여기서부터는 사나운 것들의 땅입니다.', 'bad', 5200);
+        GM.fx.dangerEdge(1.6);
+        if (GM.sfx) GM.sfx.play('deny');
+      }
+      if (res.revealedNodes && res.revealedNodes.length) {
+        U.toast('숨어 있던 옛 자취를 찾았습니다.', 'good', 4200);
+        if (GM.sfx) GM.sfx.play('open');
+      }
+    });
   }
 
   function moveTo(x, y) { if (!frozen) dest = { x: x, y: y }; }

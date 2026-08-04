@@ -647,7 +647,16 @@ io.on('connection', (socket) => {
         const reveal = buildRevealDiff(rt.world, s.nationId, data, res.revealed);
         if (reveal) io.to(s.gameId).emit('worldDiff', reveal);
         if (res.events?.length) { rt.emitImmediate(s.nationId, res.events); rt.broadcastState(); }
-        if (ack) ack({ ok: true, avatar: res.avatar, reveal });
+        /* ★ GDD3 §13-B-4·5 — 걸음이 여는 것 둘을 ack 에 함께 싣는다.
+           ① 방금 드러난 은닉 유적 ② 위험 띠(링)와 링2 첫 진입 여부.
+           링 판정은 서버 몫이다 — 영토가 자라면 안전한 땅도 자라므로 화면이 제 셈으로 하면 어긋난다. */
+        if (ack) {
+          ack({
+            ok: true, avatar: res.avatar, reveal,
+            ring: res.ring, ringEntered: res.ringEntered, ringText: res.ringText,
+            revealedNodes: res.revealedNodes,
+          });
+        }
         return undefined;
       }
 

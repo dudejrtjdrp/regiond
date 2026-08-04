@@ -90,8 +90,10 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
   const mult = yieldMultiplier(nation, player, spec.skill, data);
 
   // 노드별 스윙 카운트 — 한 주기(나무 한 그루·바위 한 덩이)를 끝내면 보너스가 터진다
+  // ★ §13-B-4 — 유적은 제 크기만큼 시간이 든다: 노드에 박힌 swingsPerCycle 이 규격을 이긴다.
+  const perCycle = Math.max(1, node.swingsPerCycle ?? spec.swings);
   node.swings = (node.swings || 0) + 1;
-  const cycleDone = node.swings % spec.swings === 0;
+  const cycleDone = node.swings % perCycle === 0;
 
   const gained = {};
   const addYield = (table, scale = 1) => {
