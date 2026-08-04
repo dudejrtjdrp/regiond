@@ -446,6 +446,8 @@ const CLIENT_COMMANDS = [
   'promoteSettlement',
   // ★ GDD3 §13-D — RPG 계층: 모집 · 장비/강화/인첸트 · 연구 · 철로
   'recruitResident',
+  // ★ GDD3 §14-5 — 레벨업 스탯 포인트 나누기(캐릭터 창)
+  'allocStat',
   'craftEquipment', 'enhanceEquipment', 'enchantEquipment',
   'startResearch', 'placeRail', 'removeRail',
   // ★ GDD3 §11-4 — 감정의 날의 유일한 방아쇠
@@ -468,6 +470,8 @@ const IDENTITY_COMMANDS = new Set([
   'lordMove', 'setAppearance', 'chat', 'pickRole', 'delegate', 'actionSwing', 'combatSwing',
   // ★ GDD3 §13-D-3 — 장비는 **사람마다** 다르다. 누구의 칼인지는 세션이 정한다(클라 말을 안 믿는다).
   'craftEquipment', 'enhanceEquipment', 'enchantEquipment',
+  // ★ GDD3 §14-5 — 스탯도 사람마다 다르다. 누구의 점수인지는 세션이 정한다.
+  'allocStat',
 ]);
 
 /** ★ 실시간 명령 — 처리 후 곧바로 결과를 돌려주고, 전투 중이면 스냅샷도 함께 흘린다 */

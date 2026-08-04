@@ -660,6 +660,75 @@
     if (p) { p.hidden = true; U.clear(p); }
   }
 
+  /* ══════════ ★ GDD3 §14-5 — 나의 상태 (초상 · HP · XP · 레벨) ══════════
+     피드백: "내 체력도 레벨도 안 보인다". 화면 왼쪽 아래에 늘 떠 있는 작은 판 하나로 답한다.
+     값은 전부 서버가 낸 것을 그대로 쓴다(you.player.progress) — 화면은 셈을 하지 않는다.
+     남은 스탯 포인트가 있으면 레벨 배지가 반짝이고, 판을 누르면 캐릭터 창이 열린다. */
+  var lastLevel = null;
+
+  function bar(cls, ratio, text, tip, title) {
+    var b = U.el('div', 'me-bar ' + cls);
+    var fill = U.el('i');
+    fill.style.width = Math.round(U.clamp(ratio, 0, 1) * 100) + '%';
+    b.appendChild(fill);
+    b.appendChild(U.el('span', null, text));
+    if (tip) U.tipSet(b, title || '', tip);
+    return b;
+  }
+
+  function renderMe() {
+    var host = U.qs('#me-panel');
+    if (!host) return;
+    var p = S.player();
+    if (!p) { host.hidden = true; U.clear(host); return; }
+    var prog = p.progress || { level: 1, ratio: 0, points: 0, xp: 0, need: null };
+    host.hidden = false;
+    U.clear(host);
+    host.classList.toggle('down', !!p.down);
+
+    var face = U.el('div', 'me-face');
+    var mine = (S.S.avatars || []).filter(function (a) { return a.id === S.S.avatarId; })[0];
+    var look = (mine && mine.appearance) || (S.S.you && S.S.you.appearance) || null;
+    if (look && GM.atlas.avatarImg) face.appendChild(GM.atlas.avatarImg(look, 40));
+    else face.appendChild(GM.icons.img('person', 34));
+    var lv = U.el('span', 'me-lv', String(prog.level));
+    if (prog.points > 0) lv.style.background = 'var(--gold-deep)';
+    face.appendChild(lv);
+    host.appendChild(face);
+
+    var bars = U.el('div', 'me-bars');
+    var name = U.el('div', 'me-name');
+    name.appendChild(U.el('span', null, p.name || '개척자'));
+    if (prog.points > 0) name.appendChild(U.el('span', 'me-pts', '능력치 +' + prog.points));
+    bars.appendChild(name);
+
+    var hp = Math.max(0, p.hp || 0);
+    var maxHp = Math.max(1, p.maxHp || 1);
+    var ratio = hp / maxHp;
+    var hpCls = 'hp' + (ratio <= 0.25 ? ' crit' : (ratio <= 0.5 ? ' low' : ''));
+    bars.appendChild(bar(hpCls, ratio, U.fmt(hp, 0) + ' / ' + U.fmt(maxHp, 0),
+      '쓰러져도 죽지 않습니다 — 모닥불 곁에서 다시 일어납니다.\n체력 능력치 한 점마다 최대치가 10 늘어납니다.', '체력'));
+
+    var xpText = prog.need != null
+      ? U.fmt(prog.xp - prog.from, 0) + ' / ' + U.fmt(prog.need - prog.from, 0)
+      : '다 올랐다';
+    bars.appendChild(bar('xp', prog.ratio || 0, xpText,
+      '다섯 솜씨(농사·벌목·채광·건설·전투)로 얻은 눈금을 모두 더한 값입니다.\n한 단계 오를 때마다 능력치 점수를 하나 받습니다.',
+      '눈금 · ' + prog.level + '단계'));
+    host.appendChild(bars);
+
+    host.onclick = function () { GM.equip.open(); };
+    U.tipSet(host, '나의 상태', '눌러서 캐릭터 창을 엽니다 (C).');
+
+    /* 단계가 오른 순간은 한 번만 알린다 */
+    if (lastLevel != null && prog.level > lastLevel) {
+      GM.sfx.play('levelup');
+      U.banner({ icon: 'up', kind: 'good', title: prog.level + '단계가 되었다',
+                 sub: '능력치 점수를 하나 받았습니다 — C 를 눌러 나눠 주세요.', ms: 3600 });
+    }
+    lastLevel = prog.level;
+  }
+
   /* ══════════ 도움말 ══════════ */
   function openHelp() {
     var body = U.el('div');
@@ -672,7 +741,7 @@
      ['울타리', 'F 를 누르고 지도를 끌면 선을 따라 조각이 섭니다. Shift 를 누른 채 끝내면 문이 됩니다.'],
      ['주민', '끌어서 고르고 오른쪽 단추로 일터를 지정합니다. 사람은 빈 잠자리와 식량이 있으면 스스로 찾아옵니다.'],
      ['싸움', '무리가 몰려오면 검을 들고 직접 붙을 수 있습니다. 쓰러져도 죽지 않습니다 — 모닥불에서 다시 일어납니다.'],
-     ['보기 고치기', 'Esc 또는 오른쪽 위 톱니로 설정을 엽니다. 화면 밝기와 소리 크기를 여기서 고칩니다.'],
+     ['나의 상태', '왼쪽 아래 초상 옆이 체력과 눈금입니다. 눈금이 차면 단계가 오르고 능력치 점수를 하나 받습니다 — C 를 눌러 나눠 주세요.'],
      ['함께 하기', '오른쪽 명부에서 초대 코드를 건네고, Enter 로 한 줄을 나눕니다.']].forEach(function (r) {
       var li = U.el('li');
       li.appendChild(U.el('b', null, r[0] + ' — '));
@@ -698,6 +767,7 @@
     renderNotices();
     renderToolbar();
     renderCabinet();
+    renderMe();                       /* ★ §14-5 — 초상 옆 HP·XP·단계 */
     var kn = U.qs('#tb-kingdom');
     if (kn) kn.textContent = n.name || '';
     if (GM.build) GM.build.refresh();
@@ -711,7 +781,8 @@
   }
 
   function reset() {
-    lastRes = {}; flashes = []; lastStructures = null;
+    lastRes = {}; flashes = []; lastStructures = null; lastLevel = null;
+    var me = U.qs('#me-panel'); if (me) { me.hidden = true; U.clear(me); }
     var cab = U.qs('#cabinet'); if (cab) cab.removeAttribute('data-sig');
     var bar = U.qs('#toolbar'); if (bar) bar.removeAttribute('data-sig');
     closeSpeech(); hideContext();
@@ -773,6 +844,7 @@
     init: init, update: update, reset: reset,
     renderResBar: renderResBar, renderNotices: renderNotices, renderCabinet: renderCabinet,
     renderToolbar: renderToolbar, showContext: showContext, hideContext: hideContext,
+    renderMe: renderMe,
     flash: flash, brief: brief, openHelp: openHelp, paintSound: paintSound,
     chipPoint: chipPoint, absorb: absorb
   };

@@ -9,6 +9,8 @@
 // 서버가 권위로 쥐는 것: 무엇을 만들 수 있는가(관료·건물·자재) · 무엇이 붙었는가 · 인첸트 뽑기의 난수.
 import { clamp, round2, round3 } from './economy.js';
 import { hasBuilding } from './structures.js';
+// ★ GDD3 §14-5 — 행운이 인첸트 상위 등급 확률에 얹힌다
+import { statEffects } from './skills.js';
 
 export const equipCfg = (data) => data.equipment;
 export const SLOTS = (data) => equipCfg(data).slots;
@@ -201,19 +203,28 @@ export function enhanceEquipment(nation, player, cmd, data) {
 
 /**
  * 등급 뽑기 — 성녀가 있으면 상위 등급의 무게가 곱절이 된다(§13-D-4).
+ * ★ §14-5 — 여기에 **행운**이 얹힌다(점당 상위 등급 무게 +3%). 성녀의 곱절과는 곱해진다.
  * @returns {{key,name,scale}}
  */
-export function rollGrade(rng, nation, data) {
+export function rollGrade(rng, nation, data, player = null) {
   const cfg = equipCfg(data).enchant;
-  const boost = saintOn(nation, data) ? (cfg.saintGradeMultiplier ?? 1) : 1;
+  const boost = upperBoost(nation, data, player);
   const entries = cfg.grades.map((g) => ({ value: g, weight: g.weight * (g.upper ? boost : 1) }));
   return rng.weighted(entries) ?? cfg.grades[0];
 }
 
-/** 이 등급이 뽑힐 확률 (화면이 「성녀가 있으면 두 배」를 눈으로 보여 준다) */
-export function gradeOdds(nation, data) {
+/** 상위 등급 무게에 곱해지는 값 — 성녀(곱절) × 행운(점당 +3%) */
+export function upperBoost(nation, data, player = null) {
   const cfg = equipCfg(data).enchant;
-  const boost = saintOn(nation, data) ? (cfg.saintGradeMultiplier ?? 1) : 1;
+  const saint = saintOn(nation, data) ? (cfg.saintGradeMultiplier ?? 1) : 1;
+  const luck = 1 + (player ? (statEffects(player, data).luck || 0) : 0);
+  return saint * luck;
+}
+
+/** 이 등급이 뽑힐 확률 (화면이 「성녀가 있으면 두 배」를 눈으로 보여 준다) */
+export function gradeOdds(nation, data, player = null) {
+  const cfg = equipCfg(data).enchant;
+  const boost = upperBoost(nation, data, player);
   const weights = cfg.grades.map((g) => g.weight * (g.upper ? boost : 1));
   const total = weights.reduce((a, b) => a + b, 0) || 1;
   return cfg.grades.map((g, i) => ({
@@ -235,7 +246,7 @@ export function enchantEquipment(nation, player, cmd, data, rng) {
   const paid = checkAndPay(nation, { ...cfg.cost }, cfg.gold || 0, data);
   if (!paid.ok) return paid;
 
-  const grade = rollGrade(rng, nation, data);
+  const grade = rollGrade(rng, nation, data, player);
   const pool = cfg.traits.filter((t) => (t.slots || []).includes(slot));
   const trait = rng.pick(pool.length ? pool : cfg.traits);
   const before = g.enchant ?? null;
@@ -245,7 +256,7 @@ export function enchantEquipment(nation, player, cmd, data, rng) {
     enchant: enchantView(g.enchant, data),
     replaced: before ? enchantView(before, data) : null,
     saint: saintOn(nation, data),
-    odds: gradeOdds(nation, data),
+    odds: gradeOdds(nation, data, player),
     cost: { ...cfg.cost }, gold: cfg.gold || 0,
     gear: gearView(player, data),
   };
@@ -359,8 +370,10 @@ export function equipmentView(nation, player, data) {
     enhance: { max: enh.max, next: nextPlus, requiresOfficer: Boolean(enh.requiresOfficer) },
     enchant: {
       cost: { ...ecfg.cost }, gold: ecfg.gold || 0, missing: eMissing,
-      odds: gradeOdds(nation, data),
+      odds: gradeOdds(nation, data, player),
       saintMultiplier: ecfg.saintGradeMultiplier ?? 1,
+      /* ★ §14-5 — 행운이 상위 등급 무게에 얹은 몫(0 이면 아직 안 준 것) */
+      luckBonus: round3(statEffects(player, data).luck || 0),
       ok: smithy && !eMissing.length && (nation.gold || 0) >= (ecfg.gold || 0)
         && SLOTS(data).some((s) => gearOf(player, s, data)),
     },

@@ -218,10 +218,72 @@
     });
   }
 
+  /* ══════════ ★ GDD3 §14-5 — 능력치 나누기 ══════════
+     레벨은 다섯 솜씨의 눈금을 모두 더한 값이 정한다(서버 권위). 오를 때마다 점수 하나.
+     되돌리기는 없다 — 그래서 단추마다 무엇이 늘어나는지를 그 자리에 적어 둔다. */
+  function statBox() {
+    var p = S.player();
+    var prog = p && p.progress;
+    if (!prog) return null;
+    var box = U.el('div', 'st-alloc');
+    box.appendChild(U.el('h4', 'eq-sec', '능력치'));
+    var pts = U.el('p', 'st-pts');
+    pts.appendChild(U.el('span', null, prog.level + '단계 · 남은 점수 '));
+    pts.appendChild(U.el('b', null, String(prog.points)));
+    if (prog.need != null) {
+      pts.appendChild(U.el('span', null,
+        ' · 다음 단계까지 눈금 ' + U.fmt(Math.max(0, prog.need - prog.xp), 0)));
+    }
+    box.appendChild(pts);
+
+    (prog.order || []).forEach(function (key) {
+      var d = prog.stats[key] || {};
+      var row = U.el('div', 'st-arow');
+      row.setAttribute('data-stat', key);
+      var nameCell = U.el('span', 'st-an');
+      nameCell.appendChild(GM.icons.img(d.icon || 'person', 14));
+      nameCell.appendChild(U.el('span', null, ' ' + (d.name || key)));
+      row.appendChild(nameCell);
+      row.appendChild(U.el('span', 'st-ad', d.desc || ''));
+      row.appendChild(U.el('span', 'st-av', String(d.value || 0)));
+      var b = U.btn('+1', 'btn-small', function () { doAlloc(key); });
+      b.setAttribute('data-alloc', key);
+      b.disabled = !(prog.points > 0);
+      U.tipSet(b, (d.name || key) + ' 한 점',
+        (d.desc || '') + '\n한 번 준 점수는 되돌릴 수 없습니다.');
+      row.appendChild(b);
+      box.appendChild(row);
+    });
+
+    var fx = prog.effects || {};
+    box.appendChild(U.el('p', 'hint',
+      '지금 얹힌 몫 — 최대 체력 +' + U.fmt(fx.maxHp || 0, 0)
+      + ' · 피해 ×' + U.fmt(fx.damage || 1, 2)
+      + ' · 수확 ×' + U.fmt(fx.harvest || 1, 2)
+      + ' · 걸음 ×' + U.fmt(fx.moveSpeed || 1, 2)
+      + ' · 스윙 쿨 ×' + U.fmt(fx.cooldown || 1, 2)
+      + ' · 운수 +' + Math.round((fx.luck || 0) * 100) + '%'));
+    return box;
+  }
+
+  function doAlloc(stat) {
+    GM.net.send('allocStat', { stat: stat }, function (r) {
+      if (!r) return;
+      if (!r.ok) { U.toast((r.error && r.error.message) || '나눠 주지 못했습니다.', 'warn', 3000); GM.sfx.play('deny'); return; }
+      GM.sfx.play('gain');
+      U.toast(((S.player().progress.stats[stat] || {}).name || stat) + '이(가) 올랐습니다.', 'good', 2000);
+      GM.hud.renderMe();
+      refresh();
+    });
+  }
+
   /* ══════════ 창 ══════════ */
   function buildBody() {
     var view = eq();
     var body = U.el('div', 'eqwrap');
+    /* ★ §14-5 — 능력치는 대장간이 없어도 늘 있다(사람의 것이다). 그래서 장비보다 먼저 그린다. */
+    var stats = statBox();
+    if (stats) body.appendChild(stats);
     if (!view) {
       body.appendChild(U.el('p', 'empty', '아직 벼릴 자리가 없습니다.'));
       return body;
@@ -270,7 +332,11 @@
   }
 
   function open() {
-    if (!S.uiOn('panel.equipment')) { U.toast('아직 벼릴 자리가 없습니다.', 'warn'); return null; }
+    /* ★ §14-5 — 능력치는 언제나 내 것이다. 대장간(panel.equipment)이 없어도 창은 열린다. */
+    if (!S.uiOn('panel.equipment') && !(S.player() && S.player().progress)) {
+      U.toast('아직 볼 것이 없습니다.', 'warn');
+      return null;
+    }
     var back = U.openModal({
       title: '내 몸과 장비', width: '720px', key: 'equip',
       icon: GM.icons.img('anvil', 22),

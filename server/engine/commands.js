@@ -25,7 +25,8 @@ import {
 } from './structures.js';
 import { placeFence, upgradeFence, repairFence, removeFence } from './fences.js';
 import { actionSwing } from './actions.js';
-import { ensurePlayer } from './skills.js';
+// ★ GDD3 §14-5 — 레벨·스탯도 서버가 정본이다(allocStat).
+import { ensurePlayer, allocStat, playerView } from './skills.js';
 import { revealAvatar } from './fog.js';
 import { combatSwing } from './battle.js';
 // ★ GDD3 §13-C-8 — 웨이브 밖의 검. 들에 사는 것들을 벤다.
@@ -278,6 +279,20 @@ function runCommand(world, nationId, cmd, data, rng) {
         resident: info, cost: res.cost, recruit: res.status,
         resources: { ...nation.resources },
         events: [{ kind: 'resident_arrived', nationId: nation.id, data: info }],
+      });
+    }
+
+    /* ── ★ GDD3 §14-5 — 스탯 포인트 나누기 (캐릭터 창 C) ──────────
+       레벨은 서버가 스킬 XP 총합으로 낸다. 화면은 「이 능력치에 한 점」이라고 청할 뿐이고,
+       남은 점수가 있는지·그런 능력치가 있는지는 여기서만 판정한다. 리스펙은 없다. */
+    case 'allocStat': {
+      const player = ensurePlayer(nation, cmd.avatarId ?? cmd.playerName ?? 'lord', data, cmd.playerName ?? null);
+      const key = String(cmd.stat ?? cmd.payload?.stat ?? '');
+      const res = allocStat(player, key, data, cmd.count ?? cmd.payload?.count ?? 1);
+      if (!res.ok) return res;
+      return ok({
+        ...res,
+        player: playerView(nation, player.id, data),
       });
     }
 

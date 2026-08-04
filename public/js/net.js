@@ -22,6 +22,8 @@
     'recruitResident',
     'craftEquipment', 'enhanceEquipment', 'enchantEquipment',
     'startResearch', 'placeRail', 'removeRail',
+    /* ★ GDD3 §14-5 — 레벨업 능력치 점수 나누기(캐릭터 창 C) */
+    'allocStat',
     /* ★ 감정의 날 — 감정소를 눌러 여는 유일한 문 (GDD3 §11-4) */
     'appraiseLand',
     /* 주민 */

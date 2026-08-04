@@ -82,7 +82,9 @@
     /* ★ GDD3 §13-D-4 — 「바람 걸음」이 깃들면 실제로 더 빨리 걷는다 */
     var e = S.equipment();
     var charm = (e && e.effects && e.effects.moveSpeed) || 0;
-    return 4.6 * (1 + bonus * 0.6) * (1 + charm);
+    /* ★ GDD3 §14-5 — 민첩 한 점이 걸음을 3% 빠르게 한다(서버가 낸 값을 그대로 쓴다) */
+    var agility = (p && p.progress && p.progress.effects && p.progress.effects.moveSpeed) || 1;
+    return 4.6 * (1 + bonus * 0.6) * (1 + charm) * agility;
   }
 
   function step(dt) {

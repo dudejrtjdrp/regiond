@@ -125,6 +125,8 @@ export function publicSkills(d = loadGameData()) {
     nodes: structuredClone(d.skills.nodes),
     site: { ...d.skills.site },
     combat: { ...d.skills.combat },
+    /* ★ GDD3 §14-5 — 레벨 곡선과 능력치의 '규칙'. 내가 어디에 몇 점을 부었는지는 state 로만 간다. */
+    player: structuredClone(d.skills.player ?? {}),
   };
 }
 
