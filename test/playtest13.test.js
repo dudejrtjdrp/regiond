@@ -7,7 +7,7 @@ import { openChapterForDebug } from '../server/engine/progression.js';
 import { createWorld } from '../server/engine/state.js';
 import { createRng } from '../server/engine/rng.js';
 import { step } from '../server/engine/tick.js';
-import { townOf } from '../server/engine/world.js';
+import { townOf, territoryRadius } from '../server/engine/world.js';
 import { completeStructure } from '../server/engine/structures.js';
 import { nextTierStatus, requirementStatus } from '../server/engine/tiers.js';
 import { arrivalStatus, spawnResident, residentGather, residentYield } from '../server/engine/residents.js';
@@ -223,4 +223,48 @@ test('§13-A-3 노동 다이얼 — 자루 하나가 하루 산출의 정해진 
   assert.ok(sack >= 0.3, `자루가 너무 잘아 숫자가 안 읽힌다 (${sack})`);
   // 설정으로 클라까지 내려가는가
   assert.ok(publicConfig().world.villagers.work, 'config.world.villagers.work 가 클라로 간다');
+});
+
+// ────────────────────────────────────────────────────────────────
+// §13-A-4 주민 2명 도착 — 서버가 한 명만 만드는지 못박는다
+// ────────────────────────────────────────────────────────────────
+test('§13-A-4 한 명이 오면 서버에 한 명만 는다 (몸이 둘이 아니다)', () => {
+  let w = newWorld(31);
+  let n = w.nations.player;
+  const rng = createRng(31);
+  __openChapter(n, 4);
+  put(w, n, 'hut', 1, 4);
+  n.resources.grain = 200;
+
+  const before = n.villagers.length;
+  const out = step(w, [], rng, data);
+  w = out.state; n = w.nations.player;
+  const arrivals = out.events.filter((e) => e.kind === 'resident_arrived');
+  assert.equal(n.villagers.length - before, arrivals.length,
+    '도착 알림 수와 실제로 늘어난 사람 수가 같아야 한다');
+  assert.equal(n.population, n.villagers.length, '인구는 사람 수 그대로다');
+
+  // 알림이 가리키는 id 가 실제 주민이고, 겹치지 않는다
+  const ids = arrivals.map((e) => e.data.id);
+  assert.equal(new Set(ids).size, ids.length, '같은 사람이 두 번 도착하지 않는다');
+  for (const id of ids) {
+    assert.equal(n.villagers.filter((u) => u.id === id).length, 1, `${id} 는 딱 한 몸이다`);
+  }
+});
+
+test('§13-A-4 도착 알림은 그 사람의 id 와 걸어올 자리를 함께 준다', () => {
+  const w = newWorld(32);
+  const n = w.nations.player;
+  const rng = createRng(32);
+  __openChapter(n, 4);
+  put(w, n, 'hut', 1, 4);
+  n.resources.grain = 200;
+  const person = spawnResident(w, n, data, rng);
+  assert.ok(person.id, '주민에게 id 가 있다 — 화면이 이름표를 붙일 대상');
+  // 서버가 이미 영토 밖에 세워 마을로 걷게 해 둔다(그래서 화면이 유령을 또 만들 필요가 없다)
+  const town = townOf(w, n.id);
+  const from = Math.hypot(person.x - town.x, person.y - town.y);
+  assert.ok(from > territoryRadius(n, data), '새 사람은 영토 밖에서 걸어온다');
+  assert.equal(person.destX, town.x, '목표점은 마을 한복판');
+  assert.equal(person.destY, town.y);
 });

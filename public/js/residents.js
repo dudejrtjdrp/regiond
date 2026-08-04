@@ -247,12 +247,16 @@
   }
 
   /* ══════════ ★ 주민 도착 연출 ══════════ */
+  /**
+   * ★ GDD3 §13-A-4 — 한 명이 오면 한 명만 걸어온다.
+   *   예전엔 여기서 연출용 유령을 하나 더 걸어, 진짜 주민과 나란히 두 사람이 걸어 들어왔다.
+   *   진짜 주민은 서버가 이미 영토 밖에 세워 마을로 걷게 해 두었다 — 우리는 이름표만 붙인다.
+   */
   function arrived(p) {
     if (!p) return;
     var town = S.myTown();
     if (!town) return;
-    GM.world.walkIn({ x: p.x, y: p.y }, { x: town.x + (Math.random() * 3 - 1.5), y: town.y + 2 },
-      p.name, p.appearance);
+    GM.world.markArrival(p.id, p.name);
     GM.sfx.play('arrive');
     U.banner({ icon: 'person', kind: 'good', title: p.name + '이(가) 도착했다',
                sub: '이제 ' + p.population + '명이 산다', ms: 3400 });

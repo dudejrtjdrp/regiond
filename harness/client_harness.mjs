@@ -544,6 +544,25 @@ test('클라이언트 하니스 — 목표 카드가 가리키는 대로만 1장
       assert.ok(S.structures().some((s) => s.key === 'granary'), '곡창이 섰다');
     });
 
+    // ── 9-b. ★ §13-A-4 한 명이 오면 한 명만 걸어온다 ────────
+    await t.test('★ §13-A-4 주민 도착 — 한 명 추가에 두 명이 걸어오지 않는다', () => {
+      const before = S.residents().length;
+      const one = S.residents()[0];
+      assert.ok(one, '주민이 있다');
+
+      // 도착 알림을 그대로 흉내 낸다 (예전엔 이 한 줄이 유령을 하나 더 만들었다)
+      GM.residents.arrived({ id: one.id, name: one.name, appearance: one.appearance,
+                             x: one.x, y: one.y, total: before, population: before, capacity: before + 4 });
+      GM.world.stepUnitsForTest(0.1);
+
+      assert.equal(S.residents().length, before, '알림만으로 사람이 늘지 않는다');
+      // 화면이 그리는 몸은 주민 목록 하나뿐이다 — 도착 연출은 이름표일 뿐 몸이 아니다
+      const bodies = S.residents().filter((r) => GM.world.unitPos(r.id)).length;
+      assert.equal(bodies, S.residents().length, `몸 ${bodies}개 = 주민 ${S.residents().length}명`);
+      assert.equal(typeof GM.world.markArrival, 'function', '도착 표시는 markArrival 하나로만 건다');
+      assert.equal(GM.world.walkIn, undefined, '연출용 유령을 만드는 문은 닫혔다');
+    });
+
     // ── 10. 5장 → 6장 ────────────────────────────────────────
     await t.test('5장 마을의 꼴 — 다섯이 되고 본부에서 [승격]을 누르면 촌락', async () => {
       assert.ok(await clearChapter(5), '5장을 지났다');

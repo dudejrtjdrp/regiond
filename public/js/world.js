@@ -15,7 +15,7 @@
   var BASE = 16;
 
   var units = {};            // 주민 걷기 연출 (클라 권위)
-  var walkIns = [];          // 걸어 들어오는 새 주민 {x,y,tx,ty,name,app,t}
+  var walkIns = [];          // ★ §13-A-4 막 도착한 주민의 이름표 {id,name,t} — 몸이 아니라 표시다
   var lastT = 0, animT = 0;
   var hoverTile = { x: -1, y: -1 };
   var dragBox = null;
@@ -682,25 +682,27 @@
     }
     for (var id in units) if (!seen[id]) delete units[id];
 
-    /* 도착 연출 — 영토 밖에서 정착지로 걸어 들어온다 */
+    /* ★ §13-A-4 도착 표시 — 걷는 것은 진짜 주민이고, 여기서는 **이름표만** 세어 지운다 */
     for (var k = walkIns.length - 1; k >= 0; k--) {
-      var wi = walkIns[k];
-      wi.t += dt;
-      var ddx = wi.tx - wi.x, ddy = wi.ty - wi.y;
-      var dd = Math.hypot(ddx, ddy);
-      if (dd < 0.4 || wi.t > 26) { walkIns.splice(k, 1); continue; }
-      var step = Math.min(dd, 2.4 * dt);
-      wi.x += ddx / dd * step; wi.y += ddy / dd * step;
-      wi.dir = Math.abs(ddx) > Math.abs(ddy) ? (ddx > 0 ? 2 : 1) : (ddy > 0 ? 0 : 3);
-      wi.ft = (wi.ft || 0) + dt;
-      if (wi.ft > 0.2) { wi.ft = 0; wi.frame = wi.frame ? 0 : 1; }
+      walkIns[k].t += dt;
+      if (walkIns[k].t > 12 || !units[walkIns[k].id]) walkIns.splice(k, 1);
     }
   }
 
-  /** 새 주민이 걸어 들어오는 연출을 건다 */
-  function walkIn(from, to, name, appearance) {
-    walkIns.push({ x: from.x, y: from.y, tx: to.x, ty: to.y, name: name || '새 사람',
-                   app: appearance || null, t: 0, dir: 0, frame: 0 });
+  /**
+   * ★ GDD3 §13-A-4 — 새로 온 사람을 **표시**한다. 몸을 하나 더 만들지 않는다.
+   *
+   * 고친 버그: 한 명이 왔는데 두 명이 걸어 들어왔다.
+   *   서버는 처음부터 주민을 **영토 밖에 세우고** destX,destY 를 마을로 잡아 준다 —
+   *   즉 진짜 주민이 이미 스스로 걸어 들어온다. 그런데 화면은 residentArrived 를 받고
+   *   똑같은 자리에서 똑같은 외형·이름의 **연출용 유령**을 하나 더 걸었다.
+   *   둘은 속도(2.4 vs 2.6)와 도착점이 살짝 달라 나란히 걷는 두 사람으로 보였다.
+   * 이제 유령은 없다. 진짜 주민 머리 위에 이름표를 잠시 띄울 뿐이다.
+   */
+  function markArrival(id, name) {
+    if (!id) return;
+    for (var i = 0; i < walkIns.length; i++) if (walkIns[i].id === id) return;
+    walkIns.push({ id: id, name: name || '새 사람', t: 0 });
     if (walkIns.length > 6) walkIns.shift();
   }
 
@@ -763,15 +765,12 @@
       }
     }
 
-    /* 걸어 들어오는 새 주민 */
+    /* ★ §13-A-4 — 막 도착한 사람의 이름표. 몸은 위에서 이미 한 번 그렸다(하나뿐이다). */
     for (var k = 0; k < walkIns.length; k++) {
       var wi = walkIns[k];
-      if (!GM.camera.onScreen(wi.x, wi.y, t * 2)) continue;
-      var wp = GM.camera.worldToScreen(wi.x - 0.36, wi.y - 0.8);
-      var ws = wi.app ? GM.atlas.avatar(wi.app, wi.dir, wi.frame, { crown: false })
-                      : GM.atlas.folk('idle', wi.dir, wi.frame);
-      try { ctx.drawImage(ws, Math.round(wp.x), Math.round(wp.y), Math.ceil(t * 0.72), Math.ceil(t * 0.92)); } catch (e5) {}
-      label(wi.name, wi.x, wi.y - 1.15, '#f6e6a8');
+      var wa = units[wi.id];
+      if (!wa || !GM.camera.onScreen(wa.x, wa.y, t * 2)) continue;
+      label(wi.name, wa.x, wa.y - 1.15, '#f6e6a8');
     }
   }
 
@@ -1393,7 +1392,7 @@
   GM.world = {
     mount: mount, resize: resize, draw: draw, tickAnim: tickAnim,
     setHover: setHover, hover: hover, setDragBox: setDragBox, recenter: recenter, reset: reset,
-    animateTerritory: animateTerritory, bounceStructure: bounceStructure, walkIn: walkIn,
+    animateTerritory: animateTerritory, bounceStructure: bounceStructure, markArrival: markArrival,
     setFencePath: setFencePath, getFencePath: getFencePath,
     label: label, ringAt: ringAt, verbFor: verbFor,
     frameStats: frameStats, resetStats: resetStats,
