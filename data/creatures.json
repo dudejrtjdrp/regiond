@@ -1,101 +1,284 @@
 {
   "_note": "★ GDD3 §13-C — 상시 생태계. 웨이브와는 **완전히 별개**다: 웨이브는 날짜를 잡고 몰려오는 사건이고, 여기 있는 것들은 그냥 그 땅에 사는 것들이다. 서버가 저빈도(stepSeconds)로 위치·상태를 굴리고 화면은 그 사이를 보간해 그린다 — 위치의 정본은 언제나 서버다(§12-11 텔레포트 사고의 반대편 규칙: 주민은 클라가, 야생은 서버가 쥔다). ring 은 본부에서의 거리 띠(data/world.json rings)이고, 그 띠 밖에서는 아예 태어나지 않는다.",
   "order": [
-    "chicken", "rabbit", "sheep", "pig", "cow", "deer",
-    "wolf", "boar", "stray_dog", "bear", "bandit_scout", "direwolf"
+    "chicken",
+    "rabbit",
+    "sheep",
+    "pig",
+    "cow",
+    "deer",
+    "wolf",
+    "boar",
+    "stray_dog",
+    "bear",
+    "bandit_scout",
+    "direwolf"
   ],
   "defs": {
     "chicken": {
-      "name": "닭", "kind": "animal", "ring": 0, "weight": 1.0,
-      "hp": 8, "speed": 1.5, "dps": 0, "aggroRadius": 0, "fleeRadius": 4,
-      "drops": { "meat": 1 },
-      "habitat": ["grass", "fertile"], "habitatName": "풀밭과 기름진 땅",
+      "name": "닭",
+      "kind": "animal",
+      "ring": 0,
+      "weight": 1.0,
+      "hp": 8,
+      "speed": 1.5,
+      "dps": 0,
+      "aggroRadius": 0,
+      "fleeRadius": 4,
+      "drops": {
+        "meat": 1
+      },
+      "habitat": [
+        "grass",
+        "fertile"
+      ],
+      "habitatName": "풀밭과 기름진 땅",
       "lore": "누가 기르던 것이 야생이 되었는지, 아니면 처음부터 여기 살았는지 아무도 모른다. 마차가 닿기 전부터 이 들에는 닭 우는 소리가 있었다."
     },
     "rabbit": {
-      "name": "토끼", "kind": "animal", "ring": 0, "weight": 1.0,
-      "hp": 7, "speed": 2.6, "dps": 0, "aggroRadius": 0, "fleeRadius": 6,
-      "drops": { "meat": 1, "wool": 1 },
-      "habitat": ["grass", "forest"], "habitatName": "풀밭과 숲의 언저리",
+      "name": "토끼",
+      "kind": "animal",
+      "ring": 0,
+      "weight": 1.0,
+      "hp": 7,
+      "speed": 2.6,
+      "dps": 0,
+      "aggroRadius": 0,
+      "fleeRadius": 6,
+      "drops": {
+        "meat": 1,
+        "wool": 1
+      },
+      "habitat": [
+        "grass",
+        "forest"
+      ],
+      "habitatName": "풀밭과 숲의 언저리",
       "lore": "털이 유난히 두껍다. 겨울이 길다는 뜻이라고 나이 든 이들이 말했다."
     },
     "sheep": {
-      "name": "양", "kind": "animal", "ring": 0, "weight": 0.9,
-      "hp": 16, "speed": 1.2, "dps": 0, "aggroRadius": 0, "fleeRadius": 5,
-      "drops": { "wool": 2 },
-      "habitat": ["grass", "fertile"], "habitatName": "풀이 넉넉한 들",
+      "name": "양",
+      "kind": "animal",
+      "ring": 0,
+      "weight": 0.9,
+      "hp": 16,
+      "speed": 1.2,
+      "dps": 0,
+      "aggroRadius": 0,
+      "fleeRadius": 5,
+      "drops": {
+        "wool": 2
+      },
+      "habitat": [
+        "grass",
+        "fertile"
+      ],
+      "habitatName": "풀이 넉넉한 들",
       "lore": "떼에서 떨어진 한 마리는 좀처럼 울지 않는다. 울면 늑대가 온다는 것을 아는 짐승이다."
     },
     "pig": {
-      "name": "돼지", "kind": "animal", "ring": 0, "weight": 0.8,
-      "hp": 24, "speed": 1.6, "dps": 0, "aggroRadius": 0, "fleeRadius": 4,
-      "drops": { "meat": 3, "hide": 1 },
-      "habitat": ["forest", "fertile"], "habitatName": "숲가의 진창",
+      "name": "돼지",
+      "kind": "animal",
+      "ring": 0,
+      "weight": 0.8,
+      "hp": 24,
+      "speed": 1.6,
+      "dps": 0,
+      "aggroRadius": 0,
+      "fleeRadius": 4,
+      "drops": {
+        "meat": 3,
+        "hide": 1
+      },
+      "habitat": [
+        "forest",
+        "fertile"
+      ],
+      "habitatName": "숲가의 진창",
       "lore": "코로 땅을 뒤집는 습성이 있어, 돼지가 지난 자리에서는 이따금 옛 물건이 나온다."
     },
     "cow": {
-      "name": "소", "kind": "animal", "ring": 0, "weight": 0.6,
-      "hp": 38, "speed": 1.0, "dps": 0, "aggroRadius": 0, "fleeRadius": 3,
-      "drops": { "meat": 4, "hide": 2 },
-      "habitat": ["grass", "fertile"], "habitatName": "너른 풀밭",
+      "name": "소",
+      "kind": "animal",
+      "ring": 0,
+      "weight": 0.6,
+      "hp": 38,
+      "speed": 1.0,
+      "dps": 0,
+      "aggroRadius": 0,
+      "fleeRadius": 3,
+      "drops": {
+        "meat": 4,
+        "hide": 2
+      },
+      "habitat": [
+        "grass",
+        "fertile"
+      ],
+      "habitatName": "너른 풀밭",
       "lore": "사람을 봐도 달아나지 않는다. 오래전 누군가와 함께 살았던 기억이 남은 짐승이라고들 한다."
     },
     "deer": {
-      "name": "사슴", "kind": "animal", "ring": 1, "weight": 0.9,
-      "hp": 22, "speed": 3.4, "dps": 0, "aggroRadius": 0, "fleeRadius": 9,
-      "drops": { "meat": 3, "hide": 1 },
-      "habitat": ["forest"], "habitatName": "깊은 숲",
+      "name": "사슴",
+      "kind": "animal",
+      "ring": 1,
+      "weight": 0.9,
+      "hp": 22,
+      "speed": 3.4,
+      "dps": 0,
+      "aggroRadius": 0,
+      "fleeRadius": 9,
+      "drops": {
+        "meat": 3,
+        "hide": 1
+      },
+      "habitat": [
+        "forest"
+      ],
+      "habitatName": "깊은 숲",
       "lore": "뿔이 나뭇가지와 구별되지 않는다. 사슴을 보았다는 사람은 많아도 잡았다는 사람은 드물다."
     },
-
     "wolf": {
-      "name": "굶주린 늑대", "kind": "predator", "ring": 1, "weight": 1.0,
-      "hp": 34, "speed": 2.8, "dps": 4.5, "aggroRadius": 7, "fleeRadius": 0,
-      "drops": { "meat": 2, "hide": 1 },
-      "habitat": ["forest", "grass"], "habitatName": "숲과 들의 경계",
+      "name": "굶주린 늑대",
+      "kind": "predator",
+      "ring": 1,
+      "weight": 1.0,
+      "hp": 34,
+      "speed": 2.8,
+      "dps": 4.5,
+      "aggroRadius": 7,
+      "fleeRadius": 0,
+      "drops": {
+        "meat": 2,
+        "hide": 1
+      },
+      "habitat": [
+        "forest",
+        "grass"
+      ],
+      "habitatName": "숲과 들의 경계",
       "lore": "굶주림이 늑대를 사람 가까이로 내몬다. 울타리 앞을 서성이다 그림자만 남기고 돌아가는 밤이 있다."
     },
     "boar": {
-      "name": "멧돼지", "kind": "predator", "ring": 1, "weight": 0.9,
-      "hp": 46, "speed": 2.2, "dps": 5.5, "aggroRadius": 5, "fleeRadius": 0,
-      "drops": { "meat": 4, "hide": 2 },
-      "habitat": ["forest"], "habitatName": "덤불이 우거진 숲",
+      "name": "멧돼지",
+      "kind": "predator",
+      "ring": 1,
+      "weight": 0.9,
+      "hp": 46,
+      "speed": 2.2,
+      "dps": 5.5,
+      "aggroRadius": 5,
+      "fleeRadius": 0,
+      "drops": {
+        "meat": 4,
+        "hide": 2
+      },
+      "habitat": [
+        "forest"
+      ],
+      "habitatName": "덤불이 우거진 숲",
       "lore": "한 번 방향을 정하면 되돌리지 않는다. 피하려면 옆으로 비켜야지 뒤로 물러서면 안 된다."
     },
     "stray_dog": {
-      "name": "들개", "kind": "predator", "ring": 1, "weight": 1.1,
-      "hp": 20, "speed": 3.0, "dps": 3.0, "aggroRadius": 8, "fleeRadius": 0,
-      "packSize": [2, 4],
-      "drops": { "meat": 1, "hide": 1 },
-      "habitat": ["grass", "rock"], "habitatName": "버려진 길가",
+      "name": "들개",
+      "kind": "predator",
+      "ring": 1,
+      "weight": 1.1,
+      "hp": 20,
+      "speed": 3.0,
+      "dps": 3.0,
+      "aggroRadius": 8,
+      "fleeRadius": 0,
+      "packSize": [
+        2,
+        4
+      ],
+      "drops": {
+        "meat": 1,
+        "hide": 1
+      },
+      "habitat": [
+        "grass",
+        "rock"
+      ],
+      "habitatName": "버려진 길가",
       "lore": "떼로 다닌다. 한 마리는 겁이 많고 셋이면 겁이 없다."
     },
     "bear": {
-      "name": "곰", "kind": "predator", "ring": 2, "weight": 0.7,
-      "hp": 110, "speed": 2.0, "dps": 11, "aggroRadius": 6, "fleeRadius": 0,
-      "drops": { "meat": 6, "hide": 3 },
-      "habitat": ["forest", "rock"], "habitatName": "바위와 숲이 맞닿은 곳",
+      "name": "곰",
+      "kind": "predator",
+      "ring": 2,
+      "weight": 0.7,
+      "hp": 110,
+      "speed": 2.0,
+      "dps": 11,
+      "aggroRadius": 6,
+      "fleeRadius": 0,
+      "drops": {
+        "meat": 6,
+        "hide": 3
+      },
+      "habitat": [
+        "forest",
+        "rock"
+      ],
+      "habitatName": "바위와 숲이 맞닿은 곳",
       "lore": "곰이 사는 골짜기에는 다른 짐승이 없다. 조용한 숲은 안전한 숲이 아니다."
     },
     "bandit_scout": {
-      "name": "도적 정찰꾼", "kind": "predator", "ring": 2, "weight": 0.8,
-      "hp": 60, "speed": 2.9, "dps": 8, "aggroRadius": 9, "fleeRadius": 0,
-      "drops": { "hide": 1, "stone": 4 },
-      "habitat": ["grass", "rock"], "habitatName": "길이 보이는 언덕",
+      "name": "도적 정찰꾼",
+      "kind": "predator",
+      "ring": 2,
+      "weight": 0.8,
+      "hp": 60,
+      "speed": 2.9,
+      "dps": 8,
+      "aggroRadius": 9,
+      "fleeRadius": 0,
+      "drops": {
+        "hide": 1,
+        "stone": 4
+      },
+      "habitat": [
+        "grass",
+        "rock"
+      ],
+      "habitatName": "길이 보이는 언덕",
       "lore": "싸우러 온 것이 아니라 세러 온 것이다. 살아 돌아간 정찰꾼이 있으면 다음에는 무리가 온다."
     },
     "direwolf": {
-      "name": "다이어울프", "kind": "predator", "ring": 2, "weight": 0.6,
-      "hp": 84, "speed": 3.6, "dps": 10, "aggroRadius": 10, "fleeRadius": 0,
-      "packSize": [2, 3],
-      "drops": { "meat": 5, "hide": 3 },
-      "habitat": ["forest", "rock"], "habitatName": "사람의 발길이 끊긴 땅",
+      "name": "다이어울프",
+      "kind": "predator",
+      "ring": 2,
+      "weight": 0.6,
+      "hp": 84,
+      "speed": 3.6,
+      "dps": 10,
+      "aggroRadius": 10,
+      "fleeRadius": 0,
+      "packSize": [
+        2,
+        3
+      ],
+      "drops": {
+        "meat": 5,
+        "hide": 3
+      },
+      "habitat": [
+        "forest",
+        "rock"
+      ],
+      "habitatName": "사람의 발길이 끊긴 땅",
       "lore": "늑대보다 크고 늑대보다 조용하다. 눈이 마주쳤다면 이미 늦은 것이다."
     }
   },
   "spawn": {
     "_note": "링마다 이만큼을 채워 둔다. 하나 잡히면 respawnDays 뒤 같은 링 어딘가에 다시 태어난다 — 눈앞에서 솟아나지 않게 아바타 minSpawnDistance 밖에서만 태어난다. maxAlive 는 서버·전송 비용의 뚜껑이다.",
-    "perRing": { "0": 20, "1": 26, "2": 30 },
+    "perRing": {
+      "0": 20,
+      "1": 26,
+      "2": 30
+    },
     "maxAlive": 90,
     "respawnDays": 1,
     "minSpawnDistance": 14,
@@ -123,10 +306,23 @@
   },
   "hunting": {
     "_note": "★ GDD3 §13-C-8 — 사냥꾼 오두막. 배치된 주민이 하루에 이만큼을 잡아 온다(오두막 티어 배수). 짐승이 근처에 남아 있어야 한다 — nearbyRadius 안의 짐승 수가 모자라면 그만큼만 난다. 값이 작은 까닭: 고기는 곡물 3 몫이라 이 자리를 후하게 잡으면 식량 곡선이 통째로 흔들린다(시뮬 근거는 docs/PROTOCOL.md §9-5).",
-    "perWorkerPerDay": { "meat": 0.45, "hide": 0.12, "wool": 0.08 },
-    "tierMultiplier": [1, 1.6, 2.2],
+    "perWorkerPerDay": {
+      "meat": 0.45,
+      "hide": 0.12,
+      "wool": 0.08
+    },
+    "tierMultiplier": [
+      1,
+      1.6,
+      2.2
+    ],
     "nearbyRadius": 22,
     "animalsPerWorker": 3,
     "cullChancePerDay": 0.25
+  },
+  "ranch": {
+    "_note": "★ GDD3 §14-4 — 목장. 영토는 짐승에게 닫혀 있지만(진입 금지·밀어냄), 목장이 서면 그 둘레 radius 안쪽만은 **온순한 짐승**(kind:animal)에게 열린다. 포식자는 목장이 있어도 못 든다. 산출은 buildings.json ranch 의 flatOutput 이 정본이다 — 여기 있는 것은 '문이 열리는 범위'뿐이다.",
+    "building": "ranch",
+    "radius": 6
   }
 }

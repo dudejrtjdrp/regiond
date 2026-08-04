@@ -558,6 +558,63 @@
       2
     ]
   },
+  "ranch": {
+    "name": "목장",
+    "category": "production",
+    "requiresTier": 4,
+    "maxTier": 3,
+    "multi": true,
+    "desc": "울타리 안에서 기른다. 쫓지 않아도 고기와 털과 가죽이 난다.",
+    "_note": "★ GDD3 §14-4 — 영토가 짐승에게 닫히면서(진입 금지) 사라진 목축을 되살리는 자리다. 목장이 서면 그 둘레(creatures.ranch.radius)만은 **온순한 짐승**에게 열린다 — 포식자는 여전히 못 든다. 산출은 사냥꾼 오두막의 가축판이라 값이 비슷하되, 근처 짐승 수에 매이지 않는다(기르는 것이지 쫓는 것이 아니다).",
+    "workSlots": 2,
+    "job": "farm",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 120,
+          "stone": 50
+        },
+        "buildPoints": 16,
+        "flatOutput": {
+          "meat": 0.8,
+          "wool": 0.3,
+          "hide": 0.25
+        },
+        "hp": 120
+      },
+      {
+        "cost": {
+          "wood": 220,
+          "stone": 110
+        },
+        "buildPoints": 26,
+        "flatOutput": {
+          "meat": 1.4,
+          "wool": 0.55,
+          "hide": 0.45
+        },
+        "hp": 180
+      },
+      {
+        "cost": {
+          "wood": 360,
+          "stone": 190,
+          "steel": 24
+        },
+        "buildPoints": 38,
+        "flatOutput": {
+          "meat": 2.2,
+          "wool": 0.9,
+          "hide": 0.75
+        },
+        "hp": 260
+      }
+    ],
+    "footprint": [
+      2,
+      3
+    ]
+  },
   "storage": {
     "name": "저장고",
     "category": "production",

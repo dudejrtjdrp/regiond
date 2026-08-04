@@ -9,9 +9,23 @@
       "radius": 6,
       "requires": {},
       "unlocks": {
-        "buildings": ["campfire", "tent", "hut", "storage_crate"],
-        "features": ["gather", "swing", "reclaim", "placeBuilding", "chronicle"],
-        "ui": ["hud.resources3", "hud.questCard"]
+        "buildings": [
+          "campfire",
+          "tent",
+          "hut",
+          "storage_crate"
+        ],
+        "features": [
+          "gather",
+          "swing",
+          "reclaim",
+          "placeBuilding",
+          "chronicle"
+        ],
+        "ui": [
+          "hud.resources3",
+          "hud.questCard"
+        ]
       },
       "line": "마차가 멈춘 자리에 모닥불을 피웠다."
     },
@@ -19,11 +33,29 @@
       "tier": 1,
       "name": "개척촌",
       "radius": 9,
-      "requires": { "structures": { "hut": 1 }, "resources": { "grain": 20 } },
+      "requires": {
+        "structures": {
+          "hut": 1
+        },
+        "resources": {
+          "grain": 20
+        }
+      },
       "unlocks": {
-        "buildings": ["well", "woodpile", "lamp"],
-        "features": ["residentArrival", "commandVillagers", "reclaimField"],
-        "ui": ["hud.population", "panel.residents"]
+        "buildings": [
+          "well",
+          "woodpile",
+          "lamp"
+        ],
+        "features": [
+          "residentArrival",
+          "commandVillagers",
+          "reclaimField"
+        ],
+        "ui": [
+          "hud.population",
+          "panel.residents"
+        ]
       },
       "line": "굴뚝이 하나 늘었다. 사람이 찾아오기 시작한다."
     },
@@ -31,11 +63,32 @@
       "tier": 2,
       "name": "촌락",
       "radius": 12,
-      "requires": { "population": 5 },
+      "requires": {
+        "population": 5
+      },
       "unlocks": {
-        "buildings": ["granary", "sawmill", "quarry_camp", "hunter_hut", "storage", "house", "watchpost", "banner", "fence", "gate"],
-        "features": ["fences", "waves", "prophecyHint"],
-        "ui": ["hud.threat", "panel.build", "panel.fence"]
+        "buildings": [
+          "granary",
+          "sawmill",
+          "quarry_camp",
+          "hunter_hut",
+          "storage",
+          "house",
+          "watchpost",
+          "banner",
+          "fence",
+          "gate"
+        ],
+        "features": [
+          "fences",
+          "waves",
+          "prophecyHint"
+        ],
+        "ui": [
+          "hud.threat",
+          "panel.build",
+          "panel.fence"
+        ]
       },
       "line": "울타리를 두를 만큼은 되었다. 바깥이 우리를 알아본다."
     },
@@ -43,11 +96,30 @@
       "tier": 3,
       "name": "마을",
       "radius": 16,
-      "requires": { "population": 12 },
+      "requires": {
+        "population": 12
+      },
       "unlocks": {
-        "buildings": ["smelter", "smithy", "mine_shaft", "trading_post", "arrow_tower", "garden"],
-        "features": ["emotionDay", "roles", "trade", "departments", "advisor"],
-        "ui": ["panel.roles", "panel.trade", "panel.skills"]
+        "buildings": [
+          "smelter",
+          "smithy",
+          "mine_shaft",
+          "trading_post",
+          "arrow_tower",
+          "garden"
+        ],
+        "features": [
+          "emotionDay",
+          "roles",
+          "trade",
+          "departments",
+          "advisor"
+        ],
+        "ui": [
+          "panel.roles",
+          "panel.trade",
+          "panel.skills"
+        ]
       },
       "line": "이름이 붙는 날이다. 저마다의 자리가 정해진다."
     },
@@ -55,12 +127,32 @@
       "tier": 4,
       "name": "읍",
       "radius": 20,
-      "requires": { "population": 25 },
+      "requires": {
+        "population": 25
+      },
       "unlocks": {
-        "buildings": ["mill", "market", "shrine", "barracks", "ballista", "manor", "fountain"],
-        "features": ["orders", "council", "artifacts"],
-        "ui": ["panel.orders", "panel.council"],
-        "research": ["coal_mining"]
+        "buildings": [
+          "ranch",
+          "mill",
+          "market",
+          "shrine",
+          "barracks",
+          "ballista",
+          "manor",
+          "fountain"
+        ],
+        "features": [
+          "orders",
+          "council",
+          "artifacts"
+        ],
+        "ui": [
+          "panel.orders",
+          "panel.council"
+        ],
+        "research": [
+          "coal_mining"
+        ]
       },
       "line": "장이 서고 법이 선다."
     },
@@ -68,12 +160,26 @@
       "tier": 5,
       "name": "도시",
       "radius": 25,
-      "requires": { "population": 45 },
+      "requires": {
+        "population": 45
+      },
       "unlocks": {
-        "buildings": ["consulate", "cannon", "monument"],
-        "features": ["highTierUpgrade", "diplomacy"],
-        "ui": ["panel.diplomacy"],
-        "research": ["steam_engine", "railway"]
+        "buildings": [
+          "consulate",
+          "cannon",
+          "monument"
+        ],
+        "features": [
+          "highTierUpgrade",
+          "diplomacy"
+        ],
+        "ui": [
+          "panel.diplomacy"
+        ],
+        "research": [
+          "steam_engine",
+          "railway"
+        ]
       },
       "line": "성문 밖에서도 이 이름을 부른다."
     },
@@ -81,8 +187,21 @@
       "tier": 6,
       "name": "왕도",
       "radius": 29,
-      "requires": { "population": 70 },
-      "unlocks": { "buildings": [], "features": ["prestige"], "ui": ["panel.prestige"], "research": ["refining"] },
+      "requires": {
+        "population": 70
+      },
+      "unlocks": {
+        "buildings": [],
+        "features": [
+          "prestige"
+        ],
+        "ui": [
+          "panel.prestige"
+        ],
+        "research": [
+          "refining"
+        ]
+      },
       "line": "끝이 없는 길에 들어섰다."
     }
   ],

@@ -11,7 +11,10 @@
 //
 // ★ 울타리 (§13-C-2). 경로 탐색은 없다(A* 불요). 한 걸음이 살아 있는 울타리 조각을 **가로지르면**
 //   그 걸음이 통째로 무효다. 문(gate)도 짐승은 못 연다. 그래서 울타리를 두른 안쪽은 정말로 안전하다.
-import { townOf, territoryRadius, dist, terrainAt, terrainIndex, ringAt, ringRadii } from './world.js';
+import {
+  townOf, territoryRadius, dist, terrainAt, terrainIndex, ringAt, ringRadii, inTerritory,
+} from './world.js';
+import { isRuined } from './structures.js';
 import { rngFromState } from './rng.js';
 import { combatSkillCfg, ensurePlayer, canSwing, markSwing, grantXp, swingDamage, skillLevel } from './skills.js';
 // ★ GDD3 §13-D-3 — 사냥에도 손에 든 것이 따라온다
@@ -195,7 +198,99 @@ export function ensureCreatures(world, nation, data, rngOverride = null) {
 // ────────────────────────────────────────────────────────────────
 // 한 걸음
 // ────────────────────────────────────────────────────────────────
-function moveToward(nation, c, tx, ty, step) {
+// ────────────────────────────────────────────────────────────────
+// ★ GDD3 §14-4 — 영토 진입 금지 · 목장
+//
+// 피드백: "동물이 마을 한복판을 걸어 다닌다". 울타리(§13-C-2)는 **친 곳만** 막았으므로,
+// 아직 울타리를 두르지 않은 초반에는 여우도 늑대도 광장을 가로질렀다.
+// 이제 **영토 경계 자체**가 벽이다(웨이브는 예외다 — 그쪽은 battle.js 의 별도 계층이다).
+//
+// 다만 벽만 세우면 목축이 사라진다. 그래서 **목장**을 냈다: 목장이 서면 그 둘레
+// ranchRadius 안쪽만은 **온순한 짐승**에게 열린다. 포식자에게는 여전히 닫혀 있다.
+// ────────────────────────────────────────────────────────────────
+export const ranchCfg = (data) => data.creatures.ranch ?? { building: 'ranch', radius: 6 };
+
+/** 다 지어져 효과가 도는 목장들 */
+function activeRanches(nation, data) {
+  const key = ranchCfg(data).building ?? 'ranch';
+  return (nation.structures || []).filter((s) => s.key === key && !s.inactive && !isRuined(s));
+}
+
+/**
+ * 이 종이 이 자리(영토 안)에 들어와도 되는가 — 목장이 여는 유일한 문.
+ * @param {string} sp 종 열쇠말
+ */
+export function ranchOpenFor(world, nation, data, sp, x, y) {
+  const def = creatureDefs(data)[sp];
+  if (!def || def.kind !== 'animal') return false;          // 사나운 것은 목장이 있어도 못 든다
+  const cfg = ranchCfg(data);
+  const r = cfg.radius ?? 6;
+  for (const s of activeRanches(nation, data)) {
+    const fp = data.buildings?.[s.key]?.footprint ?? [1, 1];
+    const cx = s.x + (fp[0] - 1) / 2;
+    const cy = s.y + (fp[1] - 1) / 2;
+    if (dist(cx, cy, x, y) <= r) return true;
+  }
+  return false;
+}
+
+/** 짐승이 이 칸에 설 수 있는가 — 영토 밖이면 언제나 참, 안이면 목장이 열어 준 자리만 */
+export function creatureMayStand(world, nation, data, c, x, y) {
+  if (!inTerritory(world, nation, Math.round(x), Math.round(y), data)) return true;
+  return ranchOpenFor(world, nation, data, c.sp, x, y);
+}
+
+/**
+ * 이미 영토 안에 서 있는 것을 바깥으로 민다(§14-4 "이미 안이면 밀어냄").
+ * 본부에서 멀어지는 쪽으로 곧게 민다 — 경로 탐색은 하지 않는다(울타리도 여기서는 안 따진다:
+ * 안에 갇힌 짐승을 울타리가 다시 붙들면 영영 못 나간다).
+ *
+ * ★ `retarget` 은 건드리지 않는다. 여기서 0 으로 되돌리면 다음 걸음이 곧바로 새 목적지를 뽑아
+ *   **생태계 난수를 한 번 더 축낸다** — 그 한 톨이 사냥꾼 오두막의 수확을 밀고, 밀린 식량이
+ *   봇의 건설 차례를 바꿔, 같은 씨앗의 웨이브 결과가 뒤집힌다(실측: 씨앗 53 이 실제로 뒤집혔다).
+ * @returns {boolean} 밀었는가
+ */
+function pushOutOfTerritory(world, nation, data, c, step) {
+  const town = townOf(world, nation.id);
+  if (!town) return false;
+  const dx = c.x - town.x;
+  const dy = c.y - town.y;
+  const d = Math.hypot(dx, dy);
+  const ux = d > 0.01 ? dx / d : 1;
+  const uy = d > 0.01 ? dy / d : 0;
+  const push = Math.max(step, 0.6);
+  const size = world.map?.size ?? data.world.size;
+  c.x = clamp(Math.round((c.x + ux * push) * 100) / 100, 1, size - 2);
+  c.y = clamp(Math.round((c.y + uy * push) * 100) / 100, 1, size - 2);
+  return true;
+}
+
+/**
+ * 목적지가 영토 안이면 **경계 밖으로 밀어낸 자리**를 대신 준다.
+ *
+ * 왜 목적지를 고치나: 목적지를 그대로 두고 걸음만 막으면, 경계를 마주 본 짐승이 매 걸음 막혀
+ * `retarget = 0` 을 부르고, 그때마다 난수를 두 번씩 더 뽑는다. 그 어긋남이 쌓이면 같은 씨앗의
+ * 밸런스가 통째로 밀린다(§13-C 가 생태계 난수를 세계 난수와 갈라 놓은 것과 같은 까닭이다).
+ * 목적지를 미리 고치면 **난수를 한 톨도 더 쓰지 않고** 짐승이 애초에 안쪽을 겨누지 않는다.
+ */
+function keepTargetOutside(world, nation, data, c, tx, ty) {
+  if (creatureMayStand(world, nation, data, c, tx, ty)) return { x: tx, y: ty };
+  const town = townOf(world, nation.id);
+  if (!town) return { x: tx, y: ty };
+  const size = world.map?.size ?? data.world.size;
+  const r = territoryRadius(nation, data) + 2;
+  const dx = tx - town.x;
+  const dy = ty - town.y;
+  const d = Math.hypot(dx, dy);
+  const ux = d > 0.01 ? dx / d : 1;
+  const uy = d > 0.01 ? dy / d : 0;
+  return {
+    x: clamp(Math.round(town.x + ux * r), 1, size - 2),
+    y: clamp(Math.round(town.y + uy * r), 1, size - 2),
+  };
+}
+
+function moveToward(world, nation, data, c, tx, ty, step) {
   const dx = tx - c.x;
   const dy = ty - c.y;
   const d = Math.hypot(dx, dy);
@@ -204,6 +299,8 @@ function moveToward(nation, c, tx, ty, step) {
   const ny = c.y + (dy / d) * Math.min(step, d);
   // ★ 울타리를 가로지르는 걸음은 통째로 무효다
   if (crossesFence(nation, c.x, c.y, nx, ny)) return false;
+  // ★ §14-4 — 영토 안으로 들어서는 걸음도 통째로 무효다(목장이 연 자리는 예외)
+  if (!creatureMayStand(world, nation, data, c, nx, ny)) return false;
   c.x = Math.round(nx * 100) / 100;
   c.y = Math.round(ny * 100) / 100;
   return true;
@@ -253,6 +350,24 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
     const near = nearestAvatar(nation, c);
     const speed = def.speed * dt;
 
+    /* ── 도감: 처음 눈에 든 순간 (§13-C-3) ──
+       ★ 걸음보다 **먼저** 센다. 밀려나는 놈도 눈에는 들었기 때문이다(§14-4 로 이 갈래가 생겼다). */
+    if (!c.seen && near && near.d <= codexRadius) {
+      c.seen = true;
+      recordEncounter(nation, c.sp, world.tick);
+      events.push({ kind: 'creature_seen', nationId: nation.id, data: { species: c.sp, name: def.name, id: c.id } });
+    }
+
+    /* ★ §14-4 — 이미 영토 안에 서 있으면 무엇보다 먼저 밖으로 민다.
+       (지도가 다시 그려졌거나 영토가 자라 그 자리를 삼켰을 때, 그리고 웨이브가 헐고 간 뒤에 생긴다.
+        목장이 연 자리는 그대로 둔다.) 미는 동안에는 물지도 도망가지도 않는다 — 나가는 것이 먼저다. */
+    if (!creatureMayStand(world, nation, data, c, c.x, c.y)) {
+      pushOutOfTerritory(world, nation, data, c, Math.max(speed, 0.6));
+      c.state = 'flee';
+      moved += 1;
+      continue;
+    }
+
     // ── 사람을 본 반응 ──
     const hostile = def.kind === 'predator';
     const wantsChase = near && (
@@ -270,31 +385,28 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
           const hit = bite(world, nation, def, near.avatar, data);
           if (hit) events.push(hit);
         }
-      } else if (moveToward(nation, c, near.avatar.x, near.avatar.y, speed)) moved += 1;
+      } else if (moveToward(world, nation, data, c, near.avatar.x, near.avatar.y, speed)) moved += 1;
     } else if (wantsFlee) {
       c.state = 'flee';
       const away = Math.atan2(c.y - near.avatar.y, c.x - near.avatar.x);
       const tx = clamp(c.x + Math.cos(away) * 4, 1, size - 2);
       const ty = clamp(c.y + Math.sin(away) * 4, 1, size - 2);
-      if (moveToward(nation, c, tx, ty, speed * 1.15)) moved += 1;
+      if (moveToward(world, nation, data, c, tx, ty, speed * 1.15)) moved += 1;
     } else {
       c.state = 'wander';
       if (c.retarget <= 0) {
         c.retarget = cfg.wanderRetargetSeconds ?? 6;
         const a = r.float(0, Math.PI * 2);
         const rad = r.float(1, cfg.wanderRadius ?? 7);
-        c.tx = clamp(Math.round(c.x + Math.cos(a) * rad), 1, size - 2);
-        c.ty = clamp(Math.round(c.y + Math.sin(a) * rad), 1, size - 2);
+        /* ★ §14-4 — 목적지를 뽑은 **그 자리에서** 영토 밖으로 밀어낸다(난수를 더 쓰지 않는다) */
+        const want = keepTargetOutside(world, nation, data, c,
+          clamp(Math.round(c.x + Math.cos(a) * rad), 1, size - 2),
+          clamp(Math.round(c.y + Math.sin(a) * rad), 1, size - 2));
+        c.tx = want.x;
+        c.ty = want.y;
       }
-      if (!moveToward(nation, c, c.tx, c.ty, speed * 0.55)) c.retarget = 0;
+      if (!moveToward(world, nation, data, c, c.tx, c.ty, speed * 0.55)) c.retarget = 0;
       else moved += 1;
-    }
-
-    // ── 도감: 처음 눈에 든 순간 (§13-C-3) ──
-    if (!c.seen && near && near.d <= codexRadius) {
-      c.seen = true;
-      recordEncounter(nation, c.sp, world.tick);
-      events.push({ kind: 'creature_seen', nationId: nation.id, data: { species: c.sp, name: def.name, id: c.id } });
     }
   }
   save();

@@ -165,13 +165,18 @@
     return '이웃한 자리 ' + cnt + '곳 · 덕 +' + U.pct(bonus, 0);
   }
 
-  /* ══════════ 배치대 ══════════ */
+  /* ══════════ 건설대 ══════════ */
   /** 지금 장에서 실제로 무언가 지을 수 있는 갈래만 탭으로 낸다 */
   function categories() {
     var have = {};
     S.buildable().forEach(function (b) { have[b.category] = 1; });
     if (S.featOn('reclaim')) have.production = 1;       // 개간은 건물이 아니지만 생산 갈래에 산다
     return S.BUILD_CATEGORIES.filter(function (c) { return have[c.key]; });
+  }
+
+  /** ★ GDD3 §14-7 — 이 갈래에서 아직 잠긴 건물들(서버가 까닭까지 실어 준다) */
+  function lockedIn(category) {
+    return S.lockedBuildings().filter(function (b) { return b.category === category; });
   }
 
   function open(category) {
@@ -216,7 +221,7 @@
     if (!n) return;
 
     var head = U.el('div', 'pb-head');
-    head.appendChild(U.el('span', 'pb-title', CAT_TITLE[cat] || '무엇을 세울까'));
+    head.appendChild(U.el('span', 'pb-title', CAT_TITLE[cat] || '무엇을 건설할까'));
     var h = S.housing();
     if (cat === 'housing' && h) {
       var g = U.el('span', 'pb-cap');
@@ -257,12 +262,26 @@
       var label = b.name + (b.multi && b.built ? ' (' + b.built + ')' : '');
       var detail = (def.desc || '') +
         (b.buildPoints ? '\n공사 ' + U.fmt(b.buildPoints, 0) + ' — 현장에서 직접 두드리면 빨리 오릅니다.' : '') +
-        (b.multi ? '\n여러 채 세울 수 있습니다.' : '\n한 채만 세웁니다.') +
+        (b.multi ? '\n여러 채 건설할 수 있습니다.' : '\n한 채만 건설합니다.') +
         effectLine(b.key, 1);
       var fp = S.footprintOf(b.key);
       if (fp.w > 1 || fp.h > 1) detail += '\n차지하는 자리 ' + fp.w + '×' + fp.h + '칸';
       row.appendChild(item(iconOf(b.key), label, costNodes(b.cost, b.gold), detail,
-        !full && b.affordable, function () { pick({ kind: 'build', key: b.key }); }, full ? '이미 세웠다' : null));
+        !full && b.affordable, function () { pick({ kind: 'build', key: b.key }); }, full ? '이미 건설함' : null));
+    });
+
+    /* ★ GDD3 §14-7 — 아직 잠긴 것도 이 갈래 안에 그대로 보인다.
+       흐림 + 자물쇠 + 「언제 열리는가」. "없는 줄 알았다"를 막는 유일한 방법은 보여 주는 것이다.
+       (§11-1 의 '부재' 원칙은 갈래·시스템 단위에만 적용한다 — 갈래가 안 열렸으면 서버가 아예 안 보낸다.) */
+    lockedIn(cat).forEach(function (b) {
+      var def = S.buildingDef(b.key) || {};
+      var it = item(iconOf(b.key), b.name, b.lockReason, (def.desc || '') + '\n\n' + b.lockReason,
+        false, null, null);
+      it.classList.add('locked');
+      it.setAttribute('data-locked', b.key);
+      U.tipSet(it, b.name + ' — 아직 잠김', (def.desc ? def.desc + '\n\n' : '') + b.lockReason
+        + '\n값: ' + (costText(b.cost, b.gold) || '없음'));
+      row.appendChild(it);
     });
 
     if (cat === 'military' && S.uiOn('panel.fence')) bar.appendChild(fenceStrip());
@@ -299,6 +318,7 @@
   function iconOf(key) {
     var map = {
       tent: 'tent', hut: 'house', house: 'house', manor: 'house',
+      ranch: 'sheep',
       campfire: 'campfire', well: 'stone', woodpile: 'wood', storage_crate: 'storage',
       granary: 'granary', sawmill: 'axe', quarry_camp: 'pickaxe', hunter_hut: 'bandit',
       storage: 'storage', smelter: 'fuel', smithy: 'anvil', mine_shaft: 'ore', mill: 'grain',
@@ -362,7 +382,7 @@
       GM.net.send('relocateStructure', { structureId: pl.structureId, x: x, y: y }, function (r) {
         if (!r) return;
         if (!r.ok) { U.toast((r.error && r.error.message) || '옮길 수 없습니다.', 'bad', 2800); GM.sfx.play('deny'); return; }
-        U.toast('옮기기 시작했습니다 — 해체하고 새 자리에 다시 세웁니다.', 'good', 3200);
+        U.toast('옮기기 시작했습니다 — 해체하고 새 자리에 다시 짓습니다.', 'good', 3200);
         GM.sfx.play('build');
         GM.fx.ring(x, y, '#8dfa8d', 0.2, 1.6, 0.5);
       });
