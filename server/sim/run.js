@@ -13,9 +13,13 @@ import { settlementTier } from '../engine/tiers.js';
 import { aliveFences } from '../engine/fences.js';
 import { turretList } from '../engine/structures.js';
 import { writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { availableParallelism } from 'node:os';
+import { fileURLToPath } from 'node:url';
 
 export function parseArgs(argv = process.argv.slice(2)) {
-  const out = { runs: null, seed: 42, days: null, json: null, quiet: false, saintCompare: true, difficultyCheck: true, difficultyRunRatio: 0.25 };
+  const out = { runs: null, seed: 42, days: null, json: null, quiet: false, saintCompare: true,
+                difficultyCheck: true, difficultyRunRatio: 0.25, workers: null, shard: null };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--runs') out.runs = Number(argv[++i]);
@@ -25,7 +29,51 @@ export function parseArgs(argv = process.argv.slice(2)) {
     else if (a === '--quiet') out.quiet = true;
     else if (a === '--no-saint-compare') out.saintCompare = false;
     else if (a === '--no-difficulty-check') out.difficultyCheck = false;
+    else if (a === '--workers') out.workers = Number(argv[++i]);
+    else if (a === '--shard') out.shard = argv[++i];      // 내부용 — 아래 runShards 가 쓴다
   }
+  return out;
+}
+
+// ────────────────────────────────────────────────────────────────
+// 병렬 — 한 판은 씨앗 하나로 완결되므로 판을 코어에 나눠 담아도 결과가 같다
+//
+// 왜 필요한가: 20판 × 성녀 유무 = 40판이 한 코어로는 1분을 넘긴다. CI 와 검수에서
+// 매번 그만큼 기다릴 이유가 없다. 판을 나눠 돌리고 부모가 합치면 **결과는 한 톨도 다르지 않다**
+// (runGame 은 씨앗만 보고, 판끼리 아무것도 공유하지 않는다).
+// ────────────────────────────────────────────────────────────────
+/** 자식이 뱉는 결과를 감싸는 표식 — 엔진이 흘릴 수 있는 잡소리와 섞이지 않게 */
+const SHARD_MARK = '\u0001SIM\u0001';
+
+/** 자식 프로세스 한 몫 — 씨앗 목록을 받아 결과를 JSON 한 줄로 뱉는다 */
+function runShardChild(spec, data) {
+  const out = spec.seeds.map((seed) => runGame({ seed, data, withSaint: spec.withSaint, days: spec.days }));
+  process.stdout.write(SHARD_MARK + JSON.stringify(out) + SHARD_MARK);
+}
+
+/** 부모 몫 — 씨앗을 workers 개로 나눠 자식에게 맡기고 순서대로 이어 붙인다 */
+async function runShards(seeds, { data, withSaint, days, workers }) {
+  if (workers <= 1 || seeds.length <= 1) {
+    return seeds.map((seed) => runGame({ seed, data, withSaint, days }));
+  }
+  const buckets = Array.from({ length: Math.min(workers, seeds.length) }, () => []);
+  seeds.forEach((s, i) => buckets[i % buckets.length].push(s));
+  const parts = await Promise.all(buckets.map((bucket) => new Promise((resolve, reject) => {
+    const spec = JSON.stringify({ seeds: bucket, withSaint, days });
+    const child = spawn(process.execPath, [fileURLToPath(import.meta.url), '--shard', spec],
+      { stdio: ['ignore', 'pipe', 'inherit'] });
+    let buf = '';
+    child.stdout.on('data', (d) => { buf += d; });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      const m = buf.split(SHARD_MARK);
+      if (code !== 0 || m.length < 3) { reject(new Error(`시뮬 일꾼이 실패했습니다 (code ${code})`)); return; }
+      try { resolve(JSON.parse(m[1])); } catch (e) { reject(e); }
+    });
+  })));
+  /* 씨앗을 돌려 담았으니 되돌려 담아 원래 차례를 지킨다 — 보고서의 표본 순서가 흔들리지 않게 */
+  const out = new Array(seeds.length);
+  buckets.forEach((bucket, b) => bucket.forEach((_, i) => { out[i * buckets.length + b] = parts[b][i]; }));
   return out;
 }
 
@@ -194,18 +242,22 @@ export function difficultyDirection(data, { runs, seed, days }) {
   return { rows: out, ordered: w[0] >= w[1] && w[1] >= w[2] };
 }
 
-export function main(argv) {
+export async function main(argv) {
   const args = parseArgs(argv);
   const data = loadGameData();
+
+  /* 자식으로 불렸다면 제 몫만 돌리고 결과를 뱉고 끝낸다 */
+  if (args.shard) { runShardChild(JSON.parse(args.shard), data); return null; }
+
   const runs = args.runs ?? data.balance.simulation.defaultRuns;
   const days = args.days ?? data.balance.simulation.days;
+  const workers = args.workers ?? Math.max(1, Math.min(availableParallelism?.() ?? 1, 8));
 
-  const withSaint = [];
-  const noSaint = [];
-  for (let i = 0; i < runs; i += 1) {
-    withSaint.push(runGame({ seed: args.seed + i, data, withSaint: true, days }));
-    if (args.saintCompare) noSaint.push(runGame({ seed: args.seed + i, data, withSaint: false, days }));
-  }
+  const seeds = Array.from({ length: runs }, (_, i) => args.seed + i);
+  const withSaint = await runShards(seeds, { data, withSaint: true, days, workers });
+  const noSaint = args.saintCompare
+    ? await runShards(seeds, { data, withSaint: false, days, workers })
+    : [];
   const agg = aggregate(withSaint, data);
   const aggNo = args.saintCompare ? aggregate(noSaint, data) : null;
   const rows = checkpointReport(agg, aggNo, data);
@@ -259,4 +311,4 @@ export function main(argv) {
 }
 
 const isMain = process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/').split('/').pop());
-if (isMain) main();
+if (isMain) main().catch((e) => { console.error(e); process.exit(1); });
