@@ -483,6 +483,55 @@
 
   function markWildHurt(id) { if (wild[id]) wild[id].hurt = 0.35; }
 
+  /* ══════════ ★ GDD3 §15-C — 함께 있는 사람들(동료 봇 · 같이 접속한 이)의 걸음 ══════════
+     그들의 자리는 1초에 한 번 온다(동료는 서버 저빈도 두뇌가, 사람은 걸음 보고가 그 박자다).
+     그대로 그리면 1초마다 툭툭 튄다 — 짐승에게 쓴 §14-3 의 규칙을 그대로 쓴다:
+     두 점을 들고, 한 스텝 뒤를 등속으로 지나고, 외삽하지 않는다. */
+  var mates = {};
+  var MATE_SNAP = 12;
+
+  function stepMates(dt) {
+    var render = wildClock - WILD_DELAY_MS;
+    var list = S.S.avatars || [];
+    var mine = S.S.avatarId;
+    var seen = {};
+    for (var i = 0; i < list.length; i++) {
+      var v = list[i];
+      if (v.id === mine) continue;                 // 내 몸은 avatar.js 가 쥔다
+      seen[v.id] = true;
+      var a = mates[v.id];
+      if (!a) {
+        mates[v.id] = { x: v.x, y: v.y, dir: 0, frame: 0, ft: 0,
+                        prev: { x: v.x, y: v.y, t: render - WILD_DELAY_MS }, next: { x: v.x, y: v.y, t: wildClock } };
+        continue;
+      }
+      if (!a.next || a.next.x !== v.x || a.next.y !== v.y) {
+        if (a.next && Math.hypot(v.x - a.next.x, v.y - a.next.y) > MATE_SNAP) {
+          // 걸어서는 못 갈 거리 — 모닥불에서 일어났거나 새로 들어온 사람이다
+          a.x = v.x; a.y = v.y;
+          a.prev = { x: v.x, y: v.y, t: render - WILD_DELAY_MS };
+          a.next = { x: v.x, y: v.y, t: wildClock };
+          continue;
+        }
+        a.prev = a.next || { x: a.x, y: a.y, t: render - WILD_DELAY_MS };
+        a.next = { x: v.x, y: v.y, t: wildClock };
+      }
+      var p = a.prev, q = a.next;
+      var span = Math.max(1, q.t - p.t);
+      var k = Math.max(0, Math.min(1, (render - p.t) / span));
+      var nx = p.x + (q.x - p.x) * k;
+      var ny = p.y + (q.y - p.y) * k;
+      var mx = nx - a.x, my = ny - a.y;
+      a.x = nx; a.y = ny;
+      if (Math.hypot(mx, my) > 0.0015) {
+        a.dir = Math.abs(mx) > Math.abs(my) ? (mx > 0 ? 2 : 1) : (my > 0 ? 0 : 3);
+        a.ft += dt;
+        if (a.ft > 0.18) { a.ft = 0; a.frame = a.frame ? 0 : 1; }
+      } else a.frame = 0;
+    }
+    for (var id in mates) if (Object.prototype.hasOwnProperty.call(mates, id) && !seen[id]) delete mates[id];
+  }
+
   function drawWild() {
     var list = S.creatureList();
     if (!list.length) return;
@@ -1041,13 +1090,27 @@
   }
 
   /* ══════════ 아바타 ══════════ */
+  /* ★ GDD3 §15-C — 동료가 지금 무엇을 하고 있는가. 이름표 밑에 한 낱말로 적는다:
+     서 있기만 하는 사람과 일하러 가는 사람이 눈으로 갈려야 「살아 있다」가 된다. */
+  var CREW_DOING = {
+    node: '캐는 중', site: '짓는 중', creature: '싸우는 중', enemy: '싸우는 중',
+    haul: '나르는 중', rest: '쉬는 중', flee: '물러나는 중', down: '쓰러짐', idle: ''
+  };
+
   function drawAvatars() {
     var t = GM.camera.cam.tile;
     var mine = S.S.avatarId;
     (S.S.avatars || []).forEach(function (a) {
       if (a.id === mine) return;
-      if (!GM.camera.onScreen(a.x, a.y, t * 2)) return;
-      drawLord(a.x, a.y, a.appearance, 0, 0, a.name || '개척자', '#a8c8ff', a.id, 0, null, a.down);
+      var m = mates[a.id] || { x: a.x, y: a.y, dir: 0, frame: 0 };
+      if (!GM.camera.onScreen(m.x, m.y, t * 2)) return;
+      /* 이름표 색이 사람과 동료를 가른다: 같이 온 사람은 푸른빛, 동료는 저마다의 빛깔이다. */
+      var color = a.bot ? (a.color || '#8fe3b4') : '#a8c8ff';
+      drawLord(m.x, m.y, a.appearance, m.dir, m.frame, a.name || '개척자', color, a.id, 0, null, a.down);
+      if (!a.bot) return;
+      var doing = a.down ? CREW_DOING.down : (CREW_DOING[a.state] || '');
+      var sub = a.roleName ? (a.roleName + (doing ? ' · ' + doing : '')) : doing;
+      if (sub) label(sub, m.x, m.y - 0.42, 'rgba(240,235,220,.86)');
     });
     var me = GM.avatar && GM.avatar.pos();
     // ★ §12-7 — 마차가 굴러오는 동안 개척자는 아직 마차 안에 있다. 내리는 순간 나타난다.
@@ -1699,6 +1762,7 @@
     if (!frozen) {
       stepUnits(dt);
       stepWild(dt);
+      stepMates(dt);        // ★ §15-C — 동료와 동료들의 걸음(1초 좌표 사이를 등속으로)
       if (GM.avatar) GM.avatar.step(dt);
       if (GM.swing) GM.swing.step(dt);
       if (GM.combat && GM.combat.step) GM.combat.step(dt);

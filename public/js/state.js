@@ -909,6 +909,45 @@
     return !!(p && p.down);
   }
 
+  /* ── ★ GDD3 §15-C — 동료와 자동 플레이 ───────────────
+     둘 다 **서버가 정본**이다. 화면은 서버가 낸 값을 그릴 뿐이고, 다만 토글을 누른 그 순간과
+     손이 닿은 그 순간만은 다음 상태가 올 때까지 제 값으로 앞질러 그린다(누른 느낌이 즉시 와야 한다). */
+  var autoLocal = { on: null, suspendUntil: 0 };
+  function companions() { var n = nation(); return (n && n.companions) || []; }
+  function companionById(id) {
+    var list = companions();
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+  function seats() { var n = nation(); return (n && n.seats) || 5; }
+  function autoPlayCfg() {
+    var c = cfg();
+    return (c && c.companions && c.companions.autoPlay) || { suspendSeconds: 30 };
+  }
+  /** 지금의 자동 플레이 상태 {on, active, suspendedFor} */
+  function autoPlay() {
+    var y = you();
+    var srv = (y && y.autoPlay) || null;
+    var on = autoLocal.on != null ? autoLocal.on : !!(srv && srv.on);
+    var left = Math.max(0, Math.ceil((autoLocal.suspendUntil - Date.now()) / 1000));
+    if (srv && !left) left = srv.suspendedFor || 0;
+    return {
+      on: on,
+      active: on && left <= 0,
+      suspendedFor: on ? left : 0,
+      suspendSeconds: (srv && srv.suspendSeconds) || autoPlayCfg().suspendSeconds || 30
+    };
+  }
+  /** 토글을 누른 그 순간(서버 응답을 기다리지 않는다) */
+  function setAutoPlayLocal(on) { autoLocal.on = !!on; autoLocal.suspendUntil = 0; return autoPlay(); }
+  /** 손이 닿았다 — 서버와 같은 길이만큼 화면도 스스로 물러난다 */
+  function suspendAutoPlayLocal() {
+    if (!autoPlay().on) return null;
+    autoLocal.suspendUntil = Date.now() + (autoPlay().suspendSeconds * 1000);
+    return autoPlay();
+  }
+  function resetAutoPlayLocal() { autoLocal = { on: null, suspendUntil: 0 }; }
+
   /* ── 웨이브 ────────────────────────────────────────── */
   function wave() { return (S.view && S.view.wave) || null; }
   function defense() { return (S.view && S.view.defense) || null; }
@@ -1270,6 +1309,7 @@
   function reset() {
     S.map = null; S.avatars = []; S.chat = []; S.mandate = null; S.battle = null;
     S.events = []; S.offers = []; S.dismissed = {}; S.seenUi = {};
+    resetAutoPlayLocal();                    // ★ §15-C — 판이 바뀌면 앞질러 그린 값도 버린다
     clearSelection();
   }
 
@@ -1286,6 +1326,10 @@
     goalTargets: goalTargets, cmdOn: cmdOn,
     you: you, player: player, swingInfo: swingInfo, skillOf: skillOf, swingTarget: swingTarget,
     swingRange: swingRange, combatCfg: combatCfg, downed: downed,
+    /* ★ GDD3 §15-C — 동료 · 자동 플레이 */
+    companions: companions, companionById: companionById, seats: seats,
+    autoPlay: autoPlay, autoPlayCfg: autoPlayCfg, setAutoPlayLocal: setAutoPlayLocal,
+    suspendAutoPlayLocal: suspendAutoPlayLocal, resetAutoPlayLocal: resetAutoPlayLocal,
     wave: wave, defense: defense, chronicle: chronicle, battleLive: battleLive,
     enemyMeta: enemyMeta, directionMeta: directionMeta,
     timeCfg: timeCfg, phaseIndex: phaseIndex, phaseMeta: phaseMeta, isNight: isNight,

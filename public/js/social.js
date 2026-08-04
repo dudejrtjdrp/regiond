@@ -115,17 +115,26 @@
     U.clear(rosterEl);
     if (!list.length) { rosterEl.appendChild(U.el('div', 'sp-empty', '아직 그대뿐입니다.')); return; }
     list.forEach(function (m) {
-      var row = U.el('div', 'sp-member' + (m.online ? '' : ' away'));
+      /* ★ GDD3 §15-C — 명부에는 사람과 동료가 함께 오른다(정원 5인이 한 표에 보여야 한다).
+         동료의 자리(각료)는 companions 가 정본이다 — 사람의 자리와 같은 표에서 읽는다. */
+      var crew = m.bot ? S.companionById(m.avatarId) : null;
+      var role = m.role || (crew && crew.role) || null;
+      var row = U.el('div', 'sp-member' + (m.online ? '' : ' away') + (m.bot ? ' is-crew' : ''));
       row.setAttribute('data-avatar', m.avatarId || m.name);
       row.appendChild(GM.atlas.avatarImg(m.appearance, 26));
       var col = U.el('div', 'sm-col');
       col.appendChild(U.el('span', 'sm-n', m.name));
-      col.appendChild(U.el('span', 'sm-r', m.role ? S.roleMeta(m.role).name : '자리 미정'));
+      col.appendChild(U.el('span', 'sm-r', role ? S.roleMeta(role).name : (m.bot ? '함께 일하는 이' : '자리 미정')));
       row.appendChild(col);
       var dot = U.el('span', 'sm-dot');
+      if (m.bot && crew && crew.color) dot.style.background = crew.color;
       row.appendChild(dot);
-      U.tipSet(row, m.name + (m.online ? ' — 함께 있습니다' : ' — 자리를 비웠습니다'),
-        m.role ? S.roleMeta(m.role).name + '의 자리를 맡고 있습니다.' : '아직 자리를 고르지 않았습니다.');
+      var head = m.bot
+        ? m.name + ' — 자리를 채운 동료입니다'
+        : m.name + (m.online ? ' — 함께 있습니다' : ' — 자리를 비웠습니다');
+      var body = role ? S.roleMeta(role).name + '의 자리를 맡고 있습니다.' : '아직 자리를 고르지 않았습니다.';
+      if (m.bot) body += ' 친구가 들어오면 이 자리를 비켜 줍니다.';
+      U.tipSet(row, head, body);
       rosterEl.appendChild(row);
     });
   }
