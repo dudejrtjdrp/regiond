@@ -203,7 +203,7 @@
           "steel": 30
         },
         "buildPoints": 36,
-        "residents": 8,
+        "residents": 10,
         "hp": 300,
         "attractiveness": 0.1
       },
@@ -214,7 +214,7 @@
           "steel": 80
         },
         "buildPoints": 52,
-        "residents": 13,
+        "residents": 16,
         "hp": 420,
         "attractiveness": 0.14
       },
@@ -225,7 +225,7 @@
           "steel": 160
         },
         "buildPoints": 72,
-        "residents": 20,
+        "residents": 24,
         "hp": 560,
         "attractiveness": 0.18
       }

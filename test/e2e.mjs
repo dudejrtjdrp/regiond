@@ -76,7 +76,7 @@ test('E2E — 개척 시작에서 첫 웨이브까지 (v3 전체 루프)', async
     const worldP = once(socket, 'world');
     const joined = await send(socket, 'join', { gameId, playerName: '개척자', seed: 4242, avatarId: 'p1' });
     assert.equal(joined.ok, true, JSON.stringify(joined));
-    assert.equal(joined.protocol, '3.2');
+    assert.equal(joined.protocol, '3.3');   /* ★ §15-B-3 — 세이브 판번호가 올라 규약도 3.3 이다 */
     assert.equal(joined.tier, 0, '마차에서 내린 자리는 티어 0');
     assert.ok(joined.config.tiers && joined.config.skills && joined.config.waves, 'config 에 v3 블록이 실린다');
 

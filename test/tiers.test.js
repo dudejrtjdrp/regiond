@@ -196,7 +196,7 @@ test('★ §12-2 승격 — 조건이 모자라면 튕기고, 차면 한 단계�
 });
 
 /* ★ §15-B-3 — 가옥 2×2→2×3, 저택 3×3→3×4. 자리를 넓게 쓰는 만큼 더 많이 산다. */
-test('주거 수용력 — 천막1 / 오두막2 / 가옥5 / 저택8', () => {
+test('주거 수용력 — 천막1 / 오두막2 / 가옥5 / 저택10', () => {
   const w = newWorld(19);
   const n = w.nations.player;
   const put = (key, tier, dx) => completeStructure(w, n, { building: key, tier, x: n.structures[0].x + dx, y: n.structures[0].y, placed: true }, data);
@@ -204,5 +204,5 @@ test('주거 수용력 — 천막1 / 오두막2 / 가옥5 / 저택8', () => {
   put('tent', 1, 3); assert.equal(capacity(n, data), 1);
   put('hut', 1, 6); assert.equal(capacity(n, data), 3);
   put('house', 1, 9); assert.equal(capacity(n, data), 8);
-  put('manor', 1, 12); assert.equal(capacity(n, data), 16);
+  put('manor', 1, 12); assert.equal(capacity(n, data), 18);
 });

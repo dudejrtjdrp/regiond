@@ -10,7 +10,7 @@
   var GM = global.GM = global.GM || {};
 
   /* ★ 규약 판번호 — server/index.js 의 PROTOCOL 과 반드시 같아야 한다. */
-  GM.PROTOCOL = '3.2';
+  GM.PROTOCOL = '3.3';
 
   /* ── 재화 ───────────────────────────────────────────── */
   var RESOURCES = [

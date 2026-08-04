@@ -128,7 +128,7 @@ try {
   await new Promise((r) => http.listen(port, '127.0.0.1', r));
   const health = await getJson(`http://127.0.0.1:${port}/api/health`);
   must(health.ok, '서버가 문을 열었다', '/api/health 가 ok 가 아니다');
-  must(health.protocol === '3.2', '서버가 v3.2 규약을 쓴다', `protocol=${health.protocol}`);
+  must(health.protocol === '3.3', '서버가 v3.3 규약을 쓴다', `protocol=${health.protocol}`);
 
   // ── 크롬 ──
   const dp = await freePort();
@@ -1165,6 +1165,119 @@ try {
     JSON.stringify(me.box));
 
   pass('나의 상태', `단계 ${me.lv} · 체력·눈금 바 있음`);
+
+  // ── 10-f. ★ GDD3 §15-B-4 — 티어별 외형 진화 (스프라이트 픽셀 차이) ──
+  //   개축하고도 그림이 그대로면 「올렸다」는 감각이 남지 않는다. 서른다섯 채 전부에서
+  //   1단과 3단이 **실제로 다른 픽셀**인지 진짜 캔버스로 잰다(절차 레이어의 유일한 증거).
+  const evo = await ev(`(function(){
+      function px(img){
+        var c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+        var x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(img, 0, 0);
+        return x.getImageData(0, 0, c.width, c.height).data;
+      }
+      var defs = (GM.state.buildingsCfg() || {}).defs || {};
+      var worst = null, rows = [], n = 0;
+      for (var k in defs) {
+        if (!Object.prototype.hasOwnProperty.call(defs, k)) continue;
+        var d = defs[k];
+        if (d.piece || d.hq) continue;
+        var top = Math.max(2, Math.min(3, d.maxTier || 1));
+        var a = px(GM.atlas.building(k, 1)), b = px(GM.atlas.building(k, top));
+        var diff = 0;
+        for (var i = 0; i < a.length; i += 4) {
+          if (a[i] !== b[i] || a[i+1] !== b[i+1] || a[i+2] !== b[i+2] || a[i+3] !== b[i+3]) diff += 1;
+        }
+        var ratio = diff / (a.length / 4);
+        rows.push({ key: k, top: top, ratio: ratio });
+        n += 1;
+        if (!worst || ratio < worst.ratio) worst = { key: k, top: top, ratio: ratio };
+      }
+      rows.sort(function (p, q) { return p.ratio - q.ratio; });
+      var mean = rows.reduce(function (s, r) { return s + r.ratio; }, 0) / Math.max(1, rows.length);
+      return JSON.stringify({ n: n, worst: worst, mean: mean, low: rows.slice(0, 3) });
+    })()`).then(JSON.parse);
+  must(evo.n >= 30, '★ §15-B-4 건물 도감을 전부 훑었다', `${evo.n}채`);
+  must(evo.worst && evo.worst.ratio >= 0.08,
+    '★ §15-B-4 전 건물이 티어1↔최고티어에서 뚜렷이 달라진다 (가장 덜 변한 것도 8% 이상)',
+    `가장 덜 변한 것: ${evo.worst && evo.worst.key} ${(evo.worst && evo.worst.ratio * 100).toFixed(1)}% · `
+    + (evo.low || []).map((r) => `${r.key} ${(r.ratio * 100).toFixed(1)}%`).join(' / '));
+  pass('외형 진화', `${evo.n}채 · 평균 픽셀 차이 ${(evo.mean * 100).toFixed(1)}% · 최소 ${(evo.worst.ratio * 100).toFixed(1)}%(${evo.worst.key})`);
+
+  // ── 10-g. ★ GDD3 §15-B-1 — 즉시 툴팁 (호버하는 그 순간 설명까지 뜬다) ──
+  const tip = await ev(`(function(){
+      var el = document.createElement('button');
+      el.textContent = '검사용';
+      el.style.cssText = 'position:fixed;left:300px;top:300px;width:60px;height:24px;z-index:9';
+      document.body.appendChild(el);
+      GM.ui.tipSet(el, '이름', '무엇을 하는 건물인가', '곁가지');
+      var t = document.querySelector('#tooltip');
+      var r = el.getBoundingClientRect();
+      el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left + 5, clientY: r.top + 5 }));
+      var out = { shown: !t.hidden, text: t.textContent || '', more: !!t.querySelector('.tt-more'),
+                  aside: !!t.querySelector('.tt-aside') };
+      el.remove(); GM.ui.tipHide();
+      return JSON.stringify(out);
+    })()`).then(JSON.parse);
+  must(tip.shown, '★ §15-B-1 호버하는 순간 툴팁이 뜬다');
+  must(tip.more && tip.text.indexOf('무엇을 하는 건물인가') >= 0,
+    '★ §15-B-1 설명이 지연 없이 함께 뜬다 (800ms 폐지)', JSON.stringify(tip));
+  must(!tip.aside, '★ §15-B-1 곁가지(보조 상세)만 잠깐 머물러야 펼쳐진다', JSON.stringify(tip));
+  must(tip.text.indexOf('잠깐 두면') < 0, '★ §15-B-1 「잠깐 두면 자세히 보입니다」 안내가 사라졌다', tip.text);
+  pass('즉시 툴팁', `첫 프레임 텍스트 「${tip.text.slice(0, 24)}」`);
+
+  // ── 10-h. ★ GDD3 §15-A-4 — 터렛 사거리 원 (누를 때 · 고스트로 놓는 중) ──
+  const ring = await ev(`(function(){
+      function arcs(fn){
+        var n = 0, R = [];
+        var c = document.querySelector('#world-canvas');
+        var ctx = c.getContext('2d');
+        var orig = ctx.arc;
+        ctx.arc = function (x, y, r) { n += 1; R.push(r); return orig.apply(this, arguments); };
+        try { fn(); } finally { ctx.arc = orig; }
+        return { n: n, max: R.length ? Math.max.apply(null, R) : 0 };
+      }
+      var out = { spec: GM.state.turretSpecOf('arrow_tower', 1) };
+      var tile = GM.camera.cam.tile;
+      // ① 고스트 배치 중
+      GM.state.setPlacing({ kind: 'build', key: 'arrow_tower' });
+      GM.world.setHover(GM.state.myTown().x + 3, GM.state.myTown().y + 3);
+      out.ghost = arcs(function () { GM.world.draw(); });
+      GM.state.setPlacing(null);
+      // ② 세워 놓은 터렛을 눌렀을 때
+      //    아직 화살탑을 세우지 못한 판이면 뷰에 한 채를 끼워 넣어 **그리는 길**만 검사한다
+      //    (사거리 값은 서버 계약이고, 여기서 재는 것은 「선택하면 원이 그려지는가」다).
+      var list = (GM.state.structures() || []).filter(function (s) { return s.turret && s.turret.range; });
+      out.built = list.length;
+      var fake = null;
+      if (!list.length) {
+        var tw = GM.state.myTown();
+        fake = { id: '__smoke_turret', key: 'arrow_tower', name: '나무 화살탑', tier: 1,
+                 x: tw.x + 4, y: tw.y, cx: tw.x + 4, cy: tw.y, fw: 1, fh: 1,
+                 hp: 110, maxHp: 110, condition: 1, effects: [],
+                 turret: { dps: out.spec.dps, range: out.spec.range } };
+        GM.state.S.view.nation.structures.push(fake);
+        list = [fake];
+      }
+      GM.state.selectTarget('structureId', list[0].id);
+      out.click = arcs(function () { GM.world.draw(); });
+      out.range = list[0].turret.range;
+      GM.state.clearSelection();
+      if (fake) {
+        var arr = GM.state.S.view.nation.structures;
+        arr.splice(arr.indexOf(fake), 1);
+      }
+      out.tile = tile;
+      return JSON.stringify(out);
+    })()`).then(JSON.parse);
+  must(ring.spec && ring.spec.range > 0, '★ §15-A-4 클라 도감에 터렛 사거리가 실려 있다', JSON.stringify(ring.spec));
+  must(ring.ghost && ring.ghost.n > 0 && ring.ghost.max >= ring.spec.range * ring.tile * 0.9,
+    '★ §15-A-4 고스트로 놓는 중에 사거리 원이 그려진다',
+    `원 ${ring.ghost && ring.ghost.n}개 · 가장 큰 반지름 ${(ring.ghost && ring.ghost.max || 0).toFixed(0)}px (기대 ${(ring.spec.range * ring.tile).toFixed(0)}px)`);
+  must(ring.click && ring.click.n > 0 && ring.click.max >= ring.range * ring.tile * 0.9,
+    '★ §15-A-4 터렛을 누르면 사거리 원이 그려진다',
+    `원 ${ring.click && ring.click.n}개 · 반지름 ${(ring.click && ring.click.max || 0).toFixed(0)}px`);
+  pass('사거리 원', `고스트 ${(ring.ghost.max || 0).toFixed(0)}px · 선택 ${(ring.click.max || 0).toFixed(0)}px `
+    + `(사거리 ${ring.range}칸 × ${ring.tile.toFixed(0)}px) · 실제로 선 터렛 ${ring.built}기`);
 
   // ── 11. 프레임 시간 (GDD3 §8 — 60fps 목표) ──
   //   ★ 프레임 '간격'은 60fps 로 맞물려 돌면 늘 16.7ms 다 — 그 값이 16ms 아래로 내려갈 일이 없다.

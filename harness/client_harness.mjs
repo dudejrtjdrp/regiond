@@ -196,7 +196,7 @@ test('클라이언트 하니스 — 목표 카드가 가리키는 대로만 1장
       assert.equal(doc.querySelector('#shell').hidden, true, '게임 화면은 아직 숨어 있다');
       const health = await (await fetch(`${base}/api/health`)).json();
       assert.equal(GM.PROTOCOL, health.protocol, '화면과 서버의 규약 판번호가 같다');
-      assert.equal(GM.PROTOCOL, '3.2');
+      assert.equal(GM.PROTOCOL, '3.3');
     });
 
     // ── 2. 개척 시작 ─────────────────────────────────────────

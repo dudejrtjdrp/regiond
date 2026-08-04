@@ -1,8 +1,76 @@
-# 클라-서버 프로토콜 v3.2 (양측 구현 계약 — 이 파일이 최종 정본)
+# 클라-서버 프로토콜 v3.3 (양측 구현 계약 — 이 파일이 최종 정본)
 
 > 임의 변경 금지. 바꿔야 하면 **이 파일을 먼저 고치고** 서버·클라를 따라 고친다.
-> 서버 판번호는 `server/index.js` 의 `PROTOCOL = '3.2'`, 클라는 `public/js/state.js` 의 `GM.PROTOCOL` 과 **반드시 같아야** 한다.
-> 설계 근거는 `docs/GDD3.md`(§1~§10 엔드리스 정착지 성장 · **§11 진행 감독** · **§12 플레이테스트 1차** · **§13 플레이테스트 2차** · **§14 플레이테스트 3차**), 공간 계층은 `docs/WORLD.md`.
+> 서버 판번호는 `server/index.js` 의 `PROTOCOL = '3.3'`, 클라는 `public/js/state.js` 의 `GM.PROTOCOL` 과 **반드시 같아야** 한다.
+> 설계 근거는 `docs/GDD3.md`(§1~§10 엔드리스 정착지 성장 · **§11 진행 감독** · **§12 플레이테스트 1차** · **§13 플레이테스트 2차** · **§14 플레이테스트 3차** · **§15 플레이테스트 4차**), 공간 계층은 `docs/WORLD.md`.
+
+---
+
+## 0-S. v3.2 → **v3.3** 델타 — 터렛·전투와 건설 UX (GDD3 §15-A · §15-B)
+
+**판번호를 올린다.** 까닭은 §0-W 와 같다 — **세이브가 안 맞아서**다.
+`world.schema` **5 → 6**: §15-B-3 으로 건물이 차지하는 자리가 바뀌었다(저택 3×3→3×4 · 성지 3×3→4×4 …).
+옛 좌표를 그대로 읽으면 서 있던 건물끼리 겹치고 노드를 깔고 앉아 **새로 놓을 수도 헐 수도 없는 자리**가 생긴다.
+자리를 서버가 임의로 재배치하는 이관은 세이브를 버리는 것보다 나쁘다 — 만나면 버리고 새로 판다
+(`isLegacySnapshot` 이 `schema < 6` 을 걸러 낸다).
+
+### 0-S-1. 신설 — 이벤트 (S→C)
+
+| 이벤트 | 언제 | 페이로드 | 클라가 할 일 |
+|---|---|---|---|
+| `turretKill` | ★ §15-A-2 — 터렛이 들의 것을 잡을 때(생태계 1초 루프) | `{tick, kills:[{turretId,turretName,species,name,x,y,gained}], resources}` | 쓰러진 자리에 `gained` 를 띄우고 자원칸을 갱신 |
+
+`turretKill.resources` 는 `residentWork.resources` 와 **같은 규약**이다 — 그 순간의 창고 잔고 전량(권위값).
+`gained` 는 저장 상한을 지나 **실제로 들어간 몫**이다(가득 차면 빈 객체가 온다 — §13-A-5).
+연대기(`events`)에는 싣지 않는다: 들의 것 하나가 쓰러지는 일은 나라의 사건이 아니다.
+
+### 0-S-2. 바뀐 계약 — `creatures` 페이로드
+
+```
+creatures { tick, list:[…], shots?:[{id,key,x,y,tx,ty,targetId,damage,killed}] }
+```
+
+`shots` 는 **그 걸음에 터렛이 쏜 발**이다. 짐승 좌표와 **같은 박자·같은 묶음**으로 보낸다 —
+두 채널로 나누면 궤적의 끝점이 짐승의 옛 자리에 꽂힌다. 없으면 필드 자체가 오지 않는다.
+
+### 0-S-3. 신설 — 뷰 필드
+
+| 자리 | 필드 | 뜻 |
+|---|---|---|
+| `state.nation.buildable[]` · `lockedBuildings[]` | `purpose` | ★ §15-B-2 「왜 짓는가」 한 줄(초등학생이 읽는 문장) |
+| 〃 | `keyFacts[]` | ★ §15-B-2 핵심 수치 1~2개 — 1단계 효과표의 앞 두 줄 |
+| `state.nation.structures[]` | `turret {dps,range}` | ★ §15-A-4 사거리 원의 재료. 지금 이 티어·이 내구도의 값 |
+| `/api/config` `buildings.defs[]` | `purpose` · `tiers[].turret` | 고스트 배치 중에도 원을 그려야 하므로 도감에 실린다 |
+
+### 0-S-4. 터렛의 두 시각 (§15-A-1) — **한 발을 두 번 세지 않는다**
+
+터렛 판정은 이제 두 곳에서 돈다. 둘은 **서로 배타**다:
+
+| 시각 | 도는 곳 | 대상 | 박자 |
+|---|---|---|---|
+| 웨이브 중 | `battle.stepBattle` | 웨이브 적 | 서브틱 `0.25초` · 지속 피해(dps × dt) |
+| 그 밖의 때 | `ecology.turretGuard` | 야생 짐승·포식자 | 생태계 `1초` 루프 · **한 발씩**(`fireEverySeconds` 1.5초) |
+
+`turretGuard` 는 `nation.battle && !battle.over` 이면 **아무 일도 하지 않는다**(`skipDuringBattle`).
+그래서 규모 보정(`defenseIndex`)이 세는 방어력과 실제 화력이 어긋나지 않는다.
+
+목장 규칙(§15-A-3): `def.kind === 'animal'` 이고 `ranchOpenFor(...)` 가 참이면 **표적에서 뺀다**.
+그 밖의 짐승은 온순하든 사납든 모두 표적이다.
+
+### 0-S-5. 바뀐 계약 — `defenseIndex` 에 사거리가 들어온다 (§15-B 밸런스)
+
+```
+defenseIndex = Σ(터렛 dps × 사거리 ÷ turretRangeReference) + 민병 dps + 울타리 hp × fenceWeight
+```
+
+`waves.settlementScale.turretRangeReference`(=8, 화살탑 1단계 사거리)가 그 항이 1이 되는 기준이다.
+옛 식은 dps 만 셌다 — 사거리를 올리면 실제 방어력은 오르는데 규모 보정이 그것을 못 본다.
+
+### 0-S-6. UI 계약 — 툴팁 세 켜 (§15-B-1)
+
+`GM.ui.tipSet(node, summary, detail, aside)` — `data-tip` / `data-tip2` / `data-tip3`.
+**요약과 설명은 호버하는 순간 함께** 뜬다. 지연(550ms)은 `data-tip3`(곁가지)에만 남는다.
+옛 규약의 「잠깐 두면 자세히 보입니다」 자리표시는 폐지됐다.
 
 ---
 
