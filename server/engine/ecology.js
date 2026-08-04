@@ -14,7 +14,7 @@
 import {
   townOf, territoryRadius, dist, terrainAt, terrainIndex, ringAt, ringRadii, inTerritory,
 } from './world.js';
-import { isRuined } from './structures.js';
+import { isRuined, turretList } from './structures.js';
 import { rngFromState } from './rng.js';
 import {
   combatSkillCfg, ensurePlayer, canSwing, markSwing, grantXp, swingDamage, skillLevel,
@@ -432,7 +432,105 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
     }
   }
   save();
-  return { events, moved };
+  /* ★ §15-A-1 — 터렛은 웨이브만 기다리지 않는다. 들의 것이 사거리에 들면 그 자리에서 쏜다. */
+  const guard = turretGuard(world, nation, data, dt);
+  return { events, moved, shots: guard.shots, kills: guard.kills };
+}
+
+// ────────────────────────────────────────────────────────────────
+// ★ 터렛 상시 사격 (GDD3 §15-A-1·2·3)
+//
+// P0 실측 (씨앗 20260805 · 화살탑 3기 · 900초):
+//   ① 터렛 판정은 `battle.js stepBattle` **한 곳에만** 있었다. 웨이브가 아닌 시간에는
+//      터렛이 코드상 아무 일도 하지 않는다 — 깎은 체력 총합 0.00, 처치 0.
+//   ② 게다가 §14-4 가 짐승을 영토 밖으로 못박은 뒤로, 본부 옆(+5칸)에 세운 사거리 7 터렛은
+//      **기하학적으로도** 닿을 수 없었다(영토 반경 T3=16 → 최근접 실측 11.05칸).
+//      그래서 사거리 원(§15-A-4)이 함께 들어간다: 어디에 세워야 닿는지가 보여야 한다.
+//
+// 규칙
+//   · 웨이브 중에는 쉰다 — 그 시각의 터렛은 stepBattle 이 이미 굴린다(사격을 두 번 세지 않는다).
+//   · 목장이 열어 준 자리에 든 온순한 짐승은 **가축**이다. 쏘지 않는다(§15-A-3).
+//     그 밖의 짐승·포식자는 온순하든 사납든 모두 쏜다(사용자: "동물들과 적을 모두 공격").
+//   · 처치 드롭은 그 자리에서 국고로 간다. 저장 상한은 `deposit` 이 그대로 지킨다(§15-A-2).
+// ────────────────────────────────────────────────────────────────
+export const guardCfg = (data) => data.creatures?.turretGuard ?? {
+  enabled: true, fireEverySeconds: 1.5, dropMultiplier: 0.6,
+  counterMultiplier: 1.5, maxShotsPerStep: 4, skipDuringBattle: true,
+};
+
+/** 이 터렛이 겨눌 만한 가장 가까운 것 (목장 가축은 건너뛴다) */
+function pickGuardTarget(world, nation, data, t, defs) {
+  let best = null;
+  let bd = t.range;
+  for (const c of nation.wild?.creatures || []) {
+    const def = defs[c.sp];
+    if (!def) continue;
+    if (def.kind === 'animal' && ranchOpenFor(world, nation, data, c.sp, c.x, c.y)) continue;
+    const d = dist(c.x, c.y, t.x, t.y);
+    if (d <= bd) { bd = d; best = c; }
+  }
+  return best;
+}
+
+/**
+ * 저빈도 루프 한 걸음만큼의 터렛 사격.
+ * @returns {{shots:Array, kills:Array}} 화면이 쏘는 그림과 뜬 수치를 만드는 재료
+ */
+export function turretGuard(world, nation, data, dt = 1) {
+  const cfg = guardCfg(data);
+  const out = { shots: [], kills: [] };
+  if (cfg.enabled === false) return out;
+  if (cfg.skipDuringBattle !== false && nation.battle && !nation.battle.over) return out;
+  const w = ensureWild(nation);
+  if (!w.creatures.length) return out;
+  const turrets = turretList(nation, data);
+  if (!turrets.length) return out;
+
+  const defs = creatureDefs(data);
+  const every = Math.max(0.25, cfg.fireEverySeconds ?? 1.5);
+  const maxShots = Math.max(1, cfg.maxShotsPerStep ?? 4);
+  const dropMult = cfg.dropMultiplier ?? 0.6;
+  const byId = new Map((nation.structures || []).map((s) => [s.id, s]));
+
+  for (const t of turrets) {
+    const s = byId.get(t.id);
+    if (!s) continue;
+    s.turretCd = round2((s.turretCd || 0) - dt);
+    let fired = 0;
+    while (s.turretCd <= 0 && fired < maxShots) {
+      const target = pickGuardTarget(world, nation, data, t, defs);
+      if (!target) break;
+      fired += 1;
+      s.turretCd = round2(s.turretCd + every);
+      const def = defs[target.sp];
+      const counter = (t.counters || []).includes(target.sp) ? (cfg.counterMultiplier ?? 1.5) : 1;
+      const dmg = round2(t.dps * every * counter);
+      target.hp = round2(target.hp - dmg);
+      // 맞으면 성이 난다 — 사람이 벤 것과 같은 규칙(§13-C-8)
+      target.provoked = simCfg(data).provokedSeconds ?? 20;
+      if (!target.seen) { target.seen = true; recordEncounter(nation, target.sp, world.tick); }
+      const killed = target.hp <= 0;
+      out.shots.push({
+        id: t.id, key: t.key, x: t.x, y: t.y,
+        tx: target.x, ty: target.y, targetId: target.id, damage: dmg, killed,
+      });
+      if (!killed) continue;
+      const gained = {};
+      for (const [res, n] of Object.entries(def?.drops || {})) {
+        const got = deposit(nation, res, round2(n * dropMult), data);
+        if (got > 0) gained[res] = got;
+      }
+      recordKill(nation, target.sp, world.tick);
+      out.kills.push({
+        turretId: t.id, turretName: t.name, species: target.sp,
+        name: def?.name ?? target.sp, x: target.x, y: target.y, gained,
+      });
+      removeCreature(nation, target, data, world.tick);
+    }
+    /* 일 틱처럼 dt 가 큰 걸음에서 빚이 쌓이지 않게 — 다음 걸음은 늘 제 박자로 시작한다 */
+    if (s.turretCd <= 0) s.turretCd = every;
+  }
+  return out;
 }
 
 /** 짐승이 사람을 문다. 죽음은 없다 — 쓰러지면 모닥불에서 일어난다(GDD3 §6 기존 규칙). */

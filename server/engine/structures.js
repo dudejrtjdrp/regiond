@@ -291,8 +291,11 @@ export function turretList(nation, data) {
     const spec = tierSpec(s.key, s.tier, data);
     if (!spec?.turret) continue;
     if (isRuined(s) || s.inactive) continue;
+    /* ★ §15-A — 쏘는 자리는 앵커(좌상단)가 아니라 **중심**이다. 1×1 터렛에서는 둘이 같은 값이라
+       옛 계산이 한 톨도 안 바뀌고, 노포·화포처럼 두 칸을 넘는 터렛에서만 자리가 제대로 잡힌다. */
+    const c = centerOf(s.key, s.x, s.y, data);
     out.push({
-      id: s.id, key: s.key, tier: s.tier, x: s.x, y: s.y,
+      id: s.id, key: s.key, tier: s.tier, x: c.x, y: c.y, ax: s.x, ay: s.y,
       name: structureName(s.key, s.tier, data),
       dps: spec.turret.dps * damageScale(s),
       range: spec.turret.range,
