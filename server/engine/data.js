@@ -138,6 +138,13 @@ export function publicWorld(d = loadGameData()) {
       contribution: { perNode: w.nodes.contribution.perNode, cap: w.nodes.contribution.cap },
     },
     territory: { baseRadius: w.territory.baseRadius },
+    // ★ GDD3 §13-A-2 — 화면 밝기 다이얼(밤 하한·낮 상향·안개 장막). 화면이 이 표만 보고 조명을 켠다.
+    light: w.light ? {
+      phases: (w.light.phases || []).map((p) => ({ ...p })),
+      fogVeil: w.light.fogVeil,
+      buildVeil: w.light.buildVeil,
+      minLuma: w.light.minLuma,
+    } : null,
     // ★ GDD3 §12-8 — 화면도 같은 식으로 시야를 잰다(기본 + 티어 × visionPerTier)
     fog: {
       chunk: w.fog.chunk,

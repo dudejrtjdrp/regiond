@@ -746,6 +746,44 @@ try {
   pass('밤낮 틴트 캡처', `밝기 낮 ${day.lum.toFixed(1)} / 노을 ${dusk.lum.toFixed(1)} / 밤 ${night.lum.toFixed(1)}`
     + ` · 푸른 기 ${day.blue.toFixed(1)} → ${night.blue.toFixed(1)} · 노을 붉은 기 ${dusk.red.toFixed(1)}`);
 
+  // ── 10-b. ★ §13-A-2 밝기 하한 — "칠흑 금지" 를 눈이 아니라 숫자로 못박는다 ──
+  //   data/world.json 의 light.minLuma 가 계약이고, 여기서 **실제 캡처 평균**으로 그 값을 지킨다.
+  const minLuma = await ev('GM.state.lightCfg().minLuma') ?? 42;
+  must(night.lum >= minLuma, '★ 밤에도 밝기 하한을 지킨다 (칠흑 금지)',
+    `밤 밝기 ${night.lum.toFixed(1)} < 하한 ${minLuma}`);
+  must(day.lum >= minLuma * 1.25, '★ 낮은 하한보다 넉넉히 밝다',
+    `낮 밝기 ${day.lum.toFixed(1)} < ${(minLuma * 1.25).toFixed(1)}`);
+  must(night.lum >= day.lum * 0.55, '★ 밤이 낮보다 지나치게 어둡지 않다 (달빛 톤)',
+    `밤/낮 ${(night.lum / day.lum).toFixed(2)} < 0.55`);
+
+  //   건설 모드로 들어갈 때 화면이 어두워지지 않는가 — 오히려 장막이 옅어져야 한다
+  const buildLuma = await (async () => {
+    await ev(`GM.app.holdDay(0.9); GM.state.setPlacing({ kind: 'build', key: 'storage_crate', tier: 1 });`);
+    await sleep(320);
+    const v = await ev(`(function(){
+        var c=document.querySelector('#world-canvas'); var g=c.getContext('2d');
+        var d=g.getImageData(0,0,c.width,c.height).data; var s=0,n=0;
+        for (var i=0;i<d.length;i+=4*37){ s+=d[i]+d[i+1]+d[i+2]; n++; }
+        return s/(3*n);})()`);
+    await ev('GM.state.setPlacing(null); GM.app.holdDay(null);');
+    return Number(v);
+  })();
+  must(buildLuma >= night.lum - 0.5, '★ 건설 모드로 들어가도 화면이 어두워지지 않는다',
+    `건설 ${buildLuma.toFixed(1)} < 평소 ${night.lum.toFixed(1)}`);
+  //   계약 자체도 본다 — 건설 모드의 장막이 평소보다 반드시 옅다
+  const veils = JSON.parse(await ev(`(function(){
+      var a = GM.state.fogVeil();
+      GM.state.setPlacing({ kind: 'build', key: 'storage_crate', tier: 1 });
+      var b = GM.state.fogVeil();
+      GM.state.setPlacing(null);
+      return JSON.stringify({ normal: a, build: b });})()`));
+  must(veils.build < veils.normal, '★ 건설 모드의 안개 장막이 더 옅다 (고스트가 읽힌다)',
+    `평소 ${veils.normal} · 건설 ${veils.build}`);
+  const dLuma = buildLuma - night.lum;
+  pass('밝기 하한 검사', `하한 ${minLuma} · 밤 ${night.lum.toFixed(1)} · 낮 ${day.lum.toFixed(1)}`
+    + ` · 건설 모드 ${buildLuma.toFixed(1)} (밤 대비 ${dLuma >= 0 ? '+' : ''}${dLuma.toFixed(1)})`
+    + ` · 장막 ${veils.normal} → ${veils.build}`);
+
   // ── 11. 프레임 시간 (GDD3 §8 — 60fps 목표) ──
   //   ★ 프레임 '간격'은 60fps 로 맞물려 돌면 늘 16.7ms 다 — 그 값이 16ms 아래로 내려갈 일이 없다.
   //     그래서 두 가지를 나눠 본다: ① 간격이 흔들리지 않는가(끊김) ② 한 프레임을 그리는 데

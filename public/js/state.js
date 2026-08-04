@@ -149,21 +149,31 @@
 
   var NATION_COLORS = ['#e8a33d', '#bc4749', '#6a994e', '#4a6fa5', '#8367a8', '#e08541'];
 
-  /* 하루 4구간 — 조명·분위기 (GDD3 §5 · ★ §12-10 대비 상향)
-     밤은 확실히 어둡고 파랗게, 새벽과 노을은 하늘 쪽이 물들도록 위아래 그라데이션(sky/ground)을 준다.
-     alpha 는 화면 전체에 덮는 틴트의 세기, sky/ground 는 그 위에 얹는 세로 그라데이션이다. */
-  var DAY_PHASES = [
+  /* 하루 4구간 — 조명·분위기 (GDD3 §5 · §12-10 · ★ §13-A-2 밝기 완화)
+     alpha 는 화면 전체에 덮는 **어둠**, lift 는 그 위에 더하는 **빛**(lighter 합성),
+     sky/ground 는 위아래로 얹는 세로 그라데이션이다.
+
+     ★ §13-A-2 — 플레이테스트 2차: "밤이 칠흑이라 아무것도 안 보인다".
+       밤을 없애지 않고 **달빛으로 바꾼다**: 어둠을 0.70 → 0.44 로 줄이고 틴트를 먹빛 남색(#0b1440)에서
+       달빛 남색(#22305e)으로 올린 뒤, 푸른 lift 를 얹어 '빛이 없는 곳'이 아니라 '푸르게 밝은 밤'이 되게 했다.
+       낮은 alpha 가 이미 0 이라 더 뺄 어둠이 없어, 따뜻한 lift 를 더해 소폭 올렸다.
+     이 표는 data/world.json 의 light.phases 가 정본이고, 아래 값은 설정을 못 받았을 때의 폴백이다. */
+  var DAY_PHASES_FALLBACK = [
     /* 아침 — 첫머리에 새벽빛이 하늘 쪽부터 걷힌다 */
-    { key: 'morning', name: '아침', tint: '#3a4a88', alpha: 0.30, vision: 0.92,
-      sky: 'rgba(255,158,112,.34)', ground: 'rgba(38,48,108,.22)' },
-    { key: 'day',     name: '낮',   tint: '#ffffff', alpha: 0,    vision: 1,
+    { key: 'morning', name: '아침', tint: '#3a4a88', alpha: 0.22, lift: 0.05, liftColor: '#ffd9a8', vision: 0.94,
+      sky: 'rgba(255,168,120,.30)', ground: 'rgba(38,48,108,.16)' },
+    { key: 'day',     name: '낮',   tint: '#ffffff', alpha: 0,    lift: 0.09, liftColor: '#fff4d8', vision: 1,
       sky: null, ground: null },
     /* 저녁 — 노을이 하늘을 물들이고 땅부터 어두워진다 */
-    { key: 'evening', name: '저녁', tint: '#e8663a', alpha: 0.24, vision: 0.95,
-      sky: 'rgba(255,124,62,.36)', ground: 'rgba(58,40,92,.26)' },
-    { key: 'night',   name: '밤',   tint: '#0b1440', alpha: 0.70, vision: 0.72,
-      sky: 'rgba(8,13,46,.30)', ground: 'rgba(4,7,28,.36)' }
+    { key: 'evening', name: '저녁', tint: '#e8663a', alpha: 0.18, lift: 0.05, liftColor: '#ffc890', vision: 0.96,
+      sky: 'rgba(255,132,70,.32)', ground: 'rgba(58,40,92,.20)' },
+    /* 밤 — 달빛. 어둡되 캄캄하지 않다 */
+    { key: 'night',   name: '밤',   tint: '#16214a', alpha: 0.60, lift: 0.05, liftColor: '#b9cdff', vision: 0.80,
+      sky: 'rgba(20,30,74,.20)', ground: 'rgba(14,20,52,.22)' }
   ];
+  var LIGHT_FALLBACK = { phases: DAY_PHASES_FALLBACK, fogVeil: 0.30, buildVeil: 0.18, minLuma: 48 };
+  /* 화면이 실제로 읽는 표 — 설정이 오면 lightCfg() 가 갈아 끼운다 */
+  var DAY_PHASES = DAY_PHASES_FALLBACK.slice();
 
   var STAGE_NAMES = { sown: '파종', sprout: '새싹', grow: '자라는 중', ripe: '여물었다' };
 
@@ -791,6 +801,36 @@
   function phaseMeta() { return DAY_PHASES[phaseIndex()]; }
   function isNight() { return phaseIndex() === 3; }
 
+  /* ── ★ 밝기 다이얼 (GDD3 §13-A-2) ────────────────────
+     data/world.json 의 light 가 정본이다. 설정이 오면 4구간 표를 통째로 갈아 끼우고,
+     못 받았으면 폴백으로 돈다 — 어느 쪽이든 화면은 같은 한 곳(lightCfg)만 본다. */
+  var lightCache = null;
+  function lightCfg() {
+    var w = worldCfg();
+    var l = w && w.light;
+    if (!l || !l.phases || l.phases.length !== 4) return LIGHT_FALLBACK;
+    if (lightCache && lightCache.__src === l) return lightCache;
+    lightCache = {
+      __src: l,
+      phases: l.phases,
+      fogVeil: l.fogVeil != null ? l.fogVeil : LIGHT_FALLBACK.fogVeil,
+      buildVeil: l.buildVeil != null ? l.buildVeil : LIGHT_FALLBACK.buildVeil,
+      minLuma: l.minLuma != null ? l.minLuma : LIGHT_FALLBACK.minLuma,
+    };
+    DAY_PHASES.length = 0;
+    for (var i = 0; i < l.phases.length; i++) DAY_PHASES.push(l.phases[i]);
+    return lightCache;
+  }
+  /**
+   * 지금 땅에 덮이는 장막의 세기 — 탐사했지만 눈에 안 닿는 칸에 쓴다.
+   * ★ §13-A-2 — **건설 모드에서는 더 옅다.** 건물을 놓으러 카메라를 옮기면 시야 밖으로 나가
+   *   화면이 훅 어두워졌다("건설 모드로 들어가면 어두워진다")는 피드백의 정면 답이다.
+   */
+  function fogVeil() {
+    var l = lightCfg();
+    return S.placing ? l.buildVeil : l.fogVeil;
+  }
+
   /* ── 역할 ──────────────────────────────────────────── */
   function myRole() {
     var n = nation();
@@ -1023,6 +1063,7 @@
     wave: wave, defense: defense, chronicle: chronicle, battleLive: battleLive,
     enemyMeta: enemyMeta, directionMeta: directionMeta,
     timeCfg: timeCfg, phaseIndex: phaseIndex, phaseMeta: phaseMeta, isNight: isNight,
+    lightCfg: lightCfg, fogVeil: fogVeil,
 
     myRole: myRole, syncYou: syncYou, hasRole: hasRole, roleHolder: roleHolder, isVacant: isVacant,
     holderName: holderName, mandateOpen: mandateOpen, members: members,

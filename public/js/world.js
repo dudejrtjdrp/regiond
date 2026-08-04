@@ -104,6 +104,10 @@
     var cam = GM.camera.cam;
     var vis = GM.camera.visible();
     var t = cam.tile;
+    /* ★ §13-A-2 — 「기억하는 땅」의 장막은 화면을 가장 크게 어둡게 만드는 항이다.
+       0.42 → 다이얼(기본 0.30)로 완화하고, **건설 모드에서는 더 옅게**(0.18) 덮는다.
+       건물을 놓으러 카메라를 옮기면 시야를 벗어나 화면이 훅 어두워지던 것이 이 값 때문이었다. */
+    var veil = 'rgba(8,6,16,' + S.fogVeil().toFixed(3) + ')';
     for (var y = vis.y0; y <= vis.y1; y++) {
       var runStart = -1, runVal = -1;
       for (var x = vis.x0; x <= vis.x1 + 1; x++) {
@@ -111,7 +115,7 @@
         if (v === runVal) continue;
         if (runStart >= 0 && runVal >= 0 && runVal < 2) {
           var p0 = GM.camera.worldToScreen(runStart - 0.5, y - 0.5);
-          ctx.fillStyle = runVal === 0 ? '#0a0710' : 'rgba(8,6,16,.42)';
+          ctx.fillStyle = runVal === 0 ? '#0a0710' : veil;
           ctx.fillRect(Math.floor(p0.x), Math.floor(p0.y), Math.ceil((x - runStart) * t) + 1, Math.ceil(t) + 1);
         }
         runStart = x; runVal = v;
@@ -986,6 +990,9 @@
       idx: i,
       alpha: U.lerp(cur.alpha, toward.alpha, k),
       tint: k > 0 ? U.mix(cur.tint, toward.tint, k) : cur.tint,
+      /* ★ §13-A-2 — 어둠(alpha)과 나란히 빛(lift)도 섞는다. 낮은 따뜻하게, 밤은 달빛으로. */
+      lift: U.lerp(cur.lift || 0, toward.lift || 0, k),
+      liftColor: k > 0 ? U.mix(cur.liftColor || '#ffffff', toward.liftColor || '#ffffff', k) : (cur.liftColor || '#ffffff'),
       sky: cur.sky, ground: cur.ground,
       skyK: 1 - Math.abs(local - 0.5) * 0.8
     };
@@ -997,6 +1004,16 @@
       ctx.save();
       ctx.globalAlpha = ph.alpha;
       ctx.fillStyle = ph.tint;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+    /* ★ §13-A-2 밝기 하한 — 어둠을 덜어 내는 것만으로는 낮이 밝아지지 않는다(낮은 이미 alpha 0).
+       그래서 빛을 **더한다**. 밤에는 이 항이 달빛이 되어 칠흑을 막는 바닥이 된다. */
+    if (ph.lift >= 0.005) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = ph.lift;
+      ctx.fillStyle = ph.liftColor;
       ctx.fillRect(0, 0, W, H);
       ctx.restore();
     }
@@ -1017,9 +1034,12 @@
         ctx.restore();
       }
     }
-    /* ③ 밤 광원 — 모닥불·본부·가로등·창문 */
-    if (ph.idx !== 3 && ph.alpha < 0.3) return;
-    var strength = U.clamp((ph.alpha - 0.2) / 0.5, 0, 1);
+    /* ③ 밤 광원 — 모닥불·본부·가로등·창문
+       ★ §13-A-2 — 세기를 밤 어둠(다이얼) 대비 상대값으로 잰다. 밤을 완화해도 등불은 그대로 밝다. */
+    var maxA = (S.DAY_PHASES[3] && S.DAY_PHASES[3].alpha) || 0.44;
+    var lightOn = maxA * 0.45;
+    if (ph.idx !== 3 && ph.alpha < lightOn) return;
+    var strength = U.clamp((ph.alpha - lightOn) / Math.max(0.01, maxA - lightOn), 0, 1);
     if (strength <= 0.02) return;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
