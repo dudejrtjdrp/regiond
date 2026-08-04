@@ -50,6 +50,8 @@ import { stepResearch, productionBonus } from './research.js';
 // ★ GDD3 §13-B·C — 은닉 유적 발견 · 상시 생태계 · 사냥꾼 오두막
 import { revealConcealed } from './world.js';
 import { stepEcologyDay, huntYield, cullForHunters } from './ecology.js';
+// ★ GDD3 §15-C — 동료 봇. 아무도 안 보는 시간만큼을 일 틱이 몰아 돌린다(이중 계산 없음).
+import { stepCompanionsDay } from './companions.js';
 import { recordRuinFound } from './codex.js';
 import { record as chronicle } from './chronicle.js';
 
@@ -153,6 +155,9 @@ export function step(state, inputs = [], rng = null, data = loadGameData(), opts
   for (const nation of Object.values(world.nations)) {
     if (!nation.isPlayer) continue;
     for (const e of stepEcologyDay(world, nation, data)) events.push({ tick, ...e });
+    /* ★ GDD3 §15-C — 동료의 하루. 지켜본 초는 이미 1초 루프가 굴렸으므로 **안 본 만큼만** 돈다.
+       그래서 방치가 이득도 손해도 되지 않는다(터렛의 §15-A maxShotsPerStep 과 같은 규율). */
+    stepCompanionsDay(world, nation, data);
     // 사냥꾼 오두막의 하루 수확 (§13-C-8) — 짐승이 남아 있는 만큼만 난다
     const hunt = huntYield(world, nation, data);
     for (const [res, amount] of Object.entries(hunt.resources)) {

@@ -1,4 +1,9 @@
-// NPC 숙련 — XP / 레벨 / Lv5 스킬 / 전직 인수인계
+// 각료 숙련 — XP / 레벨 / Lv5 스킬 / 전직 인수인계
+//
+// ★ GDD3 §15-C — 「자리를 맡은 사람」은 이제 **동료 봇**이다(companions.js 가 roles[key].botId 로 묶는다).
+//   여기 있는 이름표(NPC_NAMES)는 동료보다 자리가 많을 때(솔로는 자리 여섯에 동료 넷)
+//   남는 자리를 메우는 예비다 — 나라는 사람이 모자라도 멎지 않는다.
+//   숙련(XP·레벨·Lv5 스킬)과 역할 보정 O(g) 는 옛 규칙 그대로다: 누가 맡았는가만 바뀌었다.
 import { hasSkill } from './economy.js';
 
 export const NPC_NAMES = {
@@ -69,8 +74,11 @@ export function roleSummary(nation, data) {
       skillUnlocked: hasSkill(nation, roleKey, data),
       skill: data.roles.defs[roleKey].skill?.name ?? null,
       tier: data.roles.defs[roleKey].tier,
-      // ★ WORLD.md §12 — 멀티에서 '이 자리를 맡은 접속자'. 싱글이나 NPC 위임이면 null.
+      // ★ WORLD.md §12 — 멀티에서 '이 자리를 맡은 접속자'. 싱글이나 위임이면 null.
       owner: r.holder === 'player' ? (r.owner ?? null) : null,
+      /* ★ GDD3 §15-C — 이 자리를 맡은 **동료**의 아바타. 화면은 이 값으로 각료 카드와
+         들에 서 있는 사람을 같은 인물로 잇는다(따로 세운 신하는 없다). */
+      botId: r.holder === 'npc' ? (r.botId ?? null) : null,
     };
   }
   return out;

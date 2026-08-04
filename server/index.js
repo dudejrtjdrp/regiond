@@ -28,6 +28,8 @@ import { stepBattle, finishBattle, battleSnapshot } from './engine/battle.js';
 import { stepEcology, ensureCreatures, creatureViews } from './engine/ecology.js';
 // ★ GDD3 §14-1 — 주민의 작업 사이클도 그 박자에 편승한다(즉시 크레딧 + 그 자리 수치).
 import { stepResidentWork } from './engine/residents.js';
+// ★ GDD3 §15-C — 동료 봇(= 각료). 같은 1초 박자에 두뇌를 굴리고 아바타 채널로 자리를 흘린다.
+import { stepCompanions, syncCompanionSeats, bindCompanionRoles, isCompanionId } from './engine/companions.js';
 import { chronicleView, record as chronicleRecord } from './engine/chronicle.js';
 import {
   upsertMember as upsertMemberEntry, normalizeAppearance, defaultAppearance, chatHistory,
@@ -169,6 +171,20 @@ class GameRuntime {
           resources: liveResources(nation),
         });
       }
+      /* ★ GDD3 §15-C — 동료의 한 걸음. 사람과 같은 함수(actionSwing·huntSwing·combatSwing)를 타므로
+         화면이 받는 것도 사람의 스윙과 **같은 규약**이다: 자리는 avatars, 손맛은 swing 이 나른다. */
+      const crew = stepCompanions(this.world, nation, data, dt);
+      if (crew.avatars) io.to(this.gameId).emit('avatars', Object.values(nation.avatars || {}));
+      for (const a of crew.actions) {
+        io.to(this.gameId).emit('swing', { ...a, resources: liveResources(nation) });
+      }
+      /* 자동 플레이가 내 발로 걸어 들어간 자리는 그 자리에서 밝아진다(동료의 걸음은 안개를 걷지 않는다) */
+      if (crew.revealed.length) {
+        const reveal = buildRevealDiff(this.world, nation.id, data, crew.revealed);
+        if (reveal) io.to(this.gameId).emit('worldDiff', reveal);
+      }
+      if (crew.events.length) this.emitImmediate(nation.id, crew.events);
+      if (crew.actions.some((a) => a.buildingDone)) this.broadcastState();
     }
   }
 
@@ -310,10 +326,10 @@ class GameRuntime {
       }
       // ★ GDD3 §13-C-2 — 들의 것에게 물렸다 / 쓰러져 모닥불에서 일어난다
       case 'player_down': io.to(this.gameId).emit('playerDown', e.data); break;
-      /* ★ P1 — **일어남에 전용 채널이 없었다.**
+      /* ★ P1 (§15-C 검증에서 잡았다) — **일어남에 전용 채널이 없었다.**
          쓰러짐(playerDown)만 나가고 일어남은 events 로만 흘러, 화면을 덮은 장막이 영영 걷히지 않았다
-         — 그 뒤의 모든 클릭이 막혔다(실브라우저 연기 검사가 「가려짐: down-veil」로 잡았다).
-         규약(§0-T)에는 처음부터 적혀 있던 문이다 — 다운 자체가 드물어 눈에 안 띄었을 뿐이다. */
+         (실브라우저 연기 검사에서 「가려짐: down-veil」로 드러났다 — 그 뒤의 클릭이 전부 막혔다).
+         옛 판에서는 다운 자체가 드물어 눈에 안 띄었을 뿐, 규약(§0-T)에는 처음부터 적혀 있던 문이다. */
       case 'player_revived': io.to(this.gameId).emit('playerRevived', e.data); break;
       case 'wild_hit': io.to(this.gameId).emit('wildHit', e.data); break;
       case 'camp_spotted': io.to(this.gameId).emit('campSpotted', e.data); break;
@@ -476,6 +492,8 @@ const CLIENT_COMMANDS = [
   'setQueue', 'buyTool', 'sellWeapon', 'trade', 'respondOffer', 'decide',
   'ordersSet', 'saintBuff', 'useArtifact', 'councilAck', 'setAutoExport', 'setExportFloor',
   'pickRole', 'delegate', 'adviceAct', 'setAutoAssist',
+  // ★ GDD3 §15-C — 자동 플레이(켜기·끄기, 수동 입력 시 일시 해제)
+  'setAutoPlay',
   // 왕의 하루 · 작전
   'apAction', 'harvestNode', 'setBattlePlan',
   // 멀티
@@ -489,6 +507,8 @@ const IDENTITY_COMMANDS = new Set([
   'craftEquipment', 'enhanceEquipment', 'enchantEquipment',
   // ★ GDD3 §14-5 — 스탯도 사람마다 다르다. 누구의 점수인지는 세션이 정한다.
   'allocStat',
+  // ★ GDD3 §15-C — 자동 플레이는 **내 아바타**의 것이다. 남의 아바타를 몰라고 청할 수 없다.
+  'setAutoPlay',
 ]);
 
 /** ★ 실시간 명령 — 처리 후 곧바로 결과를 돌려주고, 전투 중이면 스냅샷도 함께 흘린다 */
@@ -628,7 +648,10 @@ io.on('connection', (socket) => {
     const nationId = rt.world.playerNationId;
     const nation = rt.world.nations[nationId];
     const playerName = payload.playerName ?? '개척자';
-    const avatarId = payload.avatarId != null ? String(payload.avatarId).slice(0, 40) : playerName;
+    /* ★ GDD3 §15-C — 동료의 아이디를 사람이 가로챌 수 없다. 그 자리는 서버가 세는 「정원」의
+       기준이므로, 사람이 봇 아이디로 들어오면 자리 계산이 통째로 어긋난다. */
+    let avatarId = payload.avatarId != null ? String(payload.avatarId).slice(0, 40) : playerName;
+    if (isCompanionId(nation, avatarId)) avatarId = `${avatarId}#`;
     const role = data.roles.order
       .find((k) => nation.roles?.[k]?.holder === 'player' && (nation.roles[k].owner ?? avatarId) === avatarId) ?? null;
     const { appearance } = normalizeAppearance(payload.appearance, data, defaultAppearance(data));
@@ -643,12 +666,17 @@ io.on('connection', (socket) => {
     ensurePlayer(nation, avatarId, data, playerName);
     const town = rt.world.map?.towns?.find((t) => t.nationId === nationId) ?? null;
     const avatars = (nation.avatars ||= {});
+    const back = nation.players?.[avatarId]?.lastPos ?? null;
     avatars[avatarId] = {
       id: avatarId, name: playerName,
-      x: avatars[avatarId]?.x ?? town?.x ?? 0,
-      y: avatars[avatarId]?.y ?? town?.y ?? 0,
+      x: avatars[avatarId]?.x ?? back?.x ?? town?.x ?? 0,
+      y: avatars[avatarId]?.y ?? back?.y ?? town?.y ?? 0,
       tick: rt.world.tick, appearance,
     };
+    /* ★ GDD3 §15-C 멀티 심리스 — 사람이 들어왔으니 동료 하나가 자리를 비킨다.
+       비켜난 동료가 맡고 있던 자리(각료)는 곧바로 다른 동료에게 넘어간다. */
+    syncCompanionSeats(rt.world, nation, data);
+    bindCompanionRoles(nation, data);
 
     const payloads = buildJoinPayloads(rt, nationId, role, avatarId);
 
@@ -776,7 +804,20 @@ io.on('connection', (socket) => {
     const stillOnline = [...sessions.values()].some((x) => x.gameId === s.gameId && x.nationId === s.nationId);
     const nation = rt.world.nations[s.nationId];
     if (!nation) return;
-    upsertMember(nation, s.avatarId ?? s.playerName, s.playerName, s.role, false);
+    const who = s.avatarId ?? s.playerName;
+    upsertMember(nation, who, s.playerName, s.role, false);
+    /* ★ GDD3 §15-C 멀티 심리스 — 나간 사람의 아바타는 세상에서 걷는다(선 자리는 장부에 남긴다).
+       그래야 정원이 다시 비고, 비운 자리로 동료가 돌아온다. 예전에는 이 아바타가 그대로 남아
+       짐승이 허깨비를 쫓고 정원이 영영 차 있었다. */
+    const same = [...sessions.values()].some((x) => x.gameId === s.gameId && (x.avatarId ?? x.playerName) === who);
+    if (!same && nation.avatars?.[who]) {
+      const p = nation.players?.[who];
+      if (p) p.lastPos = { x: nation.avatars[who].x, y: nation.avatars[who].y };
+      delete nation.avatars[who];
+      syncCompanionSeats(rt.world, nation, data);
+      bindCompanionRoles(nation, data);
+      io.to(s.gameId).emit('avatars', Object.values(nation.avatars || {}));
+    }
     if (!stillOnline) {
       nation.online = false;
       markSeen(nation, rt.world.tick);

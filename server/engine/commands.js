@@ -41,6 +41,8 @@ import {
   evaluateProgress, currentChapter,
 } from './progression.js';
 import { runEmotionDay } from './emotion_day.js';
+// ★ GDD3 §15-C — 동료 봇(= 각료)과 자동 플레이
+import { setAutoPlay, bindCompanionRoles, syncCompanionSeats, autoPlayView } from './companions.js';
 import { record as chronicle } from './chronicle.js';
 
 const err = (code, message) => ({ ok: false, error: { code, message } });
@@ -620,6 +622,20 @@ function runCommand(world, nationId, cmd, data, rng) {
       return ok({ autoAssist: nation.autoAssist });
     }
 
+    /* ── ★ GDD3 §15-C — 자동 플레이 ────────────────────────────
+       켜면 내 아바타를 동료 두뇌가 몬다. 손이 닿으면(수동 입력) 화면이 suspend 를 보내고,
+       서버는 그때부터 suspendSeconds 만큼 손을 뗀다 — 끄는 것이 아니라 **잠깐 비켜 주는 것**이다.
+       그래서 한 번 켠 사람은 다시 켤 일이 없다. */
+    case 'setAutoPlay': {
+      const who = cmd.avatarId ?? cmd.playerName ?? 'lord';
+      const res = setAutoPlay(nation, who, data, {
+        enabled: cmd.enabled ?? cmd.payload?.enabled,
+        suspend: Boolean(cmd.suspend ?? cmd.payload?.suspend),
+        now,
+      });
+      return ok({ avatarId: who, ...res });
+    }
+
     case 'adviceAct': {
       const found = adviceCommand(world, nation, cmd.adviceId, data);
       if (!found) return err('NO_ADVICE', '이미 지난 조언입니다.');
@@ -645,6 +661,9 @@ function runCommand(world, nationId, cmd, data, rng) {
       }
       nation.mandateDone = true;
       world.mandateOpen = false;
+      /* ★ GDD3 §15-C — 자리가 바뀌었으면 그 자리에 설 사람도 다시 정해진다.
+         사람이 가져간 자리의 동료는 손을 떼고, 비어 있는 자리로 옮겨 간다. */
+      bindCompanionRoles(nation, data);
       return ok({ roles: nation.roles });
     }
     case 'pickRole': {
@@ -666,6 +685,7 @@ function runCommand(world, nationId, cmd, data, rng) {
       if (!nation.roles[cmd.role].name) nation.roles[cmd.role].name = data.roles.defs[cmd.role].name;
       nation.mandateDone = true;
       world.mandateOpen = false;
+      bindCompanionRoles(nation, data);          // ★ §15-C — 사람이 앉은 자리에서 동료가 비켜난다
       return ok({ role: cmd.role, owner: who, takenFrom });
     }
     case 'councilAck': {

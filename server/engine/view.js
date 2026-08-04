@@ -18,6 +18,8 @@ import {
   deriveLabor, nodeContribution, listTargets, isHarvestReady, jobsForTarget, fieldStageView,
 } from './villagers.js';
 import { normalizeMembers as membersView, normalizeAppearance } from './social.js';
+// ★ GDD3 §15-C — 동료 봇(= 각료). 이름표 색·맡은 자리·자동 플레이 상태가 여기서 나간다.
+import { companionViews, companionById, autoPlayView } from './companions.js';
 import { fogSnapshot, fogChunksSince, isExplored, exploredRatio, encodeChunk } from './fog.js';
 import {
   structureView, siteView, adjacencyDetail, isRuined, buildingKeys, maxTier, structureDef, footprint,
@@ -101,6 +103,9 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
          ★ 대장간이 서는 장(9장) 전에는 필드 자체가 없다 — 잠긴 계층은 '비활성'이 아니라 부재다(§11-1). */
       ...(on('equipment') && avatarId
         ? { equipment: equipmentView(nation, nation.players?.[avatarId] ?? null, data) } : {}),
+      /* ★ GDD3 §15-C — 자동 플레이. 켰는가 · 지금 실제로 몰고 있는가 · 손이 닿아 몇 초 쉬는가.
+         서버가 정본이다: 화면은 이 값으로 「자동」 배지를 켜고 끈다. */
+      autoPlay: avatarId ? autoPlayView(nation, avatarId, data) : null,
     },
     nation: {
       id: nation.id,
@@ -136,6 +141,9 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
       exploredRatio: round3(exploredRatio(nation)),
       avatars: avatarViews(nation, data),
       players: playersView(nation, data),
+      /* ★ GDD3 §15-C — 정원 5인 중 동료가 채운 자리. 명부·이름표·각료 화면이 같은 표를 본다. */
+      companions: companionViews(nation, data),
+      seats: data.companions?.seats ?? 5,
       // ── 매크로 ──────────────────────────────────────────────
       population: Math.floor(nation.population),
       populationCap: capacity(nation, data),
@@ -375,13 +383,25 @@ function buildApView(nation, data) {
 }
 
 function avatarViews(nation, data) {
-  return Object.values(nation.avatars || {}).map((a) => ({
-    id: a.id, name: a.name ?? '개척자', x: a.x, y: a.y, tick: a.tick ?? 0,
-    appearance: normalizeAppearance(a.appearance, data).appearance,
-    down: (nation.players?.[a.id]?.downUntil ?? 0) > 0,
-    hp: round2(nation.players?.[a.id]?.hp ?? 0),
-    maxHp: nation.players?.[a.id]?.maxHp ?? 0,
-  }));
+  return Object.values(nation.avatars || {}).map((a) => {
+    /* ★ GDD3 §15-C — 이 아바타가 동료인가. 화면은 **아이디를 뜯어보지 않는다**:
+       봇 여부·이름표 색·맡은 자리를 서버가 실어 보낸다(신원 판정은 서버의 몫이다). */
+    const comp = companionById(nation, a.id);
+    return {
+      id: a.id, name: a.name ?? '개척자', x: a.x, y: a.y, tick: a.tick ?? 0,
+      appearance: normalizeAppearance(a.appearance, data).appearance,
+      down: (nation.players?.[a.id]?.downUntil ?? 0) > 0,
+      hp: round2(nation.players?.[a.id]?.hp ?? 0),
+      maxHp: nation.players?.[a.id]?.maxHp ?? 0,
+      ...(comp ? {
+        bot: true,
+        color: comp.color,
+        role: comp.role ?? null,
+        roleName: comp.role ? (data.roles.defs[comp.role]?.name ?? comp.role) : null,
+        state: comp.mem?.state ?? 'idle',
+      } : { bot: false }),
+    };
+  });
 }
 
 function buildBattlePlanView(world, nation, data, viewerRole) {
