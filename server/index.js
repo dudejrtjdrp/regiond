@@ -51,7 +51,7 @@ const VERSION = (() => {
  * ★ 규약 판번호 (docs/PROTOCOL.md). 클라이언트(public/js/state.js 의 GM.PROTOCOL)와 반드시 같아야 한다.
  *   서버가 낡아서 새 이벤트를 못 보내는 상황을 화면이 스스로 알아채는 손잡이다.
  */
-const PROTOCOL = '3.1';
+const PROTOCOL = '3.2';
 
 /**
  * ★ 개발용 뒷문(`/api/debug/*`)의 자물쇠.

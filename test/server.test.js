@@ -127,7 +127,7 @@ test('REST — /api/health, /api/config, /api/debug/*', async () => {
       'aiNations', 'difficulty', 'tiers', 'skills', 'waves', 'world', 'time']) {
       assert.ok(config[key], `config.${key} 누락`);
     }
-    assert.equal(config.protocol, '3.1');
+    assert.equal(config.protocol, '3.2');
     assert.equal(config.artifacts.list.length, 50);
     assert.ok(config.buildings.defs.hut, '건물 도감이 실린다');
     assert.equal(config.buildings.defs.hut.requiresTier, 0);

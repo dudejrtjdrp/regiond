@@ -144,7 +144,7 @@
 
   function baseConfig() {
     return {
-      protocol: '3.1',
+      protocol: '3.2',
       time: { dayRealSeconds: DAY_SECONDS, subtickSeconds: 0.25, dayPhases: ['morning', 'day', 'evening', 'night'] },
       resources: { order: ['grain', 'wood', 'stone', 'ironOre', 'oil', 'steel', 'fuel'],
         meta: { grain: { name: '곡물' }, wood: { name: '목재' }, stone: { name: '석재' },
@@ -979,7 +979,7 @@
           case 'join':
             opts.playerName = payload.playerName || '그대';
             setTimeout(function () {
-              fire('joined', { protocol: '3.1', gameId: 'mock', nationId: 'player',
+              fire('joined', { protocol: '3.2', gameId: 'mock', nationId: 'player',
                                you: { role: null, avatarId: 'p1', appearance: payload.appearance || {} },
                                config: cfg, roleLocked: true, tier: 0 });
               fire('chatHistory', []);
@@ -1160,7 +1160,7 @@
         }
       },
       rest: function (path) {
-        if (/health/.test(path)) return { ok: true, protocol: '3.1', tick: W.tick, paused: W.paused, games: 1, worldSize: SIZE, dayRealSeconds: DAY_SECONDS };
+        if (/health/.test(path)) return { ok: true, protocol: '3.2', tick: W.tick, paused: W.paused, games: 1, worldSize: SIZE, dayRealSeconds: DAY_SECONDS };
         if (/config/.test(path)) return cfg;
         return { ok: true };
       }
