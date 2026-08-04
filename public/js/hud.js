@@ -344,6 +344,7 @@
     if (S.uiOn('panel.equipment')) {
       tb(bar, 'tb-equip', 'anvil', '내 장비 (C)', '무기와 방어구를 벼립니다',
         '기본 세 단은 그냥 벼릴 수 있고, 공장장이 자리에 있으면 윗단과 강화가 열립니다. ' +
+        '특성은 성녀가 있을 때 좋은 것이 붙을 확률이 두 배입니다.',
         function () { GM.equip.open(); });
     }
     tb(bar, 'tb-town', 'castle', '정착지 (H)', '정착지로 시선을 옮깁니다', '',

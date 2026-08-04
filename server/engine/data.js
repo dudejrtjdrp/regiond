@@ -42,6 +42,7 @@ export function loadGameData({ reload = false } = {}) {
     chapters: readJson('chapters.json'),
     // ★ GDD3 §13-C — 상시 생태계(동물·야생 적)와 도감의 층
     creatures: readJson('creatures.json'),
+    // ★ GDD3 §13-D — RPG 계층: 장비·인첸트의 규격과 기술 트리
     equipment: readJson('equipment.json'),
   };
   data.artifactsByKey = Object.fromEntries(data.artifacts.list.map((a) => [a.key, a]));
@@ -259,6 +260,7 @@ export function publicConfig() {
     residentStats: publicStats(d),
     // ★ GDD3 §13-D-2 — 모집 값(식량 20 · 쿨다운 1일). 지금 쓸 수 있는지는 state.housing.recruit 이 안다.
     recruit: { ...d.balance.residents.recruit, cost: { ...d.balance.residents.recruit.cost } },
+    // ★ GDD3 §13-D-3·4 — 장비·인첸트 규격(티어·재료·특성표). 내가 무엇을 끼고 있는지는 state 로만 간다.
     equipment: publicEquipment(d),
     world: publicWorld(d),
     time: {

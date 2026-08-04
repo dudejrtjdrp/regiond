@@ -17,6 +17,7 @@ import { markHarvestCycle, fieldStage, fieldStageView, isHarvestReady } from './
 // ★ GDD3 §13-A-5 — 국고로 들어오는 문은 storage.deposit 하나다.
 import { deposit, isFull, storageLimit, FULL_MESSAGE } from './storage.js';
 import { round2, round3 } from './economy.js';
+// ★ GDD3 §13-D-4 — 장비에 깃든 특성. 「거두는 손」·「나무 결」이 여기서 실제 몫이 된다.
 import { equipEffects } from './equipment.js';
 
 const err = (code, message, extra = {}) => ({ ok: false, error: { code, message, ...extra } });
@@ -90,7 +91,11 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
   if (!cd.ok) return err('COOLDOWN', '아직 휘두를 수 없습니다.', { waitMs: cd.waitMs, cooldownMs: cd.cooldownMs });
 
   markSwing(player, now, spec.skill);
-  const mult = yieldMultiplier(nation, player, spec.skill, data);
+  /* ★ §13-D-4 — 인첸트의 몫. 「거두는 손」은 모든 채집에, 「나무 결」은 벌목에만 얹힌다.
+     스킬·도구 배수와 곱하지 않고 **더해서** 한 번만 곱한다 — 특성 둘이 서로를 부풀리지 않게. */
+  const fx = equipEffects(player, data);
+  const charm = 1 + (fx.harvest || 0) + (spec.skill === 'lumber' ? (fx.lumber || 0) : 0);
+  const mult = round3(yieldMultiplier(nation, player, spec.skill, data) * charm);
 
   // 노드별 스윙 카운트 — 한 주기(나무 한 그루·바위 한 덩이)를 끝내면 보너스가 터진다
   // ★ §13-B-4 — 유적은 제 크기만큼 시간이 든다: 노드에 박힌 swingsPerCycle 이 규격을 이긴다.
@@ -166,6 +171,7 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
     ...fieldStageView(node, data, world.tick),
     cooldownMs: cd.cooldownMs,
     multiplier: round2(mult),
+    charm: round3(charm),
     tool: toolFor(nation, player, spec.skill, data),
     level: skillLevel(player, spec.skill),
     leveled: xp.leveled,

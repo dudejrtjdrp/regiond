@@ -43,6 +43,8 @@
 
   /**
    * ★ GDD3 §13-D-3 — 스프라이트에 실을 장비 요약.
+   *   그림에 필요한 것만 뽑는다(등급·강화 단수·인첸트 등급). 값이 바뀌면 표지를 새로 만든다.
+   */
   var gearMark = null;
   function gear() {
     var e = S.equipment();
@@ -51,7 +53,11 @@
     var a = e.gear.armor || {};
     return {
       weaponGrade: w.grade || 0, weaponPlus: w.plus || 0,
+      weaponEnchant: (w.enchant && w.enchant.grade) || null,
       armorGrade: a.grade || 0, armorPlus: a.plus || 0,
+      armorEnchant: (a.enchant && a.enchant.grade) || null
+    };
+  }
   function markGear() { gearMark = Date.now(); }
 
   function pos() { return S.S.map ? me : null; }
@@ -73,7 +79,10 @@
     /* 정착지가 커지면 몸도 가벼워진다 (GDD3 §3) */
     var p = S.player();
     var bonus = (p && p.tierSpeedBonus) || 0;
-    return 4.6 * (1 + bonus * 0.6);
+    /* ★ GDD3 §13-D-4 — 「바람 걸음」이 깃들면 실제로 더 빨리 걷는다 */
+    var e = S.equipment();
+    var charm = (e && e.effects && e.effects.moveSpeed) || 0;
+    return 4.6 * (1 + bonus * 0.6) * (1 + charm);
   }
 
   function step(dt) {

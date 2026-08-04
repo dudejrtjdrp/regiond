@@ -713,9 +713,23 @@
       if (tool) {
         var tx = sw === 1 ? 13 : (sw === 2 ? 14 : 13);
         var ty = sw === 1 ? bodyTop - 7 : (sw === 2 ? bodyTop + 4 : bodyTop);
-        var head = tool === 'sword' ? '#c6d6e2' : (tool === 'hoe' ? '#8b9fb0' : '#8b9fb0');
-        if (tool === 'sword') { P(tx, ty - 5, 1, 8, head); P(tx - 1, ty + 3, 3, 1, '#a8701f'); }
-        else { P(tx, ty - 4, 1, 7, '#8a5e33'); P(tx - 2, ty - 5, 4, 3, head); }
+        var wpal = (sp && sp.weaponPalette) || ['#8b8378', '#b9c0c8', '#dfe6ee', '#ffe6a8', '#ffd0f0'];
+        var forged = g && g.weaponGrade > 0 ? wpal[Math.min(wpal.length - 1, g.weaponGrade - 1)] : null;
+        var head = forged || (tool === 'sword' ? '#c6d6e2' : '#8b9fb0');
+        if (tool === 'sword') {
+          P(tx, ty - 5, 1, 8, head);
+          P(tx - 1, ty + 3, 3, 1, '#a8701f');
+          if (g && g.weaponPlus > 0) P(tx - 1, ty + 2, 3, 1, (sp && sp.plusBand) || '#ffcf6a');
+        } else {
+          P(tx, ty - 4, 1, 7, '#8a5e33');
+          P(tx - 2, ty - 5, 4, 3, head);
+        }
+        /* 인첸트 — 날 끝에 도는 옅은 기운 */
+        if (g && g.weaponEnchant) {
+          var glow = (sp && sp.enchantGlow && sp.enchantGlow[g.weaponEnchant]) || '#c9c2b4';
+          P(tx, ty - 6, 1, 1, glow);
+          P(tx + 1, ty - 4, 1, 1, glow);
+        }
       }
       if (crown) {
         P(5, headY - 3, 6, 1, '#e8a33d');

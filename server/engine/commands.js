@@ -292,6 +292,10 @@ function runCommand(world, nationId, cmd, data, rng) {
       if (!res.ok) return res;
       return ok({ ...res, equipment: equipmentView(nation, player, data), resources: { ...nation.resources }, gold: round2(nation.gold) });
     }
+    case 'enchantEquipment': {
+      const player = ensurePlayer(nation, cmd.avatarId ?? cmd.playerName ?? 'lord', data, cmd.playerName ?? null);
+      const res = enchantEquipment(nation, player, cmd, data, rng);
+      if (!res.ok) return res;
       return ok({ ...res, equipment: equipmentView(nation, player, data), resources: { ...nation.resources }, gold: round2(nation.gold) });
     }
 

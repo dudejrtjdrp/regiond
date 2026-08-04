@@ -4,6 +4,8 @@
 // 청크(16×16) 단위 스탬프를 찍어 worldDiff 가 '바뀐 청크'만 보낸다.
 import { townOf, territoryRadius } from './world.js';
 import { settlementTier } from './tiers.js';
+// ★ GDD3 §13-D-4 — 「밤눈」 특성. 안개는 나라 공용이라 가장 잘 보는 눈이 이긴다.
+import { nightVisionOf, bestNightVision } from './equipment.js';
 import { centerOf } from './structures.js';
 
 export const fogCfg = (data) => data.world.fog;
@@ -80,7 +82,8 @@ export function visionSources(world, nation, data) {
     out.push({ kind: 'villager', x: u.x, y: u.y, r: u.job === 'scout' ? v.scout : v.villager });
   }
   for (const a of Object.values(nation.avatars || {})) {
-    out.push({ kind: 'lord', x: a.x, y: a.y, r: v.lord + bonus });
+    // ★ GDD3 §13-D-4 — 「밤눈」이 깃든 장비는 안개를 그만큼 더 걷는다(사람마다 따로 잰다)
+    out.push({ kind: 'lord', x: a.x, y: a.y, r: v.lord + bonus + nightVisionOf(nation, a.id, data) });
   }
   return out;
 }
@@ -192,8 +195,10 @@ export function stampVisionDisc(nation, data, tick, cx, cy, r) {
 }
 
 /** 아바타(군주)가 선 자리를 즉시 밝힌다 — lordMove 가 부른다 */
-export function revealAvatar(nation, data, tick, x, y) {
-  return stampVisionDisc(nation, data, tick, x, y, fogCfg(data).vision.lord + visionTierBonus(nation, data));
+export function revealAvatar(nation, data, tick, x, y, avatarId = null) {
+  const charm = avatarId ? nightVisionOf(nation, avatarId, data) : bestNightVision(nation, data);
+  return stampVisionDisc(nation, data, tick, x, y,
+    fogCfg(data).vision.lord + visionTierBonus(nation, data) + charm);
 }
 
 export function fogValue(nation, x, y) {
