@@ -163,6 +163,18 @@
       if (code === 'COOLDOWN' && res.error.waitMs) {
         cdUntil = now() + res.error.waitMs;
         cdSpan = res.error.cooldownMs || cdSpan;
+      } else if (code === 'STORAGE_FULL') {
+        /* ★ GDD3 §13-A-5 — 곳간이 찼다. 두드릴 때마다 떠들지 않고 **자원마다 딱 한 번** 알린다.
+           (자원칸의 빨간 「가득」 테두리가 그 뒤로도 계속 이유를 말해 준다.) */
+        cdUntil = now() + 700;
+        if (pending === mine) { pending = null; pose.phase = 0; }
+        var list = res.error.resources || [];
+        var fresh = list.filter(function (r) { return !S.S.dismissed['storageFull:' + r]; });
+        list.forEach(function (r) { S.S.dismissed['storageFull:' + r] = 1; });
+        if (fresh.length) {
+          U.toast(res.error.message || '곳간이 가득 찼습니다.', 'warn', 5200);
+          GM.sfx.play('deny');
+        }
       } else if (code) {
         cdUntil = now() + 350;                          // 헛손질 — 잠깐 쉬고 다시
         if (pending === mine) { pending = null; pose.phase = 0; }

@@ -28,6 +28,8 @@ import { defenseSummary, weakSpots } from './combat.js';
 import { playerView, playersView, swingCooldownSeconds } from './skills.js';
 import { swingPreview } from './actions.js';
 import { chronicleView } from './chronicle.js';
+// ★ GDD3 §13-A-5 — 저장 상한(서버 권위)
+import { storageLimit, fullResources } from './storage.js';
 
 const hasRole = (nation, key, viewerRole) => nation.roles?.[key]?.holder === 'player' && viewerRole === key;
 const roleStaffed = (nation, key) => Boolean(nation.roles?.[key]?.holder);
@@ -121,6 +123,8 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
       morale: round2(nation.morale),
       gold: round2(nation.gold),
       resources: Object.fromEntries(Object.entries(nation.resources).map(([k, v]) => [k, round2(v)])),
+      // ★ GDD3 §13-A-5 — 자원마다 이만큼까지만 쌓인다. HUD 자원칸의 「가득」 표시가 이 값을 본다.
+      storage: { limit: storageLimit(nation, data), full: fullResources(nation, data) },
       laborAlloc: nation.laborAlloc,
       gatherScale: nation.gatherScale ?? { wood: 1, stone: 1 },
       factoryQueue: nation.factoryQueue,

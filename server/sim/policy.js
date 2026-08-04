@@ -15,6 +15,8 @@ import { turretList, structuresOf, findStructure, maxTier } from '../engine/stru
 import { aliveFences } from '../engine/fences.js';
 import { daysUntilWave, nextWaveSpec } from '../engine/waves.js';
 import { swingCooldownMs, ensurePlayer } from '../engine/skills.js';
+// ★ GDD3 §13-A-5 — 곳간이 차면 채집이 무효다. 봇도 사람처럼 궤짝을 더 짓는다.
+import { storageLimit } from '../engine/storage.js';
 
 const BOT_AVATAR = 'sim';
 
@@ -32,7 +34,7 @@ const BUILD_PLAN = [
   { key: 'quarry_camp', when: () => true, max: 1 },
   { key: 'house', when: (c) => c.freeBeds < 3, max: 8 },
   { key: 'arrow_tower', when: () => true, max: 8 },
-  { key: 'storage', when: () => true, max: 1 },
+  { key: 'storage', when: () => true, max: 3 },
   { key: 'well', when: () => true, max: 2 },
   { key: 'woodpile', when: () => true, max: 2 },
   { key: 'trading_post', when: () => true, max: 1 },
@@ -50,6 +52,17 @@ const BUILD_PLAN = [
 ];
 
 /** 그 순간의 정착지 형편 */
+/** 상한 대비 가장 꽉 찬 자원의 비율 (0~1) */
+function storageUsedRatio(nation, data) {
+  const limit = storageLimit(nation, data);
+  if (!(limit > 0)) return 0;
+  let worst = 0;
+  for (const res of data.resources.order) {
+    worst = Math.max(worst, (nation.resources?.[res] || 0) / limit);
+  }
+  return Math.min(1, worst);
+}
+
 function context(world, nation, data) {
   const chapter = chapterView(world, nation, data);
   return {
@@ -63,6 +76,8 @@ function context(world, nation, data) {
     fences: aliveFences(nation).length,
     militia: militiaList(nation, data).length,
     population: Math.floor(nation.population),
+    /* ★ §13-A-5 — 가장 많이 쌓인 자원이 상한의 몇 할까지 찼는가 */
+    storageUsed: storageUsedRatio(nation, data),
   };
 }
 
@@ -216,6 +231,26 @@ export function planCommands(world, data, opts = {}) {
   if (departmentsActive(nation, data)) {
     const needFuel = (nation.resources.fuel || 0) < 8 && (nation.resources.oil || 0) > 25;
     cmds.push({ type: 'setQueue', factory: needFuel ? { steel: 0.85, fuel: 0.15, weapon: 0 } : { steel: 1, fuel: 0, weapon: 0 } });
+  }
+
+  /* ── 2-b) ★ §13-A-5 곳간 — **정말 넘칠 때만, 덤으로** 짓는다 ──
+     상한에 닿으면 캐는 손이 통째로 멎으니 지어야 한다. 다만 두 가지를 지킨다.
+       ① 살림 목록(BUILD_PLAN)에 끼워 넣지 않는다 — 하루 한 칸을 빼앗으면 방어가 늦는다.
+       ② **넘치기 직전에만** 짓는다. 실측: 문턱 0.85에서 미리 지으니 웨이브5 생존율이 70%→35%로 무너졌다(0.99에서 65%).
+          쌓일 자리가 남았는데 곳간부터 늘리는 것은 사람도 하지 않는 짓이다.
+     저장고(250)를 궤짝(80)보다 먼저 본다 — 한 칸으로 세 배를 번다. */
+  const waveSoon = ctx.waveDays != null && ctx.waveDays <= 4;
+  const idleYard = (nation.construction || []).length === 0;      // 짓던 것이 없을 때만
+  if (ctx.storageUsed > 0.99 && !waveSoon && idleYard) {
+    for (const key of ['storage', 'storage_crate']) {
+      if (!buildingUnlocked(nation, key, data)) continue;
+      if (structuresOf(nation, key).length >= (key === 'storage_crate' ? 6 : 3)) continue;
+      if ((nation.construction || []).some((c) => c.building === key && !c.structureId)) continue;
+      const priced = buildingCost(nation, key, 1, data, hooks);
+      if (!priced || !canAfford(nation, priced.cost, priced.gold)) continue;
+      cmds.push({ type: 'placeBuilding', building: key });
+      break;
+    }
   }
 
   // ── 3) 건설 — 우선순위 하나씩 ────────────────────────────────

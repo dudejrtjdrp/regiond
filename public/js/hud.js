@@ -106,8 +106,14 @@
       } else if (prev === undefined) { dl.textContent = ''; dl.className = 'rc-d'; }
 
       var word = stateWord(it, n);
-      U.tipSet(d, it.name + ' — ' + word.text, word.detail);
-      d.classList.toggle('low', word.low);
+      /* ★ GDD3 §13-A-5 — 곳간이 찬 자원은 빨간 테두리 + 「가득」. 왜 안 늘어나는지가 한눈에 보여야 한다. */
+      var full = S.storageFull(it.key);
+      U.tipSet(d, it.name + ' — ' + (full ? '가득 참' : word.text),
+        full ? ('곳간 상한 ' + U.fmt(S.storageLimit(), 0) + '에 닿았습니다.\n'
+                + '더 캐도 들어가지 않습니다 — 저장 궤짝이나 저장고를 더 짓거나 키우세요.')
+             : word.detail);
+      d.classList.toggle('low', word.low && !full);
+      d.classList.toggle('full', full);
     });
   }
 

@@ -12,6 +12,8 @@ import {
   centerOf, footprint,
 } from './structures.js';
 import { markHarvestCycle, fieldStage, fieldStageView, isHarvestReady } from './villagers.js';
+// ★ GDD3 §13-A-5 — 국고로 들어오는 문은 storage.deposit 하나다.
+import { deposit, isFull, storageLimit, FULL_MESSAGE } from './storage.js';
 import { round2, round3 } from './economy.js';
 
 const err = (code, message, extra = {}) => ({ ok: false, error: { code, message, ...extra } });
@@ -72,6 +74,15 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
     });
   }
 
+  /* ★ GDD3 §13-A-5 — 곳간이 다 찼으면 **채집 자체가 무효다.**
+     쿨타임을 태우거나 노드를 축내기 전에 막는다. 헛손질로 나무만 줄어드는 일이 없어야 한다. */
+  const wanted = [...new Set([...Object.keys(spec.yield || {}), ...Object.keys(spec.cycleBonus || {})])];
+  if (wanted.length && wanted.every((res) => isFull(nation, res, data))) {
+    return err('STORAGE_FULL', FULL_MESSAGE, {
+      nodeId: node.id, limit: storageLimit(nation, data), resources: wanted,
+    });
+  }
+
   const cd = canSwing(nation, player, spec.skill, data, now);
   if (!cd.ok) return err('COOLDOWN', '아직 휘두를 수 없습니다.', { waitMs: cd.waitMs, cooldownMs: cd.cooldownMs });
 
@@ -86,10 +97,12 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
   const addYield = (table, scale = 1) => {
     for (const [res, v] of Object.entries(table || {})) {
       const bonus = 1 + gatherBonus(nation, res, data);
-      const got = round2(v * mult * scale * bonus);
+      const want = round2(v * mult * scale * bonus);
+      if (want <= 0) continue;
+      /* ★ GDD3 §13-A-5 — 곳간에 들어간 만큼만 내 것이다. 넘치는 몫은 버려진다. */
+      const got = deposit(nation, res, want, data);
       if (got <= 0) continue;
       gained[res] = round2((gained[res] || 0) + got);
-      nation.resources[res] = round2((nation.resources[res] || 0) + got);
       player.stats.gathered[res] = round2((player.stats.gathered[res] || 0) + got);
     }
   };

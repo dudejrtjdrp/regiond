@@ -16,6 +16,10 @@ import { buildNationView } from '../server/engine/view.js';
 import { applyCommand } from '../server/engine/commands.js';
 import { round2 } from '../server/engine/economy.js';
 import { resourceReq, structureReq, populationReq, haveResource } from '../server/engine/requirements.js';
+import {
+  storageLimit, structureCap, deposit, isFull, fullResources, isStorageBuilding,
+} from '../server/engine/storage.js';
+import { actionSwing } from '../server/engine/actions.js';
 
 const data = loadGameData();
 const newWorld = (seed = 1) => createWorld({ seed, data, playerName: '테스트' });
@@ -267,4 +271,139 @@ test('§13-A-4 도착 알림은 그 사람의 id 와 걸어올 자리를 함께 
   assert.ok(from > territoryRadius(n, data), '새 사람은 영토 밖에서 걸어온다');
   assert.equal(person.destX, town.x, '목표점은 마을 한복판');
   assert.equal(person.destY, town.y);
+});
+
+// ────────────────────────────────────────────────────────────────
+// §13-A-5 저장 상한 — 서버 권위
+// ────────────────────────────────────────────────────────────────
+test('§13-A-5 상한 = 본부 기본 + 저장 건물 합, 티어는 곱으로 는다', () => {
+  const w = newWorld(41);
+  const n = w.nations.player;
+  const cfg = data.balance.storage;
+  const base = cfg.hqBase + cfg.hqPerTier * 0;
+  assert.equal(storageLimit(n, data), base, '아무것도 없으면 본부 기본만');
+
+  put(w, n, 'storage_crate', 1, 5);
+  assert.equal(storageLimit(n, data), base + data.buildings.storage_crate.storageCap, '궤짝 한 채');
+  put(w, n, 'storage_crate', 1, -5);
+  assert.equal(storageLimit(n, data), base + data.buildings.storage_crate.storageCap * 2, '더 지으면 는다');
+
+  // 티어를 올려도 는다 — 같은 계열 전부 같은 규칙(base × mult^(티어-1))
+  const t2 = put(w, n, 'storage_crate', 2, 0, 5);
+  assert.equal(structureCap(t2, data),
+    data.buildings.storage_crate.storageCap * cfg.capPerTierMultiplier, '2단계 궤짝 = 기본 × 배수');
+
+  // 정착지 티어가 오르면 본부 몫도 는다
+  n.tier = 3;
+  assert.ok(storageLimit(n, data) > base + data.buildings.storage_crate.storageCap * 2);
+});
+
+test('§13-A-5 무너졌거나 옮기는 중인 곳간은 세지 않는다', () => {
+  const w = newWorld(42);
+  const n = w.nations.player;
+  const before = storageLimit(n, data);
+  const s = put(w, n, 'storage', 1, 6);
+  assert.ok(storageLimit(n, data) > before);
+  s.inactive = true;
+  assert.equal(storageLimit(n, data), before, '이전·철거 중이면 효과가 멎는다');
+  s.inactive = false;
+  s.hp = 0;
+  assert.equal(storageLimit(n, data), before, '무너진 곳간은 아무것도 담지 못한다');
+});
+
+test('§13-A-5 상한을 넘겨 들어오지 않는다 (deposit 은 들어간 만큼만 돌려준다)', () => {
+  const w = newWorld(43);
+  const n = w.nations.player;
+  const limit = storageLimit(n, data);
+  n.resources.wood = limit - 10;
+  assert.equal(deposit(n, 'wood', 4, data), 4, '자리가 있으면 그대로');
+  assert.equal(n.resources.wood, limit - 6);
+  assert.equal(deposit(n, 'wood', 50, data), 6, '남은 자리만큼만 들어간다');
+  assert.equal(n.resources.wood, limit, '상한을 넘지 않는다');
+  assert.equal(deposit(n, 'wood', 20, data), 0, '가득 차면 한 톨도 안 들어간다');
+  assert.equal(n.resources.wood, limit);
+  assert.equal(isFull(n, 'wood', data), true);
+  assert.deepEqual(fullResources(n, data).includes('wood'), true);
+  // 다른 자원은 멀쩡하다 — 상한은 자원마다 따로다
+  assert.equal(isFull(n, 'stone', data), false);
+  assert.equal(deposit(n, 'stone', 30, data), 30);
+});
+
+test('§13-A-5 곳간이 차면 채집이 무효다 — 쿨타임도 노드도 축나지 않는다', () => {
+  const w = newWorld(44);
+  const n = w.nations.player;
+  const avatarId = Object.keys(n.players)[0];
+  const node = (w.map?.nodes || []).find((x) => x.type === 'forest');
+  const town = townOf(w, n.id);
+  node.x = town.x + 1; node.y = town.y;                 // 손이 닿는 자리로
+  n.avatars[avatarId] = { x: node.x, y: node.y };
+  n.resources.wood = storageLimit(n, data);             // 목재만 가득
+
+  const before = { amount: node.amount, swings: node.swings || 0, wood: n.resources.wood };
+  const res = actionSwing(w, n, { avatarId, nodeId: node.id }, data, Date.now());
+  assert.equal(res.ok, false);
+  assert.equal(res.error.code, 'STORAGE_FULL');
+  assert.match(res.error.message, /곳간이 가득/);
+  assert.ok(res.error.resources.includes('wood'), '어떤 자원이 막았는지 알려 준다');
+  assert.equal(node.amount, before.amount, '나무가 축나지 않는다');
+  assert.equal(node.swings || 0, before.swings, '스윙으로 세지도 않는다');
+  assert.equal(n.resources.wood, before.wood, '국고도 그대로');
+
+  // 곳간을 늘리면 곧바로 다시 캘 수 있다
+  put(w, n, 'storage_crate', 1, 3);
+  const ok = actionSwing(w, n, { avatarId, nodeId: node.id }, data, Date.now() + 60000);
+  assert.equal(ok.ok, true, '궤짝을 지으면 다시 캔다');
+  assert.ok((ok.gained.wood || 0) > 0);
+});
+
+test('§13-A-5 넘치는 몫은 버려진다 — 절반만 들어갈 때', () => {
+  const w = newWorld(45);
+  const n = w.nations.player;
+  const avatarId = Object.keys(n.players)[0];
+  const node = (w.map?.nodes || []).find((x) => x.type === 'forest');
+  const town = townOf(w, n.id);
+  node.x = town.x + 1; node.y = town.y;
+  n.avatars[avatarId] = { x: node.x, y: node.y };
+  const limit = storageLimit(n, data);
+  n.resources.wood = limit - 0.5;                       // 딱 0.5 만큼만 자리가 있다
+  const res = actionSwing(w, n, { avatarId, nodeId: node.id }, data, Date.now());
+  assert.equal(res.ok, true, '자리가 조금이라도 있으면 캘 수 있다');
+  assert.equal(res.gained.wood, 0.5, '들어간 만큼만 내 것이다');
+  assert.equal(n.resources.wood, limit);
+});
+
+test('§13-A-5 주민 산출도 상한을 넘기지 못한다 (일 틱)', () => {
+  let w = newWorld(46);
+  let n = w.nations.player;
+  const rng = createRng(46);
+  __openChapter(n, 5);
+  for (let i = 0; i < 3; i++) spawnResident(w, n, data, rng);
+  postVillagers(w, n, 'lumber', data, rng);
+  n.resources.wood = storageLimit(n, data);
+  const out = step(w, [], rng, data);
+  n = out.state.nations.player;
+  assert.ok(n.resources.wood <= storageLimit(n, data) + 0.005,
+    `주민이 지고 와도 상한을 넘지 않는다 (${n.resources.wood} > ${storageLimit(n, data)})`);
+});
+
+test('§13-A-5 뷰가 상한과 「가득」 목록을 실어 보낸다', () => {
+  const w = newWorld(47);
+  const n = w.nations.player;
+  n.resources.stone = storageLimit(n, data);
+  const v = buildNationView(w, 'player', null, data, { avatarId: Object.keys(n.players)[0] });
+  assert.equal(v.nation.storage.limit, storageLimit(n, data));
+  assert.ok(v.nation.storage.full.includes('stone'));
+  assert.equal(v.nation.storage.full.includes('wood'), false);
+});
+
+test('§13-A-5 저장 계열 다이얼이 스펙대로다 (궤짝 80 · 저장고 250 · 티어 ×1.6)', () => {
+  assert.equal(data.buildings.storage_crate.storageCap, 80);
+  assert.equal(data.buildings.storage.storageCap, 250);
+  assert.equal(data.balance.storage.capPerTierMultiplier, 1.6);
+  assert.ok(data.balance.storage.hqBase > 0, '본부에도 기본 상한이 있다');
+  // 같은 계열은 전부 같은 시스템을 쓴다 — storageCap 을 가진 건물이 곧 저장 계열
+  for (const key of ['storage_crate', 'storage', 'granary']) {
+    assert.equal(isStorageBuilding(key, data), true, `${key} 는 저장 계열이다`);
+  }
+  assert.equal(isStorageBuilding('hut', data), false);
 });

@@ -608,6 +608,17 @@
                      militia: false, represents: 1, selectable: true,
                      yield: per && rk ? { resource: rk, perDay: per } : undefined };
           }),
+          /* ★ §13-A-5 — 구경 모드도 상한 계약을 갖춘다(자원칸 「가득」 표시가 같은 길로 돈다) */
+          storage: (function () {
+            var lim = 500 + 250 * (W.tier || 0);
+            W.structures.forEach(function (s) {
+              var cap = { storage_crate: 80, storage: 250, granary: 150 }[s.key];
+              if (cap) lim += cap * Math.pow(1.6, Math.max(0, (s.tier || 1) - 1));
+            });
+            var full = [];
+            for (var k in W.resources) if ((W.resources[k] || 0) >= lim - 0.005) full.push(k);
+            return { limit: Math.round(lim * 100) / 100, full: full };
+          })(),
           housing: { population: W.population, capacity: capacity(),
                      freeBeds: Math.max(0, capacity() - W.population),
                      byBuilding: {},

@@ -391,6 +391,11 @@ button[data-tip],.res-chip[data-tip],.minister[data-tip]{cursor:pointer}
 .res-chip .rc-d.up{color:var(--green-deep)} .res-chip .rc-d.down{color:var(--red-deep)}
 .res-chip.low{border-color:var(--red); background:linear-gradient(180deg,#fbe0d8 0 4px,#f3cdc2 4px 100%)}
 .res-chip.low .rc-v{color:var(--red-deep)}
+/* ★ GDD3 §13-A-5 — 곳간이 찬 자원칸. 「모자람(low)」과 헷갈리지 않게 테두리를 두껍게 두르고 「가득」 딱지를 붙인다 */
+.res-chip.full{border-color:var(--red-deep); box-shadow:inset 0 0 0 2px var(--red), 0 0 0 2px rgba(188,71,73,.4)}
+.res-chip.full .rc-v{color:var(--red-deep)}
+.res-chip.full::after{content:'가득'; position:absolute; top:-8px; right:-2px; padding:0 3px; font-size:9.5px;
+  line-height:1.5; color:#fff2ea; background:var(--red-deep); border:2px solid var(--wood-deep); pointer-events:none}
 .topbar-right{flex:0 0 auto; display:flex; align-items:center; gap:8px}
 .tb-kingdom{color:#f7e6c6; font-size:15px; text-shadow:1px 1px 0 rgba(0,0,0,.55); max-width:150px;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap}

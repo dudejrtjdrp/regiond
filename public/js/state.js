@@ -444,6 +444,7 @@
         v.nation.resources[k] = res.resources[k];
       }
       refreshAffordable(v.nation);
+      clearStorageNotice();          /* ★ §13-A-5 — 자리가 나면 알림을 되살린다 */
       touched = true;
     }
     if (patchNode(res)) touched = true;
@@ -846,6 +847,36 @@
   /** 게임 하루가 실제로 몇 초인가 — 주민이 초당 얼마를 버는지 재는 분모 */
   function dayRealSeconds() { return timeCfg().dayRealSeconds || 600; }
 
+  /* ── ★ 저장 상한 (GDD3 §13-A-5) — 서버가 정본, 화면은 읽기만 한다 ── */
+  function storageInfo() { var n = nation(); return (n && n.storage) || null; }
+  /** 자원 하나가 쌓일 수 있는 총량 (모르면 0 = 상한 없음으로 본다) */
+  function storageLimit() { var s = storageInfo(); return (s && s.limit) || 0; }
+  /** 이 자원칸이 지금 가득 찼는가 — 자원이 아닌 칸(인구·금화·사기)은 언제나 아니다 */
+  function storageFull(key) {
+    var s = storageInfo();
+    if (!s || !s.limit) return false;
+    if (!S.config || !S.config.resources || (S.config.resources.order || []).indexOf(key) < 0) return false;
+    var n = nation();
+    var have = (n && n.resources && n.resources[key]) || 0;
+    /* 서버가 준 목록이 우선이되, 스윙 ack 로 앞서 간 장부도 함께 본다(§13-A-1 과 같은 원칙) */
+    return have >= s.limit - 0.005 || (s.full || []).indexOf(key) >= 0;
+  }
+  /**
+   * 곳간에 다시 자리가 생기면 「가득 찼습니다」 알림을 **다시 한 번 받을 수 있게** 되돌린다.
+   * (한 번 보고 영영 안 보이면, 궤짝을 지어 풀었다가 또 차도 아무 말이 없다.)
+   */
+  function clearStorageNotice() {
+    var s = storageInfo();
+    if (!s || !s.limit) return;
+    var n = nation();
+    var res = (n && n.resources) || {};
+    for (var k in S.dismissed) {
+      if (k.indexOf('storageFull:') !== 0) continue;
+      var key = k.slice(12);
+      if (((res[key] || 0) < s.limit - 0.005)) delete S.dismissed[k];
+    }
+  }
+
   /* ── 역할 ──────────────────────────────────────────── */
   function myRole() {
     var n = nation();
@@ -1080,6 +1111,7 @@
     timeCfg: timeCfg, phaseIndex: phaseIndex, phaseMeta: phaseMeta, isNight: isNight,
     lightCfg: lightCfg, fogVeil: fogVeil,
     villagerWorkCfg: villagerWorkCfg, dayRealSeconds: dayRealSeconds,
+    storageLimit: storageLimit, storageFull: storageFull, storageInfo: storageInfo,
 
     myRole: myRole, syncYou: syncYou, hasRole: hasRole, roleHolder: roleHolder, isVacant: isVacant,
     holderName: holderName, mandateOpen: mandateOpen, members: members,

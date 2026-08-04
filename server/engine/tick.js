@@ -43,6 +43,8 @@ import {
   updateWaveSchedule, ensureCamps, updateCampIntel, campEventView, daysUntilWave, nextWaveSpec,
 } from './waves.js';
 import { startBattle, runBattle } from './battle.js';
+// ★ GDD3 §13-A-5 — 산출도 곳간 상한을 넘기지 못한다(서버 권위)
+import { deposit } from './storage.js';
 import { record as chronicle } from './chronicle.js';
 
 /**
@@ -407,8 +409,9 @@ export function produceNation(world, nation, data, hooks) {
         * departmentMultiplier(world, nation, 'factory', 'oil', data, hooks, buffs) + (flat.oil || 0)
       : 0;
 
+    /* ★ GDD3 §13-A-5 — 부처 산출도 곳간을 넘길 수 없다. 들어간 만큼만 out 에 남긴다. */
     for (const key of ['grain', 'wood', 'stone', 'ironOre', 'oil']) {
-      nation.resources[key] = (nation.resources[key] || 0) + out[key];
+      out[key] = deposit(nation, key, out[key], data);
     }
     applyFactoryQueue(world, nation, data, hooks, buffs, out);
 
@@ -419,9 +422,9 @@ export function produceNation(world, nation, data, hooks) {
     // ── 티어 0~2 — 주민 개별 채집 적립 ──
     const gathered = residentGather(world, nation, data);
     out.residentGather = gathered;
+    /* ★ §13-A-5 — 주민이 지고 온 것도 곳간이 받아 주는 만큼만 들어간다 */
     for (const [res, amount] of Object.entries(gathered.resources)) {
-      out[res] = round2((out[res] || 0) + amount);
-      nation.resources[res] = round2((nation.resources[res] || 0) + amount);
+      out[res] = round2((out[res] || 0) + deposit(nation, res, amount, data));
     }
     out.buildPoints = gathered.buildPoints;
     for (const key of ['grain', 'wood', 'stone', 'ironOre', 'oil', 'steel', 'fuel']) out[key] ??= 0;
@@ -431,8 +434,7 @@ export function produceNation(world, nation, data, hooks) {
   const flatBuild = flatOutputs(nation, data);
   out.flatOutput = flatBuild;
   for (const [res, amount] of Object.entries(flatBuild)) {
-    out[res] = round2((out[res] || 0) + amount);
-    nation.resources[res] = round2((nation.resources[res] || 0) + amount);
+    out[res] = round2((out[res] || 0) + deposit(nation, res, amount, data));
   }
   const tax = goldPerDay(nation, data);
   if (tax > 0) {

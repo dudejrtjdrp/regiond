@@ -563,6 +563,28 @@ test('클라이언트 하니스 — 목표 카드가 가리키는 대로만 1장
       assert.equal(GM.world.walkIn, undefined, '연출용 유령을 만드는 문은 닫혔다');
     });
 
+    // ── 9-c. ★ §13-A-5 저장 상한 ────────────────────────────
+    await t.test('★ §13-A-5 곳간이 차면 자원칸에 빨간 「가득」 테두리가 뜬다', () => {
+      const st = S.storageInfo();
+      assert.ok(st && st.limit > 0, `서버가 상한을 실어 준다 (${st && st.limit})`);
+      assert.equal(S.storageFull('wood'), false, '아직은 여유가 있다');
+
+      // 곳간을 가득 채운 것처럼 장부만 바꾼다 (스윙 ack 이 앞서 간 상황과 같다)
+      const keep = S.nation().resources.wood;
+      S.nation().resources.wood = st.limit;
+      assert.equal(S.storageFull('wood'), true);
+      assert.equal(S.storageFull('population'), false, '인구·금화 칸은 곳간이 아니다');
+      GM.hud.update();
+      const chip = doc.querySelector('#res-bar .res-chip[data-k="wood"]');
+      assert.ok(chip, '목재 자원칸이 있다');
+      assert.equal(chip.classList.contains('full'), true, '가득 표시가 붙는다');
+
+      // 자리가 나면 표시도 알림도 되돌아온다
+      S.nation().resources.wood = keep;
+      GM.hud.update();
+      assert.equal(doc.querySelector('#res-bar .res-chip[data-k="wood"]').classList.contains('full'), false);
+    });
+
     // ── 10. 5장 → 6장 ────────────────────────────────────────
     await t.test('5장 마을의 꼴 — 다섯이 되고 본부에서 [승격]을 누르면 촌락', async () => {
       assert.ok(await clearChapter(5), '5장을 지났다');
