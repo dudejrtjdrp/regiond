@@ -1721,19 +1721,32 @@ test('클라이언트 하니스 — §15-C 동료 넷과 자동 플레이(10분 
       // 물러남을 걷고(직접 손을 뗀 뒤 30초가 지난 셈) 열 시간을 굴린다
       const me = () => nation().players[S.S.avatarId];
       me().autoPlaySuspendUntil = 0;
+      /* ★ §16-7 — 이 스위트는 일 틱을 세워 두므로(rt.stop) 앞 칸에서 동료들이 곁의 나무를 다
+         캐고 곳간을 채워 두면 「할 일이 없어 쉰다」가 정답이 되어 버린다. 재는 것은 「할 일이
+         있으면 스스로 움직이는가」다 — 곳간을 비우고 그루터기를 되살려 할 일을 만들어 준다. */
+      nation().resources.wood = 2;
+      nation().resources.grain = 4;
+      nation().resources.stone = 2;
+      for (const n of rt.world.map.nodes || []) {
+        if (n.depleted) { n.depleted = false; n.respawnAt = null; n.amount = n.max; n.swings = 0; }
+      }
       const av = () => nation().avatars[S.S.avatarId];
       const from = { x: av().x, y: av().y };
       const hp0 = me().hp;
       let downs = 0;
       let acts = 0;
+      let roam = 0;                                   // ★ §16-7 — 돌아다닌 최대 반경(끝자리가 아니라)
       let now = Date.now();
       for (let s = 0; s < 600; s += 1) {
         now += 1000;
         const r = stepCompanions(rt.world, nation(), data, 1, { now });
         acts += r.actions.filter((a) => a.avatarId === S.S.avatarId).length;
+        roam = Math.max(roam, Math.hypot(av().x - from.x, av().y - from.y));
         if ((me().downUntil || 0) > 0) downs += 1;
       }
-      assert.ok(Math.hypot(av().x - from.x, av().y - from.y) > 1, '스스로 걸어 다녔다');
+      /* ★ §16-7 뒤로 자동은 본부 곁 공사장을 오가므로 **마지막 자리**는 출발점 곁일 수 있다.
+         재는 것은 「돌아다녔는가」다 — 지나간 최대 반경으로 잰다. */
+      assert.ok(roam > 1, `스스로 걸어 다녔다 (최대 ${roam.toFixed(1)}타일)`);
       assert.ok(acts > 0, `열 시간 동안 ${acts}번 스스로 일했다`);
       assert.ok(me().hp > 0 || downs > 0, '살아 있다(쓰러져도 모닥불에서 일어난다)');
       assert.equal(me().autoPlay, true, '열 시간 뒤에도 자동은 켜져 있다');

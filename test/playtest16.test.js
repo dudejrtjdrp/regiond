@@ -186,13 +186,14 @@ test('★ §16-6 집사 — 잠자리가 다 차면 자동 플레이가 집을 �
   nation.population = cap;
   nation.villagers = Array.from({ length: cap }, (_, i) => ({ id: `v${i}`, name: `주민${i}`, x: 0, y: 0 }));
   assert.ok(freeBeds(nation, data) < 1, '전제: 빈 잠자리가 없다');
-  const sites0 = (nation.construction || []).length;
-  for (let i = 0; i < 30; i += 1) stepCompanions(world, nation, data, 1, { now: i * 1000 });
-  const started = (nation.construction || []).slice(sites0);
-  assert.ok(started.length >= 1, '집사가 착공했다');
   const housing = new Set(data.companions.steward.housing);
-  assert.ok(started.some((s) => housing.has(s.building)),
-    `집(주거)을 앉혔다 — ${started.map((s) => s.building).join(',')}`);
+  const homes0 = (nation.structures || []).filter((s) => housing.has(s.key)).length;
+  for (let i = 0; i < 30; i += 1) stepCompanions(world, nation, data, 1, { now: i * 1000 });
+  /* ★ 동료들이 망치를 보태므로 30초 안에 **완공까지** 갈 수 있다 — 공사 목록이 아니라
+     「선 집 + 짓는 중인 집」을 함께 센다(공사 목록만 보면 다 지은 성실함이 실패로 읽힌다). */
+  const homesNow = (nation.structures || []).filter((s) => housing.has(s.key)).length
+    + (nation.construction || []).filter((s) => housing.has(s.building)).length;
+  assert.ok(homesNow > homes0, `집사가 집을 앉혔다 (${homes0} → ${homesNow})`);
 });
 
 test('★ §16-6 집사 — 모집이 열려 있고 식량이 넉넉하면 사람을 부른다', () => {
@@ -218,4 +219,47 @@ test('★ §16-6 집사 — 동료 단독으로는 튜토리얼 장을 앞지르
   for (let i = 0; i < 30; i += 1) stepCompanions(world, nation, data, 1, { now: i * 1000 });
   assert.equal((nation.construction || []).length, sites0,
     '3장(허기)에서 동료가 제멋대로 착공했다 — 「처음 세워 보세요」는 사람의 몫이다');
+});
+
+// ────────────────────────────────────────────────────────────────
+// ⑤ §16-7 · §16-8 — 리듬과 형편
+// ────────────────────────────────────────────────────────────────
+test('★ §16-7 첫 숨 — 동료는 태어난 첫 분 안에 실제로 일한다(크레딧이 차 있다)', () => {
+  const { world, nation } = scene({ chapter: 3 });
+  syncCompanionSeats(world, nation, data);
+  const start = (nation.companions.list || []).filter((c) => c.active)
+    .map((c) => ({ id: c.id, x: nation.avatars[c.id].x, y: nation.avatars[c.id].y }));
+  let acts = 0;
+  for (let i = 0; i < 60; i += 1) acts += stepCompanions(world, nation, data, 1).actions.length;
+  assert.ok(acts > 0, `첫 60초 안에 무언가를 했다 (${acts}번)`);
+  const roamed = start.some((s) => {
+    const av = nation.avatars[s.id];
+    return av && dist(av.x, av.y, s.x, s.y) > 2;
+  });
+  assert.ok(roamed, '첫 분 안에 일터로 걸어 나갔다(마차 곁에 서 있지 않는다)');
+});
+
+test('★ §16-8 형편 배수 — 티어·사기·건물이 주민의 하루 산출에 얹힌다', async () => {
+  const { settlementGatherFactor, residentYield } = await import('../server/engine/residents.js');
+  const { world, nation } = scene({ chapter: 5 });
+  const u = { id: 'v1', name: '주민', job: 'lumber', stats: { diligence: 5, strength: 6, craft: 5, courage: 6 } };
+  const node = (world.map.nodes || []).find((n) => n.type === 'forest');
+
+  nation.tier = 0;
+  nation.gatherMorale = 1;
+  const base = residentYield(u, node, data, false, nation).perDay;
+
+  nation.tier = 3;                                  // 티어가 오르면
+  const tiered = residentYield(u, node, data, false, nation).perDay;
+  assert.ok(tiered > base, `티어 3 산출이 더 크다 (${base} → ${tiered})`);
+
+  nation.gatherMorale = data.balance.morale.max;    // 사기가 높으면
+  const cheered = residentYield(u, node, data, false, nation).perDay;
+  assert.ok(cheered > tiered, `사기가 높으면 더 크다 (${tiered} → ${cheered})`);
+
+  nation.gatherMorale = data.balance.morale.min;    // 사기가 낮으면
+  const gloomy = residentYield(u, node, data, false, nation).perDay;
+  assert.ok(gloomy < tiered, `사기가 낮으면 준다 (${tiered} → ${gloomy})`);
+
+  assert.ok(settlementGatherFactor(nation, data, 'wood') > 0, '배수는 언제나 양수다');
 });
