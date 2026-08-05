@@ -410,29 +410,92 @@
           (패킷이 늦으면 멈춰 기다린다 — 앞질러 갔다가 되돌아오는 것이 가장 큰 끊김이다).
        ④ 방향은 값이 아니라 **각도를 스무딩**해서 정한다. 왼·오른쪽 뒤집기에는 문턱을 둬
           제자리걸음에 스프라이트가 파닥거리지 않게 한다. */
-  var WILD_DELAY_MS = 1000;              // 지연 버퍼 = 서버 한 스텝
+  /* ★ §16-3 — 두 점 버퍼를 **스냅샷 띠(ring buffer)** 로 바꾼다.
+     옛 규칙(prev·next 두 점 + 고정 지연 1000ms)은 지연폭이 스냅샷 간격과 **정확히 같을 때만** 등속이다.
+     간격이 흔들리면(서버 setInterval·네트워크·프레임 처짐) 그 차이만큼 매 주기 얼어붙었다 움직이는
+     미세 끊김이 남고, 시계가 벽시계보다 늦게 가면(무거운 프레임의 dt 캡) 1초에 한 번 순간이동이 됐다.
+     이제 놈마다 ① 최근 좌표 넉 장을 띠로 들고 ② 간격을 EMA 로 재서 ③ 그 1.4배 + 여유만큼 뒤를
+     그린다. 그리는 시각을 품는 두 장 사이를 등속으로 지나므로, 간격이 40% 흔들려도 걸음은 고르다.
+     외삽은 여전히 없다 — 띠의 끝을 넘어서는 그 자리에 선다. */
   var wildClock = 0;                     // 애니메이션 시계(ms) — rAF 가 없어도 도는 자체 시계
+  var GAP_DEFAULT = 600;                 // 아직 간격을 못 잰 놈의 기본값(서버 0.5초 스텝 + 여유)
+  var BUF_KEEP = 5;                      // 띠에 남기는 스냅샷 수
 
-  /** 새 좌표 묶음이 왔다 — 각자의 버퍼를 한 칸 민다 */
+  function bufDelay(a) {
+    var g = (a && a.gapMs) || GAP_DEFAULT;
+    return Math.min(2400, Math.max(160, g * 1.4 + 80));
+  }
+
+  /** 그릴 시각 = 시계 − 지연폭. ★ 지연폭은 **한 번에 움직이지 않는다** — 간격을 새로 배울 때마다
+      지연폭이 툭 바뀌면 그 순간 화면이 한 발 건너뛴다(실측: 프레임 이동량 스파이크 → 흩어짐 64%).
+      늘어날 때는 빠르게(버퍼가 마르기 전에), 줄어들 때는 천천히 미끄러뜨린다. */
+  function bufRender(a, clock) {
+    var target = bufDelay(a);
+    if (a.delay == null) a.delay = target;
+    else {
+      var el = a.dClock == null ? 0 : clock - a.dClock;
+      var diff = target - a.delay;
+      var maxStep = diff > 0 ? Math.max(2, el * 0.45) : Math.max(0.5, el * 0.06);
+      a.delay += Math.max(-maxStep, Math.min(maxStep, diff));
+    }
+    a.dClock = clock;
+    return clock - a.delay;
+  }
+
+  /** 띠에 좌표 한 장을 얹는다 — 간격을 재고, 걸어서 못 갈 거리는 스냅한다.
+      ★ 간격은 EMA 가 아니라 **최근 세 장의 최대값**이다. 스트림의 박자가 바뀌면(탭이 멈췄다 돌아옴,
+      무거운 프레임 구간) 오래된 박자의 기억이 지연폭을 그르치는데, 최대값은 한 장 만에 따라잡는다. */
+  function bufPush(a, x, y, now, snapDist) {
+    var last = a.buf[a.buf.length - 1];
+    if (last) {
+      if (last.x === x && last.y === y && now - last.t < 1) return;
+      var gap = now - last.t;
+      if (gap > 0.5) {
+        a.gaps = a.gaps || [];
+        a.gaps.push(Math.min(gap, 3000));
+        if (a.gaps.length > 3) a.gaps.shift();
+        a.gapMs = Math.max.apply(null, a.gaps);
+      }
+      if (Math.hypot(x - last.x, y - last.y) > snapDist) {
+        /* 걸어서는 못 갈 거리 — 같은 놈이 걸어간 것으로 볼 수 없다. 그때만 스냅한다. */
+        a.buf = [{ x: x, y: y, t: now }];
+        a.x = x; a.y = y;
+        return;
+      }
+    }
+    a.buf.push({ x: x, y: y, t: now });
+    if (a.buf.length > BUF_KEEP) a.buf.shift();
+  }
+
+  /** 띠에서 그릴 자리를 읽는다 — render 시각을 품는 두 장 사이의 등속점. 외삽하지 않는다. */
+  function bufAt(a, render) {
+    var b = a.buf;
+    if (!b.length) return { x: a.x, y: a.y };
+    if (render <= b[0].t) return { x: b[0].x, y: b[0].y };
+    for (var i = b.length - 1; i >= 0; i--) {
+      if (b[i].t <= render) {
+        var p = b[i], q = b[i + 1];
+        if (!q) return { x: p.x, y: p.y };                  // 띠의 끝 — 멈춰 기다린다
+        var k = Math.max(0, Math.min(1, (render - p.t) / Math.max(1, q.t - p.t)));
+        return { x: p.x + (q.x - p.x) * k, y: p.y + (q.y - p.y) * k };
+      }
+    }
+    return { x: b[0].x, y: b[0].y };
+  }
+
+  function newWild(c, now) {
+    return { x: c.x, y: c.y, dir: 1, face: 0, frame: 0, ft: 0, hurt: 0, gapMs: null,
+             buf: [{ x: c.x, y: c.y, t: now }] };
+  }
+
+  /** 새 좌표 묶음이 왔다 — 각자의 띠에 한 장씩 얹는다 */
   function pushWildSnapshot(list) {
     var now = wildClock;
     for (var i = 0; i < (list || []).length; i++) {
       var c = list[i];
       var a = wild[c.id];
-      if (!a) {
-        wild[c.id] = { x: c.x, y: c.y, dir: 1, face: 0, frame: 0, ft: 0, hurt: 0,
-                       prev: { x: c.x, y: c.y, t: now - WILD_DELAY_MS }, next: { x: c.x, y: c.y, t: now } };
-        continue;
-      }
-      if (a.next && Math.hypot(c.x - a.next.x, c.y - a.next.y) > WILD_SNAP) {
-        /* 걸어서는 못 갈 거리 — 같은 놈이 걸어간 것으로 볼 수 없다. 그때만 스냅한다. */
-        a.x = c.x; a.y = c.y;
-        a.prev = { x: c.x, y: c.y, t: now - WILD_DELAY_MS };
-        a.next = { x: c.x, y: c.y, t: now };
-        continue;
-      }
-      a.prev = a.next || { x: a.x, y: a.y, t: now - WILD_DELAY_MS };
-      a.next = { x: c.x, y: c.y, t: now };
+      if (!a) { wild[c.id] = newWild(c, now); continue; }
+      bufPush(a, c.x, c.y, now, WILD_SNAP);
     }
     for (var k in wild) {
       if (!Object.prototype.hasOwnProperty.call(wild, k)) continue;
@@ -444,26 +507,16 @@
 
   function stepWild(dt) {
     wildClock += dt * 1000;
-    var render = wildClock - WILD_DELAY_MS;
     var list = S.creatureList();
     var seen = {};
     for (var i = 0; i < list.length; i++) {
       var c = list[i];
       seen[c.id] = true;
       var a = wild[c.id];
-      if (!a) {
-        wild[c.id] = { x: c.x, y: c.y, dir: 1, face: 0, frame: 0, ft: 0, hurt: 0,
-                       prev: { x: c.x, y: c.y, t: render - WILD_DELAY_MS }, next: { x: c.x, y: c.y, t: render } };
-        continue;
-      }
-      var p = a.prev, q = a.next;
-      var span = Math.max(1, q.t - p.t);
-      /* ★ 외삽 금지 — 아직 안 온 미래로 나아가지 않는다 */
-      var k = Math.max(0, Math.min(1, (render - p.t) / span));
-      var nx = p.x + (q.x - p.x) * k;
-      var ny = p.y + (q.y - p.y) * k;
-      var mx = nx - a.x, my = ny - a.y;
-      a.x = nx; a.y = ny;
+      if (!a) { wild[c.id] = newWild(c, wildClock); continue; }
+      var pos = bufAt(a, bufRender(a, wildClock));
+      var mx = pos.x - a.x, my = pos.y - a.y;
+      a.x = pos.x; a.y = pos.y;
       var moved = Math.hypot(mx, my);
       if (moved > 0.0015) {
         /* 방향 스무딩 — 각도를 따라가고, 좌우 뒤집기에는 문턱을 둔다 */
@@ -491,7 +544,6 @@
   var MATE_SNAP = 12;
 
   function stepMates(dt) {
-    var render = wildClock - WILD_DELAY_MS;
     var list = S.S.avatars || [];
     var mine = S.S.avatarId;
     var seen = {};
@@ -501,28 +553,16 @@
       seen[v.id] = true;
       var a = mates[v.id];
       if (!a) {
-        mates[v.id] = { x: v.x, y: v.y, dir: 0, frame: 0, ft: 0,
-                        prev: { x: v.x, y: v.y, t: render - WILD_DELAY_MS }, next: { x: v.x, y: v.y, t: wildClock } };
+        mates[v.id] = { x: v.x, y: v.y, dir: 0, frame: 0, ft: 0, gapMs: null,
+                        buf: [{ x: v.x, y: v.y, t: wildClock }] };
         continue;
       }
-      if (!a.next || a.next.x !== v.x || a.next.y !== v.y) {
-        if (a.next && Math.hypot(v.x - a.next.x, v.y - a.next.y) > MATE_SNAP) {
-          // 걸어서는 못 갈 거리 — 모닥불에서 일어났거나 새로 들어온 사람이다
-          a.x = v.x; a.y = v.y;
-          a.prev = { x: v.x, y: v.y, t: render - WILD_DELAY_MS };
-          a.next = { x: v.x, y: v.y, t: wildClock };
-          continue;
-        }
-        a.prev = a.next || { x: a.x, y: a.y, t: render - WILD_DELAY_MS };
-        a.next = { x: v.x, y: v.y, t: wildClock };
-      }
-      var p = a.prev, q = a.next;
-      var span = Math.max(1, q.t - p.t);
-      var k = Math.max(0, Math.min(1, (render - p.t) / span));
-      var nx = p.x + (q.x - p.x) * k;
-      var ny = p.y + (q.y - p.y) * k;
-      var mx = nx - a.x, my = ny - a.y;
-      a.x = nx; a.y = ny;
+      /* 새 좌표가 왔으면(값이 바뀌었으면) 띠에 얹는다 — 짐승과 같은 §16-3 규칙 */
+      var last = a.buf[a.buf.length - 1];
+      if (!last || last.x !== v.x || last.y !== v.y) bufPush(a, v.x, v.y, wildClock, MATE_SNAP);
+      var pos = bufAt(a, bufRender(a, wildClock));
+      var mx = pos.x - a.x, my = pos.y - a.y;
+      a.x = pos.x; a.y = pos.y;
       if (Math.hypot(mx, my) > 0.0015) {
         a.dir = Math.abs(mx) > Math.abs(my) ? (mx > 0 ? 2 : 1) : (my > 0 ? 0 : 3);
         a.ft += dt;
@@ -1813,15 +1853,19 @@
     wild = {};
   }
 
-  /** 사냥 대상 고르기 — 아바타에서 사거리 안, 가장 가까운 놈 (§13-C-8) */
+  /** 사냥 대상 고르기 — 아바타에서 사거리 안, 가장 가까운 놈 (§13-C-8)
+      ★ §16-4 — 화면 자리(보간, 한 스텝 뒤)와 서버 자리(제일 새 좌표) **중 가까운 쪽**으로 잰다.
+      화면만 보면 쫓아오는 놈이 아직 멀어 보여 대상조차 안 잡히고, 서버만 보면 눈앞의 놈이
+      안 잡힌다 — 판정은 어차피 서버가 다시 한다(huntSwing 의 지금·직전 괄호). */
   function nearestWild(x, y, range) {
     var list = S.creatureList();
     var best = null;
     var bestD = Infinity;
     for (var i = 0; i < list.length; i++) {
-      var a = wild[list[i].id] || list[i];
-      var d = Math.hypot(a.x - x, a.y - y);
-      if (d < bestD) { bestD = d; best = { c: list[i], d: d, x: a.x, y: a.y }; }
+      var c = list[i];
+      var a = wild[c.id] || c;
+      var d = Math.min(Math.hypot(a.x - x, a.y - y), Math.hypot(c.x - x, c.y - y));
+      if (d < bestD) { bestD = d; best = { c: c, d: d, x: a.x, y: a.y }; }
     }
     if (!best || (range != null && best.d > range)) return null;
     return best;

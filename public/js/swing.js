@@ -153,6 +153,9 @@
     var mine = pending;
 
     if (t.kind === 'enemy' || t.kind === 'wild') {
+      /* ★ §16-4 — 서버가 든 내 자리는 0.9초 스로틀로 낡아 있다. 검을 휘두르는 순간만은
+         지금 자리를 먼저 알린다(lordMove) — socket.io 는 순서를 지키므로 스윙 판정은 새 자리로 잰다. */
+      if (GM.avatar && GM.avatar.report) GM.avatar.report();
       GM.net.send('combatSwing', { targetId: t.id }, function (res) { onAck(mine, res); });
     } else if (t.kind === 'site') {
       GM.net.send('actionSwing', { siteId: t.id }, function (res) { onAck(mine, res); });

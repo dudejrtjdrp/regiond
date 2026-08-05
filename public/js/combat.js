@@ -10,6 +10,7 @@
   var seenEvents = 0;
   var shots = [];
   var interp = {};
+  var bclock = 0;          // 전투 연출 시계(ms) — step(dt) 이 굴린다
 
   /* ══════════ 경고 ══════════ */
   function onIncoming(p) {
@@ -34,13 +35,80 @@
     if (core) GM.camera.moveTo(core.x, core.y);
     GM.sfx.play('alarm');
     U.toast('싸움이 시작됩니다. 검을 들고 직접 붙을 수 있습니다 — 죽지 않습니다.', 'warn', 6000);
+    pushSnapshot(p);
     setBattleBar(p);
   }
 
   function onTick(p) {
     if (!p) return;
+    pushSnapshot(p);
     playEvents(p);
     setBattleBar(p);
+  }
+
+  /* ★ §16-3 — 적·민병도 짐승과 같은 규칙으로 걷는다: 서브틱 스냅샷을 띠(최근 다섯 장)로 들고,
+     간격의 1.4배 뒤를 등속으로 지난다. 옛 지수 감쇠(`+= d*0.22`/프레임)는 새 좌표가 온 순간
+     빨랐다 이내 느려지는 톱니라, 적들이 뚝뚝 끊겨 보이던 바로 그 원인이었다. */
+  function pushSnapshot(p) {
+    if (!p) return;
+    var now = bclock;
+    var seen = {};
+    var put = function (id, x, y) {
+      seen[id] = 1;
+      var a = interp[id];
+      if (!a) { interp[id] = { x: x, y: y, gapMs: null, buf: [{ x: x, y: y, t: now }] }; return; }
+      var last = a.buf[a.buf.length - 1];
+      if (last && last.x === x && last.y === y) return;
+      var gap = last ? now - last.t : 0;
+      if (gap > 0.5) {
+        a.gaps = a.gaps || [];
+        a.gaps.push(Math.min(gap, 3000));
+        if (a.gaps.length > 3) a.gaps.shift();
+        a.gapMs = Math.max.apply(null, a.gaps);   // 최근 세 장의 최대 — 박자가 바뀌면 한 장 만에 따라잡는다
+      }
+      if (last && Math.hypot(x - last.x, y - last.y) > 10) { a.buf = [{ x: x, y: y, t: now }]; a.x = x; a.y = y; return; }
+      a.buf.push({ x: x, y: y, t: now });
+      if (a.buf.length > 5) a.buf.shift();
+    };
+    var i;
+    for (i = 0; i < (p.enemies || []).length; i++) put(p.enemies[i].id, p.enemies[i].x, p.enemies[i].y);
+    for (i = 0; i < (p.militia || []).length; i++) put('m' + p.militia[i].id, p.militia[i].x, p.militia[i].y);
+    for (var id in interp) if (Object.prototype.hasOwnProperty.call(interp, id) && !seen[id]) delete interp[id];
+  }
+
+  function unitPos(id, fx, fy) {
+    var a = interp[id];
+    if (!a) return { x: fx, y: fy };
+    var g = a.gapMs || 320;
+    /* 지연폭은 미끄러뜨린다 — 간격 EMA 를 새로 배울 때마다 툭 바뀌면 그 프레임에 한 발 건너뛴다(§16-3) */
+    var target = Math.min(1200, Math.max(90, g * 1.4 + 50));
+    if (a.delay == null) a.delay = target;
+    else {
+      var el = a.dClock == null ? 0 : bclock - a.dClock;
+      var diff = target - a.delay;
+      var maxStep = diff > 0 ? Math.max(2, el * 0.45) : Math.max(0.5, el * 0.06);
+      a.delay += Math.max(-maxStep, Math.min(maxStep, diff));
+    }
+    a.dClock = bclock;
+    var render = bclock - a.delay;
+    var b = a.buf;
+    var pos = null;
+    if (!b.length) pos = { x: a.x, y: a.y };
+    else if (render <= b[0].t) pos = { x: b[0].x, y: b[0].y };
+    else {
+      for (var i = b.length - 1; i >= 0; i--) {
+        if (b[i].t <= render) {
+          var p = b[i], q = b[i + 1];
+          if (!q) { pos = { x: p.x, y: p.y }; break; }
+          var k = Math.max(0, Math.min(1, (render - p.t) / Math.max(1, q.t - p.t)));
+          pos = { x: p.x + (q.x - p.x) * k, y: p.y + (q.y - p.y) * k };
+          break;
+        }
+      }
+      if (!pos) pos = { x: b[0].x, y: b[0].y };
+    }
+    a.x = pos.x; a.y = pos.y;
+    return a;
   }
 
   function playEvents(p) {
@@ -124,6 +192,7 @@
   }
 
   function step(dt) {
+    bclock += dt * 1000;
     for (var i = shots.length - 1; i >= 0; i--) {
       shots[i].t += dt;
       if (shots[i].t > shots[i].dur) shots.splice(i, 1);
@@ -146,13 +215,6 @@
   }
 
   /* ══════════ 월드 위 유닛 ══════════ */
-  function lerpPos(id, x, y) {
-    var cur = interp[id];
-    if (!cur) { interp[id] = { x: x, y: y }; return interp[id]; }
-    cur.x += (x - cur.x) * 0.22;
-    cur.y += (y - cur.y) * 0.22;
-    return cur;
-  }
 
   /* ★ GDD3 §15-A-1 — 터렛이 쏜 발은 웨이브 밖에서도 그려야 한다.
      서버 생태계 루프(1초)가 흘려보낸 shots 를 그대로 궤적으로 만든다. */
@@ -217,7 +279,7 @@
 
     (b.militia || []).forEach(function (m) {
       if (!m.alive) return;
-      var q = lerpPos('m' + m.id, m.x, m.y);
+      var q = unitPos('m' + m.id, m.x, m.y);
       if (!GM.camera.onScreen(q.x, q.y, tile * 2)) return;
       var p = GM.camera.worldToScreen(q.x - 0.36, q.y - 0.8);
       var f = Math.floor(animT / 200 + q.x) % 2;
@@ -227,7 +289,7 @@
 
     (b.enemies || []).forEach(function (en) {
       if (en.hp <= 0) return;
-      var q = lerpPos(en.id, en.x, en.y);
+      var q = unitPos(en.id, en.x, en.y);
       if (!GM.camera.onScreen(q.x, q.y, tile * 2)) return;
       var p = GM.camera.worldToScreen(q.x - 0.4, q.y - 0.9);
       var f = Math.floor(animT / 170 + q.x * 2) % 2;

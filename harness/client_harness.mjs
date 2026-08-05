@@ -1499,13 +1499,18 @@ test('클라이언트 하니스 — §14 플레이테스트 3차 (즉시 수치�
       const cv = sd / mean;
       assert.ok(cv < 0.25,
         `프레임 간 이동량이 고르지 않다 — 흩어짐 ${(cv * 100).toFixed(1)}% (등속이면 0 에 가깝다)`);
-      // 외삽 금지 — 서버가 멎으면 화면도 멎는다(앞질러 가지 않는다)
-      const cur = GM.world.wildPos(c.id);
-      const at = { x: cur.x, y: cur.y };
+      /* 외삽 금지 — 서버가 멎으면 화면은 **받은 마지막 좌표까지만** 따라가 선다.
+         (★ §16-3 스냅샷 띠: 지연 폭이 간격보다 넓어, 멎은 직후에는 띠에 남은 길을
+          마저 걷는다 — 그것은 외삽이 아니라 이미 받은 길이다. 앞지르는 것만 금한다.) */
+      const lastX = c.x;                                   // 마지막으로 흘린 서버 좌표
       for (let f = 0; f < 240; f += 1) GM.world.stepWildForTest(dt);
       const after = GM.world.wildPos(c.id);
-      assert.ok(Math.hypot(after.x - at.x, after.y - at.y) <= speed + 0.05,
-        '새 좌표가 안 오는데 앞질러 갔다 (외삽 금지)');
+      assert.ok(after.x <= lastX + 0.01, '받은 마지막 좌표를 앞질러 갔다 (외삽 금지)');
+      const settled = { x: after.x, y: after.y };
+      for (let f = 0; f < 120; f += 1) GM.world.stepWildForTest(dt);
+      const after2 = GM.world.wildPos(c.id);
+      assert.ok(Math.hypot(after2.x - settled.x, after2.y - settled.y) < 0.02,
+        '새 좌표가 안 오는데 계속 움직인다 (외삽 금지)');
     });
 
     // ── ★ §14-5 나의 상태 ──────────────────────────────────────
@@ -1623,8 +1628,13 @@ test('클라이언트 하니스 — §15-C 동료 넷과 자동 플레이(10분 
     const rt = games.get(gameId);
     rt.stop();                                   // 일 틱은 손으로 돌린다
     const nation = () => rt.world.nations.player;
+    /* ★ 오프닝이 **막 시작되려는 참**일 수 있다 — busy 가 아직 false 인 순간에 지나치면
+       마차 연출이 뒤늦게 아바타를 얼리고(jsdom 에는 rAF 가 없어) 영영 안 풀린다.
+       §15-C-4 추종 검사가 이 얼음 때문에 헛돌았다. 시작을 기다렸다가 건너뛴다. */
+    try { await until(() => GM.opening.busy(), { ms: 4000, what: '오프닝 시작' }); } catch (e) { /* 이미 끝났다 */ }
     if (GM.opening.busy()) doc.querySelector('#opening-skip').click();
     await until(() => !GM.opening.busy(), { what: '오프닝 종료' });
+    assert.equal(GM.avatar.isFrozen(), false, '오프닝이 걷힌 뒤 아바타가 풀려 있다');
 
     /** 서버의 1초 루프를 손으로 돌린다(하니스에는 타이머가 없다 — §14 검사와 같은 방식) */
     function crewSeconds(seconds) {
@@ -1731,14 +1741,25 @@ test('클라이언트 하니스 — §15-C 동료 넷과 자동 플레이(10분 
       /* 화면도 그 자리를 따라간다 — avatar.js 의 자동 추종.
          ★ 앞 칸에서 손을 댔으므로 화면 쪽 물러남도 걷어 준다(서버 쪽은 위에서 걷었다).
             여기서 재는 것은 「물러남이 도는가」가 아니라 「추종이 따라잡는가」다. */
+      /* ★ §16 — 두뇌가 사냥·전투까지 하게 되어 열 시간 끝에 쓰러진 채일 수 있다.
+         쓰러진 몸은 추종하지 않는 것이 맞으므로(avatar.step 의 S.downed() 문), 측정 전에 일으켜 세운다. */
+      me().downUntil = 0;
+      me().hp = Math.max(me().hp || 0, 1);
       S.setAutoPlayLocal(true);
       await sendNow(window, 'chat', { text: '잘 다녀왔습니다' });
+      await until(() => !S.downed(), { ms: 6000, what: '일어난 몸이 화면에 닿았다' });
       assert.equal(S.autoPlay().active, true, '자동이 다시 돈다');
-      const srv = av();
+      /* ★ §16 — 봇 두뇌가 부지런해져 서버 아바타는 계속 걷는다. 움직이는 과녁은 방송 반 박자만큼
+         늘 어긋나므로, 추종의 계약 그대로 「**받은** 자리(S.S.avatars)를 따라잡는가」를 재고,
+         방송 흐름 자체는 느슨한 상한으로 따로 확인한다. */
+      const known = (S.S.avatars || []).find(function (a) { return a.id === S.S.avatarId; }) || av();
+      const srv = { x: known.x, y: known.y };
+      assert.ok(Math.hypot(srv.x - av().x, srv.y - av().y) < 8,
+        '화면이 아는 자리가 서버와 터무니없이 멀다 (avatars 방송이 끊겼는가)');
       for (let i = 0; i < 900; i += 1) GM.avatar.step(1 / 60);
       const shown = GM.avatar.pos();
       assert.ok(Math.hypot(shown.x - srv.x, shown.y - srv.y) < 1.0,
-        `화면이 서버 자리를 따라잡았다 (${shown.x.toFixed(1)},${shown.y.toFixed(1)} ↔ ${srv.x},${srv.y})`);
+        `화면이 받은 자리를 따라잡았다 (${shown.x.toFixed(1)},${shown.y.toFixed(1)} ↔ ${srv.x},${srv.y})`);
     });
 
     await t.test('콘솔이 조용하다', () => {
