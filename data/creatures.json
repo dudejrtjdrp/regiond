@@ -282,12 +282,13 @@
     "maxAlive": 90,
     "respawnDays": 1,
     "minSpawnDistance": 14,
+    "ring2Span": 40,
     "fenceKeepOut": true
   },
   "sim": {
     "_note": "★ 저빈도 시뮬 다이얼. stepSeconds 마다 한 번 굴리고, 그 결과를 broadcastSeconds 마다 방에 흘린다. 화면은 받은 좌표로 곧장 튀지 않고 lerp 로 따라간다(클라 보간). wanderRetarget 은 목적지를 새로 고르는 주기다. 하루 한 번(일 틱)에도 같은 함수가 dayStepSeconds 만큼 몰아서 돈다 — 접속자가 없어도 세상이 멎지 않게.",
-    "stepSeconds": 1,
-    "broadcastSeconds": 1,
+    "stepSeconds": 0.5,
+    "broadcastSeconds": 0.5,
     "wanderRetargetSeconds": 6,
     "wanderRadius": 7,
     "attackRangeTiles": 1.4,
@@ -295,7 +296,8 @@
     "chaseGiveUpTiles": 18,
     "provokedSeconds": 20,
     "dayStepSeconds": 30,
-    "viewRadius": 46
+    "viewRadius": 46,
+    "targetSlackTiles": 1.1
   },
   "codex": {
     "_note": "★ GDD3 §13-C-3 — 도감의 층. 조우 0 이면 실루엣뿐, 한 번이라도 마주치면 이름과 서식이 열리고, 다섯을 잡으면 능력치와 드롭표가, 스물을 잡으면 일화가 열린다. 서버가 조우·처치 수의 정본을 쥔다.",

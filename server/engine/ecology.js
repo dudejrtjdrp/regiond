@@ -113,7 +113,7 @@ function pickSpawn(world, nation, data, def, ring, rng) {
   const size = world.map?.size ?? data.world.size;
   const { r0, r1 } = ringRadii(nation, data);
   const inner = ring === 0 ? territoryRadius(nation, data) + 2 : (ring === 1 ? r0 : r1);
-  const outer = ring === 0 ? r0 : (ring === 1 ? r1 : r1 + 40);
+  const outer = ring === 0 ? r0 : (ring === 1 ? r1 : r1 + (spawnCfg(data).ring2Span ?? 40));
   const minAvatar = spawnCfg(data).minSpawnDistance ?? 14;
   const water = terrainIndex(data).water;
   for (let i = 0; i < 40; i += 1) {
@@ -299,15 +299,59 @@ function moveToward(world, nation, data, c, tx, ty, step) {
   const dy = ty - c.y;
   const d = Math.hypot(dx, dy);
   if (d < 0.001) return false;
-  const nx = c.x + (dx / d) * Math.min(step, d);
-  const ny = c.y + (dy / d) * Math.min(step, d);
-  // ★ 울타리를 가로지르는 걸음은 통째로 무효다
-  if (crossesFence(nation, c.x, c.y, nx, ny)) return false;
-  // ★ §14-4 — 영토 안으로 들어서는 걸음도 통째로 무효다(목장이 연 자리는 예외)
-  if (!creatureMayStand(world, nation, data, c, nx, ny)) return false;
-  c.x = Math.round(nx * 100) / 100;
-  c.y = Math.round(ny * 100) / 100;
-  return true;
+  const k = Math.min(step, d);
+  /* ★ §16-3 — 막힌 걸음을 통째로 버리면 짐승이 1초에 한 번씩 얼어붙는다(울타리·영토 경계 앞에서
+     뚝뚝 끊기는 원인). 곧장이 막히면 **축을 따라 미끄러진다** — 난수를 쓰지 않으니 결정론은 그대로다. */
+  const cand = [{ x: c.x + (dx / d) * k, y: c.y + (dy / d) * k }];
+  if (Math.abs(dx) > 0.001) cand.push({ x: c.x + Math.sign(dx) * Math.min(step, Math.abs(dx)), y: c.y });
+  if (Math.abs(dy) > 0.001) cand.push({ x: c.x, y: c.y + Math.sign(dy) * Math.min(step, Math.abs(dy)) });
+  for (const n of cand) {
+    // ★ 울타리를 가로지르는 걸음은 통째로 무효다
+    if (crossesFence(nation, c.x, c.y, n.x, n.y)) continue;
+    // ★ §14-4 — 영토 안으로 들어서는 걸음도 통째로 무효다(목장이 연 자리는 예외)
+    if (!creatureMayStand(world, nation, data, c, n.x, n.y)) continue;
+    c.x = Math.round(n.x * 100) / 100;
+    c.y = Math.round(n.y * 100) / 100;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * ★ §16-1 — 짐승은 제 띠(ring)에 매여 산다.
+ * 스폰은 띠를 지키는데 **떠도는 걸음에는 아무 줄이 없어서**, 링2의 사나운 것들이
+ * 몇십 분 무작위로 걷다 보면 정착지 코앞까지 흘러들었다(확산). 게다가 keepTargetOutside 가
+ * 영토 안을 겨눈 목적지를 「경계 바로 밖」으로 고쳐 주는 바람에, 흘러든 놈을 오히려
+ * 정착지 문앞으로 끌어당겼다. 이제 떠돌이 목적지의 본부 거리로부터의 반경을 제 띠 안으로 죈다 —
+ * 영토가 자라면 띠도 함께 밀려나므로, 정착지가 클수록 안전한 땅도 넓어진다는 규칙이 유지된다.
+ */
+export function ringBand(nation, data, ring) {
+  const { r0, r1 } = ringRadii(nation, data);
+  const inner0 = territoryRadius(nation, data) + 2;
+  if (ring <= 0) return { inner: inner0, outer: r0 };
+  if (ring === 1) return { inner: r0, outer: r1 };
+  return { inner: r1, outer: r1 + (spawnCfg(data).ring2Span ?? 40) };
+}
+
+/** 목적지를 제 띠 안으로 죈다. 목장이 열어 준 영토 안 자리는 그대로 둔다(난수는 쓰지 않는다). */
+function keepTargetInBand(world, nation, data, c, tx, ty) {
+  if (!creatureMayStand(world, nation, data, c, tx, ty)) return { x: tx, y: ty };  // 이미 다른 규칙이 민다
+  if (inTerritory(world, nation, Math.round(tx), Math.round(ty), data)) return { x: tx, y: ty }; // 목장 자리
+  const town = townOf(world, nation.id);
+  if (!town) return { x: tx, y: ty };
+  const band = ringBand(nation, data, c.ring ?? 0);
+  const dx = tx - town.x;
+  const dy = ty - town.y;
+  const d = Math.hypot(dx, dy);
+  if (d >= band.inner && d <= band.outer) return { x: tx, y: ty };
+  const want = clamp(d, band.inner, band.outer);
+  const ux = d > 0.01 ? dx / d : 1;
+  const uy = d > 0.01 ? dy / d : 0;
+  const size = world.map?.size ?? data.world.size;
+  return {
+    x: clamp(Math.round(town.x + ux * want), 1, size - 2),
+    y: clamp(Math.round(town.y + uy * want), 1, size - 2),
+  };
 }
 
 function nearestAvatar(nation, c) {
@@ -380,6 +424,11 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
   for (const c of w.creatures) {
     const def = defs[c.sp];
     if (!def) continue;
+    /* ★ §16-4 — 한 걸음 전 자리를 적어 둔다. 화면은 서버보다 한 스텝 늦게 그리므로(보간 지연),
+       사냥 스윙의 사거리 판정이 「지금 자리」만 보면 화면에서 닿는 놈이 서버에서는 닿지 않는다.
+       huntSwing 이 지금 자리와 직전 자리 중 가까운 쪽을 본다 — 그 괄호가 화면이 그린 구간이다. */
+    c.px = c.x;
+    c.py = c.y;
     c.retarget = (c.retarget || 0) - dt;
     c.atkCd = Math.max(0, (c.atkCd || 0) - dt);
     c.provoked = Math.max(0, (c.provoked || 0) - dt);
@@ -407,11 +456,15 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
 
     // ── 사람을 본 반응 ──
     const hostile = def.kind === 'predator';
-    const wantsChase = near && (
+    /* ★ §16-2 — **영토는 성역이다.** 짐승이 설 수 없는 땅(영토 안, 목장 예외)에 서 있는 사람은
+       쫓지도, 물지도 못한다. 경계에 바짝 붙어 선 사람을 경계 밖에서 무는 구멍(사거리 1.4)이
+       이 한 줄로 막힌다. 웨이브는 별개 계층이다(battle.js) — 그쪽은 설계대로 문을 부수고 들어온다. */
+    const sanctuary = near && !creatureMayStand(world, nation, data, c, near.avatar.x, near.avatar.y);
+    const wantsChase = near && !sanctuary && (
       (hostile && near.d <= (def.aggroRadius || 0))
       || (c.provoked > 0 && near.d <= (cfg.chaseGiveUpTiles ?? 18))
     );
-    const wantsFlee = near && !hostile && near.d <= (def.fleeRadius || 0);
+    const wantsFlee = near && !hostile && !sanctuary && near.d <= (def.fleeRadius || 0);
 
     if (wantsChase) {
       c.state = 'chase';
@@ -439,8 +492,11 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
         const want = keepTargetOutside(world, nation, data, c,
           clamp(Math.round(c.x + Math.cos(a) * rad), 1, size - 2),
           clamp(Math.round(c.y + Math.sin(a) * rad), 1, size - 2));
-        c.tx = want.x;
-        c.ty = want.y;
+        /* ★ §16-1 — 그 목적지를 다시 제 띠 안으로 죈다. 쫓다가·밀리다가 띠를 벗어난 놈은
+           다음 목적지부터 제 땅으로 돌아간다 — 사나운 것이 정착지 곁을 맴돌지 않는다. */
+        const home = keepTargetInBand(world, nation, data, c, want.x, want.y);
+        c.tx = home.x;
+        c.ty = home.y;
       }
       if (!moveToward(world, nation, data, c, c.tx, c.ty, speed * 0.55)) c.retarget = 0;
       else moved += 1;
@@ -600,19 +656,28 @@ export function huntSwing(world, nation, cmd, data, now = Date.now()) {
   const av = nation.avatars?.[avatarId];
   const from = av ? { x: av.x, y: av.y } : (townOf(world, nation.id) ?? { x: 0, y: 0 });
   const range = cfgC.huntRangeTiles ?? cfgC.rangeTiles;
+  /* ★ §16-4 — 화면은 서버보다 한 스텝 늦게 그린다(보간 지연). 「지금 자리」만 재면
+     화면에서 분명히 닿는 놈이 서버에서는 닿지 않아 스윙이 소리 없이 빗나갔다 —
+     그것이 "짐승이 타겟팅이 안 된다"의 정체다. 지금 자리와 **직전 스텝 자리** 중
+     가까운 쪽을 잰다(그 괄호가 화면이 그린 구간이다). slack 은 걷는 사람의 보고 지연 몫이다. */
+  const slack = simCfg(data).targetSlackTiles ?? 1.0;
+  const reachOf = (t) => Math.min(
+    dist(t.x, t.y, from.x, from.y),
+    t.px != null ? dist(t.px, t.py, from.x, from.y) : Infinity,
+  );
   const wanted = cmd.targetId ?? cmd.payload?.targetId ?? null;
   let target = wanted ? creatureById(nation, wanted) : null;
   if (!target) {
     let best = null;
     let bestD = Infinity;
     for (const c of w.creatures) {
-      const d = dist(c.x, c.y, from.x, from.y);
+      const d = reachOf(c);
       if (d < bestD) { bestD = d; best = c; }
     }
-    if (best && bestD <= range + 0.6) target = best;
+    if (best && bestD <= range + slack) target = best;
   }
   if (!target) return err('NO_TARGET', '닿는 곳에 짐승이 없습니다.');
-  if (dist(target.x, target.y, from.x, from.y) > range + 0.6) return err('OUT_OF_RANGE', '닿지 않습니다.');
+  if (reachOf(target) > range + slack) return err('OUT_OF_RANGE', '닿지 않습니다.');
 
   const cd = canSwing(nation, player, 'combat', data, now);
   if (!cd.ok) return err('COOLDOWN', '아직 휘두를 수 없습니다.', { waitMs: cd.waitMs, cooldownMs: cd.cooldownMs });

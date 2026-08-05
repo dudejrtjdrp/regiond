@@ -248,6 +248,10 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
 
   for (const e of b.enemies) {
     if (!e.alive) continue;
+    /* ★ §16-4 — 한 서브틱 전 자리. combatSwing 이 「지금」과 「직전」 중 가까운 쪽을 재서
+       화면이 그린 자리를 겨눈 스윙이 빗나가지 않게 한다(생태계 px·py 와 같은 규칙). */
+    e.px = e.x;
+    e.py = e.y;
     const dCore = dist(e.x, e.y, b.core.x, b.core.y);
 
     // 4-a. 코앞의 방어자부터 친다
@@ -405,15 +409,22 @@ export function combatSwing(world, nation, cmd, data, now = Date.now()) {
   const from = av ? { x: av.x, y: av.y } : b.core;
   const living = alive(b.enemies);
   if (!living.length) return err('NO_TARGET', '벨 것이 남지 않았습니다.');
+  /* ★ §16-4 — 화면은 서브틱 스냅샷 사이를 보간해 그린다. 「지금 자리」와 「직전 서브틱 자리」 중
+     가까운 쪽을 재야 화면에서 닿는 놈이 서버에서도 닿는다(생태계 huntSwing 과 같은 규칙). */
+  const reach = (e) => Math.min(
+    dist(e.x, e.y, from.x, from.y),
+    e.px != null ? dist(e.px, e.py, from.x, from.y) : Infinity,
+  );
   let target = null;
   const wanted = cmd.targetId ?? cmd.payload?.targetId ?? null;
   if (wanted) target = living.find((e) => e.id === wanted) ?? null;
   if (!target) {
-    const found = nearest(living, from.x, from.y, c.rangeTiles);
-    target = found?.entity ?? null;
+    let bd = Infinity;
+    for (const e of living) { const d = reach(e); if (d < bd) { bd = d; target = e; } }
+    if (target && bd > c.rangeTiles) target = null;
   }
   if (!target) return err('OUT_OF_RANGE', '닿지 않습니다.');
-  if (dist(target.x, target.y, from.x, from.y) > c.rangeTiles + 0.6) {
+  if (reach(target) > c.rangeTiles + 0.6) {
     return err('OUT_OF_RANGE', '닿지 않습니다.');
   }
 
