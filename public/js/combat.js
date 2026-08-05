@@ -434,6 +434,19 @@
     body.id = 'threat-body';
     paintThreat(body);
     var foot = U.el('div');
+    /* ★ §16-19 — 수비 깃발. 웨이브가 오는 쪽에 미리 진을 친다. */
+    var df = S.defenseFlag();
+    foot.appendChild(U.btn(df ? '깃발을 옮긴다' : '수비 깃발을 꽂는다', 'btn-small', function () {
+      U.closeTopModal();
+      S.setPlacing({ kind: 'flag' });
+      U.toast('수비대가 모여 설 자리를 누르세요.', 'good', 3600);
+    }));
+    if (df) {
+      foot.appendChild(U.btn('깃발을 걷는다', 'btn-small', function () {
+        GM.net.send('setDefenseFlag', { x: null }, function () { U.toast('수비 깃발을 걷었습니다.', 'good', 2200); });
+        U.closeTopModal();
+      }));
+    }
     foot.appendChild(U.btn('닫는다', 'btn-primary', function () { U.closeTopModal(); }));
     return U.openModal({ title: '울타리 앞', body: body, footer: foot, width: '660px',
                          key: 'threat', icon: GM.icons.img('shield', 22) });

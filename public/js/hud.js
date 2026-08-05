@@ -771,6 +771,7 @@
     renderToolbar();
     renderCabinet();
     renderMe();                       /* ★ §14-5 — 초상 옆 HP·XP·단계 */
+    renderUpcoming();                 /* ★ §16-16 — 다가오는 것들 + 아침 안내판 */
     var kn = U.qs('#tb-kingdom');
     if (kn) kn.textContent = n.name || '';
     if (GM.build) GM.build.refresh();
@@ -841,6 +842,70 @@
       g.stroke();
     }
     return cv;
+  }
+
+  /* ══════════ ★ §16-15 · §16-16 — 다가오는 것들 · 아침 안내판 ══════════
+     문명의 「한 턴만 더」에서 배웠다: 다음에 올 것들의 카운트다운이 눈앞에 있어야
+     "한 번만 더 보고 잔다"가 생긴다. 스타듀의 TV 예보처럼 아침(일 틱)마다 같은 내용을
+     배너 한 줄로도 알린다. 전부 이미 서버가 주던 값이다 — 모아서 보여줄 뿐이다. */
+  var lastMorning = null;
+
+  function upcomingRows() {
+    var rows = [];
+    var v = S.S.view || {};
+    var w = S.wave();
+    if (w && w.unlocked && !w.active) {
+      if (w.daysUntil != null) rows.push({ icon: 'sword', text: '웨이브 D-' + U.fmt(w.daysUntil, w.daysUntil < 2 ? 1 : 0) + (w.enemy && w.enemy.name ? ' · ' + w.enemy.name : '') });
+      else if (w.daysUntilMin != null) rows.push({ icon: 'sword', text: '웨이브 D-' + U.fmt(w.daysUntilMin, 0) + '±' });
+    }
+    var r = v.research;
+    if (r && r.active) {
+      var meta = (r.list || []).filter(function (x) { return x.key === r.active.key; })[0];
+      rows.push({ icon: 'book', text: '연구 「' + ((meta && meta.name) || r.active.key) + '」 D-' + U.fmt(r.active.remainingDays || 0, 0) });
+    }
+    var hz = v.nation && v.nation.housing && v.nation.housing.arrival;
+    if (hz && hz.open && hz.daysUntil != null) {
+      rows.push({ icon: 'person', text: '다음 주민 D-' + U.fmt(hz.daysUntil, hz.daysUntil < 2 ? 1 : 0) });
+    }
+    var tn = v.tier && v.tier.next;
+    if (tn) {
+      if (tn.ready) rows.push({ icon: 'flag', text: '승격 준비 완료 — 본부의 [승격]' });
+      else {
+        var bad = (tn.reqs || []).filter(function (q) { return !q.ok; })[0];
+        if (bad) rows.push({ icon: 'flag', text: tn.name + '까지 — ' + bad.text + ' (' + U.fmt(bad.have, 0) + '/' + U.fmt(bad.need, 0) + ')' });
+      }
+    }
+    return rows.slice(0, 4);
+  }
+
+  function renderUpcoming() {
+    var box = U.qs('#upcoming');
+    if (!box) return;
+    var rows = upcomingRows();
+    if (!rows.length) { box.hidden = true; return; }
+    box.hidden = false;
+    U.clear(box);
+    var head = U.el('div', 'up-head', '다가오는 것');
+    box.appendChild(head);
+    rows.forEach(function (r) {
+      var line = U.el('div', 'up-row');
+      line.appendChild(GM.icons.img(r.icon, 14));
+      line.appendChild(U.el('span', null, r.text));
+      box.appendChild(line);
+    });
+    morningBoard(rows);
+  }
+
+  /** ★ §16-15 — 아침 안내판. 날이 바뀌는 순간 오늘의 예보를 배너 한 줄로. */
+  function morningBoard(rows) {
+    var day = S.S.view && S.S.view.day;
+    if (day == null) return;
+    if (lastMorning == null) { lastMorning = day; return; }   // 접속 첫 화면에는 떠들지 않는다
+    if (day <= lastMorning) { lastMorning = Math.min(lastMorning, day); return; }
+    lastMorning = day;
+    if (S.battleLive()) return;                               // 싸움 중의 아침은 조용히 지나간다
+    var sub = rows.map(function (r) { return r.text; }).join(' · ');
+    U.banner({ icon: 'sun', kind: 'good', title: day + '일째 아침', sub: sub || '고요한 하루가 시작됩니다', ms: 4200 });
   }
 
   GM.hud = {

@@ -170,6 +170,9 @@
 
   /** 저빈도 위치 보고 — 걸음마다 보내지 않는다 */
   function report(force) {
+    /* ★ §16-7b — 마차에서 내리기 전에는 자리 보고를 보내지 않는다. 이 보고가 서버의 잠든
+       동료들을 깨우는 신호라, 내리기 전에 새어 나가면 봇이 마차보다 먼저 일하기 시작한다. */
+    if (GM.opening && GM.opening.busy && GM.opening.busy() && !GM.opening.dropped()) return;
     var now = Date.now();
     var rx = Math.round(me.x), ry = Math.round(me.y);
     if (!force && (now - lastReport < 900 || (rx === lastX && ry === lastY))) return;

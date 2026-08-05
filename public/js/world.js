@@ -162,6 +162,41 @@
     }
   }
 
+  /* ★ §16-18 · §16-19 — 집결지(금빛) · 수비 깃발(붉은빛). 장대 + 나부끼는 천. */
+  function drawFlags() {
+    var t = GM.camera.cam.tile;
+    var flags = [];
+    var rl = S.rally();
+    if (rl && rl.x != null) flags.push({ x: rl.x, y: rl.y, color: '#f6cf7a', edge: '#b98a2e' });
+    var df = S.defenseFlag();
+    if (df && df.x != null) flags.push({ x: df.x, y: df.y, color: '#e06a6c', edge: '#8d2f31' });
+    for (var i = 0; i < flags.length; i++) {
+      var fg = flags[i];
+      if (!GM.camera.onScreen(fg.x, fg.y, t * 2)) continue;
+      var p = GM.camera.worldToScreen(fg.x, fg.y - 1.4);
+      var base = GM.camera.worldToScreen(fg.x, fg.y);
+      ctx.save();
+      ctx.strokeStyle = '#5a4632';
+      ctx.lineWidth = Math.max(2, t * 0.09);
+      ctx.beginPath();
+      ctx.moveTo(base.x, base.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      var wav = Math.sin(animT / 260 + i) * t * 0.08;
+      ctx.fillStyle = fg.color;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x + t * 0.62, p.y + t * 0.16 + wav);
+      ctx.lineTo(p.x, p.y + t * 0.34);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = fg.edge;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   /* ══════════ 영토 · 말뚝 ══════════ */
   /** 티어업 — 말뚝이 새 반경으로 옮겨 박히는 연출 */
   function animateTerritory(from, to) {
@@ -568,12 +603,13 @@
   function stepMates(dt) {
     var list = S.S.avatars || [];
     var mine = S.S.avatarId;
-    var opening = GM.opening && GM.opening.busy();
+    /* ★ §16-7b — 내리기 전까지만 마차 안이다(내리면 자막이 남아 있어도 함께 내려 걷는다) */
+    var boarding = GM.opening && GM.opening.busy() && !GM.opening.dropped();
     var seen = {};
     for (var i = 0; i < list.length; i++) {
       var v = list[i];
       if (v.id === mine) continue;                 // 내 몸은 avatar.js 가 쥔다
-      if (opening) { seen[v.id] = true; continue; } // ★ §16-7 — 아직 마차 안이다
+      if (boarding) { seen[v.id] = true; continue; }
       seen[v.id] = true;
       var a = mates[v.id];
       if (!a) {
@@ -1164,10 +1200,10 @@
   function drawAvatars() {
     var t = GM.camera.cam.tile;
     var mine = S.S.avatarId;
-    var opening = GM.opening && GM.opening.busy();
+    var boarding = GM.opening && GM.opening.busy() && !GM.opening.dropped();
     (S.S.avatars || []).forEach(function (a) {
       if (a.id === mine) return;
-      if (opening) return;                         // ★ §16-7 — 아직 마차 안이다(하차 연출로 내린다)
+      if (boarding) return;                        // ★ §16-7b — 아직 마차 안이다(내리면 그린다)
       var m = mates[a.id] || { x: a.x, y: a.y, dir: 0, frame: 0 };
       if (!GM.camera.onScreen(m.x, m.y, t * 2)) return;
       /* 이름표 색이 사람과 동료를 가른다: 같이 온 사람은 푸른빛, 동료는 저마다의 빛깔이다. */
@@ -1804,6 +1840,7 @@
     drawDayNight();
     drawSelectionMarks();
     drawGhost();
+    drawFlags();          // ★ §16-18 · §16-19 — 집결지·수비 깃발
     // ★ 안내 시스템 — 안개·조명 위에 얹는다(어두워도 길잡이는 또렷해야 한다)
     drawInteractPrompt();
     drawQuestMarkers();

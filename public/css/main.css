@@ -1438,25 +1438,26 @@ body.cutscene .toasts{bottom:74px}
 .set-foot{display:flex; justify-content:flex-end}
 
 /* ══════════ ★ GDD3 §14-5 나의 상태 (초상 · HP · XP · 레벨) ══════════ */
-.me-panel{position:absolute; left:10px; bottom:10px; z-index:6; display:flex; align-items:center; gap:8px;
-  padding:7px 10px 7px 7px; background:linear-gradient(180deg,var(--paper-lit) 0 6px,var(--paper) 6px 100%);
+.me-panel{position:absolute; left:50%; transform:translateX(-50%); bottom:8px; z-index:6;
+  display:flex; align-items:center; gap:10px;
+  padding:8px 12px 8px 8px; background:linear-gradient(180deg,var(--paper-lit) 0 6px,var(--paper) 6px 100%);
   border:2px solid var(--wood-dark); box-shadow:3px 3px 0 rgba(0,0,0,.28)}
-/* ★ §16-13 — 피드백: "피랑 경험치가 하단에 지금보다 더 크게 잘 보이면 좋겠어" — 판 전체를 한 치수 키웠다 */
-.me-face{position:relative; width:56px; height:56px; flex:0 0 56px; border:2px solid var(--paper-deep);
+/* ★ §16-13 — 피드백: "피랑 경험치가 하단 중앙에 더 크게 잘 보이면 좋겠어" — 판을 하단 중앙으로 옮기고 두 치수 키웠다 */
+.me-face{position:relative; width:64px; height:64px; flex:0 0 64px; border:2px solid var(--paper-deep);
   background:rgba(60,50,44,.12); display:flex; align-items:center; justify-content:center; overflow:hidden}
 .me-face img, .me-face canvas{width:100%; height:100%; image-rendering:pixelated}
-.me-lv{position:absolute; right:-2px; bottom:-2px; min-width:21px; height:19px; padding:0 3px;
-  background:var(--wood-dark); color:var(--paper-lit); font-size:13px; line-height:19px; text-align:center}
-.me-bars{display:flex; flex-direction:column; gap:4px; min-width:208px}
-.me-name{font-size:13px; color:var(--ink-dim); display:flex; justify-content:space-between; gap:8px}
+.me-lv{position:absolute; right:-2px; bottom:-2px; min-width:23px; height:21px; padding:0 3px;
+  background:var(--wood-dark); color:var(--paper-lit); font-size:14px; line-height:21px; text-align:center}
+.me-bars{display:flex; flex-direction:column; gap:4px; min-width:252px}
+.me-name{font-size:14px; color:var(--ink-dim); display:flex; justify-content:space-between; gap:8px}
 .me-name .me-pts{color:var(--gold-deep)}
-.me-bar{position:relative; height:17px; background:rgba(40,32,28,.34); border:1px solid var(--paper-deep)}
+.me-bar{position:relative; height:20px; background:rgba(40,32,28,.34); border:1px solid var(--paper-deep)}
 .me-bar > i{display:block; height:100%; transition:width .18s linear}
 .me-bar.hp > i{background:linear-gradient(180deg,#e06a6c 0 6px,#bc4749 6px 100%)}
 .me-bar.hp.low > i{background:linear-gradient(180deg,#f0a24a 0 6px,#d97a2c 6px 100%)}
 .me-bar.hp.crit > i{background:linear-gradient(180deg,#ff8a6a 0 6px,#c02a2c 6px 100%); animation:mePulse .8s infinite}
 .me-bar.xp > i{background:linear-gradient(180deg,#8fd06a 0 6px,#6a994e 6px 100%)}
-.me-bar > span{position:absolute; inset:0; font-size:12px; line-height:17px; text-align:center;
+.me-bar > span{position:absolute; inset:0; font-size:13px; line-height:20px; text-align:center;
   color:var(--paper-lit); text-shadow:1px 1px 0 rgba(0,0,0,.6); font-variant-numeric:tabular-nums}
 @keyframes mePulse{0%,100%{opacity:1}50%{opacity:.6}}
 .me-panel.down{border-color:var(--red-deep)}
@@ -1499,3 +1500,12 @@ body.cutscene .toasts{bottom:74px}
   .me-bars{min-width:112px}
   .st-arow{grid-template-columns:78px 1fr auto auto}
 }
+
+
+/* ★ §16-16 — 다가오는 것들(좌상단 스택) */
+.upcoming{margin-top:6px; padding:6px 9px; max-width:240px; pointer-events:none;
+  background:linear-gradient(180deg,var(--paper-lit) 0 4px,var(--paper) 4px 100%);
+  border:2px solid var(--wood-dark); box-shadow:2px 2px 0 rgba(0,0,0,.24)}
+.upcoming .up-head{font-size:10.5px; color:var(--ink-dim); letter-spacing:.4px; margin-bottom:3px}
+.upcoming .up-row{display:flex; align-items:center; gap:5px; font-size:12px; color:var(--ink2); line-height:1.5}
+.upcoming .up-row img{image-rendering:pixelated; flex:0 0 auto}

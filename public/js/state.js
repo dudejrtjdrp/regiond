@@ -949,6 +949,10 @@
   function resetAutoPlayLocal() { autoLocal = { on: null, suspendUntil: 0 }; }
 
   /* ── 웨이브 ────────────────────────────────────────── */
+  /* ★ §16-18 · §16-19 — 집결지 · 수비 깃발 */
+  function rally() { var n = nation(); return (n && n.rally) || null; }
+  function defenseFlag() { var n = nation(); return (n && n.defenseFlag) || null; }
+
   function wave() { return (S.view && S.view.wave) || null; }
   function defense() { return (S.view && S.view.defense) || null; }
   function chronicle() { return S.chronicle || (S.view && S.view.chronicle) || null; }
@@ -1330,6 +1334,7 @@
     companions: companions, companionById: companionById, seats: seats,
     autoPlay: autoPlay, autoPlayCfg: autoPlayCfg, setAutoPlayLocal: setAutoPlayLocal,
     suspendAutoPlayLocal: suspendAutoPlayLocal, resetAutoPlayLocal: resetAutoPlayLocal,
+    rally: rally, defenseFlag: defenseFlag,
     wave: wave, defense: defense, chronicle: chronicle, battleLive: battleLive,
     enemyMeta: enemyMeta, directionMeta: directionMeta,
     timeCfg: timeCfg, phaseIndex: phaseIndex, phaseMeta: phaseMeta, isNight: isNight,

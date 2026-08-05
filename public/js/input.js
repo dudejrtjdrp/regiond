@@ -77,6 +77,11 @@
       drag = { sx: l.x, sy: l.y, x: l.x, y: l.y, moved: false, mode: 'place' };
       return;
     }
+    /* ★ §16-18 · §16-19 — 집결지·수비 깃발 꽂기: 다음 클릭 한 번이 곧 지정이다 */
+    if (pl && (pl.kind === 'rally' || pl.kind === 'flag')) {
+      drag = { sx: l.x, sy: l.y, x: l.x, y: l.y, moved: false, mode: pl.kind };
+      return;
+    }
     /* ★ 대상 곁이면 누르고 있는 동안 계속 스윙한다 */
     if (swingableAt(t.x, t.y)) {
       drag = { sx: l.x, sy: l.y, x: l.x, y: l.y, moved: false, mode: 'swing' };
@@ -145,6 +150,32 @@
 
     if (d.mode === 'place') { GM.build.commit(t.x, t.y); return; }
 
+    /* ★ §16-18 — 집결지: 일터(노드)를 눌러 꽂는다 */
+    if (d.mode === 'rally') {
+      S.setPlacing(null);
+      var rn = S.nodeAt(t.x, t.y);
+      if (!rn || S.fogAt(t.x, t.y) < 1) { U.toast('일터(자원 자리)를 눌러 주세요.', 'warn', 2400); return; }
+      GM.net.send('setRally', { targetId: rn.id }, function (res) {
+        if (!res || !res.ok) { U.toast((res && res.error && res.error.message) || '지금은 꽂을 수 없습니다.', 'warn'); return; }
+        U.toast('집결지를 꽂았습니다 — 새로 오는 주민이 이리로 옵니다.', 'good', 3200);
+        GM.world.ping(rn.x, rn.y, '#f6cf7a');
+        GM.sfx.play('build');
+      });
+      return;
+    }
+    /* ★ §16-19 — 수비 깃발: 땅을 눌러 꽂는다 */
+    if (d.mode === 'flag') {
+      S.setPlacing(null);
+      if (S.fogAt(t.x, t.y) < 1) { U.toast('아직 못 본 땅입니다.', 'warn', 2400); return; }
+      GM.net.send('setDefenseFlag', { x: t.x, y: t.y }, function (res) {
+        if (!res || !res.ok) { U.toast((res && res.error && res.error.message) || '지금은 꽂을 수 없습니다.', 'warn'); return; }
+        U.toast('수비 깃발을 꽂았습니다 — 수비대가 그리로 모입니다.', 'good', 3200);
+        GM.world.ping(t.x, t.y, '#bc4749');
+        GM.sfx.play('build');
+      });
+      return;
+    }
+
     if (d.moved) {
       var w0 = GM.camera.screenToWorld(d.sx, d.sy);
       var w1 = GM.camera.screenToWorld(d.x, d.y);
@@ -168,6 +199,11 @@
 
     var f = fenceAt(t.x, t.y);
     if (f) { GM.structure.openFence(f.id); GM.sfx.play('tap'); return; }
+
+    /* ★ §16-20 — 키 큰 건물의 「얼굴」을 눌러도 잡힌다. 발밑(풋프린트)이 다 빗나갔을 때,
+       그려진 스프라이트 사각형으로 한 번 더 잰다(앞에 선 건물이 이긴다). */
+    var sb = structureAtSprite(w.x, w.y);
+    if (sb) { GM.structure.open(sb.id); GM.sfx.play('tap'); return; }
 
     /* 빈 땅 좌클릭 = 선택 해제 (이동 아님) */
     S.clearSelection();
@@ -195,6 +231,25 @@
     var l = localXY(e);
     GM.camera.zoomBy(e.deltaY > 0 ? -1 : 1, l);
     manualPanAt = Date.now();
+  }
+
+  /** ★ §16-20 — 그려진 스프라이트 사각형(월드 좌표) 판정. drawStructures 와 같은 식이다. */
+  function structureAtSprite(wx, wy) {
+    var list = S.structures();
+    var best = null, bestBase = -1e9;
+    for (var i = 0; i < list.length; i++) {
+      var b = list[i];
+      if (b.x == null) continue;
+      var f = S.footprintOfThing(b);
+      var c = S.centerOfThing(b);
+      var w2 = f.w + 0.7, h2 = f.h + 0.7;
+      var baseY = c.y + (f.h - 1) / 2 + 0.55;
+      var x0 = c.x - w2 / 2 + 0.1, y0 = baseY - h2;
+      if (wx >= x0 && wx <= x0 + w2 && wy >= y0 && wy <= baseY && baseY > bestBase) {
+        best = b; bestBase = baseY;
+      }
+    }
+    return best;
   }
 
   /* ★ §12-1 — 클릭 판정도 풋프린트 사각형 기준. 4×4 본부는 어느 귀퉁이를 눌러도 잡힌다.

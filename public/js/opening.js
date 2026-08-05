@@ -112,6 +112,10 @@
       GM.fx.dust(st.drop.x, st.drop.y + 0.2, 12);
       GM.fx.ring(st.drop.x, st.drop.y, '#f6cf7a', 0.15, 1.2, 0.5);
       GM.sfx.play('build');
+      /* ★ §16-7b — 내렸다. 첫 발걸음을 서버에 알린다 — 이 보고가 잠든 동료들을 깨운다
+         (서버는 사람의 아바타가 서기 전까지 동료를 굴리지 않는다). 동료들도 이 순간 함께 내린다. */
+      if (GM.avatar.report) GM.avatar.report();
+      if (GM.world && GM.world.crewDisembark) GM.world.crewDisembark(st.drop.x + 0.8, st.drop.y + 0.2);
     }
     if (st.dropped) {
       /* 마차는 온 길로 되돌아간다 */
@@ -193,6 +197,7 @@
 
   function finish() {
     if (!st) return;
+    var wasDropped = !!st.dropped;
     st = null;
     document.removeEventListener('keydown', onKey, true);
     document.body.classList.remove('cutscene');
@@ -208,8 +213,12 @@
       var d = dropPoint(town);
       GM.avatar.setPos(d.x, d.y);
       GM.camera.moveTo(town.x, town.y);
-      /* ★ §16-7 — 함께 온 이들도 같은 마차에서 내린다(한 사람씩, 제 자리로 걸어간다) */
-      if (GM.world && GM.world.crewDisembark) GM.world.crewDisembark(d.x + 0.8, d.y + 0.2);
+      /* ★ §16-7 — 함께 온 이들도 같은 마차에서 내린다(한 사람씩, 제 자리로 걸어간다).
+         내리는 장면(5.6초)을 이미 지났으면 그때 내렸다 — 두 번 내리지 않는다. */
+      if (!wasDropped) {
+        if (GM.avatar.report) GM.avatar.report();
+        if (GM.world && GM.world.crewDisembark) GM.world.crewDisembark(d.x + 0.8, d.y + 0.2);
+      }
     }
     U.banner({ icon: 'campfire', kind: 'good', title: '모닥불에 불이 붙었다',
                sub: '여기가 우리의 자리다', ms: 3000 });
@@ -219,5 +228,7 @@
   function busy() { return !!st; }
 
   GM.opening = { play: play, step: step, drawOverlay: drawOverlay, busy: busy,
-                 shouldPlay: shouldPlay, finish: finish };
+                 shouldPlay: shouldPlay, finish: finish,
+                 /* ★ §16-7b — 마차에서 내렸는가(연출은 계속 돌아도 하차는 끝났다) */
+                 dropped: function () { return !st || !!st.dropped; } };
 })(window);

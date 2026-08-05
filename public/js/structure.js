@@ -101,6 +101,28 @@
     (r.reqs || []).forEach(function (q) { rl.appendChild(reqRowOf(q)); });
     body.appendChild(rl);
     if (r.count) body.appendChild(U.el('p', 'hint', '지금까지 ' + r.count + '명을 불렀습니다.'));
+
+    /* ★ §16-18 — 집결지(스타크래프트의 랠리). 새로 오는 주민이 곧장 갈 일터를 꽂아 둔다. */
+    body.appendChild(U.el('h4', 'se-sec', '집결지'));
+    var rl2 = S.rally();
+    body.appendChild(U.el('p', 'se-line', rl2
+      ? '지금: ' + (rl2.name || '일터') + ' — 새로 오는 사람이 이리로 가서 곧장 일합니다.'
+      : '꽂아 두면 새로 오는 사람이 그 일터로 가서 곧장 일을 시작합니다.'));
+    var row = U.el('div', 'se-actions');
+    row.appendChild(U.btn(rl2 ? '옮겨 꽂는다' : '집결지를 꽂는다', 'btn-small btn-primary', function () {
+      U.closeTopModal();
+      S.setPlacing({ kind: 'rally' });
+      U.toast('집결지로 삼을 일터(자원 자리)를 누르세요.', 'good', 3600);
+    }));
+    if (rl2) {
+      row.appendChild(U.btn('걷는다', 'btn-small', function () {
+        GM.net.send('setRally', { targetId: null }, function () {
+          U.toast('집결지를 걷었습니다.', 'good', 2200);
+          GM.structure.refreshOpen();
+        });
+      }));
+    }
+    body.appendChild(row);
     return body;
   }
 
