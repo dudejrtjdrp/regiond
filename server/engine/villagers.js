@@ -340,17 +340,43 @@ export function commandVillagers(world, nation, cmd, data) {
 
   let used = (nation.villagers || []).filter((u) => u.targetId === target.id && !ids.includes(u.id)).length;
   const placed = [];
+  const waiting = [];
   for (const u of units) {
-    if (used >= target.slots) break;
+    if (used >= target.slots) { waiting.push(u); continue; }
     place(world, nation, u, target, job, data);
     used += 1;
     placed.push(u.id);
+  }
+
+  /* ★ §16-14 — 일괄 명령 분산(AoE 식). 여럿을 끌어다 나무 하나에 우클릭하면, 자리가 다 찬 뒤의
+     사람들은 **곁의 같은 일터**(같은 직업을 받아 주는 노드, 가까운 순)로 스스로 흩어진다.
+     옛 규칙은 남는 사람을 그냥 세워 두었다 — 여덟을 보내면 셋만 일하고 다섯이 구경했다. */
+  let spread = 0;
+  const spreadTo = new Set();
+  if (waiting.length && target.kind === 'node') {
+    const radius = vCfg(data).spreadRadiusTiles ?? 9;
+    const usedBy = syncNodeWorkers(world, nation, data);
+    const cands = listTargets(world, nation, data)
+      .filter((t) => t.kind === 'node' && t.id !== target.id && !t.node?.depleted
+        && jobsForTarget(t, data).includes(job)
+        && dist(t.x, t.y, target.x, target.y) <= radius)
+      .sort((a, b) => dist(a.x, a.y, target.x, target.y) - dist(b.x, b.y, target.x, target.y));
+    for (const u of waiting) {
+      const t2 = cands.find((c) => (usedBy.get(c.id) || 0) < c.slots);
+      if (!t2) break;                                  // 곁에도 자리가 없다 — 남은 이들은 그대로
+      place(world, nation, u, t2, job, data);
+      usedBy.set(t2.id, (usedBy.get(t2.id) || 0) + 1);
+      placed.push(u.id);
+      spreadTo.add(t2.id);
+      spread += 1;
+    }
   }
   syncNodeWorkers(world, nation, data);
   return {
     ok: true, job, targetId: target.id, placed,
     rejected: units.filter((u) => !placed.includes(u.id)).map((u) => u.id),
     slots: target.slots, used,
+    spread, spreadNodes: spreadTo.size,
   };
 }
 

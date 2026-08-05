@@ -263,3 +263,31 @@ test('★ §16-8 형편 배수 — 티어·사기·건물이 주민의 하루 �
 
   assert.ok(settlementGatherFactor(nation, data, 'wood') > 0, '배수는 언제나 양수다');
 });
+
+test('★ §16-14 일괄 명령 분산 — 여덟을 나무 하나에 보내면 곁의 나무들로 흩어진다', async () => {
+  const { commandVillagers } = await import('../server/engine/villagers.js');
+  const { world, nation, t } = scene({ chapter: 5 });
+  // 서로 곁에 선 숲 노드 무리를 찾는다
+  const forests = (world.map.nodes || []).filter((n) => n.type === 'forest' && !n.depleted);
+  let anchor = null;
+  for (const n of forests) {
+    const near = forests.filter((m) => m !== n && dist(m.x, m.y, n.x, n.y) <= 9);
+    if (near.length >= 2) { anchor = n; break; }
+  }
+  assert.ok(anchor, '곁에 이웃이 있는 숲이 있다');
+  // 주민 여덟
+  nation.villagers = Array.from({ length: 8 }, (_, i) => ({
+    id: `v${i}`, name: `주민${i}`, job: 'idle', targetId: null,
+    x: t.x, y: t.y, destX: t.x, destY: t.y,
+  }));
+  nation.population = 8;
+  const res = commandVillagers(world, nation, {
+    ids: nation.villagers.map((u) => u.id),
+    order: { type: 'work', nodeId: anchor.id },
+  }, data);
+  assert.equal(res.ok, true, JSON.stringify(res.error ?? null));
+  assert.ok(res.placed.length > res.slots, `자리(${res.slots})보다 많은 사람이 일한다 (${res.placed.length}명)`);
+  assert.ok(res.spread > 0, `남는 사람이 곁으로 흩어졌다 (${res.spread}명 → ${res.spreadNodes}곳)`);
+  const targets = new Set(nation.villagers.filter((u) => u.targetId).map((u) => u.targetId));
+  assert.ok(targets.size >= 2, `두 그루 이상에 나눠 섰다 (${targets.size}곳)`);
+});

@@ -90,9 +90,12 @@
         if (!res || !res.ok) return;
         var placed = (res.placed || []).length;
         var left = (res.rejected || []).length;
-        U.toast(placed + '명이 ' + name + '에 붙었습니다'
-          + (left ? ' · ' + left + '명은 자리가 없어 남았습니다 (' + res.used + '/' + res.slots + ')' : ''),
-          left ? 'warn' : 'good', left ? 3600 : 2000);
+        /* ★ §16-14 — 자리가 다 차면 곁의 같은 일터로 흩어진다. 흩어진 몫도 함께 알린다. */
+        var tail = '';
+        if (res.spread) tail += ' · ' + res.spread + '명은 곁의 ' + (res.spreadNodes || 1) + '곳으로 흩어졌습니다';
+        if (left) tail += ' · ' + left + '명은 자리가 없어 남았습니다 (' + res.used + '/' + res.slots + ')';
+        U.toast(placed + '명이 ' + name + ' 곁에 붙었습니다' + tail,
+          left ? 'warn' : 'good', (left || res.spread) ? 3600 : 2000);
       });
       GM.world.ping(t.x, t.y, '#8dfa8d');
       GM.sfx.play('click');
