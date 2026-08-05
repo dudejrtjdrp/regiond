@@ -458,6 +458,9 @@ export function produceNation(world, nation, data, hooks) {
        ★ GDD3 §14-1 — 이제 하루 몫의 대부분은 실시간 루프가 사이클마다 이미 건네주었다.
        여기서는 **아직 안 준 나머지**만 채운다(residentSettle). 아무도 접속하지 않아 실시간 루프가
        멎어 있었다면 나머지가 곧 하루 전부이므로, 어느 쪽이든 하루 합계는 옛 값과 정확히 같다. */
+    /* ★ §16-8 — 사기 스냅샷. 정산과 다음 하루의 실시간 크레딧이 **같은 사기 값**을 쓴다 —
+       실시간 값이 틱 도중 흔들리면 「뜬 숫자의 합 = 국고 증가분」(§13-A-3)이 깨진다. */
+    nation.gatherMorale = nation.morale ?? data.balance.morale.default ?? 1;
     const gathered = residentSettle(world, nation, data);
     out.residentGather = { resources: gathered.gross, buildPoints: gathered.buildPoints, workers: gathered.workers };
     out.residentPrepaid = gathered.prepaid;

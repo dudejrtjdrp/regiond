@@ -32,7 +32,7 @@ import { grainDays, freeBeds, recruitResident, recruitStatus } from './residents
 import { defaultName } from './npc.js';
 import { revealAvatar } from './fog.js';
 import { startResearch, RESEARCH_KEYS } from './research.js';
-import { commandUnlocked, featureUnlocked, buildingUnlocked, currentChapter } from './progression.js';
+import { commandUnlocked, featureUnlocked, buildingUnlocked, currentChapter, measure } from './progression.js';
 import { round2 } from './economy.js';
 
 export const companionCfg = (data) => data.companions ?? {};
@@ -129,18 +129,26 @@ function activate(world, nation, data, comp) {
   const town = townOf(world, nation.id);
   const avatars = (nation.avatars ||= {});
   if (!avatars[comp.id]) {
-    // 본부 둘레에 조금씩 흩어 세운다 — 같은 칸에 겹쳐 서면 넷이 한 사람으로 보인다
+    /* ★ §16-7 — 갓 연 세상(첫날)에서는 **마차가 선 자리** 곁에 선다. 개척자와 같은 마차에서
+       함께 내리는 그림(클라 오프닝이 이 자리에서 하차 연출을 잇는다). 그 뒤에는 본부 둘레에
+       조금씩 흩어 세운다 — 같은 칸에 겹쳐 서면 넷이 한 사람으로 보인다. */
+    const fresh = (world.tick ?? 0) === 0;
     const a = (comp.seat * 1.7) % (Math.PI * 2);
+    const bx = fresh ? (town?.x ?? 0) + 3 - comp.seat * 0.5 : (town?.x ?? 0) + Math.cos(a) * 3;
+    const by = fresh ? (town?.y ?? 0) + 2.6 : (town?.y ?? 0) + Math.sin(a) * 3;
     avatars[comp.id] = {
       id: comp.id, name: comp.name,
-      x: clamp(Math.round((town?.x ?? 0) + Math.cos(a) * 3), 1, (world.map?.size ?? 256) - 2),
-      y: clamp(Math.round((town?.y ?? 0) + Math.sin(a) * 3), 1, (world.map?.size ?? 256) - 2),
+      x: clamp(Math.round(bx * 100) / 100, 1, (world.map?.size ?? 256) - 2),
+      y: clamp(Math.round(by * 100) / 100, 1, (world.map?.size ?? 256) - 2),
       tick: world.tick, appearance: comp.appearance,
     };
   }
   const p = ensurePlayer(nation, comp.id, data, comp.name);
   p.bot = true;
   p.seat = comp.seat;
+  /* ★ §16-7 — 첫 숨은 일할 힘이 차 있다. 갓 태어난 동료 넷이 힘이 찰 때까지(100초) 멀뚱히
+     서 있던 첫인상("봇이 아무것도 안 한다")을 지운다. 하루 예산 총량은 그대로다. */
+  if (comp.mem && !(comp.mem.credit > 0)) comp.mem.credit = laborCfg(data).burstMax ?? 4;
   upsertMember(nation, { avatarId: comp.id, name: comp.name, appearance: comp.appearance, online: true, bot: true }, data);
   return comp;
 }
@@ -619,11 +627,13 @@ function driveActor(world, nation, data, actor, dt, out) {
   if (actor.budgeted) {
     const perSec = (L.swingsPerDay ?? 0) / Math.max(1, data.balance.time.dayRealSeconds);
     mem.credit = Math.min(L.burstMax ?? 5, (mem.credit || 0) + perSec * dt);
-    /* 힘이 다하면 짐을 지고 돌아가고, 한 짐치(haulResumeCredit)가 다시 차면 일터로 나선다.
-       ★ 예산(swingsPerDay)은 그대로다 — 이것은 **쉬는 시간의 그림**이지 노동량의 다이얼이 아니다. */
-    const resume = Math.min(L.burstMax ?? 5, L.haulResumeCredit ?? 3);
-    if (!mem.hauling && (mem.credit || 0) < 1) { mem.hauling = true; mem.target = null; }
-    else if (mem.hauling && (mem.credit || 0) >= resume) { mem.hauling = false; mem.target = null; }
+    /* ★ §16-7 — 리듬 개편. 옛 규칙(힘이 빌 때마다 곳간으로 돌아가 다 찰 때까지 서 있기)은
+       하루 예산의 대부분을 **모닥불 곁에 멀뚱히 선 사람**으로 그렸다 — "봇이 아무것도 안 한다"의
+       정체다. 이제 힘이 달리면 **일터 곁에서** 숨을 고른다(「캐는 중」 자세 그대로), 그리고
+       몇 번 캘 때마다(haulEverySwings) 한 번씩 짐을 지고 곳간을 다녀온다 — 쉼의 그림은 남기되
+       그 그림이 하루를 잡아먹지 않는다. 예산(swingsPerDay)은 그대로다. */
+    const per = Math.max(1, L.haulEverySwings ?? 4);
+    if (!mem.hauling && (mem.sinceHaul || 0) >= per) { mem.hauling = true; mem.target = null; }
   }
 
   mem.think = (mem.think || 0) - dt;
@@ -662,14 +672,25 @@ function driveActor(world, nation, data, actor, dt, out) {
     walked(stepAvatar(world, nation, data, av, aim.x, aim.y, speed));
     return;
   }
-  if (tgt.kind === 'rest' || tgt.kind === 'haul') return;   // 다다랐으면 그 자리에서 숨을 고른다
+  if (tgt.kind === 'haul') {
+    /* ★ §16-7 — 짐을 부렸다. 다음 결정에서 곧장 일터로 돌아간다(서 있지 않는다). */
+    mem.sinceHaul = 0;
+    mem.hauling = false;
+    mem.target = null;
+    mem.think = 0;
+    return;
+  }
+  if (tgt.kind === 'rest') return;   // 다다랐으면 그 자리에서 숨을 고른다
   /* ★ 하루 예산은 **노동**에만 매인다(캐기·짓기). 칼은 매이지 않는다 —
      예산은 경제를 흔들지 않으려고 둔 다이얼이지 「싸우지 말라」는 규칙이 아니다.
      웨이브 한복판에서 힘이 다해 서 있는 동료는 자리를 채운 것이 아니라 비운 것이다. */
   const costly = tgt.kind === 'node' || tgt.kind === 'site';
-  if (actor.budgeted && costly && (mem.credit || 0) < 1) return;
+  if (actor.budgeted && costly && (mem.credit || 0) < 1) return;   // ★ §16-7 — 일터 곁에서 숨을 고른다
   if (act(world, nation, data, actor, player, tgt, actor.now, out)) {
-    if (actor.budgeted && costly) mem.credit = Math.max(0, (mem.credit || 0) - 1);
+    if (actor.budgeted && costly) {
+      mem.credit = Math.max(0, (mem.credit || 0) - 1);
+      mem.sinceHaul = (mem.sinceHaul || 0) + 1;
+    }
   }
 }
 
@@ -712,7 +733,17 @@ function autoResearch(world, nation, data) {
 // ────────────────────────────────────────────────────────────────
 const stewardCfg = (data) => companionCfg(data).steward ?? {};
 
-function stewardBuildKey(world, nation, data) {
+/** 조건 나무에서 「건물 조건」만 골라낸다 — all/any 는 안으로 들어간다 */
+function structureGoals(cond, out = []) {
+  if (!cond) return out;
+  if (cond.type === 'structure' && cond.building) out.push(cond);
+  if ((cond.type === 'all' || cond.type === 'any') && Array.isArray(cond.of)) {
+    for (const c of cond.of) structureGoals(c, out);
+  }
+  return out;
+}
+
+function stewardBuildKey(world, nation, data, { auto } = {}) {
   const S = stewardCfg(data);
   const reserve = S.costReserve ?? 1.3;
   const afford = (key) => {
@@ -720,6 +751,20 @@ function stewardBuildKey(world, nation, data) {
     return Object.entries(cost).every(([r, n]) => (nation.resources?.[r] || 0) >= n * reserve);
   };
   const usable = (key) => data.buildings[key] && buildingUnlocked(nation, key, data) && afford(key);
+  /* ⓪ ★ §16-7 — **장 목표부터.** 자동 플레이는 사람이 켠 손이므로 지금 장의 목표 카드가
+     「오두막을 지으세요」라면 그것을 짓는다 — 이게 없으면 자동이 3장에서 영영 멈춰 선다.
+     (동료 단독에는 주지 않는다 — 튜토리얼은 사람의 몫이라는 §16-6 규율 그대로다.) */
+  if (auto) {
+    const ch = currentChapter(nation, data);
+    for (const st of ch?.steps ?? []) {
+      for (const g of structureGoals(st.condition)) {
+        const m = measure(world, nation, g, data);
+        if (m && m.have >= m.need) continue;
+        if ((nation.construction || []).some((c) => c.building === g.building)) continue;
+        if (usable(g.building)) return g.building;
+      }
+    }
+  }
   // ① 잠자리 — 빈 자리가 없으면 사람이 더 오지 않는다. 지을 수 있는 것 중 가장 좋은 집부터.
   if (freeBeds(nation, data) < 1) {
     for (const key of S.housing ?? ['manor', 'house', 'hut', 'tent']) if (usable(key)) return key;
@@ -732,7 +777,7 @@ function stewardBuildKey(world, nation, data) {
   return null;
 }
 
-function stewardStep(world, nation, data, out) {
+function stewardStep(world, nation, data, out, opts = {}) {
   const S = stewardCfg(data);
   if (S.enabled === false) return;
   // 사람 모으기 — 식량이 넉넉할 때만(모자란 살림에 입을 늘리지 않는다)
@@ -758,7 +803,7 @@ function stewardStep(world, nation, data, out) {
   const open = (nation.construction || []).filter(joinableSite).length;
   if (open >= (S.maxOpenSites ?? 1)) return;
   if (!commandUnlocked(nation, 'placeBuilding', data)) return;
-  const key = stewardBuildKey(world, nation, data);
+  const key = stewardBuildKey(world, nation, data, opts);
   if (!key) return;
   const res = startBuild(world, nation, { building: key }, data);   // 좌표 없는 착공 — autoSpot 이 자리를 잡는다
   if (res.ok) out.stateDirty = true;
@@ -811,7 +856,7 @@ export function stepCompanions(world, nation, data, dt = 1, opts = {}) {
     st.stewardAt = (st.stewardAt || 0) - dt;
     if (st.stewardAt <= 0) {
       st.stewardAt = stewardCfg(data).everySeconds ?? 6;
-      stewardStep(world, nation, data, out);
+      stewardStep(world, nation, data, out, { auto: anyAuto });
     }
   }
   out.avatars = out.moved > 0;

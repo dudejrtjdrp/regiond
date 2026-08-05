@@ -3,8 +3,9 @@
 import { townOf, territoryRadius, dist, inTerritory } from './world.js';
 import {
   housingCapacity, attractivenessBonus, moraleBonus, militiaSlots, militiaBonus,
-  militiaDpsBonus, shrinePopulationCap, hasBuilding,
+  militiaDpsBonus, shrinePopulationCap, hasBuilding, gatherBonus,
 } from './structures.js';
+import { settlementTier } from './tiers.js';
 import { featureUnlocked, departmentsActive } from './progression.js';
 import { round2, round3, clamp } from './economy.js';
 // ★ GDD3 §14-1 — 실시간 크레딧도 저장 상한(§13-A-5)의 같은 문으로 들어간다.
@@ -313,29 +314,52 @@ const JOB_RESOURCE = {
  * @param {boolean} outdoor 그 자리가 영토 밖인가 (residentGather·residentViews 가 같은 값을 준다)
  * @returns {{kind:'resource'|'buildPoints'|'none', resource?:string, perDay:number, idle?:boolean, factor?:number}}
  */
-export function residentYield(u, node, data, outdoor = false) {
+/**
+ * ★ §16-8 — **마을의 형편**이 주민의 손에 얹히는 배수.
+ * 피드백: "주민 산출이 영지 승격·건물·사기의 영향을 받으면 좋겠다."
+ *   · 티어 — 정착지가 격을 올리면 연장과 요령이 좋아진다(+tierBonusPerLevel/티어)
+ *   · 사기 — 부처 산출(콥더글러스 M)과 같은 방향으로, 다만 폭은 절반쯤(±moraleWeight)
+ *   · 건물 — 플레이어 스윙에만 붙던 채집 보너스(gatherBonus — 제재소·채석장 등)가 주민에게도 붙는다
+ * 셋 다 nation 만으로 계산되므로 뷰(world 없음)에서도 같은 값이 나온다(§13-A-3 의 약속 유지).
+ */
+export function settlementGatherFactor(nation, data, resource = null) {
+  const cfg = gatherCfg(data);
+  const tier = 1 + settlementTier(nation) * (cfg.tierBonusPerLevel ?? 0.05);
+  const m = data.balance.morale;
+  /* ★ 사기는 **하루 단위 스냅샷**(gatherMorale — 일 틱이 정산 직전에 찍는다)을 쓴다.
+     실시간 값이 틱 도중에 흔들리면 「뜬 숫자의 합 = 국고 증가분」(§13-A-3)이 깨진다. */
+  const morale0 = nation.gatherMorale ?? nation.morale ?? m.default ?? 1;
+  const ratio = clamp((morale0 - (m.default ?? 1)) / Math.max(0.001, (m.max ?? 1.25) - (m.default ?? 1)), -1, 1);
+  const morale = 1 + ratio * (cfg.moraleWeight ?? 0.12);
+  const building = resource ? 1 + gatherBonus(nation, resource, data) : 1;
+  return round3(tier * morale * building);
+}
+
+export function residentYield(u, node, data, outdoor = false, nation = null) {
   const cfg = gatherCfg(data);
   if (!u) return { kind: 'none', perDay: 0 };
   const factor = yieldFactor(u, data, Boolean(outdoor));
   if (u.job === 'idle') return { kind: 'resource', resource: 'grain', perDay: cfg.idleGrainPerDay, idle: true, factor: 1 };
+  /* ★ §16-8 — 마을의 형편(티어·사기·건물)이 얹힌다. nation 이 없으면 1 (옛 호출과 호환) */
+  const town = (res) => (nation ? settlementGatherFactor(nation, data, res) : 1);
   if (u.job === 'build') {
-    return { kind: 'buildPoints', perDay: round2(cfg.buildPointsPerResidentPerDay * factor), factor };
+    return { kind: 'buildPoints', perDay: round2(cfg.buildPointsPerResidentPerDay * factor * town(null)), factor };
   }
   const res = JOB_RESOURCE[u.job];
   if (!res) return { kind: 'none', perDay: 0 };
   if (node && node.type === 'oil') {
-    return { kind: 'resource', resource: 'oil', perDay: round2(cfg.perResidentPerDay.oil * factor), factor };
+    return { kind: 'resource', resource: 'oil', perDay: round2(cfg.perResidentPerDay.oil * factor * town('oil')), factor };
   }
   // ★ §13-D-5 — 석탄. 「석탄 채굴」 연구가 열기 전에는 이런 자리가 없으므로 이 갈래도 닿지 않는다.
   if (node && node.type === 'coal') {
-    return { kind: 'resource', resource: 'coal', perDay: round2((cfg.perResidentPerDay.coal ?? cfg.perResidentPerDay.ironOre) * factor), factor };
+    return { kind: 'resource', resource: 'coal', perDay: round2((cfg.perResidentPerDay.coal ?? cfg.perResidentPerDay.ironOre) * factor * town('coal')), factor };
   }
   let amount = cfg.perResidentPerDay[res] || 0;
   if (!node) amount *= 0.5;                         // 일자리(건물)에 붙어 있으면 절반
   else if (node.depleted) amount = 0;
   else if (node.rich) amount *= cfg.richMultiplier;
   if (node && node.type === 'iron') amount = cfg.perResidentPerDay.ironOre;
-  return { kind: 'resource', resource: res, perDay: round2(amount * factor), factor };
+  return { kind: 'resource', resource: res, perDay: round2(amount * factor * town(res)), factor };
 }
 
 /**
@@ -361,7 +385,7 @@ export function residentGather(world, nation, data) {
   const nodeById = new Map((world.map?.nodes || []).map((n) => [n.id, n]));
   for (const u of nation.villagers || []) {
     const node = u.targetId ? (nodeById.get(u.targetId) ?? null) : null;
-    const y = residentYield(u, node, data, isOutdoorNode(world, nation, node, data));
+    const y = residentYield(u, node, data, isOutdoorNode(world, nation, node, data), nation);
     if (y.kind === 'buildPoints') { out.buildPoints += y.perDay; out.workers += 1; continue; }
     if (y.kind !== 'resource' || !(y.perDay > 0)) continue;
     out.resources[y.resource] = (out.resources[y.resource] || 0) + y.perDay;
@@ -437,7 +461,7 @@ export function stepResidentWork(world, nation, data, dt = 1) {
   const nodeById = new Map((world.map?.nodes || []).map((n) => [n.id, n]));
   for (const u of nation.villagers || []) {
     const node = u.targetId ? (nodeById.get(u.targetId) ?? null) : null;
-    const y = residentYield(u, node, data, isOutdoorNode(world, nation, node, data));
+    const y = residentYield(u, node, data, isOutdoorNode(world, nation, node, data), nation);
     // 노는 사람·수비·공사는 실시간으로 적립하지 않는다 — 일 틱이 통째로 맡는다(합계는 그대로다).
     if (y.kind !== 'resource' || y.idle || !(y.perDay > 0)) continue;
     const w = ensureWork(u, data);
@@ -564,7 +588,7 @@ export function residentViews(nation, data, world = null) {
        화면은 이 값을 흐른 시간만큼 쪼개어 "+1.2 목재" 를 띄우므로, 뜬 숫자의 합 = 국고 증가분이다. */
     const node = nodeOfResident(world, u);
     const outdoor = isOutdoorNode(world, nation, node, data);
-    const y = residentYield(u, node, data, outdoor);
+    const y = residentYield(u, node, data, outdoor, nation);
     ensureStats(u, data);
     const fit = jobFit(u, u.job, data);
     return {

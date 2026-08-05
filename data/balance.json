@@ -105,7 +105,7 @@
       "crowdingPerResident": 0.1
     },
     "gather": {
-      "_note": "티어 0~2 — 부처가 아직 안 돌 때 주민 1명이 노드 하나에 붙어 하루에 내는 산출(레이트 기준). rich 노드는 배로 난다. 이 값은 '플레이어 스윙만으로는 못 미치는 자리'를 메우도록 잡혀 있다.",
+      "_note": "티어 0~2 — 부처가 아직 안 돌 때 주민 1명이 노드 하나에 붙어 하루에 내는 산출(레이트 기준). rich 노드는 배로 난다. 이 값은 '플레이어 스윙만으로는 못 미치는 자리'를 메우도록 잡혀 있다. ★ §16-8: 마을의 형편 배수 — tierBonusPerLevel(티어당), moraleWeight(사기 ±폭). 건물 채집 보너스(gatherBonus)는 주민에게도 같이 붙는다.",
       "perResidentPerDay": {
         "grain": 2.4,
         "wood": 3.2,
@@ -116,16 +116,43 @@
       },
       "richMultiplier": 1.6,
       "idleGrainPerDay": 0.25,
-      "buildPointsPerResidentPerDay": 1.2
+      "buildPointsPerResidentPerDay": 1.2,
+      "tierBonusPerLevel": 0.06,
+      "moraleWeight": 0.12
     },
     "stats": {
       "_note": "★ GDD3 §13-D-1 — 주민 능력치. 태어날 때 한 번 굴리고 평생 바뀌지 않는다. 주사위 셋의 평균(rolls)이라 5~6에 몰리는 종형이고, 평균은 정확히 (min+max)/2 = 5.5 다. 산출 배수 = 1 + perPoint × Σ(가중치 × (능력치 − mid)) 이고 가중치 합은 언제나 1 이므로 최대 편차는 perPoint × 4.5 = ±18% — 상한 cap(±20%) 안이다. 평균 5.5 면 배수가 정확히 1.0 이라 **인구가 많아질수록 밸런스에 중립**이다(시뮬 재보정이 필요 없는 까닭). 야외 가중(outdoorWeight)은 노드가 영토 밖일 때만 용기에 실리고, 그만큼 근면에서 덜어 온다.",
-      "order": ["diligence", "strength", "dexterity", "courage"],
+      "order": [
+        "diligence",
+        "strength",
+        "dexterity",
+        "courage"
+      ],
       "defs": {
-        "diligence": { "name": "근면", "short": "근", "desc": "작업 속도", "icon": "hammer" },
-        "strength": { "name": "힘", "short": "힘", "desc": "운반량 · 민병", "icon": "sword" },
-        "dexterity": { "name": "손재주", "short": "손", "desc": "수확 보너스", "icon": "grain" },
-        "courage": { "name": "용기", "short": "용", "desc": "민병 · 야외 작업", "icon": "shield" }
+        "diligence": {
+          "name": "근면",
+          "short": "근",
+          "desc": "작업 속도",
+          "icon": "hammer"
+        },
+        "strength": {
+          "name": "힘",
+          "short": "힘",
+          "desc": "운반량 · 민병",
+          "icon": "sword"
+        },
+        "dexterity": {
+          "name": "손재주",
+          "short": "손",
+          "desc": "수확 보너스",
+          "icon": "grain"
+        },
+        "courage": {
+          "name": "용기",
+          "short": "용",
+          "desc": "민병 · 야외 작업",
+          "icon": "shield"
+        }
       },
       "min": 1,
       "max": 10,
@@ -133,8 +160,13 @@
       "mid": 5.5,
       "perPoint": 0.04,
       "cap": 0.2,
-      "yieldWeights": { "dexterity": 0.5, "diligence": 0.5 },
-      "outdoorWeight": { "courage": 0.2 },
+      "yieldWeights": {
+        "dexterity": 0.5,
+        "diligence": 0.5
+      },
+      "outdoorWeight": {
+        "courage": 0.2
+      },
       "militia": {
         "_note": "민병에 붙는 몫은 **일부러 절반(perPoint 0.02)** 이고, 두 능력치를 0.7/0.3 으로 섞는다. 까닭은 실측이다: 능력치를 각각 온전히 얹었더니(±18%씩) 시뮬 웨이브5 생존율이 60% → 55% 로 내려갔다. 평균은 정확히 1.0 인데도 손해가 나는 것은 **버티는 시간이 포화하기 때문**이다 — 체력이 남아도 전투가 끝나면 그만이고, 모자라면 쓰러져 downSeconds 동안 통째로 빠진다(오목한 함수 위의 평균 보존 확산은 언제나 손해다). 흩어짐을 1/4 로 줄이면 그 손해가 사라지고, 체력×피해의 최대 편차는 ±18.8% 로 여전히 스펙(±20%) 안이다.",
         "hp": "courage",
@@ -146,22 +178,51 @@
       "haulSpan": 0.4,
       "jobFit": {
         "_note": "직업마다 '이 사람이 잘 맞는가'를 재는 능력치. 주민 패널이 이 표로 초록 테를 두른다. fitThreshold 이상이면 적임이다.",
-        "farm": ["dexterity", "diligence"],
-        "lumber": ["strength", "diligence"],
-        "quarry": ["strength", "dexterity"],
-        "mine": ["strength", "courage"],
-        "factory": ["dexterity", "diligence"],
-        "build": ["strength", "diligence"],
-        "defense": ["courage", "strength"],
-        "trade": ["dexterity", "courage"],
-        "scout": ["courage", "dexterity"],
+        "farm": [
+          "dexterity",
+          "diligence"
+        ],
+        "lumber": [
+          "strength",
+          "diligence"
+        ],
+        "quarry": [
+          "strength",
+          "dexterity"
+        ],
+        "mine": [
+          "strength",
+          "courage"
+        ],
+        "factory": [
+          "dexterity",
+          "diligence"
+        ],
+        "build": [
+          "strength",
+          "diligence"
+        ],
+        "defense": [
+          "courage",
+          "strength"
+        ],
+        "trade": [
+          "dexterity",
+          "courage"
+        ],
+        "scout": [
+          "courage",
+          "dexterity"
+        ],
         "idle": []
       },
       "fitThreshold": 7
     },
     "recruit": {
       "_note": "★ GDD3 §13-D-2 — 본부 [모집]. 자연 유입(arrival)은 그대로 두고 그 위에 **손으로 부르는 문**을 하나 더 낸다. 값은 식량 20 한 번, 쿨다운 1게임일. 빈 잠자리는 자연 유입과 똑같이 필요하다 — 식량으로 잠자리를 살 수는 없다. 쿨다운이 하루라 인구 곡선의 기울기(§12-4 crowding)를 넘어서지 못한다.",
-      "cost": { "grain": 20 },
+      "cost": {
+        "grain": 20
+      },
       "cooldownDays": 1
     },
     "unitCompressionFrom": 60,

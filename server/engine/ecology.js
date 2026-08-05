@@ -397,8 +397,11 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
     if (heal > 0 && !inBattle && (p.downUntil || 0) <= 0 && (p.invulnUntil || 0) <= 0 && town0) {
       const av0 = nation.avatars?.[p.id];
       const maxHp = playerMaxHp(p, data);
+      /* ★ §16-9 — 회복은 모닥불 곁만이 아니라 **영토 전체**다(피드백: "정착지에 오면 피가 차면 좋겠다").
+         영토가 자라면 쉴 수 있는 땅도 함께 자란다 — §16-2 성역과 같은 경계를 쓴다. */
+      const restR = Math.max(cCfg.restRadiusTiles ?? 6, territoryRadius(nation, data));
       if (av0 && (p.hp ?? maxHp) < maxHp
-        && dist(av0.x, av0.y, town0.x, town0.y) <= (cCfg.restRadiusTiles ?? 6)) {
+        && dist(av0.x, av0.y, town0.x, town0.y) <= restR) {
         p.hp = round2(Math.min(maxHp, (p.hp ?? maxHp) + heal * dt));
       }
     }

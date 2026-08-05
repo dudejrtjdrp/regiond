@@ -1671,7 +1671,7 @@
           "stone": 5
         },
         "buildPoints": 3,
-        "attractiveness": 0.025,
+        "attractiveness": 0.03,
         "moraleBonus": 0.01,
         "hp": 30
       },
@@ -1741,7 +1741,7 @@
           "wood": 20
         },
         "buildPoints": 12,
-        "attractiveness": 0.08,
+        "attractiveness": 0.09,
         "moraleBonus": 0.025,
         "hp": 90
       },
