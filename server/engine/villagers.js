@@ -380,6 +380,36 @@ export function commandVillagers(world, nation, cmd, data) {
   };
 }
 
+/**
+ * ★ §16-18 — 랠리 포인트(스타크래프트의 집결지에서 배웠다).
+ * 본부에 집결지가 꽂혀 있으면, 갓 도착한 주민은 손 갈 것 없이 그 일터로 걸어가 일을 시작한다.
+ * 자리가 차 있으면 §16-14 분산 규칙처럼 곁의 같은 일터로, 그마저 없으면 여느 때처럼 논다.
+ */
+export function rallyResident(world, nation, unit, data) {
+  const rally = nation.rally;
+  if (!rally?.targetId || !unit) return false;
+  const target = resolveTarget(world, nation, rally.targetId, data);
+  if (!target) return false;
+  if (target.kind === 'node' && target.node?.depleted) return false;
+  const jobs = jobsForTarget(target, data);
+  if (!jobs.length) return false;
+  const usedBy = syncNodeWorkers(world, nation, data);
+  let t = ((usedBy.get(target.id) || 0) < target.slots) ? target : null;
+  if (!t && target.kind === 'node') {
+    const radius = vCfg(data).spreadRadiusTiles ?? 9;
+    t = listTargets(world, nation, data)
+      .filter((c) => c.kind === 'node' && !c.node?.depleted
+        && jobsForTarget(c, data).includes(jobs[0])
+        && dist(c.x, c.y, target.x, target.y) <= radius
+        && (usedBy.get(c.id) || 0) < c.slots)
+      .sort((a2, b2) => dist(a2.x, a2.y, target.x, target.y) - dist(b2.x, b2.y, target.x, target.y))[0] ?? null;
+  }
+  if (!t) return false;
+  place(world, nation, unit, t, jobsForTarget(t, data)[0], data);
+  syncNodeWorkers(world, nation, data);
+  return true;
+}
+
 /** 노드의 workers 카운터 동기화 (고갈·기여 계산의 기준) */
 export function syncNodeWorkers(world, nation, data) {
   const counts = new Map();

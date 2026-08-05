@@ -1,6 +1,8 @@
 // 주민 — docs/GDD3.md §4. 인구 0에서 시작해 한 명씩 걸어온다.
 // ★ 옛 '인구 50 시작 · 이주민 %'는 폐기됐다. 주민은 실인원이다: unitCompressionFrom 명까지 1유닛=1명.
 import { townOf, territoryRadius, dist, inTerritory } from './world.js';
+// ★ §16-18 — 집결지: 갓 도착한 주민을 지정한 일터로 곧장 보낸다
+import { rallyResident } from './villagers.js';
 import {
   housingCapacity, attractivenessBonus, moraleBonus, militiaSlots, militiaBonus,
   militiaDpsBonus, shrinePopulationCap, hasBuilding, gatherBonus,
@@ -175,6 +177,8 @@ export function spawnResident(world, nation, data, rng) {
   };
   (nation.villagers ||= []).push(resident);
   nation.population = (nation.villagers || []).length;
+  /* ★ §16-18 — 집결지가 꽂혀 있으면 새 사람은 그 일터로 곧장 간다(없거나 차 있으면 여느 때처럼) */
+  rallyResident(world, nation, resident, data);
   return resident;
 }
 

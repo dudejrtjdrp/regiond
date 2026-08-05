@@ -62,6 +62,7 @@ export function ensureCompanions(nation) {
   st.list ||= [];
   st.clock ??= 0;          // 동료 전용 단조 시계(ms) — 쿨타임 판정의 기준
   st.liveSeconds ??= 0;    // 이번 하루 중 '지켜본' 초. 일 틱이 이만큼을 하루에서 뺀다.
+  st.awake ??= false;      // ★ §16-7b — 마차에서 내리기 전에는 잠들어 있다(stepCompanions 가 깨운다)
   st.rngState ??= null;
   return st;
 }
@@ -474,6 +475,11 @@ function decide(world, nation, data, actor, player, av, opts = {}) {
       return town ? { kind: 'rest', x: town.x, y: town.y } : null;
     }
 
+    /* ③-0 ★ §16-19 — 수비 깃발. 국방을 맡은 이는 깃발 곁을 지킨다(위협·웨이브가 없을 때). */
+    if (rc.guard && nation.defenseFlag && !nearestPredator(world, nation, data, av)) {
+      return { kind: 'rest', x: nation.defenseFlag.x, y: nation.defenseFlag.y };
+    }
+
     // ③ 들의 것 — 국방을 맡은 이는 맞서고, 그 밖은 코앞까지 왔을 때만 든다
     const threat = nearestPredator(world, nation, data, av);
     if (threat) {
@@ -822,6 +828,15 @@ export function stepCompanions(world, nation, data, dt = 1, opts = {}) {
   bindCompanionRoles(nation, data);
   if (cfg.enabled === false) return out;
 
+  /* ★ §16-7b — **마차에서 내리기 전에는 아무도 움직이지 않는다.**
+     피드백: "봇들이 마차에서 내리기 전부터 자원을 캔다 — 내리고 나서 그 자리에서부터 시작해야 한다."
+     갓 연 세상(tick 0)에서는 사람의 첫 발걸음(lordMove — 하차 순간 클라가 보낸다)이 닿기 전까지
+     동료도 잠들어 있다. 하루가 지나면(일 틱) 어차피 깬다 — 방치해도 세상이 영영 멎지는 않는다. */
+  if (!st.awake) {
+    st.awake = (world.tick ?? 0) > 0 || humanAvatarCount(nation) > 0;
+    if (!st.awake) return out;
+  }
+
   st.clock = (st.clock || 0) + dt * 1000;
   st.liveSeconds = (st.liveSeconds || 0) + dt;
 
@@ -875,6 +890,7 @@ export function stepCompanionsDay(world, nation, data) {
   const st = ensureCompanions(nation);
   syncCompanionSeats(world, nation, data);
   bindCompanionRoles(nation, data);
+  st.awake = true;         // ★ §16-7b — 하루가 지났다. 방치해도 세상이 영영 멎지는 않는다
   const daySec = data.balance.time.dayRealSeconds;
   const unwatched = clamp(daySec - (st.liveSeconds || 0), 0, daySec);
   st.liveSeconds = 0;

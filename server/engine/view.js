@@ -116,6 +116,9 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
       // ── 공간 ────────────────────────────────────────────────
       town: town ? { x: town.x, y: town.y } : null,
       territory: { radius: territoryRadius(nation, data), cx: town?.x ?? null, cy: town?.y ?? null },
+      /* ★ §16-18 · §16-19 — 집결지·수비 깃발. 화면이 깃발을 그리고 단추의 상태를 안다. */
+      rally: nation.rally ? { ...nation.rally } : null,
+      defenseFlag: nation.defenseFlag ? { ...nation.defenseFlag } : null,
       // ★ GDD3 §4 — 주민은 실인원이다
       residents: residentViews(nation, data, world),
       housing: housingView(nation, data, world),

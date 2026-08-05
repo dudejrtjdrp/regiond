@@ -17,6 +17,7 @@ import { normalizeBattlePlan } from './tactics.js';
 import { adviceCommand } from './advisor.js';
 import {
   assignByAlloc, assignByMix, commandVillagers as placeVillagers, deriveLabor, mixFromAlloc,
+  resolveTarget, jobsForTarget,
 } from './villagers.js';
 import {
   startBuild, startUpgrade, repairStructure, reclaimField as doReclaim, structureDef,
@@ -175,6 +176,48 @@ function runCommand(world, nationId, cmd, data, rng) {
       nation.laborAlloc = normalizeAlloc(derived.alloc, data);
       nation.gatherScale = derived.gatherScale;
       return ok({ mix: derived.mix, counts: derived.counts, alloc: nation.laborAlloc, gatherScale: derived.gatherScale });
+    }
+
+    /* ★ §16-18 — 랠리 포인트(스타크래프트의 집결지). 본부에 깃발을 꽂아 두면
+       갓 도착한 주민이 손 갈 것 없이 그 일터로 걸어가 일을 시작한다. null 이면 걷는다. */
+    case 'setRally': {
+      const targetId = cmd.targetId ?? cmd.payload?.targetId ?? null;
+      if (targetId == null) {
+        nation.rally = null;
+        return ok({ rally: null });
+      }
+      const target = resolveTarget(world, nation, targetId, data);
+      if (!target) return err('BAD_TARGET', '그런 일터가 없습니다.');
+      if (!jobsForTarget(target, data).length) return err('NO_JOB', '그곳에서 할 수 있는 일이 없습니다.');
+      nation.rally = { targetId, x: target.x, y: target.y, name: target.name };
+      return ok({ rally: { ...nation.rally } });
+    }
+
+    /* ★ §16-19 — 수비 깃발(어택땅에서 배웠다). 꽂아 두면 수비 배치 주민이 그리로 모여 서고,
+       국방을 맡은 동료도 그 곁을 지킨다. 웨이브가 그 방향에서 오면 민병이 이미 진을 치고 있다.
+       null 이면 걷는다 — 주민은 제 초소로 돌아간다. */
+    case 'setDefenseFlag': {
+      const fx = cmd.x ?? cmd.payload?.x ?? null;
+      const fy = cmd.y ?? cmd.payload?.y ?? null;
+      if (fx == null || fy == null) {
+        nation.defenseFlag = null;
+        return ok({ defenseFlag: null });
+      }
+      const x = Math.round(Number(fx));
+      const y = Math.round(Number(fy));
+      if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x >= data.world.size || y >= data.world.size) {
+        return err('BAD_POSITION', '지도 밖입니다.');
+      }
+      nation.defenseFlag = { x, y };
+      // 수비 배치 주민은 그 자리로 모여 선다(민병은 전투가 서는 순간 제가 선 자리에서 싸운다)
+      let moved = 0;
+      for (const u of nation.villagers || []) {
+        if (u.job !== 'defense') continue;
+        u.destX = x + ((moved % 3) - 1);
+        u.destY = y + (Math.floor(moved / 3) % 3) - 1;
+        moved += 1;
+      }
+      return ok({ defenseFlag: { ...nation.defenseFlag }, moved });
     }
 
     case 'commandVillagers': {

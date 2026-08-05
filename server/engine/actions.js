@@ -119,6 +119,32 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
   addYield(spec.yield);
   if (cycleDone) addYield(spec.cycleBonus);
 
+  /* ★ §16-17 — 광역 스윙(스타듀밸리의 충전 도끼에서 배웠다). 솜씨가 오르면 한 번의 스윙이
+     곁의 **같은 자리**까지 스친다 — 레벨업 보상이 「쿨타임 감소」뿐이던 성장에 손맛을 더한다.
+     스친 자리는 제 잔량이 깎인다(공짜가 아니다). 여물어야 하는 밭은 여문 이웃만 스친다. */
+  let cleaved = 0;
+  const cv = swingCfg(data).cleave;
+  const lvl0 = skillLevel(player, spec.skill);
+  if (cv && cv.enabled !== false && lvl0 >= (cv.level ?? 7) && spec.drain > 0) {
+    const maxN = Math.min(cv.maxTargets ?? 3, 1 + Math.floor((lvl0 - (cv.level ?? 7)) / (cv.step ?? 5)));
+    const R = cv.radiusTiles ?? 1.9;
+    const ratio = cv.ratio ?? 0.3;
+    for (const nb of world.map?.nodes || []) {
+      if (cleaved >= maxN) break;
+      if (nb === node || nb.type !== node.type || nb.depleted || nb.hidden) continue;
+      if (nb.concealed && !nb.revealed) continue;
+      if (spec.requiresRipe && !isHarvestReady(nb, data, world.tick)) continue;
+      if (dist(nb.x, nb.y, node.x, node.y) > R) continue;
+      addYield(spec.yield, ratio);
+      if (nb.max > 0) {
+        nb.amount = Math.max(0, round2(nb.amount - spec.drain * ratio));
+        if (nb.amount <= 0) markDepleted(nb, data, world.tick);
+        nb.stamp = world.tick;
+      }
+      cleaved += 1;
+    }
+  }
+
   // 잔량 · 고갈
   // ★ 잔량 감소는 획득량에 (거의) 비례한다 — 좋은 도구는 '더 빨리' 캐는 것이지 '무한히' 캐는 게 아니다.
   //   장기 채집 속도의 진짜 상한은 노드 잔량(amount)과 재생(regenPerTick)이 쥔다.
@@ -171,6 +197,7 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
     ...fieldStageView(node, data, world.tick),
     cooldownMs: cd.cooldownMs,
     multiplier: round2(mult),
+    cleaved,
     charm: round3(charm),
     tool: toolFor(nation, player, spec.skill, data),
     level: skillLevel(player, spec.skill),
