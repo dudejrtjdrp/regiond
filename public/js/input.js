@@ -327,7 +327,9 @@
     var covered = (U.anyModalOpen && U.anyModalOpen()) ||
                   !!(U.qs('#coach-root') && U.qs('#coach-root').children.length);
     if (pointerIn && fresh && !covered && !drag) {
-      var m = 26;
+      /* ★ §16-11 — 가장자리 이동 띠를 26 → 56px 로 넓혔다(피드백: "반경을 조금 넓혀줘").
+         띠가 넓은 만큼 안쪽 경사는 완만하다 — 끝에 바짝 대면 그때 최고 속도가 난다. */
+      var m = 56;
       var sz = GM.world.size();
       if (px < m) dx -= (m - px) / m;
       if (px > sz.w - m) dx += (px - (sz.w - m)) / m;

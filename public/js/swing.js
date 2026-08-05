@@ -392,14 +392,38 @@
     U.toast(msg, 'warn', 1900);
   }
 
-  /* ══════════ 남의 스윙 (멀티 연출) ══════════ */
+  /* ══════════ 남의 스윙 (멀티 · 동료 · 자동 플레이 연출) ══════════ */
+  /* ★ §16-12 — 거둔 것은 **누구의 손이든** 그 자리에 뜬다(피드백: "자동을 켜면 +1.2 목재가 안 뜬다.
+     봇·주민의 행동에도 다 떠야 한다"). 자동 플레이·동료의 스윙은 서버가 'swing' 채널로 알려 오고
+     (내 손으로 휘두른 것은 ack 로 로컬에서 띄우므로 두 번 뜨지 않는다 — 서버가 보낸 사람은 뺀다),
+     주민의 몫은 §14-1 작업 사이클(creditFloat)이 띄운다. */
   function remote(p) {
     if (!p) return;
+    var pos = null;
     var n = p.nodeId ? S.nodeById(p.nodeId) : null;
-    if (!n) return;
-    GM.fx.shakeNode(n.id, 0.7);
-    GM.fx.debris(n.x, n.y - 0.2, DEBRIS_COLOR[n.type] || '#c8a874', 4, 0.7);
-    if (p.cycle) GM.fx.ring(n.x, n.y, '#f6cf7a', 0.25, 1.5, 0.5);
+    if (n) {
+      GM.fx.shakeNode(n.id, 0.7);
+      GM.fx.debris(n.x, n.y - 0.2, DEBRIS_COLOR[n.type] || '#c8a874', 4, 0.7);
+      if (p.cycle) GM.fx.ring(n.x, n.y, '#f6cf7a', 0.25, 1.5, 0.5);
+      pos = { x: n.x, y: n.y };
+    } else if (p.x != null && p.y != null) {
+      pos = { x: p.x, y: p.y };                     // 사냥 — 짐승이 쓰러진 자리
+    } else if (p.siteId) {
+      var sList = S.sites();
+      for (var si = 0; si < sList.length; si++) {
+        if (sList[si].id === p.siteId) { pos = S.centerOfThing(sList[si]); break; }
+      }
+    } else if (p.avatarId && GM.world.matePos) {
+      var m = GM.world.matePos(p.avatarId);
+      if (m) pos = { x: m.x, y: m.y };
+    }
+    if (!pos) return;
+    if (p.gained) popGains(pos, p.gained, p.multiplier || 1);
+    if (p.hunt && p.killed) {
+      GM.fx.debris(pos.x, pos.y, '#bc4749', 8, 1.1);
+      GM.fx.ring(pos.x, pos.y, '#ff9d99', 0.2, 1.1, 0.4);
+    }
+    if (p.buildPoints) GM.fx.floatText(pos.x, pos.y - 1.0, '공사 +' + U.fmt(p.buildPoints, 1), '#f6cf7a', 12);
   }
 
   function invalidate() { memo.t = 0; memo.val = null; }

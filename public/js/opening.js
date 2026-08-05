@@ -208,6 +208,8 @@
       var d = dropPoint(town);
       GM.avatar.setPos(d.x, d.y);
       GM.camera.moveTo(town.x, town.y);
+      /* ★ §16-7 — 함께 온 이들도 같은 마차에서 내린다(한 사람씩, 제 자리로 걸어간다) */
+      if (GM.world && GM.world.crewDisembark) GM.world.crewDisembark(d.x + 0.8, d.y + 0.2);
     }
     U.banner({ icon: 'campfire', kind: 'good', title: '모닥불에 불이 붙었다',
                sub: '여기가 우리의 자리다', ms: 3000 });

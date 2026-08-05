@@ -447,6 +447,7 @@
       무거운 프레임 구간) 오래된 박자의 기억이 지연폭을 그르치는데, 최대값은 한 장 만에 따라잡는다. */
   function bufPush(a, x, y, now, snapDist) {
     var last = a.buf[a.buf.length - 1];
+    if (last && now <= last.t) now = last.t + 1;   // 미래 스탬프(하차 연출) 뒤에 와도 차례를 지킨다
     if (last) {
       if (last.x === x && last.y === y && now - last.t < 1) return;
       var gap = now - last.t;
@@ -543,13 +544,36 @@
   var mates = {};
   var MATE_SNAP = 12;
 
+  /* ★ §16-7 — 마차 동반 하차. 오프닝이 도는 동안 동료들은 **마차 안**이라 그리지 않고,
+     막이 걷히는 순간 마차 자리에서 한 사람씩(0.5초 간격) 내려 제 자리로 걸어간다.
+     서버 좌표는 건드리지 않는다 — 내리는 연출은 순전히 화면의 몫이고,
+     띠 보간(stepMates)이 마차→실제 자리 걸음을 알아서 그린다. */
+  function crewDisembark(x, y) {
+    var list = S.S.avatars || [];
+    var mine = S.S.avatarId;
+    var k = 0;
+    for (var i = 0; i < list.length; i++) {
+      var v = list[i];
+      if (v.id === mine) continue;
+      var t0 = wildClock + 500 + k * 550;
+      var walkMs = Math.max(400, Math.hypot(v.x - x, v.y - y) / 3.2 * 1000);
+      mates[v.id] = {
+        x: x, y: y, dir: 0, frame: 0, ft: 0, gapMs: 900, delay: 200,
+        buf: [{ x: x, y: y, t: t0 }, { x: v.x, y: v.y, t: t0 + walkMs }]
+      };
+      k += 1;
+    }
+  }
+
   function stepMates(dt) {
     var list = S.S.avatars || [];
     var mine = S.S.avatarId;
+    var opening = GM.opening && GM.opening.busy();
     var seen = {};
     for (var i = 0; i < list.length; i++) {
       var v = list[i];
       if (v.id === mine) continue;                 // 내 몸은 avatar.js 가 쥔다
+      if (opening) { seen[v.id] = true; continue; } // ★ §16-7 — 아직 마차 안이다
       seen[v.id] = true;
       var a = mates[v.id];
       if (!a) {
@@ -1140,8 +1164,10 @@
   function drawAvatars() {
     var t = GM.camera.cam.tile;
     var mine = S.S.avatarId;
+    var opening = GM.opening && GM.opening.busy();
     (S.S.avatars || []).forEach(function (a) {
       if (a.id === mine) return;
+      if (opening) return;                         // ★ §16-7 — 아직 마차 안이다(하차 연출로 내린다)
       var m = mates[a.id] || { x: a.x, y: a.y, dir: 0, frame: 0 };
       if (!GM.camera.onScreen(m.x, m.y, t * 2)) return;
       /* 이름표 색이 사람과 동료를 가른다: 같이 온 사람은 푸른빛, 동료는 저마다의 빛깔이다. */
@@ -1877,6 +1903,10 @@
     setHover: setHover, hover: hover, setDragBox: setDragBox, recenter: recenter, reset: reset,
     animateTerritory: animateTerritory, bounceStructure: bounceStructure, markArrival: markArrival,
     setFencePath: setFencePath, getFencePath: getFencePath,
+    /* ★ §16-7 — 마차 동반 하차: 오프닝이 걷히는 순간 동료들이 마차 자리에서 내린다 */
+    crewDisembark: crewDisembark,
+    /* ★ §16-12 — 동료·다른 사람의 화면 자리(보간) — 스윙 팝을 그 사람 곁에 띄울 때 쓴다 */
+    matePos: function (id) { return mates[id] || null; },
     nearestWild: nearestWild, wildPos: wildPos, markWildHurt: markWildHurt,
     /* ★ GDD3 §14-1 — 주민 작업 사이클의 수치 표시 */
     creditFloat: creditFloat,
