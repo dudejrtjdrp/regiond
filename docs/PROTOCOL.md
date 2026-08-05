@@ -102,6 +102,8 @@ defenseIndex = Σ(터렛 dps × 사거리 ÷ turretRangeReference) + 민병 dps 
 | 명령 | 페이로드 | 뜻 |
 |---|---|---|
 | `setAutoPlay` | `{enabled?:bool}` 또는 `{suspend:true}` | ★ 켜기·끄기 / **수동 입력이 잡혔을 때의 잠시 물러남**(끄는 것이 아니다) |
+| `setRally` | `{targetId}` 또는 `{targetId:null}` | ★ §16-18 집결지 — 갓 도착한 주민이 이 일터로 곧장 간다. null 이면 걷는다 |
+| `setDefenseFlag` | `{x,y}` 또는 `{x:null}` | ★ §16-19 수비 깃발 — 수비 배치 주민·국방 동료가 이 자리에 모여 선다. null 이면 걷는다 |
 
 자동 플레이는 **연구도 붙든다**(`autoPlay.researchWhenIdle` · `researchEverySeconds`) — 다만 우선순위표를
 따로 두지 않는다: `startResearch` 에 연구표 차례대로 청해 보고 처음 되는 것을 잡는다.

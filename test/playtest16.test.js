@@ -291,3 +291,102 @@ test('★ §16-14 일괄 명령 분산 — 여덟을 나무 하나에 보내면 
   const targets = new Set(nation.villagers.filter((u) => u.targetId).map((u) => u.targetId));
   assert.ok(targets.size >= 2, `두 그루 이상에 나눠 섰다 (${targets.size}곳)`);
 });
+
+// ────────────────────────────────────────────────────────────────
+// ⑥ §16-7b · §16-17 · §16-18 · §16-19 — 하차 전 동결 · 광역 스윙 · 집결지 · 수비 깃발
+// ────────────────────────────────────────────────────────────────
+test('★ §16-7b 하차 — 사람이 내리기 전(tick 0 · 아바타 없음)에는 동료도 잠들어 있다', () => {
+  const world = createWorld({ seed: SEED, data, playerName: '개척자' });
+  const nation = world.nations.player;
+  // 아직 아무도 내리지 않았다 — 사람 아바타가 없다
+  let acts = 0;
+  let moved = 0;
+  for (let i = 0; i < 30; i += 1) {
+    const r = stepCompanions(world, nation, data, 1);
+    acts += r.actions.length;
+    moved += r.moved;
+  }
+  assert.equal(acts + moved, 0, '마차에서 내리기 전에는 아무도 움직이지 않는다');
+  // 첫 발걸음(lordMove 가 만든 아바타)이 닿으면 깨어난다
+  const t = townOf(world, 'player');
+  nation.avatars.lord = { id: 'lord', name: '개척자', x: t.x + 3, y: t.y + 2, tick: 0, appearance: {} };
+  ensurePlayer(nation, 'lord', data, '개척자');
+  let after = 0;
+  for (let i = 0; i < 60; i += 1) {
+    const r = stepCompanions(world, nation, data, 1);
+    after += r.actions.length + r.moved;
+  }
+  assert.ok(after > 0, '내린 순간부터 움직이기 시작한다');
+});
+
+test('★ §16-17 광역 스윙 — 솜씨가 오르면 한 스윙이 곁의 같은 자리를 스친다', async () => {
+  const { actionSwing } = await import('../server/engine/actions.js');
+  const { world, nation, t } = scene({ chapter: 3 });
+  const cv = data.skills.swing.cleave;
+  // 곁에 이웃이 있는 숲을 찾아 아바타를 세운다
+  const forests = (world.map.nodes || []).filter((n) => n.type === 'forest' && !n.depleted);
+  let anchor = null;
+  for (const n of forests) {
+    if (forests.some((m) => m !== n && dist(m.x, m.y, n.x, n.y) <= (cv.radiusTiles ?? 1.9))) { anchor = n; break; }
+  }
+  assert.ok(anchor, '이웃이 붙은 숲이 있다');
+  nation.avatars.lord.x = anchor.x + 1;
+  nation.avatars.lord.y = anchor.y;
+
+  // 낮은 솜씨 — 스치지 않는다
+  const p = nation.players.lord;
+  p.skills.lumber.xp = 0;
+  p.skills.lumber.level = 1;
+  const low = actionSwing(world, nation, { nodeId: anchor.id, avatarId: 'lord' }, data, 1000);
+  assert.equal(low.ok, true, JSON.stringify(low.error ?? null));
+  assert.equal(low.cleaved || 0, 0, '낮은 솜씨는 한 그루만 벤다');
+
+  // 솜씨를 올린다 — 곁의 나무가 함께 흔들린다
+  p.skills.lumber.level = (cv.level ?? 7) + 1;
+  const high = actionSwing(world, nation, { nodeId: anchor.id, avatarId: 'lord' }, data, 60000);
+  assert.equal(high.ok, true, JSON.stringify(high.error ?? null));
+  assert.ok((high.cleaved || 0) >= 1, `광역 스윙이 곁을 스쳤다 (${high.cleaved}자리)`);
+});
+
+test('★ §16-18 집결지 — 꽂아 두면 갓 도착한 주민이 그 일터로 곧장 간다', async () => {
+  const { spawnResident } = await import('../server/engine/residents.js');
+  const { applyCommand } = await import('../server/engine/commands.js');
+  const { createRng } = await import('../server/engine/rng.js');
+  const { world, nation, t } = scene({ chapter: 5 });
+  const rng = createRng(11);
+  const forest = (world.map.nodes || []).filter((n) => n.type === 'forest' && !n.depleted)
+    .sort((a, b) => dist(a.x, a.y, t.x, t.y) - dist(b.x, b.y, t.x, t.y))[0];
+  const set = applyCommand(world, 'player', { type: 'setRally', targetId: forest.id }, data, rng);
+  assert.equal(set.ok, true, JSON.stringify(set.error ?? null));
+  const r1 = spawnResident(world, nation, data, rng);
+  assert.equal(r1.job, 'lumber', '새 사람이 곧장 벌목 일을 받았다');
+  assert.ok(r1.targetId, '일터가 배정됐다');
+  // 걷는다 — 다음 사람은 여느 때처럼 논다
+  applyCommand(world, 'player', { type: 'setRally', targetId: null }, data, rng);
+  const r2 = spawnResident(world, nation, data, rng);
+  assert.equal(r2.job, 'idle', '집결지를 걷으면 여느 때처럼 온다');
+});
+
+test('★ §16-19 수비 깃발 — 수비 배치 주민이 깃발 곁으로 모여 선다', async () => {
+  const { applyCommand } = await import('../server/engine/commands.js');
+  const { createRng } = await import('../server/engine/rng.js');
+  const { world, nation, t } = scene({ chapter: 8 });
+  const rng = createRng(12);
+  nation.villagers = Array.from({ length: 4 }, (_, i) => ({
+    id: `v${i}`, name: `주민${i}`, job: i < 3 ? 'defense' : 'farm', targetId: null,
+    x: t.x, y: t.y, destX: t.x, destY: t.y,
+  }));
+  nation.population = 4;
+  const fx = t.x + 5;
+  const fy = t.y;
+  const res = applyCommand(world, 'player', { type: 'setDefenseFlag', x: fx, y: fy }, data, rng);
+  assert.equal(res.ok, true, JSON.stringify(res.error ?? null));
+  assert.equal(res.moved, 3, '수비 배치 주민 셋이 명을 받았다');
+  for (const u of nation.villagers) {
+    if (u.job !== 'defense') continue;
+    assert.ok(dist(u.destX, u.destY, fx, fy) <= 2, '목적지가 깃발 곁이다');
+  }
+  const off = applyCommand(world, 'player', { type: 'setDefenseFlag', x: null }, data, rng);
+  assert.equal(off.ok, true);
+  assert.equal(nation.defenseFlag, null, '깃발을 걷었다');
+});

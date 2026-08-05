@@ -34,6 +34,9 @@ function settlement(opts = {}) {
   const nation = world.nations.player;
   openChapterForDebug(null, nation, data, opts.chapter ?? 5);
   if (opts.tier) nation.tier = opts.tier;
+  /* ★ §16-7b — 이 파일은 「사람이 이미 내려서 세상이 도는」 판을 잰다.
+     마차에서 내리기 전의 동결(awake)은 §16 회귀(playtest16)가 따로 잰다. */
+  (nation.companions ||= {}).awake = true;
   return { world, nation, t: townOf(world, 'player') };
 }
 
