@@ -184,7 +184,8 @@ class GameRuntime {
         if (reveal) io.to(this.gameId).emit('worldDiff', reveal);
       }
       if (crew.events.length) this.emitImmediate(nation.id, crew.events);
-      if (crew.actions.some((a) => a.buildingDone)) this.broadcastState();
+      /* ★ §16-6 — 집사가 착공하거나 사람을 불렀으면(stateDirty) 화면도 그 자리에서 새 판을 받는다 */
+      if (crew.actions.some((a) => a.buildingDone) || crew.stateDirty) this.broadcastState();
     }
   }
 

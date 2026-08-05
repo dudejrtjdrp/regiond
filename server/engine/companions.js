@@ -22,17 +22,17 @@ import { normalizeAppearance, appearanceCfg, upsertMember } from './social.js';
 import {
   ensurePlayer, playerMaxHp, combatSkillCfg, swingCfg, skillsCfg,
 } from './skills.js';
-import { creatureDefs, huntSwing } from './ecology.js';
+import { creatureDefs, huntSwing, ranchOpenFor } from './ecology.js';
 import { actionSwing } from './actions.js';
 import { combatSwing } from './battle.js';
-import { centerOf, footprint, structuresOf, isRuined } from './structures.js';
+import { centerOf, footprint, structuresOf, isRuined, startBuild } from './structures.js';
 import { isHarvestReady } from './villagers.js';
 import { isFull } from './storage.js';
-import { grainDays } from './residents.js';
+import { grainDays, freeBeds, recruitResident, recruitStatus } from './residents.js';
 import { defaultName } from './npc.js';
 import { revealAvatar } from './fog.js';
 import { startResearch, RESEARCH_KEYS } from './research.js';
-import { commandUnlocked } from './progression.js';
+import { commandUnlocked, featureUnlocked, buildingUnlocked, currentChapter } from './progression.js';
 import { round2 } from './economy.js';
 
 export const companionCfg = (data) => data.companions ?? {};
@@ -410,6 +410,28 @@ function nearestPredator(world, nation, data, av) {
   return best;
 }
 
+/**
+ * ★ §16-5 — 사냥감 고르기. 곳간의 곡물이 마르면 들의 온순한 짐승을 사냥해 고기를 채운다
+ * (고기 1 = 곡물 3). 목장이 거둔 가축은 건드리지 않고(§15-A-3 터렛과 같은 규칙),
+ * 본부에서 너무 먼 놈은 쫓지 않는다(creatureLeash) — 사냥 갔다가 사나운 띠로 끌려가지 않게.
+ */
+function nearestPrey(world, nation, data, av, town) {
+  const defs = creatureDefs(data);
+  const B = brainCfg(data);
+  const leash = B.creatureLeash ?? 26;
+  let best = null;
+  let bd = B.huntRadius ?? 24;
+  for (const c of nation.wild?.creatures || []) {
+    const def = defs[c.sp];
+    if (!def || def.kind !== 'animal') continue;
+    if (ranchOpenFor(world, nation, data, c.sp, c.x, c.y)) continue;   // 목장의 가축은 잡지 않는다
+    if (town && dist(c.x, c.y, town.x, town.y) > leash) continue;
+    const d = dist(c.x, c.y, av.x, av.y);
+    if (d <= bd) { bd = d; best = { c, d }; }
+  }
+  return best;
+}
+
 function nearestEnemy(battle, x, y) {
   let best = null;
   let bd = Infinity;
@@ -457,6 +479,16 @@ function decide(world, nation, data, actor, player, av, opts = {}) {
        거둔 것을 곳간에 부리러 걸어가는 그림이 곧 쉬는 시간의 얼굴이다(§14-1 운반 연출과 같은 뜻).
        ★ 싸움보다 **뒤에** 둔다: 예산은 노동의 다이얼이지 「칼을 놓아라」가 아니다(웨이브가 먼저다). */
     if (opts.hauling && town) return { kind: 'haul', x: town.x, y: town.y };
+
+    /* ③-c ★ §16-5 — 고기 사냥. 곡물이 며칠치 안 남았고 고기 곳간에 자리가 있으면
+       들의 짐승을 사냥해 온다(고기 1 = 곡물 3 — 식량 위기의 실질적인 완충이다).
+       사냥 갈래가 열린 뒤부터다(3장 '허기') — 잠긴 것은 부재다(§11-1). */
+    if (featureUnlocked(nation, 'hunt', data)
+      && grainDays(nation, data) < (B.huntGrainDays ?? 5)
+      && !isFull(nation, 'meat', data)) {
+      const prey = nearestPrey(world, nation, data, av, town);
+      if (prey) return { kind: 'creature', id: prey.c.id };
+    }
   }
 
   // ④ 공사장
@@ -661,6 +693,77 @@ function autoResearch(world, nation, data) {
   return null;
 }
 
+// ────────────────────────────────────────────────────────────────
+// ★ §16-6 — 집사(steward): 자동 플레이·동료가 나라 살림도 본다
+//
+// 피드백: "자동을 켜도 캐기만 하고 가만히 있는다 — 채집도 하고 **건설도 하고 사람도 모으고**
+// 사냥도 하는 수준을 원한다." 손(스윙)은 이미 있으니, 여기서는 **머리**를 보탠다:
+//   · 잠자리가 다 찼으면 집을 한 채 앉힌다(사람은 빈 잠자리가 있어야 걸어온다)
+//   · 곳간이 넘치면 저장고를 앉힌다(가득 찬 곳간은 채집을 통째로 멈춰 세운다)
+//   · 식량이 넉넉하고 모집이 열려 있으면 사람을 부른다(본부 [모집]과 같은 함수·같은 값)
+//
+// 규율 셋:
+//   ① **사람과 같은 문을 지난다** — buildingUnlocked·commandUnlocked·startBuild(autoSpot)·
+//      recruitResident 를 그대로 탄다. 여기서 셈을 새로 하지 않는다.
+//   ② **동료 단독으로는 장 사슬을 앞지르지 않는다** — 동료만 있을 때는 botsFromChapter(8장,
+//      첫 웨이브 뒤)부터만 살림을 본다. 튜토리얼의 「처음 세워 보세요」는 사람의 몫이다.
+//      자동 플레이는 사람이 스스로 켠 손이므로 장만 열려 있으면 언제든 본다.
+//   ③ **곳간을 비우지 않는다** — 값의 costReserve 배가 있을 때만 짓는다. 한 번에 한 현장만.
+// ────────────────────────────────────────────────────────────────
+const stewardCfg = (data) => companionCfg(data).steward ?? {};
+
+function stewardBuildKey(world, nation, data) {
+  const S = stewardCfg(data);
+  const reserve = S.costReserve ?? 1.3;
+  const afford = (key) => {
+    const cost = data.buildings[key]?.tiers?.[0]?.cost || {};
+    return Object.entries(cost).every(([r, n]) => (nation.resources?.[r] || 0) >= n * reserve);
+  };
+  const usable = (key) => data.buildings[key] && buildingUnlocked(nation, key, data) && afford(key);
+  // ① 잠자리 — 빈 자리가 없으면 사람이 더 오지 않는다. 지을 수 있는 것 중 가장 좋은 집부터.
+  if (freeBeds(nation, data) < 1) {
+    for (const key of S.housing ?? ['manor', 'house', 'hut', 'tent']) if (usable(key)) return key;
+  }
+  // ② 곳간 — 하나라도 가득 찼으면 저장고. (가득 찬 자원은 채집 대상에서 빠지므로 손이 논다)
+  const full = (S.watchResources ?? ['wood', 'stone', 'grain']).some((r) => isFull(nation, r, data));
+  if (full) {
+    for (const key of S.storage ?? ['storage', 'storage_crate']) if (usable(key)) return key;
+  }
+  return null;
+}
+
+function stewardStep(world, nation, data, out) {
+  const S = stewardCfg(data);
+  if (S.enabled === false) return;
+  // 사람 모으기 — 식량이 넉넉할 때만(모자란 살림에 입을 늘리지 않는다)
+  if (commandUnlocked(nation, 'recruitResident', data)
+    && grainDays(nation, data) >= (S.recruitGrainDays ?? 4)
+    && recruitStatus(world, nation, data).open) {
+    const { r, save } = companionRng(world, nation);
+    const res = recruitResident(world, nation, data, r);
+    save();
+    if (res.ok) {
+      out.stateDirty = true;
+      out.events.push({
+        kind: 'resident_arrived', nationId: nation.id,
+        data: {
+          id: res.resident.id, name: res.resident.name, x: res.resident.x, y: res.resident.y,
+          stats: { ...res.resident.stats }, population: Math.floor(nation.population || 0),
+          recruited: true,
+        },
+      });
+    }
+  }
+  // 건설 — 이미 두드릴 현장이 있으면 손을 더 벌리지 않는다(동료들이 그리로 간다)
+  const open = (nation.construction || []).filter(joinableSite).length;
+  if (open >= (S.maxOpenSites ?? 1)) return;
+  if (!commandUnlocked(nation, 'placeBuilding', data)) return;
+  const key = stewardBuildKey(world, nation, data);
+  if (!key) return;
+  const res = startBuild(world, nation, { building: key }, data);   // 좌표 없는 착공 — autoSpot 이 자리를 잡는다
+  if (res.ok) out.stateDirty = true;
+}
+
 /**
  * 저빈도(1초) 한 걸음 — server/index.js 의 생태계 루프가 부른다.
  * @returns {{moved, actions, events, avatars}} 방에 흘릴 재료
@@ -700,6 +803,15 @@ export function stepCompanions(world, nation, data, dt = 1, opts = {}) {
       const got = autoResearch(world, nation, data);
       if (got?.events?.length) out.events.push(...got.events);
       if (got) out.research = got.research ?? got;
+    }
+  }
+  /* ★ §16-6 — 집사. 자동 플레이가 켜져 있으면 언제나, 동료만 있을 때는 8장(첫 웨이브 뒤)부터. */
+  const botsMayManage = (currentChapter(nation, data)?.id ?? 1) >= (stewardCfg(data).botsFromChapter ?? 8);
+  if (anyAuto || (botsMayManage && st.list.some((c) => c.active))) {
+    st.stewardAt = (st.stewardAt || 0) - dt;
+    if (st.stewardAt <= 0) {
+      st.stewardAt = stewardCfg(data).everySeconds ?? 6;
+      stewardStep(world, nation, data, out);
     }
   }
   out.avatars = out.moved > 0;
