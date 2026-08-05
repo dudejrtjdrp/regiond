@@ -14,11 +14,14 @@ import {
   centerOf, footprint,
 } from './structures.js';
 import { markHarvestCycle, fieldStage, fieldStageView, isHarvestReady } from './villagers.js';
+import { housewarmArrival } from './residents.js';   // ★ §17-6 집들이
 // ★ GDD3 §13-A-5 — 국고로 들어오는 문은 storage.deposit 하나다.
 import { deposit, isFull, storageLimit, FULL_MESSAGE } from './storage.js';
 import { round2, round3 } from './economy.js';
 // ★ GDD3 §13-D-4 — 장비에 깃든 특성. 「거두는 손」·「나무 결」이 여기서 실제 몫이 된다.
 import { equipEffects } from './equipment.js';
+// ★ §17-15 — 역할 개성. 건축가 본인의 망치질은 더 나간다(siteWorkMultiplier).
+import { rolePerk } from './npc.js';
 
 const err = (code, message, extra = {}) => ({ ok: false, error: { code, message, ...extra } });
 
@@ -230,7 +233,14 @@ function swingSite(world, nation, player, siteId, cmd, data, now) {
   const mult = yieldMultiplier(nation, player, spec.skill, data);
   site.swings = (site.swings || 0) + 1;
   const cycleDone = site.swings % spec.swings === 0;
-  const points = round2((spec.buildPointsPerSwing + (cycleDone ? spec.cycleBonus : 0)) * mult);
+  /* ★ §17-15 — 건축가 **본인**의 망치질은 25% 더 나간다. 그 자리를 맡은 사람(roles.build.owner)
+     또는 그 자리에 앉은 동료 봇(roles.build.botId)이 휘두를 때만이다 — 자리가 채워졌다고
+     모두의 공사가 빨라지는 것이 아니라, 그 사람이 현장에 서는 것이 값이다. */
+  const br = nation.roles?.build;
+  const architectSelf = br?.holder
+    && ((br.holder === 'npc' && br.botId === player.id) || (br.holder === 'player' && br.owner === player.id));
+  const perk = architectSelf ? rolePerk(nation, 'build', 'siteWorkMultiplier', data) : 1;
+  const points = round2((spec.buildPointsPerSwing + (cycleDone ? spec.cycleBonus : 0)) * mult * perk);
   site.remaining = Math.max(0, round2(site.remaining - points));
 
   const xpCfg = swingCfg(data);
@@ -294,6 +304,8 @@ function swingSite(world, nation, player, siteId, cmd, data, now) {
     if (idx >= 0) nation.construction.splice(idx, 1);
     const built = completeStructure(world, nation, site, data);
     syncLegacyBuildings(nation, data);
+    // ★ §17-6 집들이 — 마지막 망치질로 지붕이 오르면 한 사람이 곧장 들어온다
+    const guest = built ? housewarmArrival(world, nation, built, data) : null;
     const info = {
       structureId: built?.id ?? null, building: site.building, key: site.building,
       name: structureName(site.building, site.tier, data),
@@ -304,6 +316,18 @@ function swingSite(world, nation, player, siteId, cmd, data, now) {
     out.structure = built ? structureView(nation, built, data) : null;
     out.buildingDone = info;
     out.events = [{ kind: 'building_done', nationId: nation.id, data: info }];
+    if (guest) {
+      nation.stats.residentsArrived = (nation.stats.residentsArrived || 0) + 1;
+      out.housewarm = { id: guest.id, name: guest.name };
+      out.events.push({
+        kind: 'resident_arrived', nationId: nation.id,
+        data: {
+          id: guest.id, name: guest.name, appearance: guest.appearance, x: guest.x, y: guest.y,
+          total: nation.stats.residentsArrived, population: Math.floor(nation.population),
+          capacity: nation.populationCap ?? null, housewarm: true,
+        },
+      });
+    }
   }
   return out;
 }

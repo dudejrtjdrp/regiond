@@ -101,6 +101,7 @@
       "moraleWeight": 0.6,
       "attractivenessMax": 2.4,
       "firstFreeArrival": true,
+      "onHousingComplete": true,
       "_note": "★ GDD3 §12-4 — 도착 주기를 0.5~1게임일로 당기고 매력도 가중을 키웠다. 실제 주기 = baseIntervalDays ÷ 매력도 × (1 + crowdingPerResident × 인구), 하한 minIntervalDays. 매력도 = 1 + 식량 잉여 + 장식·발전 건물 + 사기, 상한 attractivenessMax. crowdingPerResident(붐빔)는 \"빈 개척지에는 소문이 금세 닿지만 그득한 곳에는 올 이유가 줄어든다\"를 수치화한 것이다 — 이 항이 없으면 85일 인구가 두 배로 불어 웨이브 곡선이 무너진다(docs/PROTOCOL.md §9-3 근거).",
       "crowdingPerResident": 0.1
     },
@@ -656,5 +657,9 @@
     "hqBase": 500,
     "hqPerTier": 250,
     "capPerTierMultiplier": 1.6
+  },
+  "handWork": {
+    "_note": "★ §17-9 — 건물 손일(직접 상호작용). reachTiles 는 건물 중심까지 손이 닿는 거리(발자국 절반을 더해 판정).",
+    "reachTiles": 3.2
   }
 }

@@ -25,7 +25,7 @@ const __openChapter = (nation, id) => openChapterForDebug(null, nation, data, id
 
 const newWorld = (seed = 1) => createWorld({ seed, data, playerName: '테스트' });
 
-test('티어 0 — 마차에서 내린 자리: 주민 0, 모닥불 하나, 반경 6', () => {
+test('티어 0 — 마차에서 내린 자리: 주민 0, 모닥불 하나, 반경 9', () => {
   const w = newWorld();
   const n = w.nations.player;
   assert.equal(settlementTier(n), 0);
@@ -33,11 +33,11 @@ test('티어 0 — 마차에서 내린 자리: 주민 0, 모닥불 하나, 반�
   assert.equal(n.villagers.length, 0);
   assert.deepEqual(n.structures.map((s) => s.key), ['campfire']);
   assert.equal(territoryRadius(n, data), tierRadius(0, data));
-  assert.equal(tierRadius(0, data), 6);
+  assert.equal(tierRadius(0, data), 9);   // ★ §17-8 — 시작 영토 6→9
 });
 
 test('티어 표 — 조건·반경이 GDD3 §1 표와 일치한다', () => {
-  const expect = [[0, 6], [1, 9], [2, 12], [3, 16], [4, 20], [5, 25], [6, 29]];
+  const expect = [[0, 9], [1, 13], [2, 17], [3, 22], [4, 27], [5, 33], [6, 38]];  // ★ §17-8
   for (const [tier, radius] of expect) {
     assert.equal(tierDef(tier, data).radius, radius, `T${tier} 반경 ${radius}`);
   }
@@ -74,8 +74,8 @@ test('티어업 — 조건이 차면 영토가 넓어진다 (개척령 폐지)',
   const leveled = evaluateTier(w, n, data);
   assert.equal(leveled.length, 1);
   assert.equal(leveled[0].tier, 1);
-  assert.equal(territoryRadius(n, data), 9, '반경이 6 → 9 로 넓어진다');
-  assert.equal(leveled[0].fromRadius, 6);
+  assert.equal(territoryRadius(n, data), 13, '반경이 9 → 13 으로 넓어진다');
+  assert.equal(leveled[0].fromRadius, 9);
 
   // 개척령 명령은 더 이상 없다
   assert.equal(applyCommand(w, 'player', { type: 'expand' }, data, rng).ok, false);
@@ -91,7 +91,7 @@ test('티어업 — 조건이 여러 단계 차 있으면 (사람 손이 닿지 
   const leveled = evaluateTier(w, n, data);
   assert.ok(leveled.length >= 3, `한 번에 ${leveled.length}단계`);
   assert.equal(settlementTier(n), 3);
-  assert.equal(territoryRadius(n, data), 16);
+  assert.equal(territoryRadius(n, data), 22);
 });
 
 test('해금 — ★ v3.1: 티어가 아니라 장(chapter)이 정본이다', () => {
@@ -182,7 +182,7 @@ test('★ §12-2 승격 — 조건이 모자라면 튕기고, 차면 한 단계�
   const a = applyCommand(w, 'player', { type: 'promoteSettlement' }, data, rng);
   assert.equal(a.ok, true);
   assert.equal(settlementTier(n), 1);
-  assert.equal(territoryRadius(n, data), 9);
+  assert.equal(territoryRadius(n, data), 13);
 
   const b = applyCommand(w, 'player', { type: 'promoteSettlement' }, data, rng);
   assert.equal(b.ok, true);

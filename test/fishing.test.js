@@ -62,7 +62,7 @@ test('어로 — 물가를 치면 식량이 들어온다 (여물기를 기다리
   assert.equal(r.ok, true, JSON.stringify(r.error));
   assert.equal(r.skill, 'farm');
   assert.equal(r.swingsPerCycle, SPEC.swings);
-  assert.ok(r.gained.grain > 0, '식량이 들어온다');
+  assert.ok(r.gained.meat > 0, '고기가 들어온다');   // ★ §17-5 — 물고기는 고기다
   assert.ok(node.amount < node.max, '물고기가 줄어든다');
   assert.equal(nation.players.lord.skills.farm.xp > 0, true, '농사 솜씨로 쌓인다');
 });
@@ -76,13 +76,13 @@ test('어로 — 한 주기를 끝내면 큰 몫이 터진다', () => {
   for (let i = 0; i < SPEC.swings; i += 1) {
     const r = swing(world, node, rng, now);
     assert.equal(r.ok, true, JSON.stringify(r.error));
-    total += r.gained.grain ?? 0;
+    total += r.gained.meat ?? 0;
     assert.equal(r.cycle, i === SPEC.swings - 1);
     now += 2000;
   }
-  const perCycle = SPEC.yield.grain * SPEC.swings + SPEC.cycleBonus.grain;
+  const perCycle = SPEC.yield.meat * SPEC.swings + SPEC.cycleBonus.meat;
   assert.ok(Math.abs(total - perCycle) < 0.01, `한 주기 ${total} = ${perCycle}`);
-  assert.ok(nation.resources.grain >= data.balance.startingResources.grain + perCycle - 0.01);
+  assert.ok((nation.resources.meat ?? 0) >= (data.balance.startingResources.meat ?? 0) + perCycle - 0.01);
 });
 
 test('어로 — 물목은 바닥나고 며칠에 걸쳐 다시 몰려온다 (무한 식량 금지)', () => {

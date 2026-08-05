@@ -2,10 +2,12 @@
 // ★ v3 전환: 건물은 이제 '국가 티어 1개'가 아니라 '실체마다 자기 티어'를 갖는다.
 //   같은 건물을 여러 채 지으면 효과가 합산되지만, 합산값은 data/buildings.json effectRules 의 상한에 눌린다
 //   (기존 밸런스를 물려받은 항목은 배수 1 — 옛 상한 그대로라 경제가 흔들리지 않는다).
-import { townOf, territoryRadius, terrainNameAt, dist, cheb, addNode } from './world.js';
+import { townOf, territoryRadius, inTerritory, terrainNameAt, dist, cheb, addNode } from './world.js';
 import { buildingCost } from './build_cost.js';
 import { settlementTier } from './tiers.js';
 import { round2, round3 } from './economy.js';
+// ★ §17-13 — 매립한 물 칸은 뭍으로 쳐 준다(매립의 핵심 보상: 그 위에 지을 수 있다)
+import { onFill } from './research.js';
 
 export const placeCfg = (data) => data.world.buildingPlacement;
 export const effectRules = (data) => data.buildings.effectRules;
@@ -345,16 +347,28 @@ export function validatePlacement(world, nation, key, x, y, data, opts = {}) {
   }
   const town = townOf(world, nation.id);
   if (!town) return { ok: false, code: 'NO_TOWN', message: '정착지가 없습니다.' };
-  const radius = territoryRadius(nation, data);
+  /* ★ §17-14 — 개척 깃발(allowOutsideTerritory)은 유일하게 영토 밖에 선다. 다만 본영에서
+     claim.maxRangeFromTown 안이어야 한다(지도 반대편에 깃발만 던져 두는 것을 막는다).
+     그 밖의 건물은 영토 판정을 inTerritory 로 본다 — 본영 원에 더해 깃발로 얻은
+     점령지(nation.claims) 안에도 지을 수 있다. */
+  const allowOutside = Boolean(data.buildings?.[key]?.allowOutsideTerritory);
+  const maxRange = data.world.territory.claim?.maxRangeFromTown ?? 70;
   let bad = null;
   eachCell(rect, (cx, cy) => {
     if (bad) return;
-    if (dist(town.x, town.y, cx, cy) > radius + 0.001) {
+    if (allowOutside) {
+      if (dist(town.x, town.y, cx, cy) > maxRange + 0.001) {
+        bad = { ok: false, code: 'TOO_FAR', message: '본영에서 너무 멉니다.' };
+        return;
+      }
+    } else if (!inTerritory(world, nation, cx, cy, data)) {
       bad = { ok: false, code: 'OUT_OF_TERRITORY', message: '아직 우리 땅이 아닙니다.' };
       return;
     }
     const terrain = terrainNameAt(world.map, cx, cy, data);
-    if (!(data.world.terrain.buildable || []).includes(terrain)) {
+    if (!(data.world.terrain.buildable || []).includes(terrain)
+      /* ★ §17-13 매립 — 메운 물 칸은 buildable 로 친다. 다리는 해당 없다(그 위에는 못 짓는다). */
+      && !(terrain === 'water' && onFill(nation, cx, cy))) {
       bad = { ok: false, code: 'BAD_TERRAIN', message: '여기에는 지을 수 없습니다.' };
     }
   });
@@ -448,6 +462,12 @@ export function startBuild(world, nation, cmd, data, hooks = {}) {
   //   AI 3국은 사슬이 없으므로 티어 기준을 그대로 쓴다.
   if (!nation.isPlayer && settlementTier(nation) < (def.requiresTier ?? 0)) {
     return err('TIER_LOCKED', `정착지 티어 ${def.requiresTier} 부터 지을 수 있습니다.`);
+  }
+  /* ★ §17-15 — 건축가 전용 건물. 저택·노포·화포 같은 대형 구조물은 그 자리(requiresRole)가
+     채워져 있어야 착공된다 — 사람이든 동료 봇이든 자리를 지키고 있으면 된다. */
+  if (def.requiresRole && !nation.roles?.[def.requiresRole]?.holder) {
+    const roleName = data.roles.defs?.[def.requiresRole]?.name ?? def.requiresRole;
+    return err('ROLE_REQUIRED', `${roleName}이(가) 자리에 있어야 지을 수 있습니다.`);
   }
   if (def.multi === false && (structuresOf(nation, key).length > 0
     || (nation.construction || []).some((c) => c.building === key && !c.structureId))) {
@@ -869,6 +889,8 @@ export function structureView(nation, s, data, { architect = false } = {}) {
     //   클라의 건물 정보 패널이 이 두 값이 있을 때만 그 단추를 그린다.
     action: def?.action ?? null,
     actionLabel: def?.actionLabel ?? null,
+    // ★ §17-9 — 건물 손일(직접 상호작용). 설정 원본을 그대로 실어 패널이 값·설명을 그린다.
+    handWork: def?.handWork ? { ...def.handWork } : null,
   };
 }
 
@@ -964,6 +986,9 @@ export function publicBuildings(data) {
       counters: def.counters ?? null,
       workSlots: def.workSlots ?? 0,
       job: def.job ?? null,
+      // ★ §17-14 · §17-15 — 클라 고스트가 서버와 같은 판정을 그리기 위한 두 깃발
+      allowOutsideTerritory: Boolean(def.allowOutsideTerritory),
+      requiresRole: def.requiresRole ?? null,
       tiers: def.tiers.map((t, i) => ({
         tier: i + 1,
         name: t.name ?? def.name,

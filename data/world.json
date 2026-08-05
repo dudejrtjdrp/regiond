@@ -174,7 +174,7 @@
         "name": "물가",
         "terrain": "water",
         "job": "farm",
-        "resource": "grain",
+        "resource": "meat",
         "count": 170,
         "minSpacing": 2,
         "slots": 3,
@@ -322,6 +322,21 @@
         "contributionWeight": 1
       }
     },
+    "clear": {
+      "_note": "★ §17-12 — 걷어내기(clearNode). 영토 안의 자원 자리를 치워 건물 놓을 땅을 내고, 잔량 × refundRatio 만큼을 refundResource 의 재화로 돌려받는다(창고 상한 준수 — storage.deposit 하나로만 들어간다). refundResource 에 **적힌 종류만** 걷어 낼 수 있다: 물목·철광맥·유막·유적·석탄은 여기 없으므로 못 걷는다. 값이 null 이면 걷되 환급이 없다(기름진 땅·밭). minRefund 는 종류별 최소 환급 — 숲 한 자리를 걷으면 잔량이 바닥이어도 나무가 이만큼은 나온다(피드백: \"나무를 다량 확보\").",
+      "onlyTerritory": true,
+      "refundRatio": 0.5,
+      "refundResource": {
+        "forest": "wood",
+        "berry": "grain",
+        "rock": "stone",
+        "fertile": null,
+        "field": null
+      },
+      "minRefund": {
+        "forest": 6
+      }
+    },
     "contribution": {
       "_note": "노드 기여 — 백성이 붙어 일하는 노드 1곳당 해당 산출 +perNode×weight, rich 면 곱절, 상한 +20%. 콥더글러스에 곱하지 않고 산출 마지막에 (1+기여) 한 번만 적용한다. ★ GDD3: 부처 산출이 도는 티어(production.departmentsFromTier) 이상에서만 의미가 있다.",
       "perNode": 0.0065,
@@ -331,11 +346,11 @@
     },
     "clusters": {
       "_note": "★ GDD3 §13-B-1·2 — 랜덤 산포 폐지. 자원은 이제 **군락**으로 앉는다: 씨앗 한 점을 고르고 그 둘레 원 안에 같은 종류를 여럿 심는다. 그래서 숲은 숲답게 뭉치고, 딸기 들·바위 지대·강가 어장이 '지역'으로 읽힌다(클라는 map.clusters 로 바닥 질감을 달리 칠한다). clearRadius 안에는 자원 노드가 한 톨도 없다 — 시작 영토(6)에 여유 2를 더한 값이고, 건물을 놓을 자리가 깨끗해야 한다는 요구(§13-B-2)의 정본이다. centerRadius 는 군락 '씨앗'이 앉을 수 있는 최소 거리라, 큰 군락은 티어 2 반경 밖에서 자란다. nearGuarantee 는 그 띠 안에 반드시 놓이는 첫 군락들이다 — 마차에서 내려 8~13타일만 걸으면 첫 나무·첫 열매·첫 물가가 있다(사슬 1~3장이 이 거리를 전제로 굴러간다). 첫 군락의 띠는 시작 탐사 반경(fog.startExploredRadius=14) 안에 들도록 잡는다 — 마차에서 내리자마자 눈에 보여야 '가서 베어라'가 성립한다.",
-      "clearRadius": 8,
-      "centerRadius": 11,
+      "clearRadius": 11,
+      "centerRadius": 14,
       "ring": [
-        8,
-        20
+        11,
+        23
       ],
       "nearGuarantee": [
         {
@@ -346,8 +361,8 @@
             9
           ],
           "ring": [
-            8,
-            12
+            11,
+            15
           ]
         },
         {
@@ -358,8 +373,8 @@
             6
           ],
           "ring": [
-            8,
-            12
+            11,
+            15
           ]
         },
         {
@@ -370,8 +385,8 @@
             5
           ],
           "ring": [
-            8,
-            14
+            12,
+            18
           ]
         },
         {
@@ -382,8 +397,8 @@
             4
           ],
           "ring": [
-            9,
-            13
+            12,
+            16
           ]
         },
         {
@@ -394,8 +409,8 @@
             6
           ],
           "ring": [
-            9,
-            13
+            12,
+            16
           ]
         }
       ],
@@ -535,23 +550,33 @@
     }
   },
   "territory": {
-    "_note": "영토 = 정착지 중심 반경. ★ GDD3 §1 — 티어가 오르면 자동으로 넓어진다(data/tiers.json levels[].radius). 개척령(expand)은 폐기됐다.",
-    "baseRadius": 6,
-    "aiBaseRadius": 10
+    "_note": "영토 = 정착지 중심 반경. ★ GDD3 §1 — 티어가 오르면 자동으로 넓어진다(data/tiers.json levels[].radius). 개척령(expand)은 폐기됐다. ★ §17-8 피드백 — 시작 영토를 6→9로 넓히고 티어별 폭도 키웠다. spawnWaterClearMargin: 시작 영토+이 값 안의 물은 월드 생성 때 풀밭으로 메운다(첫 땅에 물이 차면 이동·건설이 다 막힌다).",
+    "baseRadius": 9,
+    "aiBaseRadius": 14,
+    "spawnWaterClearMargin": 2,
+    "claim": {
+      "_note": "★ §17-14 — 깃발 멀티. 본영 밖에 개척 깃발 flagsRequired개를 groupRadius 안에 모아 세우고, 건축가·국방대신 역할의 동료(또는 그 역할을 든 아바타)가 둘 다 무리 중심 escortRadius 안에 서면 그 자리가 새 영토(claimRadius)로 편입된다.",
+      "flagsRequired": 3,
+      "groupRadius": 7,
+      "escortRadius": 6,
+      "claimRadius": 9,
+      "maxClaims": 4,
+      "maxRangeFromTown": 70
+    }
   },
   "fog": {
     "_note": "전장의 안개 — 0 미탐사 / 1 탐사됨(정적 정보만) / 2 시야. 자국 마스크만 만든다. 청크 단위(chunk×chunk)로 스탬프를 찍어 worldDiff 가 바뀐 청크만 보낸다. ★ GDD3 §12-8 — 아바타·건물의 시야 반경은 기본값 + 정착지 티어 × visionPerTier 다(영토가 클수록 세상이 넓게 보인다).",
     "chunk": 16,
     "vision": {
-      "town": 13,
-      "building": 6,
+      "town": 16,
+      "building": 7,
       "site": 4,
-      "villager": 4,
-      "scout": 7,
-      "lord": 9
+      "villager": 5,
+      "scout": 9,
+      "lord": 11
     },
     "nightVisionMultiplier": 0.8,
-    "startExploredRadius": 14,
+    "startExploredRadius": 17,
     "visionPerTier": 0.5
   },
   "villagers": {

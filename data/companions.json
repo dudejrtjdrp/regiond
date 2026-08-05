@@ -15,6 +15,10 @@
     "moveTilesPerSecond": 4.0,
     "carryHomeRadius": 2.5
   },
+  "orders": {
+    "_note": "★ §17-11 수동 지시 — 동료를 눌러 「이곳으로 보낸다」로 찍은 자리. arriveTiles 안에 닿으면 그 자리에서 지시 대기(hold)로 서고, 지시를 걷거나 새로 내릴 때까지 두뇌의 다른 갈래(경계·사냥·공사·채집)를 모두 물린다. 걷는 데는 하루 예산(credit)을 쓰지 않는다 — 예산은 스윙에만 매인다.",
+    "arriveTiles": 1.2
+  },
   "brain": {
     "_note": "1초 FSM. decideEverySeconds 마다 목표를 다시 고르고, 그 사이에는 고른 목표로 걷는다.",
     "decideEverySeconds": 3,

@@ -12,6 +12,9 @@ import { round2, round3, clamp } from './economy.js';
 
 export const researchCfg = (data) => data.research;
 export const railCfg = (data) => data.research.rails;
+// ★ §17-13 — 다리·매립. 철로와 같은 배치 문법이되 자리가 정반대다(물 위에만 놓인다).
+export const bridgeCfg = (data) => data.research.bridges;
+export const fillCfg = (data) => data.research.fill;
 export const researchDef = (key, data) => researchCfg(data).defs[key] ?? null;
 export const RESEARCH_KEYS = (data) => researchCfg(data).order;
 
@@ -260,9 +263,10 @@ export function railSet(nation) {
 export const onRail = (nation, x, y) =>
   railSet(nation).has(railKey(Math.round(x), Math.round(y)));
 
-/** 드래그 경로 → 칸 목록(브레젠험). fences.walkLine 과 같은 걸음이되 결과가 칸이다. */
-export function tilesFromPoints(points, data) {
-  const cfg = railCfg(data);
+/** 드래그 경로 → 칸 목록(브레젠험). fences.walkLine 과 같은 걸음이되 결과가 칸이다.
+    ★ §17-13 — 다리·매립도 같은 걸음을 쓴다: cfg 를 넘기면 그 규격(maxSegmentSpan)으로 잰다. */
+export function tilesFromPoints(points, data, cfgIn = null) {
+  const cfg = cfgIn ?? railCfg(data);
   const clean = [];
   for (const p of points || []) {
     const x = Math.round(Number(p?.x));
@@ -388,6 +392,137 @@ export function railSummary(nation, data) {
   };
 }
 
+// ────────────────────────────────────────────────────────────────
+// ★ §17-13 — 다리(bridge)·매립(fill): 물 위의 칸 조각.
+//
+// 철로(placeRail)의 근사 복제이되 딱 하나가 뒤집혀 있다 — 철로는 물이 blockedTerrain 이고,
+// 이 둘은 물이 allowedTerrain 이다(물 위에**만** 놓인다). 위를 지나는 문은 사람에게만 열린다:
+// avatar.walkable(클라) · companions.walkable(서버)이 onBridge/onFill 을 본다.
+// **짐승(ecology.creatureMayStand)과 적(battle)은 다리를 못 쓴다** — 물은 여전히 그들의 벽이다.
+// 매립은 한 발 더 간다: structures.validatePlacement · fences.validateSegment 가 메운 물 칸을
+// 뭍으로 쳐 준다 — 후반 영토가 물에 막히지 않게 하는 장치다.
+// ────────────────────────────────────────────────────────────────
+const OVERLAYS = {
+  bridge: {
+    cfgOf: bridgeCfg, feature: 'bridges', list: 'bridges', nextId: 'nextBridgeId', prefix: 'br',
+    memoSet: '_bridgeSet', memoStamp: '_bridgeStamp',
+    noResearch: '다리를 아직 모릅니다.', noPiece: '그런 다리 조각이 없습니다.',
+    capMsg: '다리를 더 놓을 수 없습니다.',
+  },
+  fill: {
+    cfgOf: fillCfg, feature: 'landfill', list: 'fills', nextId: 'nextFillId', prefix: 'fl',
+    memoSet: '_fillSet', memoStamp: '_fillStamp',
+    noResearch: '매립을 아직 모릅니다.', noPiece: '그런 매립 칸이 없습니다.',
+    capMsg: '더 메울 수 없습니다.',
+  },
+};
+
+function overlaySet(nation, o) {
+  const list = nation[o.list] || [];
+  if (!nation[o.memoSet] || nation[o.memoStamp] !== list.length) {
+    nation[o.memoSet] = new Set(list.map((t) => railKey(t.x, t.y)));
+    nation[o.memoStamp] = list.length;
+  }
+  return nation[o.memoSet];
+}
+
+export const onBridge = (nation, x, y) =>
+  overlaySet(nation, OVERLAYS.bridge).has(railKey(Math.round(x), Math.round(y)));
+export const onFill = (nation, x, y) =>
+  overlaySet(nation, OVERLAYS.fill).has(railKey(Math.round(x), Math.round(y)));
+
+/** placeRail 의 문법 그대로 — 다만 지형 판정이 반대다(allowedTerrain 밖이면 BAD_TERRAIN) */
+function placeOverlay(world, nation, cmd, data, o) {
+  if (!researchFeature(nation, o.feature, data)) return err('NO_RESEARCH', o.noResearch);
+  const cfg = o.cfgOf(data);
+  const points = cmd.points ?? cmd.payload?.points;
+  if (!Array.isArray(points) || !points.length) return err('BAD_POINTS', '놓을 자리를 찍어야 합니다.');
+  if (points.length > cfg.maxPointsPerRequest) return err('TOO_MANY_POINTS', '한 번에 놓을 수 있는 길이를 넘었습니다.');
+  const tiles = tilesFromPoints(points, data, cfg);
+  if (tiles === null) return err('SEGMENT_TOO_LONG', '한 획이 너무 깁니다.');
+  if (!tiles.length) return err('BAD_POINTS', '놓을 자리가 없습니다.');
+
+  const list = (nation[o.list] ||= []);
+  const have = new Set(list.map((t) => railKey(t.x, t.y)));
+  const town = townOf(world, nation.id);
+  const reach = (data.world.territory.baseRadius ?? 6) + (cfg.requiresTerritoryMargin ?? 30);
+  const size = data.world.size;
+  const planned = [];
+  const skipped = [];
+  for (const t of tiles) {
+    const k = railKey(t.x, t.y);
+    if (have.has(k)) { skipped.push({ ...t, reason: 'EXISTS' }); continue; }
+    if (t.x < 0 || t.y < 0 || t.x >= size || t.y >= size) { skipped.push({ ...t, reason: 'BAD_POSITION' }); continue; }
+    // ★ 철로와 뒤집힌 문 — 물 **위에만** 놓인다
+    if (!(cfg.allowedTerrain || []).includes(terrainNameAt(world.map, t.x, t.y, data))) {
+      skipped.push({ ...t, reason: 'BAD_TERRAIN' }); continue;
+    }
+    if (town && dist(town.x, town.y, t.x, t.y) > reach) { skipped.push({ ...t, reason: 'TOO_FAR' }); continue; }
+    have.add(k);
+    planned.push(t);
+  }
+  if (!planned.length) return err('NO_VALID_TILE', '놓을 수 있는 자리가 없습니다.');
+  if (list.length + planned.length > cfg.maxTiles) return err('OVERLAY_CAP', o.capMsg);
+
+  const cost = {};
+  for (const [res, per] of Object.entries(cfg.costPerTile || {})) cost[res] = round2(per * planned.length);
+  for (const [res, need] of Object.entries(cost)) {
+    if ((nation.resources[res] || 0) < need - 0.001) {
+      return err('NO_RESOURCE', `${data.resources.meta[res]?.name ?? res}이(가) 부족합니다. (${Math.ceil(need)} 필요)`);
+    }
+  }
+  for (const [res, need] of Object.entries(cost)) nation.resources[res] = round2(nation.resources[res] - need);
+
+  const created = [];
+  for (const t of planned) {
+    const piece = { id: `${o.prefix}${nation[o.nextId]++}`, x: t.x, y: t.y, builtTick: world.tick };
+    list.push(piece);
+    created.push(piece);
+  }
+  nation[o.memoSet] = null;
+  return { ok: true, placed: created.length, skipped: skipped.length, cost, tiles: created.map(railView) };
+}
+
+/** removeRail 의 문법 그대로 — 낸 값의 절반을 돌려준다 */
+function removeOverlay(world, nation, cmd, data, o) {
+  const cfg = o.cfgOf(data);
+  const ids = cmd.tileIds ?? cmd.payload?.tileIds ?? (cmd.tileId ? [cmd.tileId] : []);
+  const list = (nation[o.list] ||= []);
+  const kept = [];
+  const removed = [];
+  for (const t of list) (ids.includes(t.id) ? removed : kept).push(t);
+  if (!removed.length) return err('NO_PIECE', o.noPiece);
+  nation[o.list] = kept;
+  nation[o.memoSet] = null;
+  const refund = {};
+  for (const [res, per] of Object.entries(cfg.costPerTile || {})) {
+    const back = round2(per * removed.length * (cfg.refundRatio ?? 0.5));
+    refund[res] = back;
+    nation.resources[res] = round2((nation.resources[res] || 0) + back);
+  }
+  return { ok: true, removed: removed.length, refund };
+}
+
+export const placeBridge = (world, nation, cmd, data) => placeOverlay(world, nation, cmd, data, OVERLAYS.bridge);
+export const removeBridge = (world, nation, cmd, data) => removeOverlay(world, nation, cmd, data, OVERLAYS.bridge);
+export const placeFill = (world, nation, cmd, data) => placeOverlay(world, nation, cmd, data, OVERLAYS.fill);
+export const removeFill = (world, nation, cmd, data) => removeOverlay(world, nation, cmd, data, OVERLAYS.fill);
+
+export const bridgeViews = (nation) => (nation.bridges || []).map(railView);
+export const fillViews = (nation) => (nation.fills || []).map(railView);
+
+function overlaySummary(nation, data, o) {
+  const cfg = o.cfgOf(data);
+  return {
+    tiles: (nation[o.list] || []).length,
+    maxTiles: cfg.maxTiles,
+    costPerTile: { ...cfg.costPerTile },
+    open: researchFeature(nation, o.feature, data),
+  };
+}
+export const bridgeSummary = (nation, data) => overlaySummary(nation, data, OVERLAYS.bridge);
+export const fillSummary = (nation, data) => overlaySummary(nation, data, OVERLAYS.fill);
+
 /** 공개본 — 규격만. 어디까지 했는지는 state.research 로만 간다. */
 export function publicResearch(data) {
   const c = researchCfg(data);
@@ -410,6 +545,23 @@ export function publicResearch(data) {
       maxSegmentSpan: c.rails.maxSegmentSpan,
       blockedTerrain: [...c.rails.blockedTerrain],
       requiresTerritoryMargin: c.rails.requiresTerritoryMargin,
+    },
+    // ★ §17-13 — 다리·매립 규격. 클라의 고스트 판정(build.js)이 이 표를 그대로 복제한다.
+    bridges: {
+      costPerTile: { ...c.bridges.costPerTile },
+      maxTiles: c.bridges.maxTiles,
+      maxPointsPerRequest: c.bridges.maxPointsPerRequest,
+      maxSegmentSpan: c.bridges.maxSegmentSpan,
+      allowedTerrain: [...c.bridges.allowedTerrain],
+      requiresTerritoryMargin: c.bridges.requiresTerritoryMargin,
+    },
+    fill: {
+      costPerTile: { ...c.fill.costPerTile },
+      maxTiles: c.fill.maxTiles,
+      maxPointsPerRequest: c.fill.maxPointsPerRequest,
+      maxSegmentSpan: c.fill.maxSegmentSpan,
+      allowedTerrain: [...c.fill.allowedTerrain],
+      requiresTerritoryMargin: c.fill.requiresTerritoryMargin,
     },
   };
 }

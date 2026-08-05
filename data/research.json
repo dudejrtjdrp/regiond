@@ -1,6 +1,6 @@
 {
   "_note": "★ GDD3 §13-D-5 — 기술 트리. 본부 [연구] 탭에서 하나씩 붙든다. 여는 문은 셋: ① 정착지 티어 ② 선행 연구 ③ 값(골드+자원). 값은 착수할 때 한 번에 치르고, 그날부터 days 게임일이 지나야 끝난다 — 한 번에 하나만 붙든다. 잠긴 연구도 **목록에서 사라지지 않는다**: 조건 가시화 원칙(§12-3)대로 빨강으로 무엇이 얼마나 모자란지 적어 둔다. 티어 문턱은 tiers.json 의 인구 조건과 맞물린다(4=읍 25명 · 5=도시 45명 · 6=왕도 70명).",
-  "order": ["coal_mining", "steam_engine", "railway", "refining"],
+  "order": ["coal_mining", "steam_engine", "railway", "refining", "bridgeworks", "landfill"],
   "defs": {
     "coal_mining": {
       "name": "석탄 채굴",
@@ -48,6 +48,28 @@
       "cost": { "steel": 150, "coal": 200 },
       "spawn": { "node": "oil", "clusters": 4, "size": [2, 5], "ring": [1, 2] },
       "unlocks": { "resources": ["oil"], "nodes": ["oil"] }
+    },
+    "bridgeworks": {
+      "name": "가교",
+      "line": "물 위에 나무를 걸치면 길이 된다.",
+      "desc": "다리 조각을 끌어서 놓는다. 사람은 다리 위로 물을 건넌다 — 짐승과 적은 못 쓴다.",
+      "requiresTier": 3,
+      "requires": [],
+      "days": 2,
+      "gold": 200,
+      "cost": { "wood": 100, "stone": 40 },
+      "unlocks": { "features": ["bridges"], "commands": ["placeBridge", "removeBridge"] }
+    },
+    "landfill": {
+      "name": "매립",
+      "line": "돌과 흙으로 물을 메우면 땅이 된다.",
+      "desc": "물 칸을 메워 뭍처럼 쓴다. 메운 자리는 걷고, 짓고, 울타리도 두를 수 있다.",
+      "requiresTier": 4,
+      "requires": ["bridgeworks"],
+      "days": 3,
+      "gold": 400,
+      "cost": { "stone": 160, "steel": 20 },
+      "unlocks": { "features": ["landfill"], "commands": ["placeFill", "removeFill"] }
     }
   },
   "rails": {
@@ -60,5 +82,25 @@
     "blockedTerrain": ["water"],
     "refundRatio": 0.5,
     "requiresTerritoryMargin": 30
+  },
+  "bridges": {
+    "_note": "★ §17-13 — 다리 조각. 철로와 같은 '끌어서 놓기'(칸)지만 자리가 정반대다: 물 위에만 놓인다(allowedTerrain). 사람(아바타·동료)은 다리 위로 물을 건넌다 — 짐승과 적은 다리를 못 쓴다, 물은 여전히 그들의 벽이다. 값은 칸마다 목재, 걷어 내면 절반 환급.",
+    "costPerTile": { "wood": 6 },
+    "maxTiles": 240,
+    "maxPointsPerRequest": 64,
+    "maxSegmentSpan": 24,
+    "allowedTerrain": ["water"],
+    "refundRatio": 0.5,
+    "requiresTerritoryMargin": 40
+  },
+  "fill": {
+    "_note": "★ §17-13 — 매립. 물 칸을 메워 뭍처럼 쓴다: 사람이 걷고(avatar·companions), 건물이 서고(structures), 울타리도 두른다(fences). 다리와 달리 그 위에 지을 수 있다 — 후반 영토가 물에 막히지 않게 하는 장치다. 짐승과 적은 여전히 못 지난다.",
+    "costPerTile": { "stone": 4, "wood": 2 },
+    "maxTiles": 160,
+    "maxPointsPerRequest": 64,
+    "maxSegmentSpan": 24,
+    "allowedTerrain": ["water"],
+    "refundRatio": 0.5,
+    "requiresTerritoryMargin": 40
   }
 }

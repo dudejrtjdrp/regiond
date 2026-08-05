@@ -61,8 +61,8 @@
     var t = tileFrom(e);
     var pl = S.S.placing;
 
-    /* ★ 울타리(선분)와 철로(칸)는 같은 끌기를 쓴다 — 모으는 점의 뜻만 다르다 */
-    if (pl && (pl.kind === 'fence' || pl.kind === 'rail')) {
+    /* ★ 울타리(선분)와 철로·다리·매립(칸)은 같은 끌기를 쓴다 — 모으는 점의 뜻만 다르다 */
+    if (pl && (pl.kind === 'fence' || pl.kind === 'rail' || pl.kind === 'bridge' || pl.kind === 'fill')) {
       GM.world.setFencePath([{ x: t.x, y: t.y }]);
       drag = { sx: l.x, sy: l.y, x: l.x, y: l.y, moved: false, mode: pl.kind };
       return;
@@ -77,8 +77,8 @@
       drag = { sx: l.x, sy: l.y, x: l.x, y: l.y, moved: false, mode: 'place' };
       return;
     }
-    /* ★ §16-18 · §16-19 — 집결지·수비 깃발 꽂기: 다음 클릭 한 번이 곧 지정이다 */
-    if (pl && (pl.kind === 'rally' || pl.kind === 'flag')) {
+    /* ★ §16-18 · §16-19 · §17-11 — 집결지·수비 깃발·동료 보내기: 다음 클릭 한 번이 곧 지정이다 */
+    if (pl && (pl.kind === 'rally' || pl.kind === 'flag' || pl.kind === 'crewMove')) {
       drag = { sx: l.x, sy: l.y, x: l.x, y: l.y, moved: false, mode: pl.kind };
       return;
     }
@@ -104,11 +104,13 @@
     if (drag.mode === 'select' && drag.moved) {
       GM.world.setDragBox({ x0: drag.sx, y0: drag.sy, x1: l.x, y1: l.y });
     }
-    if (drag.mode === 'fence' || drag.mode === 'rail') {
+    if (drag.mode === 'fence' || drag.mode === 'rail' || drag.mode === 'bridge' || drag.mode === 'fill') {
       var path = GM.world.getFencePath() || [];
       var last = path[path.length - 1];
       if (!last || last.x !== t.x || last.y !== t.y) {
-        var cfg = drag.mode === 'rail' ? (S.railCfg() || { maxPointsPerRequest: 64 }) : S.fenceCfg();
+        var cfg = drag.mode === 'rail' ? (S.railCfg() || { maxPointsPerRequest: 64 })
+          : (drag.mode === 'bridge' ? (S.bridgeCfg() || { maxPointsPerRequest: 64 })
+            : (drag.mode === 'fill' ? (S.fillCfg() || { maxPointsPerRequest: 64 }) : S.fenceCfg()));
         if (path.length < (cfg.maxPointsPerRequest || 64)) {
           path.push({ x: t.x, y: t.y });
           GM.world.setFencePath(path);
@@ -137,6 +139,11 @@
       GM.build.commitRail(GM.world.getFencePath() || []);
       return;
     }
+    /* ★ §17-13 — 다리·매립도 같은 끌기로 놓는다 */
+    if (d.mode === 'bridge' || d.mode === 'fill') {
+      GM.build.commitOverlay(d.mode, GM.world.getFencePath() || []);
+      return;
+    }
 
     if (d.mode === 'reclaim') {
       var a = pl && pl.drag;
@@ -163,6 +170,20 @@
       });
       return;
     }
+    /* ★ §17-11 — 동료 보내기: 땅을 눌러 그 자리를 찍는다(패널의 [이곳으로 보낸다]) */
+    if (d.mode === 'crewMove') {
+      var crewId = pl && pl.companionId;
+      S.setPlacing(null);
+      if (S.fogAt(t.x, t.y) < 1) { U.toast('아직 못 본 땅입니다.', 'warn', 2400); return; }
+      GM.net.send('commandCompanion', { companionId: crewId, order: { kind: 'move', x: t.x, y: t.y } }, function (res) {
+        if (!res || !res.ok) { U.toast((res && res.error && res.error.message) || '지금은 지시할 수 없습니다.', 'warn'); return; }
+        U.toast('지시를 내렸습니다 — 그 자리로 갑니다.', 'good', 3200);
+        GM.world.ping(t.x, t.y, '#8fe3b4');
+        GM.sfx.play('tap');
+      });
+      return;
+    }
+
     /* ★ §16-19 — 수비 깃발: 땅을 눌러 꽂는다 */
     if (d.mode === 'flag') {
       S.setPlacing(null);
@@ -187,6 +208,11 @@
        (옛 규칙에서는 빈 땅 좌클릭이 곧 이동이라, 무언가 고르려다 자꾸 걸어갔다.) */
     var w = GM.camera.screenToWorld(d.x, d.y);
     if (GM.residents.selectAt(w.x, w.y, d.additive)) return;
+
+    /* ★ §17-11 — 동료(봇)를 누르면 상호작용 패널이 열린다(지시·이름·모양새).
+       건물보다 먼저 잰다 — 동료는 걸어 다니는 몸이라 건물 발밑을 지날 때가 많다. */
+    var crew = crewAt(w.x, w.y);
+    if (crew) { GM.crewpanel.open(crew.id); GM.sfx.play('tap'); return; }
 
     var b = structureAt(t.x, t.y);
     if (b) { GM.structure.open(b.id); GM.sfx.play('tap'); return; }
@@ -248,6 +274,22 @@
       if (wx >= x0 && wx <= x0 + w2 && wy >= y0 && wy <= baseY && baseY > bestBase) {
         best = b; bestBase = baseY;
       }
+    }
+    return best;
+  }
+
+  /* ★ §17-11 — 동료(봇) 아바타 판정. 그려진 자리(보간 matePos)가 정본이다 —
+     서버 좌표는 이미 앞서 가 있어, 서버 좌표로 재면 화면에 보이는 몸을 눌러도 빗나간다. */
+  function crewAt(x, y) {
+    var list = S.S.avatars || [];
+    var best = null, bd = 1.1;
+    for (var i = 0; i < list.length; i++) {
+      var a = list[i];
+      /* avatars 채널의 원본에는 bot 표가 없을 때가 있다 — companions 뷰로 한 번 더 잰다 */
+      if (!a || !(a.bot || S.companionById(a.id))) continue;
+      var p = (GM.world && GM.world.matePos) ? (GM.world.matePos(a.id) || a) : a;
+      var dd = Math.hypot((p.x || 0) - x, (p.y || 0) - y);
+      if (dd <= bd) { bd = dd; best = a; }
     }
     return best;
   }

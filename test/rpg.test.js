@@ -461,7 +461,8 @@ test('§13-D 공개본 — 규칙은 config 로, 실제 값은 state 로만 간�
   const c = publicConfig();
   assert.ok(c.residentStats && c.residentStats.order.length === 4);
   assert.ok(c.equipment && c.equipment.tiers.weapon.length === 5);
-  assert.ok(c.research && c.research.order.length === 4);
+  // ★ §17-13 — 가교·매립이 더해져 연구 수는 자료가 정본이다(하드코딩 금지)
+  assert.ok(c.research && c.research.order.length === data.research.order.length);
   assert.ok(c.recruit && c.recruit.cost.grain > 0);
   // 사람마다·나라마다의 실제 값은 공개본에 없다
   assert.equal(c.equipment.gear, undefined);
@@ -482,5 +483,6 @@ test('§13-D 잠긴 계층은 뷰에 필드 자체가 없다 (§11-1)', () => {
   assert.ok(v1.you.equipment, '장이 열리면 필드가 생긴다');
   assert.ok(v1.nation.research);
   assert.ok(v1.nation.housing.recruit);
-  assert.equal(v1.nation.research.list.length, 4, '잠긴 연구도 목록에는 남는다(조건 가시화)');
+  assert.equal(v1.nation.research.list.length, data.research.order.length,
+    '잠긴 연구도 목록에는 남는다(조건 가시화)');
 });

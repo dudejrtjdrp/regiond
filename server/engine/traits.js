@@ -52,7 +52,14 @@ export function statRng(seedText) {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-  return { next, int: (a, b) => Math.floor(a + next() * (b - a + 1)) };
+  /* ★ §17-6 — spawnResident(집들이)도 이 난수를 받아 쓴다: float·pick·chance 를 채워 rng.js 와 같은 낯을 갖춘다 */
+  return {
+    next,
+    int: (a, b) => Math.floor(a + next() * (b - a + 1)),
+    float: (a, b) => a + next() * (b - a),
+    chance: (p) => next() < p,
+    pick: (arr) => arr[Math.floor(next() * arr.length)],
+  };
 }
 
 /** 능력치가 없는 사람(옛 세이브·손으로 만든 시험용)에게 평균치를 채워 준다 */

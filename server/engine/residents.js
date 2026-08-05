@@ -5,7 +5,7 @@ import { townOf, territoryRadius, dist, inTerritory } from './world.js';
 import { rallyResident } from './villagers.js';
 import {
   housingCapacity, attractivenessBonus, moraleBonus, militiaSlots, militiaBonus,
-  militiaDpsBonus, shrinePopulationCap, hasBuilding, gatherBonus,
+  militiaDpsBonus, shrinePopulationCap, hasBuilding, gatherBonus, tierSpec,
 } from './structures.js';
 import { settlementTier } from './tiers.js';
 import { featureUnlocked, departmentsActive } from './progression.js';
@@ -19,6 +19,8 @@ import {
   rollStats, statRng, ensureStats, yieldFactor, militiaHpFactor, militiaDpsFactor, haulFactor,
   statsView, jobFit,
 } from './traits.js';
+// ★ §17-15 — 역할 개성. 농정관은 주민 채집을, 국방대신은 민병의 칼끝을 벼린다.
+import { rolePerk } from './npc.js';
 
 export const residentCfg = (data) => data.balance.residents;
 export const arrivalCfg = (data) => data.balance.residents.arrival;
@@ -183,6 +185,22 @@ export function spawnResident(world, nation, data, rng) {
 }
 
 /**
+ * ★ §17-6 — 집들이(피드백: "주민 도착이 너무 길다 — 오두막 지으면 한 명 오게").
+ * 잠자리 건물이 **완공되는 순간** 빈 침상이 있으면 한 사람이 곧장 들어온다.
+ * 자연 유입(stepArrivals)과 별개의 문이고, 난수는 세계 난수를 축내지 않는 statRng 를 쓴다.
+ * @returns {object|null} 들어온 주민(없으면 null)
+ */
+export function housewarmArrival(world, nation, s, data) {
+  const cfg = arrivalCfg(data);
+  if (!cfg.onHousingComplete) return null;
+  const beds = tierSpec(s.key, s.tier ?? 1, data)?.residents || 0;
+  if (beds <= 0) return null;
+  if (freeBeds(nation, data) <= 0) return null;
+  const rng = statRng(`${world.seed}:${nation.id}:housewarm:${s.id}:${s.tier ?? 1}`);
+  return spawnResident(world, nation, data, rng);
+}
+
+/**
  * 하루치 도착 판정 — 매 일 틱에 1회.
  * 진행도(arrivalProgress)를 1/주기 만큼 채우고, 1을 넘으면 한 명이 온다.
  * @returns {Array} 이번에 도착한 주민들
@@ -336,7 +354,8 @@ export function settlementGatherFactor(nation, data, resource = null) {
   const ratio = clamp((morale0 - (m.default ?? 1)) / Math.max(0.001, (m.max ?? 1.25) - (m.default ?? 1)), -1, 1);
   const morale = 1 + ratio * (cfg.moraleWeight ?? 0.12);
   const building = resource ? 1 + gatherBonus(nation, resource, data) : 1;
-  return round3(tier * morale * building);
+  /* ★ §17-15 — 농정관 개성. 자리가 채워져 있으면 주민의 손이 10% 더 거둔다(공석이면 1). */
+  return round3(tier * morale * building * rolePerk(nation, 'farm', 'residentGatherMultiplier', data));
 }
 
 export function residentYield(u, node, data, outdoor = false, nation = null) {
@@ -546,7 +565,9 @@ export function militiaList(nation, data) {
       trained,
       stats: u.stats ? { ...u.stats } : null,
       hp: round2(cfg.hp * (trained ? 1 + bonus : untrainedHp) * hpF),
-      dps: round2((cfg.dps + weaponDps + dpsFlat) * (trained ? 1 + bonus : untrainedDps) * dpsF),
+      /* ★ §17-15 — 국방대신 개성. 자리가 채워져 있으면 민병의 공격이 15% 는다(공석이면 1). */
+      dps: round2((cfg.dps + weaponDps + dpsFlat) * (trained ? 1 + bonus : untrainedDps) * dpsF
+        * rolePerk(nation, 'defense', 'militiaDpsMultiplier', data)),
       range: cfg.rangeTiles,
     };
   });

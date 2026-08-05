@@ -59,6 +59,9 @@ export function createNation(id, name, opts, data, rng) {
     // ── 성장 아크 (GDD3 §1) ─────────────────────────────────────
     tier: isPlayer ? 0 : 3,                    // AI 3국은 이미 자리 잡은 나라다
     territory: { radius: isPlayer ? tierRadius(0, data) : data.world.territory.aiBaseRadius },
+    // ★ §17-14 — 깃발로 얻은 새 영토(원 목록). inTerritory 가 본영 원 다음으로 이 원들을 본다.
+    claims: [],
+    nextClaimId: 1,
     prestige: 0,
     // ── 공간 계층 ───────────────────────────────────────────────
     structures: [],
@@ -130,6 +133,11 @@ export function createNation(id, name, opts, data, rng) {
     research: { done: {}, active: null },
     rails: [],
     nextRailId: 1,
+    // ★ §17-13 — 다리·매립 조각(철로와 같은 칸 배치, 다만 물 위에만 놓인다)
+    bridges: [],
+    nextBridgeId: 1,
+    fills: [],
+    nextFillId: 1,
     recruit: { readyTick: 0, count: 0 },
     // ★ GDD3 §13-C — 들에 사는 것들 · 도감(조우·처치 장부)
     wild: { creatures: [], nextId: 1, respawnQueue: [], rngState: null, acc: 0 },
@@ -272,6 +280,14 @@ export function migrateWorld(world, data) {
     nation.companions ||= { list: [], clock: 0, liveSeconds: 0, rngState: null };
     nation.rails ||= [];
     nation.nextRailId ||= 1;
+    // ★ §17-13 — 다리·매립도 「없으면 없는 대로」 굴러가는 자리다. 옛 세이브를 버리지 않는다.
+    nation.bridges ||= [];
+    nation.nextBridgeId ||= 1;
+    nation.fills ||= [];
+    nation.nextFillId ||= 1;
+    // ★ §17-14 — 깃발 점령지도 같은 규칙이다: 없으면 빈 목록으로 열어 둔다.
+    nation.claims ||= [];
+    nation.nextClaimId ||= 1;
     nation.recruit ||= { readyTick: 0, count: 0 };
     for (const u of nation.villagers || []) {
       if (!u.stats) u.stats = rollStats(statRng(`${world.seed}:${nation.id}:${u.id}`), data);

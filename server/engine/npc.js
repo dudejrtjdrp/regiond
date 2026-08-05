@@ -15,6 +15,17 @@ export const NPC_NAMES = {
   saint: ['성녀 리에', '무녀 아린', '신탁의 유나'],
 };
 
+/**
+ * ★ §17-15 — 역할 개성(perk) 배수. **자리가 채워졌을 때만** 값이 살아난다 —
+ * 사람이든 동료 봇이든 옛 이름표(NPC)든, holder 가 있으면 채워진 것이다(AI 3국 포함).
+ * 공석이면 fallback(기본 1 = 무보정)이라, 자리를 안 채운 초반 밸런스는 한 톨도 안 흔들린다.
+ */
+export function rolePerk(nation, roleKey, field, data, fallback = 1) {
+  if (!nation?.roles?.[roleKey]?.holder) return fallback;
+  const v = data.roles.defs?.[roleKey]?.perk?.[field];
+  return Number.isFinite(v) ? v : fallback;
+}
+
 export function levelFromXp(xp, data) {
   const curve = data.roles.xp.levelCurve;
   let lv = 0;

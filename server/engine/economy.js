@@ -203,17 +203,23 @@ export function scenarioTradeMultiplier(scenario, data) {
   });
 }
 
+/** ★ §17-15 — 외교관 개성. 자리가 채워져 있으면 사고팔 때 양쪽으로 3% 더 유리하게 흥정한다. */
+export function tradeMarginBonus(nation, data) {
+  return nation?.roles?.trade?.holder ? (data.roles.defs.trade.perk?.tradeMarginBonus ?? 0) : 0;
+}
+
 export function importPrice(foreignPrice, nation, data, opts = {}) {
   return foreignPrice * tradeMultiplier({
     tariff: effectiveTariff(nation, data, opts),
     freight: freightRate(nation, data, opts),
     fxSpread: fxSpreadRate(nation, data),
     infoLoss: infoLossRate(nation, data),
-  });
+  }) * (1 - tradeMarginBonus(nation, data));
 }
 
-export function exportPrice(localP, data) {
-  return localP * (1 - data.balance.trade.exportFriction);
+/** @param {object|null} nation ★ §17-15 — 파는 쪽도 외교관의 흥정이 붙는다(옛 호출은 nation 없이 그대로) */
+export function exportPrice(localP, data, nation = null) {
+  return localP * (1 - data.balance.trade.exportFriction) * (1 + tradeMarginBonus(nation, data));
 }
 
 export const round4 = (v) => Math.round(v * 10000) / 10000;

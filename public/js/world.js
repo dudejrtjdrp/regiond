@@ -299,6 +299,32 @@
       }
     }
     ctx.restore();
+
+    /* ★ §17-14 — 깃발로 얻은 점령지(claims). 본영과 같은 결의 옅은 안쪽 밝음에
+       점선 고리를 둘러 「본영은 밧줄, 새 땅은 점선」으로 서로 다르게 읽히게 한다. */
+    var claims = (t && t.claims) || [];
+    for (var q = 0; q < claims.length; q++) {
+      var cl = claims[q];
+      var cc = GM.camera.worldToScreen(cl.x, cl.y);
+      var cr = cl.radius * tile;
+      if (cr <= 2) continue;
+      ctx.save();
+      var gi = Math.max(0, cr - Math.max(6, tile * 0.9));
+      var gg = ctx.createRadialGradient(cc.x, cc.y, gi, cc.x, cc.y, cr);
+      gg.addColorStop(0, 'rgba(246,231,180,.04)');
+      gg.addColorStop(1, 'rgba(58,40,20,.16)');
+      ctx.beginPath();
+      ctx.arc(cc.x, cc.y, cr, 0, Math.PI * 2);
+      ctx.fillStyle = gg;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(198,166,110,.7)';
+      ctx.lineWidth = Math.max(1, tile * 0.06);
+      ctx.setLineDash([Math.max(3, tile * 0.35), Math.max(3, tile * 0.3)]);
+      ctx.beginPath();
+      ctx.arc(cc.x, cc.y, cr, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   /* ══════════ 울타리 조각 ══════════ */
@@ -323,6 +349,59 @@
       ctx.fillStyle = '#9aa4ae';
       ctx.fillRect(Math.round(p.x), Math.round(p.y + t * 0.26), Math.ceil(t), Math.max(1, Math.round(t * 0.1)));
       ctx.fillRect(Math.round(p.x), Math.round(p.y + t * 0.64), Math.ceil(t), Math.max(1, Math.round(t * 0.1)));
+      ctx.restore();
+    }
+  }
+
+  /* ★ §17-13 — 매립. 물을 덮은 모래흙 칸이라 노드·건물·다리보다 먼저(지형 바로 위에) 깔린다. */
+  function drawFills() {
+    var list = S.fills();
+    if (!list.length) return;
+    var t = GM.camera.cam.tile;
+    for (var i = 0; i < list.length; i++) {
+      var f = list[i];
+      if (!GM.camera.onScreen(f.x, f.y, t)) continue;
+      if (S.fogAt(f.x, f.y) < 1) continue;
+      var p = GM.camera.worldToScreen(f.x - 0.5, f.y - 0.5);
+      ctx.save();
+      /* 메운 흙 — 모래빛 바탕에 어두운 알갱이 몇 점 */
+      ctx.fillStyle = '#c9b28a';
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), Math.ceil(t), Math.ceil(t));
+      ctx.fillStyle = '#a8916b';
+      var d = Math.max(1, Math.round(t * 0.08));
+      ctx.fillRect(Math.round(p.x + t * 0.22), Math.round(p.y + t * 0.3), d, d);
+      ctx.fillRect(Math.round(p.x + t * 0.62), Math.round(p.y + t * 0.18), d, d);
+      ctx.fillRect(Math.round(p.x + t * 0.44), Math.round(p.y + t * 0.66), d, d);
+      ctx.fillRect(Math.round(p.x + t * 0.76), Math.round(p.y + t * 0.58), d, d);
+      ctx.restore();
+    }
+  }
+
+  /* ★ §17-13 — 다리. 물 위에 걸친 나무 판자 — 매립 다음, 철로보다 먼저 그린다. */
+  function drawBridges() {
+    var list = S.bridges();
+    if (!list.length) return;
+    var t = GM.camera.cam.tile;
+    for (var i = 0; i < list.length; i++) {
+      var b = list[i];
+      if (!GM.camera.onScreen(b.x, b.y, t)) continue;
+      if (S.fogAt(b.x, b.y) < 1) continue;
+      var p = GM.camera.worldToScreen(b.x - 0.5, b.y - 0.5);
+      ctx.save();
+      /* 판자 바탕 — 두 갈색 톤을 번갈아 */
+      ctx.fillStyle = '#8a5c33';
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), Math.ceil(t), Math.ceil(t));
+      ctx.fillStyle = '#6b4526';
+      for (var k = 0; k < 2; k++) {
+        ctx.fillRect(Math.round(p.x), Math.round(p.y + t * (0.28 + k * 0.36)),
+                     Math.ceil(t), Math.max(1, Math.round(t * 0.14)));
+      }
+      /* 판자 틈 — 가로 어두운 줄(널빤지 경계) */
+      ctx.fillStyle = 'rgba(20,14,8,.45)';
+      for (var m2 = 0; m2 < 3; m2++) {
+        ctx.fillRect(Math.round(p.x + t * (0.08 + m2 * 0.32)), Math.round(p.y),
+                     Math.max(1, Math.round(t * 0.05)), Math.ceil(t));
+      }
       ctx.restore();
     }
   }
@@ -679,10 +758,16 @@
 
   function bounceStructure(id) { doneBounce[id] = animT; }
 
-  /** y 순으로 정렬된 건물 목록 — 60fps 예산을 위해 목록이 바뀔 때만 다시 정렬한다 */
+  /** y 순으로 정렬된 건물 목록 — 60fps 예산을 위해 목록이 바뀔 때만 다시 정렬한다.
+      ★ §17-2 — 서명에 좌표·티어·상태를 넣는다. 개수+양끝 id 만 보던 옛 서명은
+      「이전(relocate)」 뒤에도 낡은 객체를 그려 건물이 옛 자리에 남아 보였다. */
   function sortedStructures() {
     var src = S.structures();
-    var sig = src.length + ':' + (src.length ? src[0].id + ':' + src[src.length - 1].id : '');
+    var sig = '';
+    for (var i = 0; i < src.length; i++) {
+      var b = src[i];
+      sig += b.id + ',' + b.x + ',' + b.y + ',' + (b.tier || 1) + ',' + (b.condition || '') + (b.inactive ? 'i' : '') + ';';
+    }
     if (structSort.sig !== sig) {
       structSort.sig = sig;
       structSort.list = src.slice().sort(function (a, b) { return (a.y || 0) - (b.y || 0); });
@@ -1194,7 +1279,9 @@
      서 있기만 하는 사람과 일하러 가는 사람이 눈으로 갈려야 「살아 있다」가 된다. */
   var CREW_DOING = {
     node: '캐는 중', site: '짓는 중', creature: '싸우는 중', enemy: '싸우는 중',
-    haul: '나르는 중', rest: '쉬는 중', flee: '물러나는 중', down: '쓰러짐', idle: ''
+    haul: '나르는 중', rest: '쉬는 중', flee: '물러나는 중', down: '쓰러짐', idle: '',
+    /* ★ §17-11 — 수동 지시(동료 패널의 「이곳으로 보낸다」)를 받은 사람 */
+    move: '지시받은 곳으로', hold: '지시 대기'
   };
 
   function drawAvatars() {
@@ -1314,6 +1401,11 @@
       drawRailGhost();
       return;
     }
+    /* ★ §17-13 — 다리·매립도 철로와 같은 끌기 고스트를 쓴다(칸 판정·값만 다르다) */
+    if (pl.kind === 'bridge' || pl.kind === 'fill') {
+      drawOverlayGhost(pl.kind);
+      return;
+    }
     if (hoverTile.x < 0) return;
     var v = GM.build ? GM.build.validate(pl, hoverTile.x, hoverTile.y) : { ok: true };
     /* ★ §12-1 — 고스트도 풋프린트 사각형 전체를 보여 준다 (놓기 전에 "얼마나 큰지"가 보여야 한다) */
@@ -1407,6 +1499,26 @@
     ctx.restore();
     var cost = GM.build ? GM.build.railCostText(pts.length) : '';
     if (cost) label(cost, pts[pts.length - 1].x, pts[pts.length - 1].y - 1.2, '#c8d2dc');
+  }
+
+  /** ★ §17-13 — 다리·매립 고스트. 철로 고스트와 같은 문법 — 지나간 칸이 그대로 놓일 자리다. */
+  function drawOverlayGhost(kind) {
+    var t = GM.camera.cam.tile;
+    var pts = fencePath ? fencePath.slice() : [];
+    if (hoverTile.x >= 0) pts = pts.concat([{ x: hoverTile.x, y: hoverTile.y }]);
+    if (!pts.length) return;
+    var okColor = kind === 'bridge' ? 'rgba(138,92,51,.55)' : 'rgba(201,178,138,.55)';
+    ctx.save();
+    ctx.globalAlpha = 0.8;
+    for (var i = 0; i < pts.length; i++) {
+      var okHere = GM.build ? GM.build.overlayTileOk(kind, pts[i].x, pts[i].y) : true;
+      var p = GM.camera.worldToScreen(pts[i].x - 0.5, pts[i].y - 0.5);
+      ctx.fillStyle = okHere ? okColor : 'rgba(220,90,90,.4)';
+      ctx.fillRect(p.x, p.y, t, t);
+    }
+    ctx.restore();
+    var cost = GM.build ? GM.build.overlayCostText(kind, pts.length) : '';
+    if (cost) label(cost, pts[pts.length - 1].x, pts[pts.length - 1].y - 1.2, '#e0cba0');
   }
 
   function setFencePath(pts) { fencePath = pts; }
@@ -1825,6 +1937,8 @@
     drawClusters();
     drawTerritory();
     if (GM.fx) GM.fx.drawStumps(ctx, tile);
+    drawFills();                         /* ★ §17-13 — 메운 땅이 맨 아래다 */
+    drawBridges();                       /* ★ §17-13 — 다리는 그 위에 걸린다 */
     drawRails();                         /* ★ §13-D-5 — 바닥에 깔린 것이 먼저다 */
     drawNodes();
     drawFences();

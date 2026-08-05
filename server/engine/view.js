@@ -13,7 +13,11 @@ import { creatureViews } from './ecology.js';
 import { codexView } from './codex.js';
 // ★ GDD3 §13-D — RPG 계층. 장비는 사람의 것, 연구·철로는 나라의 것이다.
 import { equipmentView } from './equipment.js';
-import { researchView, railViews, railSummary, researchFeature } from './research.js';
+import {
+  researchView, railViews, railSummary, researchFeature,
+  // ★ §17-13 — 다리·매립 뷰(철로와 같은 계약)
+  bridgeViews, bridgeSummary, fillViews, fillSummary,
+} from './research.js';
 import {
   deriveLabor, nodeContribution, listTargets, isHarvestReady, jobsForTarget, fieldStageView,
 } from './villagers.js';
@@ -115,7 +119,11 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
       tagNames: nation.tagsRevealed ? nation.tags.map((t) => data.tags[t]?.name ?? t) : [],
       // ── 공간 ────────────────────────────────────────────────
       town: town ? { x: town.x, y: town.y } : null,
-      territory: { radius: territoryRadius(nation, data), cx: town?.x ?? null, cy: town?.y ?? null },
+      // ★ §17-14 — claims: 깃발로 얻은 점령 원 목록. 화면이 본영 밧줄 곁에 점선 원을 더 그린다.
+      territory: {
+        radius: territoryRadius(nation, data), cx: town?.x ?? null, cy: town?.y ?? null,
+        claims: claimViews(nation),
+      },
       /* ★ §16-18 · §16-19 — 집결지·수비 깃발. 화면이 깃발을 그리고 단추의 상태를 안다. */
       rally: nation.rally ? { ...nation.rally } : null,
       defenseFlag: nation.defenseFlag ? { ...nation.defenseFlag } : null,
@@ -208,6 +216,11 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
         research: researchView(nation, data),
         rails: researchFeature(nation, 'rails', data) ? railViews(nation) : [],
         railSummary: railSummary(nation, data),
+        /* ★ §17-13 — 다리·매립. 철로와 같은 계약: 연구가 열기 전에는 빈 목록이다. */
+        bridges: researchFeature(nation, 'bridges', data) ? bridgeViews(nation) : [],
+        bridgeSummary: bridgeSummary(nation, data),
+        fills: researchFeature(nation, 'landfill', data) ? fillViews(nation) : [],
+        fillSummary: fillSummary(nation, data),
       } : {}),
     },
     // ★ GDD3 §13-C-3 — 도감(J). 조우·처치 수는 서버가 권위로 세고, 잠긴 층은 필드 자체가 없다.
@@ -291,6 +304,11 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
  *   문구가 뜨는 상황 자체가 설계 실패이므로, 배치대는 이 목록이 비면 단추를 그리지 않는다.
  *   (해금 판정은 티어가 아니라 진행 감독의 '지금 장'이다.)
  */
+/** ★ §17-14 — 깃발로 얻은 점령 원 목록(뷰 공용). 화면·미니맵이 이 원으로 새 땅을 그린다. */
+function claimViews(nation) {
+  return (nation.claims || []).map((c) => ({ id: c.id, x: c.x, y: c.y, radius: c.radius }));
+}
+
 function buildableCatalog(nation, data) {
   const out = [];
   for (const key of buildingKeys(data)) {
@@ -301,6 +319,10 @@ function buildableCatalog(nation, data) {
     out.push({
       key,
       name: def.name,
+      /* ★ §17-15 — 건축가 전용 건물. 자리(requiresRole)가 비어 있으면 카드에 자물쇠 사유를 적는다. */
+      requiresRole: def.requiresRole ?? null,
+      roleReady: !def.requiresRole || Boolean(nation.roles?.[def.requiresRole]?.holder),
+      roleName: def.requiresRole ? (data.roles.defs[def.requiresRole]?.name ?? def.requiresRole) : null,
       // ★ §15-B-2 — 카드가 이름 아래에 그대로 적는 한 줄
       purpose: def.purpose ?? null,
       category: def.category ?? null,
@@ -525,7 +547,10 @@ export function buildWorldSnapshot(world, nationId, data) {
     //   그 전에 지도를 가로지르던 것은 "자동차 같은 것"이라는 말을 들었다: 아직 없는 세계의 물건이었다.
     caravans: caravansFor(nation, map, data),
     fog: fogSnapshot(nation, data),
-    territory: { cx: townXY(world, nation)[0], cy: townXY(world, nation)[1], radius: territoryRadius(nation, data) },
+    territory: {
+      cx: townXY(world, nation)[0], cy: townXY(world, nation)[1],
+      radius: territoryRadius(nation, data), claims: claimViews(nation),
+    },
     structures: (nation.structures || []).map((s) => structureView(nation, s, data)),
     fences: fenceViews(nation, data),
     tier: settlementTier(nation),
@@ -551,6 +576,12 @@ export function buildWorldDiff(world, nationId, data, sinceTick = -1) {
     sinceTick,
     fog: fogChunks,
     nodes,
+    /* ★ §17-12 — 걷어 낸 자리. 노드 diff 는 '있는 것'만 실으므로 지워진 것은 이 목록이 알린다 —
+       없으면 클라의 노드 사전에 유령 나무가 남는다. 같은 틱 안의 걷어내기도 실어야 하므로
+       nodeView 의 fresh 판정과 같은 괄호(> sinceTick 또는 == 지금 틱)를 쓴다. */
+    removedNodes: (world.map?.removedNodes || [])
+      .filter((r) => r.tick > sinceTick || r.tick === world.tick)
+      .map((r) => r.id),
     clusters: clusterViews(world, nation),
     rings: ringRadii(nation, data),
     // ★ GDD3 §13-C — 들에 사는 것들. 위치의 정본은 서버이고 화면은 그 사이를 보간한다.
@@ -563,7 +594,10 @@ export function buildWorldDiff(world, nationId, data, sinceTick = -1) {
       radius: territoryRadius(world.nations[t.nationId] || {}, data),
       known: t.nationId === nationId || isExplored(nation, t.x, t.y),
     })),
-    territory: { cx: townXY(world, nation)[0], cy: townXY(world, nation)[1], radius: territoryRadius(nation, data) },
+    territory: {
+      cx: townXY(world, nation)[0], cy: townXY(world, nation)[1],
+      radius: territoryRadius(nation, data), claims: claimViews(nation),
+    },
     structures: (nation.structures || []).map((s) => structureView(nation, s, data)),
     sites: (nation.construction || []).map((c) => siteView(nation, c, data)),
     fences: fenceViews(nation, data),

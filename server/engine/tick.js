@@ -14,7 +14,7 @@ import {
 import { collectHooks } from './artifacts.js';
 import { selectActions } from './orders.js';
 import { applyCommand, normalizeAlloc } from './commands.js';
-import { accrueXp } from './npc.js';
+import { accrueXp, rolePerk } from './npc.js';
 import { rollRandomEvent, applyEventEffect, rollMidShock, expireBuffs, buffModifiers } from './events.js';
 import { aiAdjustPolicy, generateOffers, aiSettle, aiProcure, nationWealth } from './ai_nation.js';
 import { isCouncilTick, openCouncil, enqueueDecision } from './council.js';
@@ -38,7 +38,7 @@ import {
 import {
   departmentsActive, featureUnlocked, evaluateProgress, checkTrace, chapterIndex, ensureProgress,
 } from './progression.js';
-import { capacity, stepArrivals, residentSettle, loseResidents, grainDays } from './residents.js';
+import { capacity, stepArrivals, residentSettle, loseResidents, grainDays, housewarmArrival } from './residents.js';
 import {
   updateWaveSchedule, ensureCamps, updateCampIntel, campEventView, daysUntilWave, nextWaveSpec,
 } from './waves.js';
@@ -138,6 +138,17 @@ export function step(state, inputs = [], rng = null, data = loadGameData(), opts
     production[nation.id] = produceNation(world, nation, data, hooks);
     for (const done of production[nation.id].completed || []) {
       events.push({ tick, kind: 'building_done', nationId: nation.id, data: done });
+      // ★ §17-6 집들이 — 완공과 함께 들어온 사람은 도착 연출(이름표)도 같이 나간다
+      if (done.housewarm) {
+        nation.stats.residentsArrived = (nation.stats.residentsArrived || 0) + 1;
+        events.push({
+          tick, kind: 'resident_arrived', nationId: nation.id,
+          data: {
+            ...done.housewarm, total: nation.stats.residentsArrived,
+            population: Math.floor(nation.population), capacity: nation.populationCap ?? null, housewarm: true,
+          },
+        });
+      }
       if (nation.isPlayer) {
         chronicle(world, {
           kind: 'building', title: done.name,
@@ -524,9 +535,11 @@ function applyFactoryQueue(world, nation, data, hooks, buffs, out) {
   const b = p.capitalExponent;
   const L = (d) => nation.population * (nation.laborAlloc[d] || 0);
   const K = (d) => departmentCapital(nation, d, data);
+  /* ★ §17-15 — 공장장 개성. 자리가 채워져 있으면 가동량이 15% 는다(공석이면 1 — 무보정). */
   const factoryCapacity = (L('factory') > 0 && K('factory') > 0)
     ? Math.pow(L('factory'), a) * Math.pow(K('factory'), b)
       * departmentMultiplier(world, nation, 'factory', 'steel', data, hooks, buffs)
+      * rolePerk(nation, 'factory', 'factoryCapacityMultiplier', data)
     : 0;
   const q = nation.factoryQueue;
   const thrift = hasSkill(nation, 'factory', data) ? data.roles.defs.factory.skill.inputCostMultiplier : 1;
@@ -582,12 +595,15 @@ function settleSite(world, nation, proj, data) {
     };
   }
   const s = completeStructure(world, nation, proj, data);
+  // ★ §17-6 집들이 — 잠자리 완공이면 한 사람이 곧장 들어온다
+  const guest = s && nation.isPlayer ? housewarmArrival(world, nation, s, data) : null;
   return {
     report: {
       structureId: s?.id ?? null, building: proj.building, key: proj.building,
       name: s ? (data.buildings[proj.building]?.tiers?.[proj.tier - 1]?.name ?? data.buildings[proj.building].name) : proj.building,
       tier: proj.tier, x: proj.x ?? null, y: proj.y ?? null,
       mode, upgrade: Boolean(proj.structureId),
+      housewarm: guest ? { id: guest.id, name: guest.name, appearance: guest.appearance, x: guest.x, y: guest.y } : null,
     },
     keep: false,
   };

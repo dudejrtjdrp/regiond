@@ -575,9 +575,14 @@
       GM.ministry.open(roleKey);
     }));
     sp.appendChild(go);
-    var cab = U.qs('#cabinet');
-    cab.appendChild(sp);
-    sp.style.left = Math.max(0, hostBtn.offsetLeft - 6) + 'px';
+    /* ★ §17-1 — 각료 바(#cabinet)는 overflow로 말풍선을 잘라먹는다(피드백: "클릭해도 아무것도 안 뜸").
+       문서 몸통에 fixed 로 붙여 단추 위에 띄운다. */
+    var r = hostBtn.getBoundingClientRect();
+    sp.style.position = 'fixed';
+    sp.style.left = Math.max(6, r.left - 6) + 'px';
+    sp.style.bottom = (window.innerHeight - r.top + 10) + 'px';
+    sp.style.marginBottom = '0';
+    document.body.appendChild(sp);
     speechOpen = sp;
     GM.sfx.play('page');
   }
@@ -667,6 +672,8 @@
      값은 전부 서버가 낸 것을 그대로 쓴다(you.player.progress) — 화면은 셈을 하지 않는다.
      남은 스탯 포인트가 있으면 레벨 배지가 반짝이고, 판을 누르면 캐릭터 창이 열린다. */
   var lastLevel = null;
+  /* ★ §17-7 — 잠자기 표 상태(화면 쪽 기억) */
+  var sleep = { on: false, slept: 0, need: 1 };
 
   function bar(cls, ratio, text, tip, title) {
     var b = U.el('div', 'me-bar ' + cls);
@@ -718,6 +725,31 @@
       '다섯 솜씨(농사·벌목·채광·건설·전투)로 얻은 눈금을 모두 더한 값입니다.\n한 단계 오를 때마다 능력치 점수를 하나 받습니다.',
       '눈금 · ' + prog.level + '단계'));
     host.appendChild(bars);
+
+    /* ★ §17-7 — 다같이 잠자기(하루 넘기기). 사람 아바타가 모두 잠들면 하루가 곧장 넘어간다. */
+    var zzz = U.el('button', 'me-sleep' + (sleep.on ? ' on' : ''));
+    zzz.type = 'button';
+    zzz.appendChild(GM.icons.img('moon', 18));
+    zzz.appendChild(U.el('span', null, sleep.on ? '잠듦 ' + sleep.slept + '/' + sleep.need : '잠자기'));
+    U.tipSet(zzz, '잠자리에 든다', '사람 모두가 잠들면 하루가 곧장 넘어갑니다.\n혼자라면 누르는 즉시 다음 날입니다. 싸움 중에는 잘 수 없습니다.');
+    zzz.onclick = function (e) {
+      e.stopPropagation();
+      var turnOn = !sleep.on;
+      GM.net.send('sleepVote', { on: turnOn }, function (r) {
+        if (!r || !r.ok) { if (r && r.error) U.toast(r.error.message, 'warn'); return; }
+        if (r.advanceDay) {
+          sleep.on = false; sleep.slept = 0;
+          GM.sfx.play('page');
+        } else {
+          sleep.on = turnOn; sleep.slept = r.slept || 0; sleep.need = r.need || 1;
+          if (turnOn && sleep.need > 1) {
+            U.toast('잠들었습니다 — ' + sleep.slept + '/' + sleep.need + '명. 모두 잠들면 하루가 넘어갑니다.', 'good');
+          }
+        }
+        renderMe();
+      });
+    };
+    host.appendChild(zzz);
 
     host.onclick = function () { GM.equip.open(); };
     U.tipSet(host, '나의 상태', '눌러서 캐릭터 창을 엽니다 (C).');

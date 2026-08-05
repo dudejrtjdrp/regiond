@@ -48,7 +48,8 @@
         "market",
         "shrine",
         "consulate",
-        "monument"
+        "monument",
+        "claim_flag"
       ]
     },
     "decor": {
@@ -194,7 +195,8 @@
     "requiresTier": 4,
     "maxTier": 3,
     "multi": true,
-    "desc": "여섯 사람과 그 살림이 들어간다.",
+    "requiresRole": "build",
+    "desc": "여섯 사람과 그 살림이 들어간다. ★ §17-15 — 이런 대공사는 건축가가 자리에 있어야 도면이 나온다.",
     "tiers": [
       {
         "cost": {
@@ -305,7 +307,13 @@
     "footprint": [
       2,
       2
-    ]
+    ],
+    "handWork": {
+      "label": "두레박을 긷는다",
+      "desc": "찬물 한 바가지 — 체력이 크게 돌아온다.",
+      "heal": 20,
+      "cooldownSeconds": 45
+    }
   },
   "woodpile": {
     "name": "장작더미",
@@ -456,7 +464,20 @@
     "footprint": [
       3,
       2
-    ]
+    ],
+    "handWork": {
+      "label": "톱질을 거든다",
+      "desc": "목재 3을 켜서 공사 손(축적 공사력)을 보탠다.",
+      "cost": {
+        "wood": 3
+      },
+      "buildPoints": 2.5,
+      "cooldownSeconds": 6,
+      "xp": {
+        "skill": "build",
+        "amount": 2
+      }
+    }
   },
   "quarry_camp": {
     "name": "채석장",
@@ -567,7 +588,23 @@
     "footprint": [
       2,
       2
-    ]
+    ],
+    "handWork": {
+      "label": "가죽을 손질한다",
+      "desc": "고기 2를 손질해 가죽 1과 털 1을 얻는다.",
+      "cost": {
+        "meat": 2
+      },
+      "yield": {
+        "hide": 1,
+        "wool": 1
+      },
+      "cooldownSeconds": 6,
+      "xp": {
+        "skill": "farm",
+        "amount": 2
+      }
+    }
   },
   "ranch": {
     "name": "목장",
@@ -721,7 +758,23 @@
     "footprint": [
       3,
       3
-    ]
+    ],
+    "handWork": {
+      "label": "손수 제련한다",
+      "desc": "철광석 4와 장작으로 강재 2를 그 자리에서 뽑는다.",
+      "cost": {
+        "ironOre": 4,
+        "wood": 1.5
+      },
+      "yield": {
+        "steel": 2
+      },
+      "cooldownSeconds": 4,
+      "xp": {
+        "skill": "build",
+        "amount": 3
+      }
+    }
   },
   "smithy": {
     "name": "대장간",
@@ -772,7 +825,21 @@
     "footprint": [
       3,
       3
-    ]
+    ],
+    "handWork": {
+      "label": "연장을 벼려 판다",
+      "desc": "강재와 나무로 연장을 벼려 장에 내다 판다.",
+      "cost": {
+        "steel": 1,
+        "wood": 1
+      },
+      "gold": 14,
+      "cooldownSeconds": 8,
+      "xp": {
+        "skill": "build",
+        "amount": 2
+      }
+    }
   },
   "mine_shaft": {
     "name": "광산 갱도",
@@ -1127,7 +1194,8 @@
     "requiresTier": 3,
     "maxTier": 3,
     "multi": true,
-    "desc": "관통. 가장 멀리 쏜다 — 큰 것 하나를 잡는 데 쓴다.",
+    "requiresRole": "build",
+    "desc": "관통. 가장 멀리 쏜다 — 큰 것 하나를 잡는 데 쓴다. ★ §17-15 — 건축가만 이 물건을 설계할 수 있다.",
     "counters": [
       "dragon",
       "ogre",
@@ -1190,7 +1258,8 @@
     "requiresTier": 3,
     "maxTier": 3,
     "multi": true,
-    "desc": "느리고 무겁다. 가까이 붙은 무리를 한 번에 쓸어버린다.",
+    "requiresRole": "build",
+    "desc": "느리고 무겁다. 가까이 붙은 무리를 한 번에 쓸어버린다. ★ §17-15 — 건축가만 이 물건을 설계할 수 있다.",
     "counters": [
       "viking",
       "bandit",
@@ -1343,7 +1412,13 @@
       "마을 회관",
       "읍성 관청",
       "도시 궁청"
-    ]
+    ],
+    "handWork": {
+      "label": "불을 쬔다",
+      "desc": "모닥불 곁에서 몸을 녹인다 — 체력이 조금 돌아온다.",
+      "heal": 8,
+      "cooldownSeconds": 20
+    }
   },
   "appraisal_post": {
     "name": "감정소",
@@ -1527,7 +1602,13 @@
     "footprint": [
       4,
       4
-    ]
+    ],
+    "handWork": {
+      "label": "기도를 올린다",
+      "desc": "하루 한 번, 마을의 사기가 조금 오른다.",
+      "morale": 0.03,
+      "cooldownDays": 1
+    }
   },
   "consulate": {
     "name": "영사관",
@@ -1620,6 +1701,29 @@
     "footprint": [
       3,
       3
+    ]
+  },
+  "claim_flag": {
+    "name": "개척 깃발",
+    "purpose": "본영 밖에 세우는 영토의 씨앗. 셋을 모아 세우고 건축가·국방대신이 곁에 서면 그 땅이 우리 것이 된다.",
+    "category": "civic",
+    "requiresTier": 2,
+    "maxTier": 1,
+    "multi": true,
+    "allowOutsideTerritory": true,
+    "desc": "★ §17-14 — 스타크래프트의 멀티처럼, 깃발 무리가 새 영토가 된다. 유일하게 영토 밖에 서는 건물이다.",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 30
+        },
+        "buildPoints": 6,
+        "hp": 80
+      }
+    ],
+    "footprint": [
+      1,
+      1
     ]
   },
   "lamp": {

@@ -92,6 +92,11 @@ export function terrainNameAt(map, x, y, data) {
   return i == null ? null : terrainCodes(data)[i];
 }
 
+/** ★ §17-4 — 이 칸이 물인가. 흩어져 있던 `terrainAt(...) === terrainIndex(data).water` 관용구의 정본. */
+export function isWaterAt(map, x, y, data) {
+  return terrainAt(map, Math.round(x), Math.round(y)) === terrainIndex(data).water;
+}
+
 export const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
 export const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
 
@@ -467,6 +472,10 @@ export function generateWorldMap(seed, data, opts = {}) {
   const map = { size, seed, terrain };
   const nationDefs = data.aiNations.nations;
   const towns = generateTowns(map, rng, data, nationDefs);
+  // ★ §17-8 — 첫 땅에는 물이 차지 않는다(피드백: 시작 영토에 물이 있으면 이동·건설이 다 막힌다).
+  //   플레이어 도읍 반경(시작 영토 + spawnWaterClearMargin) 안의 물 칸을 풀밭으로 메운다.
+  //   난수를 쓰지 않으므로 재현성 계약은 그대로다.
+  clearWaterAround(map, towns.find((t) => t.isPlayer), data);
   const nationTags = { player: opts.playerTags ?? [] };
   for (const def of nationDefs) nationTags[def.id] = def.tags || [];
   const { nodes, nextNodeId, clusters } = generateNodes(map, towns, rng, data, nationTags);
@@ -477,6 +486,28 @@ export function generateWorldMap(seed, data, opts = {}) {
   map.clusters = clusters;
   map.caravans = buildCaravans(towns, cfg);
   return map;
+}
+
+/** ★ §17-8 — 도읍 둘레의 물을 뭍(풀밭)으로 메운다. terrain 문자열을 제자리에서 고쳐 쓴다. */
+function clearWaterAround(map, town, data) {
+  if (!town) return;
+  const t = worldCfg(data).territory;
+  const r = (t.baseRadius ?? 6) + (t.spawnWaterClearMargin ?? 0);
+  const idx = terrainIndex(data);
+  const grassCh = String.fromCharCode(48 + idx.grass);
+  const chars = map.terrain.split('');
+  let changed = false;
+  for (let dy = -r; dy <= r; dy += 1) {
+    for (let dx = -r; dx <= r; dx += 1) {
+      if (dx * dx + dy * dy > r * r) continue;
+      const x = town.x + dx;
+      const y = town.y + dy;
+      if (x < 0 || y < 0 || x >= map.size || y >= map.size) continue;
+      const i = y * map.size + x;
+      if (chars[i].charCodeAt(0) - 48 === idx.water) { chars[i] = grassCh; changed = true; }
+    }
+  }
+  if (changed) map.terrain = chars.join('');
 }
 
 function buildCaravans(towns, cfg) {
@@ -522,7 +553,13 @@ export function territoryRadius(nation, data) {
 export function inTerritory(world, nation, x, y, data) {
   const town = townOf(world, nation.id);
   if (!town) return false;
-  return dist(town.x, town.y, x, y) <= territoryRadius(nation, data) + 0.001;
+  if (dist(town.x, town.y, x, y) <= territoryRadius(nation, data) + 0.001) return true;
+  /* ★ §17-14 — 깃발로 얻은 새 영토(nation.claims)도 우리 땅이다. 여기는 짐승 성역·건물 배치·
+     주민 영토 판정이 전부 지나는 뜨거운 길이라, 점령지(최대 4개)만 짧게 훑고 바로 나간다. */
+  const claims = nation.claims;
+  if (!claims || !claims.length) return false;
+  for (const c of claims) if (dist(c.x, c.y, x, y) <= c.radius + 0.001) return true;
+  return false;
 }
 
 /** 자국 영토 안의 노드 목록 (숨은 지하 자원은 hidden 이면 제외) */
@@ -534,6 +571,25 @@ export function territoryNodes(world, nation, data, { includeHidden = false } = 
     if (n.hidden && !includeHidden) return false;
     return dist(n.x, n.y, town.x, town.y) <= r + 0.001;
   });
+}
+
+/**
+ * ★ §17-12 — 노드를 세상에서 걷어 낸다(걷어내기 clearNode). 지운 노드를 돌려준다(없으면 null).
+ * 노드 배열은 지금까지 덧붙이기만 했다 — 지우는 문은 이 하나여야 한다.
+ * 지운 사실은 map.removedNodes 에 틱과 함께 적는다: worldDiff 는 '있는 노드'만 실으므로,
+ * 이 장부가 없으면 클라의 노드 사전에 유령 나무가 영영 남는다(markDepleted 와 다른 점이다 —
+ * 그루터기는 노드가 남아 stamp 로 흐르지만, 걷어 낸 자리는 흔적 자체가 없다).
+ */
+export function removeNode(world, id) {
+  const nodes = world.map?.nodes;
+  if (!nodes) return null;
+  const i = nodes.findIndex((n) => n.id === id);
+  if (i < 0) return null;
+  const [node] = nodes.splice(i, 1);
+  const log = (world.map.removedNodes ||= []);
+  log.push({ id: node.id, tick: world.tick ?? 0 });
+  if (log.length > 200) log.splice(0, log.length - 200);
+  return node;
 }
 
 /** 새 노드 추가(개간 등) */

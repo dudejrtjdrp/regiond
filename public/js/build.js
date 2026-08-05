@@ -118,9 +118,18 @@
     if (rect.x0 < 0 || rect.y0 < 0 || rect.x1 >= size || rect.y1 >= size) return { ok: false, reason: '지도 밖입니다' };
     var w = S.worldCfg();
     var buildable = (w && w.terrain && w.terrain.buildable) || ['grass', 'forest', 'fertile'];
+    /* ★ §17-14 — 개척 깃발(allowOutsideTerritory)은 유일하게 영토 밖에 선다.
+       본영에서 claim.maxRangeFromTown 안이면 된다(서버 validatePlacement 의 거울). */
+    var defA = S.buildingDef(key) || {};
+    var townA = S.myTown();
+    var maxRange = ((w && w.territory && w.territory.claim) || {}).maxRangeFromTown || 70;
     for (var cy = rect.y0; cy <= rect.y1; cy++) {
       for (var cx2 = rect.x0; cx2 <= rect.x1; cx2++) {
-        if (!S.inTerritory(cx2, cy)) return { ok: false, reason: '아직 우리 땅이 아닙니다' };
+        if (defA.allowOutsideTerritory) {
+          if (townA && Math.hypot(townA.x - cx2, townA.y - cy) > maxRange + 0.001) {
+            return { ok: false, reason: '본영에서 너무 멉니다' };
+          }
+        } else if (!S.inTerritory(cx2, cy)) return { ok: false, reason: '아직 우리 땅이 아닙니다' };
         if (buildable.indexOf(S.terrainKey(cx2, cy)) < 0) return { ok: false, reason: '여기에는 지을 수 없습니다' };
       }
     }
@@ -260,6 +269,19 @@
       var def = S.buildingDef(b.key) || {};
       var full = !b.multi && b.built > 0;
       var label = b.name + (b.multi && b.built ? ' (' + b.built + ')' : '');
+      /* ★ §17-15 — 건축가 전용 건물. 자리가 비어 있으면 잠긴 카드로 그린다(서버 ROLE_REQUIRED 의 거울). */
+      if (b.requiresRole && !b.roleReady) {
+        var roleReason = (b.roleName || '각료') + '이(가) 자리에 있어야 짓습니다';
+        var lockedIt = item(iconOf(b.key), label, roleReason,
+          purposeOf(b) + keyFactLine(b) + '\n\n' + roleReason, false, null, null, purposeOf(b));
+        lockedIt.classList.add('locked');
+        lockedIt.setAttribute('data-locked', b.key);
+        U.tipSet(lockedIt, b.name + ' — ' + roleReason,
+          purposeOf(b) + keyFactLine(b) + '\n' + roleReason,
+          '값: ' + (costText(b.cost, b.gold) || '없음'));
+        row.appendChild(lockedIt);
+        return;
+      }
       /* ★ GDD3 §15-B-2 — 툴팁 첫 줄은 「왜 짓는가」다. 값이나 크기보다 그것이 먼저다. */
       var detail = purposeOf(b) + (def.desc ? '\n' + def.desc : '') + keyFactLine(b);
       var fp = S.footprintOf(b.key);
@@ -565,6 +587,87 @@
     return true;
   }
 
+  /* ══════════ ★ §17-13 — 다리·매립 드래그 ══════════
+     철로와 같은 끌기(칸)이되 자리가 정반대다 — 물 위에만 놓인다(allowedTerrain).
+     다리 위는 사람이 걷고, 매립한 칸은 걷고 짓고 울타리도 두른다. */
+  var OVERLAYS = {
+    bridge: {
+      info: function () { return S.bridgeInfo(); }, cfg: function () { return S.bridgeCfg(); },
+      on: function (x, y) { return S.onBridge(x, y); },
+      send: 'placeBridge', noun: '다리',
+      lockText: '다리를 아직 모릅니다 — 「가교」를 연구하세요.',
+      pickText: '지도를 눌러 물 위로 끌면 지나간 칸에 다리가 놓입니다. 사람은 다리 위로 물을 건넙니다.',
+      dust: '#8a5c33'
+    },
+    fill: {
+      info: function () { return S.fillInfo(); }, cfg: function () { return S.fillCfg(); },
+      on: function (x, y) { return S.onFill(x, y); },
+      send: 'placeFill', noun: '매립',
+      lockText: '매립을 아직 모릅니다 — 「매립」을 연구하세요.',
+      pickText: '지도를 눌러 물 위로 끌면 지나간 칸이 메워집니다. 메운 자리에는 걷고 지을 수 있습니다.',
+      dust: '#c9b28a'
+    }
+  };
+
+  function openOverlay(kind) {
+    var o = OVERLAYS[kind];
+    if (!o) return;
+    var info = o.info();
+    if (!info || !info.open) { U.toast(o.lockText, 'warn'); return; }
+    S.setPlacing({ kind: kind });
+    GM.world.setFencePath([]);
+    U.toast(o.pickText, 'good', 4200);
+    GM.sfx.play('page');
+  }
+
+  function overlayTileOk(kind, x, y) {
+    var o = OVERLAYS[kind];
+    if (!o) return false;
+    var cfg = o.cfg() || { allowedTerrain: ['water'], requiresTerritoryMargin: 40 };
+    var code = S.terrainKey(x, y);
+    if ((cfg.allowedTerrain || ['water']).indexOf(code) < 0) return false;   /* 물 위에만 */
+    var t = S.myTown();
+    if (t) {
+      var w = S.worldCfg();
+      var base = (w && w.territory && w.territory.baseRadius) || 6;
+      if (Math.hypot(t.x - x, t.y - y) > base + (cfg.requiresTerritoryMargin || 40)) return false;
+    }
+    if (o.on(x, y)) return false;
+    return true;
+  }
+
+  function overlayCostText(kind, tiles) {
+    var o = OVERLAYS[kind];
+    var cfg = o && o.cfg();
+    if (!cfg || !tiles) return '';
+    var total = {};
+    for (var k in cfg.costPerTile) {
+      if (Object.prototype.hasOwnProperty.call(cfg.costPerTile, k)) total[k] = cfg.costPerTile[k] * tiles;
+    }
+    return tiles + '칸 · ' + costText(total);
+  }
+
+  function commitOverlay(kind, points) {
+    var o = OVERLAYS[kind];
+    if (!o) return false;
+    var cfg = o.cfg() || { maxPointsPerRequest: 64 };
+    if (!points || !points.length) { GM.world.setFencePath([]); return false; }
+    var pts = points.slice(0, cfg.maxPointsPerRequest || 64);
+    GM.net.send(o.send, { points: pts }, function (r) {
+      if (!r) return;
+      if (!r.ok) { U.toast((r.error && r.error.message) || '놓지 못했습니다.', 'warn', 3200); GM.sfx.play('deny'); return; }
+      GM.sfx.play('build');
+      U.toast(r.placed + '칸에 ' + o.noun + '을 놓았습니다'
+        + (r.skipped ? ' (' + r.skipped + '칸은 자리가 안 되어 건너뛰었습니다)' : '')
+        + ' · ' + costText(r.cost), r.skipped ? 'warn' : 'good', 3200);
+      (r.tiles || []).forEach(function (t, i) {
+        setTimeout(function () { GM.fx.dust(t.x, t.y, 3, o.dust); }, i * 18);
+      });
+    });
+    GM.world.setFencePath([]);
+    return true;
+  }
+
   function repairAllFence() {
     GM.net.send('repairFence', {}, function (r) {
       if (r && r.ok) {
@@ -591,6 +694,9 @@
     openFence: openFence, fenceTileOk: fenceTileOk, fenceCostText: fenceCostText,
     commitFence: commitFence, repairAllFence: repairAllFence,
     /* ★ GDD3 §13-D-5 — 철로 */
-    openRail: openRail, railTileOk: railTileOk, railCostText: railCostText, commitRail: commitRail
+    openRail: openRail, railTileOk: railTileOk, railCostText: railCostText, commitRail: commitRail,
+    /* ★ §17-13 — 다리·매립(철로와 같은 끌기, 물 위에만) */
+    openOverlay: openOverlay, overlayTileOk: overlayTileOk,
+    overlayCostText: overlayCostText, commitOverlay: commitOverlay
   };
 })(window);

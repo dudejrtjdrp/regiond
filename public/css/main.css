@@ -1461,6 +1461,12 @@ body.cutscene .toasts{bottom:74px}
   color:var(--paper-lit); text-shadow:1px 1px 0 rgba(0,0,0,.6); font-variant-numeric:tabular-nums}
 @keyframes mePulse{0%,100%{opacity:1}50%{opacity:.6}}
 .me-panel.down{border-color:var(--red-deep)}
+/* ★ §17-7 — 잠자기 단추(나의 상태 판 오른쪽 끝) */
+.me-sleep{display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 8px;
+  background:linear-gradient(180deg,#3c3a55 0 5px,#2c2a42 5px 100%); color:#e8e2ce; font-size:11.5px;
+  border:2px solid var(--wood-dark); cursor:pointer; box-shadow:0 3px 0 var(--wood-deep)}
+.me-sleep:hover{filter:brightness(1.15)}
+.me-sleep.on{background:linear-gradient(180deg,#6a5a2c 0 5px,#55471f 5px 100%); color:#ffe9a8}
 
 /* 스탯 분배 — 캐릭터 창(C) */
 .st-alloc{display:flex; flex-direction:column; gap:6px; padding:8px 10px;
@@ -1496,9 +1502,19 @@ body.cutscene .toasts{bottom:74px}
   .eq-slots{grid-template-columns:1fr}
   .eq-row{grid-template-columns:1fr; gap:4px}
   .fx-cards{right:8px; bottom:120px}
-  .me-panel{left:6px; bottom:6px; padding:5px 8px 5px 5px}
+  /* ★ §17-3 — 좁은 화면: 각료 바 위층으로 올리고 가운데 정렬 유지(예전 left:6px 규칙은 transform 을 안 지워 반쯤 잘렸다) */
+  .me-panel{left:50%; transform:translateX(-50%); bottom:88px; padding:5px 8px 5px 5px}
   .me-bars{min-width:112px}
   .st-arow{grid-template-columns:78px 1fr auto auto}
+}
+
+/* ★ §17-3 — 하단 겹침(피드백: "업종과 체력 표시가 서로 겹침"): 각료 바 폭을 줄이고,
+   그래도 닿는 너비에선 나의 상태 판을 각료 바 위층으로 올린다 */
+@media (max-width:1500px){
+  .cabinet{max-width:min(400px,30vw)}
+}
+@media (max-width:1160px){
+  .me-panel{bottom:96px}
 }
 
 

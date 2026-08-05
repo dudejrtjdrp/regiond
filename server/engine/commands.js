@@ -8,7 +8,7 @@ import { validateOrders } from './orders.js';
 import { reassign } from './npc.js';
 import { isLastPlace } from './ai_nation.js';
 import { performApAction, harvestNode, resolveRuinChoice } from './king.js';
-import { townOf, ringAt, revealConcealed } from './world.js';
+import { townOf, ringAt, revealConcealed, nodeById, inTerritory, removeNode } from './world.js';
 import { recordRuinFound } from './codex.js';
 import {
   validateAppearance, normalizeAppearance, pushChat, memberAppearance, upsertMember, normalizeMembers,
@@ -27,7 +27,11 @@ import {
 import { placeFence, upgradeFence, repairFence, removeFence } from './fences.js';
 import { actionSwing } from './actions.js';
 // ★ GDD3 §14-5 — 레벨·스탯도 서버가 정본이다(allocStat).
-import { ensurePlayer, allocStat, playerView } from './skills.js';
+import { ensurePlayer, allocStat, playerView, playerMaxHp, grantXp } from './skills.js';
+// ★ §17-9 — 건물 손일(handWork): 산출은 창고 상한을 지킨다
+import { deposit } from './storage.js';
+import { findStructure, isRuined, footprint } from './structures.js';
+import { dist } from './world.js';
 import { revealAvatar } from './fog.js';
 import { combatSwing } from './battle.js';
 // ★ GDD3 §13-C-8 — 웨이브 밖의 검. 들에 사는 것들을 벤다.
@@ -36,14 +40,18 @@ import { settlementTier, promoteSettlement, nextTierStatus, tierDef } from './ti
 // ★ GDD3 §13-D — RPG 계층: 모집 · 장비/인첸트 · 연구/철로
 import { recruitResident, recruitStatus } from './residents.js';
 import { craftEquipment, enhanceEquipment, enchantEquipment, equipmentView } from './equipment.js';
-import { startResearch, researchView, placeRail, removeRail } from './research.js';
+import {
+  startResearch, researchView, placeRail, removeRail,
+  // ★ §17-13 — 다리·매립: 철로와 같은 칸 배치, 다만 물 위에만 놓인다
+  placeBridge, removeBridge, placeFill, removeFill,
+} from './research.js';
 import {
   featureUnlocked, buildingUnlocked, departmentsActive, commandUnlocked, setFlag, checkTrace,
   evaluateProgress, currentChapter,
 } from './progression.js';
 import { runEmotionDay } from './emotion_day.js';
-// ★ GDD3 §15-C — 동료 봇(= 각료)과 자동 플레이
-import { setAutoPlay, bindCompanionRoles, syncCompanionSeats, autoPlayView } from './companions.js';
+// ★ GDD3 §15-C — 동료 봇(= 각료)과 자동 플레이 · ★ §17-11 — 동료 지시·꾸미기
+import { setAutoPlay, bindCompanionRoles, syncCompanionSeats, autoPlayView, companionById } from './companions.js';
 import { record as chronicle } from './chronicle.js';
 
 const err = (code, message) => ({ ok: false, error: { code, message } });
@@ -376,6 +384,64 @@ function runCommand(world, nationId, cmd, data, rng) {
       return res.ok ? ok({ ...res, resources: { ...nation.resources } }) : res;
     }
 
+    // ── ★ §17-13 — 다리·매립: 물을 건너고(가교), 물을 덮는다(매립) ──
+    case 'placeBridge': {
+      const res = placeBridge(world, nation, cmd, data);
+      return res.ok ? ok({ ...res, resources: { ...nation.resources } }) : res;
+    }
+    case 'removeBridge': {
+      const res = removeBridge(world, nation, cmd, data);
+      return res.ok ? ok({ ...res, resources: { ...nation.resources } }) : res;
+    }
+    case 'placeFill': {
+      const res = placeFill(world, nation, cmd, data);
+      return res.ok ? ok({ ...res, resources: { ...nation.resources } }) : res;
+    }
+    case 'removeFill': {
+      const res = removeFill(world, nation, cmd, data);
+      return res.ok ? ok({ ...res, resources: { ...nation.resources } }) : res;
+    }
+
+    /* ── ★ §17-12 — 걷어내기(clearNode). 영토 안의 자원 자리를 치워 건물 놓을 땅을 낸다 ──
+       피드백: "영토 내의 나무나 땅(재배할 수 있는 곳)을 제거할 수 있어야 함 — 나무를 다량 확보".
+       무엇을 걷을 수 있고 얼마를 돌려받는지는 전부 data/world.json nodes.clear 가 정한다.
+       환급은 storage.deposit 하나로만 들어간다(창고 상한 준수 — §13-A-5). */
+    case 'clearNode': {
+      const ccfg = data.world.nodes.clear || {};
+      const node = nodeById(world, cmd.nodeId ?? cmd.payload?.nodeId);
+      if (!node) return err('NO_NODE', '그런 자리가 없습니다.');
+      const table = ccfg.refundResource || {};
+      if (!(node.type in table)) return err('NOT_CLEARABLE', '걷어 낼 수 없는 자리입니다.');
+      if (ccfg.onlyTerritory !== false && !inTerritory(world, nation, node.x, node.y, data)) {
+        return err('OUT_OF_TERRITORY', '아직 우리 땅이 아닙니다.');
+      }
+      // 잔량이 0(그루터기)이어도 걷을 수 있다 — minRefund 가 있으면 그만큼은 나온다
+      const res = table[node.type] ?? null;
+      let amount = 0;
+      if (res) {
+        const want = Math.max(ccfg.minRefund?.[node.type] ?? 0, (node.amount || 0) * (ccfg.refundRatio ?? 0.5));
+        amount = deposit(nation, res, want, data);
+      }
+      removeNode(world, node.id);
+      /* 그 자리를 겨누던 주민은 그 자리에서 손을 뗀다 — 유령 타깃을 다음 틱에 넘기지 않는다 */
+      const clearTown = townOf(world, nation.id);
+      let unassigned = 0;
+      for (const u of nation.villagers || []) {
+        if (u.targetId !== node.id) continue;
+        u.job = 'idle';
+        u.targetId = 'hall';
+        u.destX = clearTown?.x ?? u.x;
+        u.destY = clearTown?.y ?? u.y;
+        unassigned += 1;
+      }
+      return ok({
+        nodeId: node.id, type: node.type,
+        refund: { res, amount },
+        unassigned,
+        resources: { ...nation.resources },
+      });
+    }
+
     case 'placeFence': {
       const res = placeFence(world, nation, cmd, data);
       return res.ok ? ok(res) : res;
@@ -414,6 +480,94 @@ function runCommand(world, nationId, cmd, data, rng) {
         tags: nation.tags, tagNames: nation.tags.map((t) => data.tags[t]?.name ?? t),
         events: evs,
       });
+    }
+
+    // ── ★ §17-9 건물 손일 — 건물 곁에서 직접 거드는 상호작용(피드백: "제련소에서 직접 제련") ──
+    //   무엇을 주고 무엇을 받는지는 전부 data/buildings.json 의 handWork 가 정한다(매직넘버 금지).
+    case 'handWork': {
+      const s = findStructure(nation, cmd.structureId);
+      if (!s) return err('NO_STRUCTURE', '그런 건물이 없습니다.');
+      if (isRuined(s)) return err('RUINED', '무너진 건물입니다 — 수리부터 하십시오.');
+      if (s.inactive) return err('INACTIVE', '이 건물은 지금 옮기는 중입니다.');
+      const hw = data.buildings[s.key]?.handWork;
+      if (!hw) return err('NO_HANDWORK', '여기서 거들 손일이 없습니다.');
+      const who = cmd.avatarId ?? cmd.playerName ?? 'lord';
+      const av = nation.avatars?.[who];
+      if (!av) return err('NO_AVATAR', '아바타가 없습니다.');
+      const fp = footprint(s.key, data);
+      const cx = s.x + (fp.w - 1) / 2;
+      const cy = s.y + (fp.h - 1) / 2;
+      const reach = (data.balance.handWork?.reachTiles ?? 3) + Math.max(fp.w, fp.h) / 2;
+      if (dist(av.x, av.y, cx, cy) > reach) return err('OUT_OF_RANGE', '더 가까이 가야 합니다.');
+      const now = Number(cmd._now) || Date.now();
+      if (hw.cooldownDays) {
+        const lastTick = s.handTickBy?.[who];
+        if (lastTick != null && world.tick - lastTick < hw.cooldownDays) {
+          return err('COOLDOWN', '오늘은 이미 올렸습니다 — 내일 다시.');
+        }
+      } else {
+        const last = s.hand?.[who] ?? 0;
+        const cd = (hw.cooldownSeconds ?? 3) * 1000;
+        if (now - last < cd) return err('COOLDOWN', '숨을 고르는 중입니다.', { waitMs: cd - (now - last) });
+      }
+      for (const [k, v] of Object.entries(hw.cost || {})) {
+        if ((nation.resources[k] ?? 0) < v) {
+          const name = data.resources.meta[k]?.name ?? k;
+          return err('NO_RESOURCES', `${name}이(가) 모자랍니다.`);
+        }
+      }
+      for (const [k, v] of Object.entries(hw.cost || {})) nation.resources[k] = round2(nation.resources[k] - v);
+      const gained = {};
+      for (const [k, v] of Object.entries(hw.yield || {})) gained[k] = deposit(nation, k, v, data);
+      if (hw.gold) nation.gold = round2(nation.gold + hw.gold);
+      if (hw.buildPoints) nation.buildPoints = round2((nation.buildPoints || 0) + hw.buildPoints);
+      let healed = 0;
+      if (hw.heal) {
+        const p = ensurePlayer(nation, who, data, cmd.playerName ?? null);
+        const maxHp = playerMaxHp(p, data);
+        const before = p.hp ?? maxHp;
+        p.hp = round2(Math.min(maxHp, before + hw.heal));
+        healed = round2(p.hp - before);
+      }
+      if (hw.morale) {
+        const m = data.balance.morale;
+        nation.morale = Math.min(m.max, round2(((nation.morale ?? m.default) + hw.morale) * 100) / 100);
+      }
+      let xp = null;
+      if (hw.xp?.skill) {
+        const p = ensurePlayer(nation, who, data, cmd.playerName ?? null);
+        xp = grantXp(p, hw.xp.skill, hw.xp.amount ?? 1, data);
+      }
+      if (hw.cooldownDays) (s.handTickBy ||= {})[who] = world.tick;
+      else (s.hand ||= {})[who] = now;
+      return ok({
+        structureId: s.id, key: s.key, label: hw.label, gained,
+        healed, gold: hw.gold ?? 0, buildPoints: hw.buildPoints ?? 0,
+        morale: hw.morale ? nation.morale : null, xp,
+        x: cx, y: cy,
+        resources: { ...nation.resources },
+      });
+    }
+
+    // ── ★ §17-7 다같이 잠자기 — 사람 아바타가 모두 잠들면 하루가 곧장 넘어간다 ──────
+    //   (피드백: "초반에 일차를 넘기려면 10분을 기다려야 함 — 다같이 잠자기로 넘기자")
+    //   실제 하루 진행은 런타임(index.js apply)이 advanceDay 표시를 보고 한다.
+    case 'sleepVote': {
+      if (!nation.isPlayer) return err('NO_NATION', '이 나라는 잠들지 않습니다.');
+      if (nation.battle && !nation.battle.over) return err('BATTLE_LIVE', '싸움 중에는 잠들 수 없습니다.');
+      const who = cmd.avatarId ?? cmd.playerName ?? 'lord';
+      if (!nation.avatars?.[who]) return err('NO_AVATAR', '아바타가 없습니다.');
+      const botPrefix = data.companions?.idPrefix ?? 'bot~';
+      const isBot = (id) => id.startsWith(botPrefix) || Boolean(nation.players?.[id]?.bot);
+      const votes = (nation.sleepVotes ||= {});
+      if (cmd.on === false) delete votes[who]; else votes[who] = true;
+      const humans = Object.keys(nation.avatars || {}).filter((id) => !isBot(id));
+      for (const id of Object.keys(votes)) if (!humans.includes(id) || isBot(id)) delete votes[id];
+      const slept = humans.filter((id) => votes[id]).length;
+      const need = humans.length;
+      const advance = need > 0 && slept >= need;
+      if (advance) nation.sleepVotes = {};
+      return ok({ slept, need, advanceDay: advance });
     }
 
     // ── 군주 아바타 (연출·안개용) ────────────────────────────────
@@ -561,7 +715,7 @@ function runCommand(world, nationId, cmd, data, rng) {
       }
       if (side === 'sell') {
         if ((nation.resources[resource] || 0) < amt) return err('NO_STOCK', '재고가 부족합니다.');
-        const unit = exportPrice(foreign, data) * (1 + (hooks.premiumTrade?.[partnerId] || 0));
+        const unit = exportPrice(foreign, data, nation) * (1 + (hooks.premiumTrade?.[partnerId] || 0));
         const gain = unit * amt * (hooks.goldMultiplier ?? 1);
         if (partner.gold < gain) return err('PARTNER_NO_GOLD', '상대국의 국고가 부족합니다.');
         nation.resources[resource] -= amt;
@@ -677,6 +831,74 @@ function runCommand(world, nationId, cmd, data, rng) {
         now,
       });
       return ok({ avatarId: who, ...res });
+    }
+
+    /* ── ★ §17-11 — 동료에게 손가락으로 지시한다 ────────────────
+       피드백: "일부 NPC(동료 봇)가 가만히 있으며 상호작용과 지시가 되지 않음."
+       동료를 눌러 「이곳으로 보낸다」로 자리를 찍으면 두뇌(companions.decide)의 어떤 갈래보다
+       먼저 그 자리로 걸어가 지시 대기로 선다. order: null 은 지시를 걷는 것이다. */
+    case 'commandCompanion': {
+      const comp = companionById(nation, cmd.companionId ?? cmd.payload?.companionId);
+      if (!comp) return err('NO_COMPANION', '그런 동료가 없습니다.');
+      if (!comp.active || !nation.avatars?.[comp.id]) return err('COMPANION_AWAY', '그 동료는 지금 자리를 비웠습니다.');
+      const mem = (comp.mem ||= {});
+      const raw = cmd.order ?? cmd.payload?.order ?? null;
+      if (raw == null) {
+        mem.order = null;
+        // 지시를 걷었다 — 다음 걸음에 곧바로 제 일감을 다시 고른다
+        mem.target = null;
+        mem.think = 0;
+        return ok({ companionId: comp.id, order: null });
+      }
+      if (raw.kind !== 'move') return err('BAD_ORDER', '알 수 없는 지시입니다.');
+      const x = Number(raw.x);
+      const y = Number(raw.y);
+      const size = data.world.size;
+      if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x >= size || y >= size) {
+        return err('BAD_POSITION', '지도 밖입니다.');
+      }
+      mem.order = { kind: 'move', x: round2(x), y: round2(y) };
+      // 하던 일을 그 자리에서 물린다 — 두뇌가 다음 걸음에 지시부터 다시 판단한다
+      mem.target = null;
+      mem.think = 0;
+      return ok({ companionId: comp.id, order: { ...mem.order } });
+    }
+
+    /* ── ★ §17-11 — 동료 꾸미기(이름·모양새) ─────────────────────
+       외형은 setAppearance 와 같은 규격(레이어 인덱스)이고, 이름은 명부의 nameMaxLength 를 지킨다.
+       세 장부(companions.list · avatars · members)에 같은 값을 적는다 — 명부와 이름표가 갈리지 않게. */
+    case 'customizeCompanion': {
+      const comp = companionById(nation, cmd.companionId ?? cmd.payload?.companionId);
+      if (!comp) return err('NO_COMPANION', '그런 동료가 없습니다.');
+      const rawName = cmd.name ?? cmd.payload?.name;
+      const rawLook = cmd.appearance ?? cmd.payload?.appearance;
+      let name;
+      if (rawName != null) {
+        if (typeof rawName !== 'string') return err('BAD_NAME', '이름이 올바르지 않습니다.');
+        name = rawName.trim();
+        const max = data.world.appearance.nameMaxLength;
+        if (!name.length || name.length > max) return err('BAD_NAME', `이름은 1~${max}자여야 합니다.`);
+      }
+      let appearance;
+      if (rawLook != null) {
+        // 범위를 벗어난 칸만 지금 모습으로 되돌린다(전체 거부 금지 — setAppearance 계열과 같은 규율)
+        appearance = normalizeAppearance(rawLook, data, comp.appearance).appearance;
+      }
+      if (name == null && appearance == null) return err('NOTHING_TO_CHANGE', '바꿀 것이 없습니다.');
+      if (name != null) comp.name = name;
+      if (appearance != null) comp.appearance = appearance;
+      const av = nation.avatars?.[comp.id];
+      if (av) {
+        if (name != null) av.name = comp.name;
+        if (appearance != null) av.appearance = comp.appearance;
+      }
+      // 솜씨 장부와 맡은 자리(각료 카드)의 이름표도 같은 사람을 가리켜야 한다
+      if (name != null && nation.players?.[comp.id]) nation.players[comp.id].name = comp.name;
+      if (name != null && comp.role && nation.roles?.[comp.role]?.botId === comp.id) {
+        nation.roles[comp.role].name = comp.name;
+      }
+      upsertMember(nation, { avatarId: comp.id, name, appearance, bot: true }, data);
+      return ok({ companionId: comp.id, name: comp.name, appearance: { ...comp.appearance } });
     }
 
     case 'adviceAct': {

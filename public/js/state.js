@@ -336,6 +336,11 @@
       d.nodes.forEach(function (n) { m.nodes[n.id] = n; });
       m.nodesDirty = true;
     }
+    /* ★ §17-12 — 걷어 낸 자리. diff 는 '있는 노드'만 실으므로 지워진 것은 이 목록으로 지운다.
+       안 지우면 유령 나무가 화면에 영영 남는다(서버 removeNode 의 장부). */
+    if (d.removedNodes && d.removedNodes.length) {
+      for (var rn = 0; rn < d.removedNodes.length; rn++) dropNode(d.removedNodes[rn]);
+    }
     if (d.towns) {
       d.towns.forEach(function (t) {
         var found = null;
@@ -571,6 +576,16 @@
   }
   function nodeById(id) { return (S.map && S.map.nodes[id]) || null; }
 
+  /** ★ §17-12 — 노드를 화면 장부에서 지운다(걷어내기 ack · worldDiff.removedNodes 가 부른다) */
+  function dropNode(id) {
+    var m = S.map;
+    if (!m || !id || !m.nodes[id]) return false;
+    delete m.nodes[id];
+    m.nodesDirty = true;
+    if (S.selection && S.selection.nodeId === id) S.selection.nodeId = null;
+    return true;
+  }
+
   /* ★ GDD3 §13-C — 들에 사는 것들.
      위치의 정본은 **서버**다(주민과 반대다 — 주민은 클라가 쥔다). 대신 서버는 1초에 한 번만 보내므로
      화면은 이 좌표로 튀지 않고 그리로 다가간다(world.js 가 보간한다). 여기서는 마지막 사실만 적어 둔다. */
@@ -646,7 +661,13 @@
   function inTerritory(x, y) {
     var t = territory();
     if (!t || t.cx == null) return false;
-    return Math.hypot(x - t.cx, y - t.cy) <= t.radius + 0.001;
+    if (Math.hypot(x - t.cx, y - t.cy) <= t.radius + 0.001) return true;
+    /* ★ §17-14 — 깃발로 얻은 점령지(claims)도 우리 땅이다(서버 world.inTerritory 의 거울) */
+    var cl = t.claims || [];
+    for (var i = 0; i < cl.length; i++) {
+      if (Math.hypot(x - cl[i].x, y - cl[i].y) <= cl[i].radius + 0.001) return true;
+    }
+    return false;
   }
 
   /* ── 나라 파생 ─────────────────────────────────────── */
@@ -763,6 +784,25 @@
   function railCfg() { var c = cfg(); return (c && c.research && c.research.rails) || null; }
   function onRail(x, y) {
     var l = rails();
+    var rx = Math.round(x), ry = Math.round(y);
+    for (var i = 0; i < l.length; i++) if (l[i].x === rx && l[i].y === ry) return true;
+    return false;
+  }
+  /* ★ §17-13 — 다리·매립. 철로와 같은 조회 계약(뷰의 목록 + 칸 판정). */
+  function bridges() { var n = nation(); return (n && n.bridges) || []; }
+  function fills() { var n = nation(); return (n && n.fills) || []; }
+  function bridgeInfo() { var n = nation(); return (n && n.bridgeSummary) || null; }
+  function fillInfo() { var n = nation(); return (n && n.fillSummary) || null; }
+  function bridgeCfg() { var c = cfg(); return (c && c.research && c.research.bridges) || null; }
+  function fillCfg() { var c = cfg(); return (c && c.research && c.research.fill) || null; }
+  function onBridge(x, y) {
+    var l = bridges();
+    var rx = Math.round(x), ry = Math.round(y);
+    for (var i = 0; i < l.length; i++) if (l[i].x === rx && l[i].y === ry) return true;
+    return false;
+  }
+  function onFill(x, y) {
+    var l = fills();
     var rx = Math.round(x), ry = Math.round(y);
     for (var i = 0; i < l.length; i++) if (l[i].x === rx && l[i].y === ry) return true;
     return false;
@@ -1269,11 +1309,16 @@
     }
     return null;
   }
+  /* ★ §17-10 피드백("만료된 제안이 안 사라져") — 뷰(서버 정본)를 우선하고, 소켓으로 밀려온
+     복사본(S.offers)은 뷰에 offers 칸이 아예 없을 때만 쓴다. 만료 표가 지난 것은 어디서 왔든 걸러낸다. */
   function offers() {
-    var fromView = (S.view && S.view.offers) || [];
+    var v = S.view || {};
+    var tick = v.tick || 0;
+    var list = Array.isArray(v.offers) ? v.offers : (S.offers || []);
     var seen = {}, out = [];
-    fromView.concat(S.offers || []).forEach(function (o) {
+    list.forEach(function (o) {
       if (!o || seen[o.offerId]) return;
+      if (o.expiresTick !== undefined && o.expiresTick < tick) return;
       seen[o.offerId] = 1; out.push(o);
     });
     return out;
@@ -1380,6 +1425,10 @@
     equipCfg: equipCfg, equipment: equipment,
     research: research, researchOf: researchOf,
     rails: rails, railInfo: railInfo, railCfg: railCfg, onRail: onRail,
+    /* ★ §17-13 — 다리·매립 · ★ §17-12 — 걷어내기 */
+    bridges: bridges, bridgeInfo: bridgeInfo, bridgeCfg: bridgeCfg, onBridge: onBridge,
+    fills: fills, fillInfo: fillInfo, fillCfg: fillCfg, onFill: onFill,
+    dropNode: dropNode,
     jobMeta: jobMeta, stageName: stageName,
 
     selectResidents: selectResidents, selectTarget: selectTarget,

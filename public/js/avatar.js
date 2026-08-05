@@ -72,7 +72,9 @@
     if (!code) return false;
     var w = S.worldCfg();
     var list = (w && w.terrain && w.terrain.walkable) || ['grass', 'forest', 'rock', 'fertile'];
-    return list.indexOf(code) >= 0;
+    if (list.indexOf(code) >= 0) return true;
+    /* ★ §17-13 — 다리·매립 위의 물은 길이다. 사람만 — 짐승과 적은 서버가 그대로 막는다. */
+    return code === 'water' && (S.onBridge(x, y) || S.onFill(x, y));
   }
 
   function speed() {

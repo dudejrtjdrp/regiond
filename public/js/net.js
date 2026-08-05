@@ -22,10 +22,16 @@
     'recruitResident',
     'craftEquipment', 'enhanceEquipment', 'enchantEquipment',
     'startResearch', 'placeRail', 'removeRail',
+    /* ★ §17-13 — 다리(물을 건넌다) · 매립(물을 덮는다) */
+    'placeBridge', 'removeBridge', 'placeFill', 'removeFill',
+    /* ★ §17-12 — 걷어내기: 영토 안의 자원 자리를 치워 땅을 낸다 */
+    'clearNode',
     /* ★ GDD3 §14-5 — 레벨업 능력치 점수 나누기(캐릭터 창 C) */
     'allocStat',
     /* ★ GDD3 §15-C — 자동 플레이 켜기·끄기와, 손이 닿았을 때의 잠시 물러남 */
     'setAutoPlay',
+    /* ★ §17-11 — 동료 상호작용: 지시(이곳으로 보낸다·해제) · 꾸미기(이름·모양새) */
+    'commandCompanion', 'customizeCompanion',
     /* ★ §16-18 · §16-19 — 집결지 · 수비 깃발 */
     'setRally', 'setDefenseFlag',
     /* ★ 감정의 날 — 감정소를 눌러 여는 유일한 문 (GDD3 §11-4) */
@@ -38,7 +44,11 @@
     'setAutoExport', 'setExportFloor', 'pickRole', 'delegate',
     'adviceAct', 'setAutoAssist', 'apAction', 'harvestNode', 'setBattlePlan',
     /* 사회 */
-    'setAppearance', 'chat'
+    'setAppearance', 'chat',
+    /* ★ §17-7 — 다같이 잠자기(하루 넘기기) */
+    'sleepVote',
+    /* ★ §17-9 — 건물 손일(직접 상호작용) */
+    'handWork'
   ];
 
   var socket = null;
@@ -163,6 +173,8 @@
 
     /* ★ v3 신설 이벤트 */
     socket.on('tierUp', function (p) { S.emit('tierUp', p); });
+    /* ★ §17-14 — 깃발 점령. 새 영토 원이 생겼다(배너 + 자리 짚기). */
+    socket.on('territoryClaimed', function (p) { S.emit('territoryClaimed', p); });
     socket.on('residentArrived', function (p) { S.emit('residentArrived', p); });
     /* ★ GDD3 §13-D-5 — 연구 완료. 새 노두가 드러나는 순간이라 지도를 다시 청한다. */
     socket.on('researchDone', function (p) { S.emit('researchDone', p); });

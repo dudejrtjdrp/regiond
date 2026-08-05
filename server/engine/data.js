@@ -149,6 +149,13 @@ export function publicWorld(d = loadGameData()) {
         contributes: v.contributes ?? null,
       }])),
       contribution: { perNode: w.nodes.contribution.perNode, cap: w.nodes.contribution.cap },
+      // ★ §17-12 — 걷어내기 규격. 노드 패널이 [걷어낸다] 단추와 환급 예고를 이 표로 그린다.
+      clear: w.nodes.clear ? {
+        onlyTerritory: w.nodes.clear.onlyTerritory !== false,
+        refundRatio: w.nodes.clear.refundRatio,
+        refundResource: { ...w.nodes.clear.refundResource },
+        minRefund: { ...(w.nodes.clear.minRefund || {}) },
+      } : null,
       // ★ GDD3 §13-B — 군락·재생·유적 크기. 화면이 바닥 질감과 「옅어짐」을 같은 규칙으로 그린다.
       clusters: w.nodes.clusters ? {
         clearRadius: w.nodes.clusters.clearRadius, ring: [...(w.nodes.clusters.ring || [])],
@@ -164,7 +171,11 @@ export function publicWorld(d = loadGameData()) {
       ring0Margin: w.rings.ring0Margin, ring1Span: w.rings.ring1Span,
       warnRing: w.rings.warnRing, warnText: w.rings.warnText,
     } : null,
-    territory: { baseRadius: w.territory.baseRadius },
+    territory: {
+      baseRadius: w.territory.baseRadius,
+      // ★ §17-14 — 깃발 점령 규격. 고스트가 「본영에서 너무 멉니다」를 서버와 같은 자로 잰다.
+      claim: w.territory.claim ? (({ _note, ...c }) => c)(w.territory.claim) : null,
+    },
     // ★ GDD3 §13-A-2 — 화면 밝기 다이얼(밤 하한·낮 상향·안개 장막). 화면이 이 표만 보고 조명을 켠다.
     light: w.light ? {
       phases: (w.light.phases || []).map((p) => ({ ...p })),

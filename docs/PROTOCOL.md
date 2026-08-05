@@ -273,6 +273,11 @@ defenseIndex = Σ(터렛 dps × 사거리 ÷ turretRangeReference) + 민병 dps 
 | `startResearch` | `{key}` | 10장 끝이 없는 길 | 티어 · 선행 연구 · 값(골드+자원)은 **착수할 때 한 번에** · 한 번에 하나만 |
 | `placeRail` | `{points:[{x,y}…]}` | 10장 | 「철로」 연구 필수 · 칸마다 강재 · 물 위 금지 · 상한 600칸 |
 | `removeRail` | `{tileIds:[…]}` | 10장 | 낸 값의 절반 환급 |
+| `placeBridge` | `{points:[{x,y}…]}` | 10장 | ★ §17-13 「가교」 연구 필수 · 칸마다 목재 · **물 위에만**(allowedTerrain) · 사람만 건넌다(짐승·적 불가) · 상한 240칸 |
+| `removeBridge` | `{tileIds:[…]}` | 10장 | 낸 값의 절반 환급 |
+| `placeFill` | `{points:[{x,y}…]}` | 10장 | ★ §17-13 「매립」 연구 필수(선행: 가교) · 칸마다 석재+목재 · **물 위에만** · 메운 칸은 걷고·짓고·울타리 가능 · 상한 160칸 |
+| `removeFill` | `{tileIds:[…]}` | 10장 | 낸 값의 절반 환급 |
+| `clearNode` | `{nodeId}` | (장 제한 없음) | ★ §17-12 걷어내기 — `world.nodes.clear.refundResource` 에 적힌 종류만 · 영토 안만 · 환급 `max(minRefund, 잔량×refundRatio)` 를 창고 상한대로 적립 · 붙어 있던 주민은 대기로 · 지워진 노드는 `worldDiff.removedNodes` 로 내려간다 |
 
 `craftEquipment`·`enhanceEquipment`·`enchantEquipment` 는 **신원 명령**이다 —
 누구의 칼인지는 세션이 정한다(클라가 보낸 `avatarId` 는 믿지 않는다).

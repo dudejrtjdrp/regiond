@@ -1,0 +1,75 @@
+# 인수인계 — §17 배치5 (피드백 대응 + 큰 기능 4종)
+
+> 2026-08-05 작성. 이 문서 하나로 다른 세션/계정에서 이어서 작업할 수 있게 정리했다.
+> 기준 상태: **`npm test` 326/326 통과**, 이 커밋까지 전부 PC 저장소에 반영됨.
+
+## 0. 프로젝트 개요 (처음 보는 사람용)
+
+- 갈래말래 — 엔드리스 정착지 + 타워디펜스 웹 게임. NHN AI 게임잼 제출작.
+- Node 22 ESM 서버(`server/`, express+socket.io) + 바닐라 JS 클라(`public/js`, `GM` 네임스페이스, 단일 캔버스).
+- **대원칙**: 밸런스 수치는 전부 `data/*.json`(매직넘버 금지) · 서버 권위 · 결정론(월드 난수를 실시간 로직이 축내면 안 됨 — 개인 난수는 `statRng`) · 한국어 「왜」 주석에 ★ § 태그.
+- 테스트: `npm test` (node --test). 실행: `npm start` → http://localhost:3000. 개발 패널: 게임 화면에서 Ctrl+` (하루 길이/멈춤/하루 진행/씨앗).
+- 문서: `docs/GDD3.md`(설계 정본) · `docs/PROTOCOL.md`(규약) · `README.md`.
+
+## 1. 이번 배치에서 **끝난 것** (§17-1 ~ §17-15)
+
+유저 피드백 22건 + 추가 요청 3건 중 아래를 구현·검증 완료:
+
+| § | 내용 | 주요 파일 |
+|---|---|---|
+| §17-1 | 각료(농정관 등) 클릭 무반응 — 말풍선이 #cabinet overflow에 잘려 안 보이던 버그. fixed 배치로 수정 | public/js/hud.js |
+| §17-2 | 건물 이전 후 옛 자리에 그려지던 버그 — sortedStructures 캐시 서명에 좌표·티어 포함 | public/js/world.js |
+| §17-3 | 하단 UI 겹침(각료 바 ↔ 체력판) — 폭 축소 + 좁은 화면에서 체력판을 윗층으로 | public/css/main.css |
+| §17-4 | 동물·적 물 진입 금지 — isWaterAt 신설, creatureMayStand·battle moveToward(축 미끄러짐)·pushOutOfTerritory | server/engine/world.js·ecology.js·battle.js |
+| §17-5 | 물고기 → **고기**(낚시) — yield/cycleBonus meat 0.7/1.7(열량 등가), 노드 resource=meat, 3장 목표를 「곡물20 또는 고기7」로 | data/skills.json·world.json·chapters.json |
+| §17-6 | 집들이 — 잠자리 건물 완공 순간 빈 침상 있으면 주민 1명 즉시 도착(스윙·일틱 양쪽 경로, resident_arrived 이벤트) | server/engine/residents.js(housewarmArrival)·actions.js·tick.js, balance.json arrival.onHousingComplete |
+| §17-7 | 다같이 잠자기 — sleepVote 명령, 사람 아바타 전원이 잠들면 하루 즉시 넘김(전투 중 불가). 체력판 옆 [잠자기] 단추 | server/engine/commands.js·server/index.js(apply)·public/js/hud.js |
+| §17-8 | 시작 영토 확대(6→9)·티어 반경 전면 확대(9/13/17/22/27/33/38, endless +5)·첫 땅 물 제거(clearWaterAround)·군락 링/시야/조우 반경 재조정 | data/tiers.json·world.json·creatures.json, server/engine/world.js |
+| §17-9 | 건물 손일(직접 상호작용) — handWork 명령: 제련소 손제련(철광석4+장작→강재2)·대장간 벼려 팔기(→골드)·우물 두레박(체력+20)·모닥불 불쬐기·성소 기도(사기)·제재소 톱질(공사력)·사냥막 가죽 손질. 전부 buildings.json handWork 데이터 구동. + 제련소·대장간·광산 해금을 9장→8장으로(강재 루트 막힘 해소) | data/buildings.json·balance.json, server/engine/commands.js·structures.js, public/js/structure.js |
+| §17-10 | 외교 제안 빈도 0.55→0.8 + 만료 제안 잔존 버그(클라 offers 병합이 만료를 안 거름) 수정 | data/ai_nations.json, public/js/state.js |
+| §17-11 | 동료 상호작용 — 동료 클릭 패널(crewpanel.js), [이곳으로 보낸다](commandCompanion 이동 지시·도착 후 대기), [이름·모양새 바꾸기](customizeCompanion) | server/engine/companions.js·commands.js, public/js/crewpanel.js·input.js |
+| §17-12 | 걷어내기(clearNode) — 영토 안 숲/딸기/바위/밭터 노드 제거, 잔량 50% 환급(숲 최소 6 목재), 주민 자동 해제, worldDiff removedNodes | server/engine/world.js(removeNode)·commands.js, data/world.json nodes.clear |
+| §17-13 | 다리·매립 — 연구 bridgeworks(티어3)/landfill(티어4), placeBridge/placeFill(철로와 같은 끌어놓기, 물 위 전용), 사람·봇은 다리 위를 걷고(짐승·적은 불가), 매립 칸에는 건물·울타리 건설 가능 | server/engine/research.js·structures.js·fences.js, public/js/build.js·world.js·avatar.js |
+| §17-14 | **영토 점령(깃발 멀티)** — 개척 깃발(8장 해금, 영토 밖 건설 허용) 3개를 7타일 안에 모으고 건축가+국방대신이 6타일 안에 함께 서면 반경 9 새 영토 편입(최대 4곳, 본영에서 70타일 이내). 성역·건설·시야·울타리가 새 영토에서 전부 동작 | server/engine/claims.js(신규)·world.js(inTerritory)·fog.js, data/world.json territory.claim, data/buildings.json claim_flag |
+| §17-15 | 역할군 개성 — 역할이 차 있으면: 건축가 공사 스윙 1.25배·국방대신 민병 1.15배·농정관 주민 채집 1.1배·공장장 공정 1.15배·외교관 교역 마진 3%·성녀 회복 1.3배. 저택·발리스타·대포는 **건축가 필수**(ROLE_REQUIRED) | data/roles.json perk, server/engine/npc.js(rolePerk)+6개 적용점 |
+
+새 명령(전부 서버 화이트리스트 + net.js OUT + PROTOCOL.md 반영): `sleepVote` `handWork` `commandCompanion` `customizeCompanion` `clearNode` `placeBridge` `removeBridge` `placeFill` `removeFill`.
+새 테스트: `test/playtest17.test.js`(동료 지시 7) · `17b`(걷어내기·다리 7) · `17c`(점령·역할 8). 기존 테스트 수정: 티어 반경·어로 고기·e2e 인구 단언 등 전부 ★ 주석으로 사유 명시.
+
+## 2. **남은 것** (이어서 할 일 — 우선순위 순)
+
+### A. §17-16 NPC 국가 가시화 (유저 선택 기능, 미착수)
+AI 3국(data/ai_nations.json)은 교역 상대로만 존재. 할 일:
+1. 클라 world.js에서 AI 도읍의 preset 건물(map.towns[].preset)을 스프라이트로 그리기 + 이름 현판. 안개 탐사(fog≥1) 시에만.
+2. `visitNation` 명령: 자기 아바타가 AI 도읍 중심 6타일(신설 towns.visitRadius) 안이면 nation.metNations[상대]=tick 기록 → view.js buildWorldState의 가격 마스킹을 `hasDiplomat OR metNations`로 완화(직접 가 보면 시세를 안다).
+3. 신규 public/js/diplomacy.js 방문 모달(이름·컨셉·태그·시세표·[교역한다]) + E키 방문 프롬프트.
+
+### B. §17-17 탐험 확대 (미착수)
+1. 새 노드 `cache`(숨은 궤, count 44, 은닉 concealChance 0.55, 본영 18타일 밖) — generateNodes에 concealChance/minTownDistance 지원 추가 필요. skills.json nodes.cache(건설 스킬 3스윙) + actions.js에 cacheReward 분기: statRng(`시드:cache:노드id`)로 골드 25~70 + 30% 유물(grantRandomArtifact), 열면 영구 소진.
+2. **버그 수정**: 큰 유적의 gradeBoost가 유물 굴림에 안 실림 — actions.js가 nation.ruinGradeBoost를 쌓지만 king.js resolveRuinChoice→grantRandomArtifact에 전달·리셋을 안 함.
+3. data/ruins.json 카드 6장 추가(선택지 다양화 — applyRuinEffect가 지원하는 op는 gold/morale/resource/artifactRoll뿐이니 그 안에서 설계).
+4. atlas.js에 cache 스프라이트, world.js 동사맵에 `cache: 'E — 궤를 연다'`.
+
+### C. §17-18 감정의 날 확장 (미착수)
+1. data/tags.json 전 태그에 `flavor`(한 줄 이야기) 추가 + 새 태그 2개(엔진이 이미 읽는 효과 키만 사용할 것 — effectValue 소비처 먼저 grep).
+2. emotion_day.js buildCutscene: 기존 5프레임 뒤에 배정 태그별 flavor 프레임 + 마무리 1줄.
+3. templates.ko.json emotion_day 변형 4→6 (계약 테스트: 이벤트별 3개 이상).
+
+### D. §17-19~ 표현·타격감 (미착수 — 전부 클라)
+1. **건설 UI 하단 배치**(스타크래프트식) — 건설 패널이 상단에 뜨는 것을 하단으로. public/css + build.js/hud.js의 패널 컨테이너 위치.
+2. **건물 스프라이트 확대**(~1.15-1.2배) — world.js drawStructures와 input.js structureAtSprite(§16-20)가 같은 수식을 씀: 사각형 계산을 world.js에서 export해 한 곳으로 합친 뒤 키울 것.
+3. **업그레이드 시 외형 변화** — atlas.js 건물 스프라이트에 tier 인자(캐시 키 포함)로 장식(테두리·깃발·금장) 추가.
+4. **피격 이펙트** — GM.fx에 이미 shakeScreen·flash·hitStop·floatText 있음: 내 아바타 HP 감소 시 화면 흔들림+붉은 섬광+데미지 숫자, 적·짐승 피격 시 흰 플래시. app.js/hud.js에서 HP 변화 감지 훅.
+
+### E. 마무리 작업
+- 시뮬 체크포인트 재검증(티어3 도달일·웨이브5 생존율·파산율 — README의 밸런스 계약 4종). §17-8 영토 확대와 §17-15 퍼크가 곡선에 닿았을 수 있음. `harness/` 참고.
+- README.md·docs/GDD3.md에 §17 절 추가(지금은 PROTOCOL.md와 코드 주석만 최신).
+- 실브라우저 스모크(Playwright): 잠자기 단추·손일 단추·동료 패널·깃발 점령 E2E.
+- 유저에게 물어볼 것: 팀원 롤 기술서에 넣을 **김태우 담당 파트**(프로젝트 지침).
+
+## 3. 진행 방법 메모
+
+- 유저 PC 저장소: `C:\Desktop\...\Game\Toji` (Claude 세션에선 device 브리지 마운트 `mnt/Toji`). 마운트에선 rm 불가 → 삭제는 `_to_delete/`로 mv. git 잠금파일(index.lock 등)도 mv로 치우고 작업.
+- 파일 반영은 tarball → `tar -xzOf 아카이브 경로 > 경로` 식 개별 덮어쓰기(마운트가 in-place unlink를 막음).
+- 커밋 말미: `Co-Authored-By: Claude ...` 트레일러 유지(기존 커밋 참조).
+- 유저 게임 반영 시 **서버 재시작(npm start) + 브라우저 Ctrl+F5** 필수 안내.

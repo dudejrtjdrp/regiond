@@ -30,6 +30,9 @@ import { stepEcology, ensureCreatures, creatureViews } from './engine/ecology.js
 import { stepResidentWork } from './engine/residents.js';
 // ★ GDD3 §15-C — 동료 봇(= 각료). 같은 1초 박자에 두뇌를 굴리고 아바타 채널로 자리를 흘린다.
 import { stepCompanions, syncCompanionSeats, bindCompanionRoles, isCompanionId } from './engine/companions.js';
+// ★ §17-14 — 깃발 점령. 동료가 자리 잡은 다음 같은 1초 박자에 판정한다.
+import { claimStep } from './engine/claims.js';
+import { stampVisionDisc } from './engine/fog.js';
 import { chronicleView, record as chronicleRecord } from './engine/chronicle.js';
 import {
   upsertMember as upsertMemberEntry, normalizeAppearance, defaultAppearance, chatHistory,
@@ -186,6 +189,20 @@ class GameRuntime {
       if (crew.events.length) this.emitImmediate(nation.id, crew.events);
       /* ★ §16-6 — 집사가 착공하거나 사람을 불렀으면(stateDirty) 화면도 그 자리에서 새 판을 받는다 */
       if (crew.actions.some((a) => a.buildingDone) || crew.stateDirty) this.broadcastState();
+      /* ★ §17-14 — 깃발 점령 판정. 건축가·국방대신이 깃발 무리 곁에 서면 그 1초 안에 땅이 넓어진다.
+         새 땅은 그 자리에서 밝힌다(안개) — 일 틱(최대 10분)의 recomputeFog 를 기다리지 않는다. */
+      const claimed = claimStep(this.world, nation, data);
+      if (claimed.length) {
+        this.emitImmediate(nation.id, claimed);
+        for (const e of claimed) {
+          const chunks = stampVisionDisc(nation, data, this.world.tick, e.data.x, e.data.y, e.data.radius + 2);
+          if (chunks.length) {
+            const reveal = buildRevealDiff(this.world, nation.id, data, chunks);
+            if (reveal) io.to(this.gameId).emit('worldDiff', reveal);
+          }
+        }
+        this.broadcastState();
+      }
     }
   }
 
@@ -215,6 +232,11 @@ class GameRuntime {
     const res = applyCommand(this.world, nationId, cmd, data, this.rng);
     if (res.ok) {
       if (res.events?.length) this.emitImmediate(nationId, res.events);
+      // ★ §17-7 다같이 잠자기 — 사람이 모두 잠들면 하루를 곧장 넘기고 일 틱 시계를 새로 감는다
+      if (res.advanceDay) {
+        this.advance();
+        if (!this.world.paused) { this.stop(); this.start(); }
+      }
       this.broadcastState();
     }
     return res;
@@ -312,6 +334,8 @@ class GameRuntime {
       case 'mandate': io.to(this.gameId).emit('mandate', e.data); break;
       // ★ GDD3 §1 — 티어업은 큰 이벤트다(팡파레 + 영토 말뚝 + 도감 카드 공개)
       case 'tier_up': io.to(this.gameId).emit('tierUp', e.data); break;
+      // ★ §17-14 — 깃발 점령. 화면이 배너를 띄우고 새 원 자리를 짚는다.
+      case 'territory_claimed': io.to(this.gameId).emit('territoryClaimed', e.data); break;
       // ★ GDD3 §4 · §13-D-1 — 주민 도착(이름·외형·능력치와 함께)
       case 'resident_arrived': io.to(this.gameId).emit('residentArrived', e.data); break;
       // ★ GDD3 §13-D-5 — 연구가 끝났다(석탄·석유 노두가 드러나는 순간이기도 하다)
@@ -484,6 +508,10 @@ const CLIENT_COMMANDS = [
   'allocStat',
   'craftEquipment', 'enhanceEquipment', 'enchantEquipment',
   'startResearch', 'placeRail', 'removeRail',
+  // ★ §17-13 — 다리(물을 건넌다) · 매립(물을 덮는다)
+  'placeBridge', 'removeBridge', 'placeFill', 'removeFill',
+  // ★ §17-12 — 걷어내기: 영토 안의 자원 자리를 치워 건물 놓을 땅을 낸다
+  'clearNode',
   // ★ GDD3 §11-4 — 감정의 날의 유일한 방아쇠
   'appraiseLand',
   'placeFence', 'upgradeFence', 'repairFence', 'removeFence',
@@ -495,10 +523,17 @@ const CLIENT_COMMANDS = [
   'pickRole', 'delegate', 'adviceAct', 'setAutoAssist',
   // ★ GDD3 §15-C — 자동 플레이(켜기·끄기, 수동 입력 시 일시 해제)
   'setAutoPlay',
+  // ★ §17-11 — 동료 상호작용: 지시(이곳으로 보낸다·해제)와 꾸미기(이름·모양새).
+  //   신원 명령이 아니다 — 내 아바타가 아니라 **동료**를 겨눈다(companionId 로 판정한다).
+  'commandCompanion', 'customizeCompanion',
   // 왕의 하루 · 작전
   'apAction', 'harvestNode', 'setBattlePlan',
   // 멀티
   'setAppearance', 'chat',
+  // ★ §17-7 — 다같이 잠자기(하루 넘기기)
+  'sleepVote',
+  // ★ §17-9 — 건물 손일(제련소 손제련 · 우물 두레박 · 기도 등)
+  'handWork',
 ];
 
 /** ★ 신원(누구의 아바타인가)은 서버 세션이 정한다 — 클라가 보낸 avatarId·playerName 은 신뢰하지 않는다. */
@@ -510,6 +545,10 @@ const IDENTITY_COMMANDS = new Set([
   'allocStat',
   // ★ GDD3 §15-C — 자동 플레이는 **내 아바타**의 것이다. 남의 아바타를 몰라고 청할 수 없다.
   'setAutoPlay',
+  // ★ §17-7 — 잠자기 표는 내 아바타의 것이다
+  'sleepVote',
+  // ★ §17-9 — 손일도 내 아바타의 손이다(거리·쿨다운·회복이 사람마다 따로다)
+  'handWork',
 ]);
 
 /** ★ 실시간 명령 — 처리 후 곧바로 결과를 돌려주고, 전투 중이면 스냅샷도 함께 흘린다 */
@@ -789,6 +828,9 @@ io.on('connection', (socket) => {
         out.you = { avatarId: s.avatarId ?? s.playerName, role: mine, roleName: out.roleName, takenFrom: res.takenFrom ?? null };
       }
       if (type === 'setAppearance') io.to(s.gameId).emit('avatars', Object.values(rt.world.nations[s.nationId].avatars || {}));
+      /* ★ §17-11 — 동료의 새 이름·모양새도 setAppearance 처럼 그 자리에서 방 전체에 흐른다
+         (다음 상태 방송을 기다리면 이름표가 잠깐 옛 사람으로 남는다). */
+      if (type === 'customizeCompanion') io.to(s.gameId).emit('avatars', Object.values(rt.world.nations[s.nationId].avatars || {}));
       if (type === 'chat' && res.message) io.to(s.gameId).emit('chat', res.message);
       socket.emit('state', buildNationView(rt.world, s.nationId, s.role, data, { avatarId: s.avatarId }));
       if (ack) ack(out);

@@ -112,12 +112,13 @@
     }
   ],
   "offers": {
-    "perTickChance": 0.55,
+    "perTickChance": 0.8,
     "amountRange": [
       10,
       60
     ],
     "priceJitter": 0.08,
-    "expiryTicks": 2
+    "expiryTicks": 2,
+    "_note": "★ §17-10 피드백('제안이 더 자주 오면 좋겠다') — perTickChance 0.55→0.8. 세 나라 기준 하루 평균 2.4건."
   }
 }

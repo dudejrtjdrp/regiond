@@ -12,7 +12,7 @@
 // ★ 울타리 (§13-C-2). 경로 탐색은 없다(A* 불요). 한 걸음이 살아 있는 울타리 조각을 **가로지르면**
 //   그 걸음이 통째로 무효다. 문(gate)도 짐승은 못 연다. 그래서 울타리를 두른 안쪽은 정말로 안전하다.
 import {
-  townOf, territoryRadius, dist, terrainAt, terrainIndex, ringAt, ringRadii, inTerritory,
+  townOf, territoryRadius, dist, terrainAt, terrainIndex, ringAt, ringRadii, inTerritory, isWaterAt,
 } from './world.js';
 import { isRuined, turretList } from './structures.js';
 import { rngFromState } from './rng.js';
@@ -26,6 +26,8 @@ import { equipEffects } from './equipment.js';
 import { deposit } from './storage.js';
 import { recordEncounter, recordKill } from './codex.js';
 import { round2 } from './economy.js';
+// ★ §17-15 — 역할 개성. 성녀가 자리에 있으면 영토 안 휴식 회복이 빨라진다.
+import { rolePerk } from './npc.js';
 
 export const creatureCfg = (data) => data.creatures;
 export const creatureDefs = (data) => data.creatures.defs;
@@ -238,8 +240,10 @@ export function ranchOpenFor(world, nation, data, sp, x, y) {
   return false;
 }
 
-/** 짐승이 이 칸에 설 수 있는가 — 영토 밖이면 언제나 참, 안이면 목장이 열어 준 자리만 */
+/** 짐승이 이 칸에 설 수 있는가 — 물이면 무조건 거짓(★ §17-4, 피드백: "동물이 물에 들어감"),
+    영토 밖이면 참, 안이면 목장이 열어 준 자리만 */
 export function creatureMayStand(world, nation, data, c, x, y) {
+  if (isWaterAt(world.map, x, y, data)) return false;
   if (!inTerritory(world, nation, Math.round(x), Math.round(y), data)) return true;
   return ranchOpenFor(world, nation, data, c.sp, x, y);
 }
@@ -264,8 +268,16 @@ function pushOutOfTerritory(world, nation, data, c, step) {
   const uy = d > 0.01 ? dy / d : 0;
   const push = Math.max(step, 0.6);
   const size = world.map?.size ?? data.world.size;
-  c.x = clamp(Math.round((c.x + ux * push) * 100) / 100, 1, size - 2);
-  c.y = clamp(Math.round((c.y + uy * push) * 100) / 100, 1, size - 2);
+  /* ★ §17-4 — 미는 자리가 물이면 같은 방향으로 더 밀어 뭍을 찾는다(난수는 안 쓴다).
+     여섯 칸 안에 뭍이 없으면 원래대로 둔다 — 물에 잠깐 서는 것보다 성역 규칙이 우선이다. */
+  let nx = clamp(Math.round((c.x + ux * push) * 100) / 100, 1, size - 2);
+  let ny = clamp(Math.round((c.y + uy * push) * 100) / 100, 1, size - 2);
+  for (let extra = 1; extra <= 6 && isWaterAt(world.map, nx, ny, data); extra += 1) {
+    nx = clamp(Math.round((c.x + ux * (push + extra)) * 100) / 100, 1, size - 2);
+    ny = clamp(Math.round((c.y + uy * (push + extra)) * 100) / 100, 1, size - 2);
+  }
+  c.x = nx;
+  c.y = ny;
   return true;
 }
 
@@ -393,7 +405,8 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
        「다치면 물러난다」는 규칙이 곧 「한 번 다치면 일 안 한다」가 된다. 사람에게도 같이 적용된다. */
     /* 막 일어난 사람(무적이 도는 3초)은 아직 「일어나는 중」이라 회복이 시작되지 않는다 —
        부활이 준 절반과 모닥불의 몫이 한 숨에 겹치지 않게. */
-    const heal = cCfg.restHealPerSecond ?? 0;
+    /* ★ §17-15 — 성녀 개성. 자리가 채워져 있으면 회복이 30% 빠르다(공석이면 1 — 무보정). */
+    const heal = (cCfg.restHealPerSecond ?? 0) * rolePerk(nation, 'saint', 'healMultiplier', data);
     if (heal > 0 && !inBattle && (p.downUntil || 0) <= 0 && (p.invulnUntil || 0) <= 0 && town0) {
       const av0 = nation.avatars?.[p.id];
       const maxHp = playerMaxHp(p, data);

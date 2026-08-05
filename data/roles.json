@@ -35,6 +35,10 @@
       "name": "농정관",
       "tier": 0,
       "department": "farm",
+      "perk": {
+        "_note": "★ §17-15 — 역할 개성. 농정관이 자리에 있으면(사람이든 동료든) 주민 채집 산출이 10% 는다(residents.settlementGatherFactor).",
+        "residentGatherMultiplier": 1.1
+      },
       "exclusiveInfo": [
         "soilFatigue",
         "harvestForecast"
@@ -57,6 +61,10 @@
       "name": "공장장",
       "tier": 0,
       "department": "factory",
+      "perk": {
+        "_note": "★ §17-15 — 공장장이 자리에 있으면 공장 가동량(factoryCapacity)이 15% 는다(tick.applyFactoryQueue).",
+        "factoryCapacityMultiplier": 1.15
+      },
       "exclusiveInfo": [
         "bottleneck",
         "inventoryTurnover"
@@ -76,6 +84,10 @@
       "name": "건축가",
       "tier": 1,
       "department": "build",
+      "perk": {
+        "_note": "★ §17-15 — 건축가 본인의 망치질(공사 스윙)은 25% 더 나간다(actions.swingSite). 저택·노포·화포 같은 대형 건물은 건축가가 자리에 있어야 착공된다(buildings.requiresRole).",
+        "siteWorkMultiplier": 1.25
+      },
       "exclusiveInfo": [
         "durability",
         "adjacency"
@@ -103,6 +115,10 @@
       "name": "국방부",
       "tier": 1,
       "department": "defense",
+      "perk": {
+        "_note": "★ §17-15 — 국방대신이 자리에 있으면 민병의 공격이 15% 는다(residents.militiaList).",
+        "militiaDpsMultiplier": 1.15
+      },
       "exclusiveInfo": [
         "enemyEstimate",
         "weakSpots"
@@ -123,6 +139,10 @@
       "name": "외교관",
       "tier": 2,
       "department": "trade",
+      "perk": {
+        "_note": "★ §17-15 — 외교관이 자리에 있으면 살 때 3% 싸게, 팔 때 3% 비싸게 흥정한다(economy.importPrice/exportPrice).",
+        "tradeMarginBonus": 0.03
+      },
       "exclusiveInfo": [
         "foreignPrices",
         "freight",
@@ -144,6 +164,10 @@
       "name": "성녀",
       "tier": 2,
       "department": "saint",
+      "perk": {
+        "_note": "★ §17-15 — 성녀가 자리에 있으면 영토 안 휴식 회복이 30% 빠르다(ecology 회복 블록).",
+        "healMultiplier": 1.3
+      },
       "exclusiveInfo": [
         "invasionExactDate",
         "sanctuaryRemaining"

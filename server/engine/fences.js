@@ -1,9 +1,11 @@
 // 울타리·석벽 조각 — docs/GDD3.md §7. 자동 성곽 링은 폐지됐다.
 // 플레이어가 드래그로 선을 그으면 서버가 그 선을 '조각'으로 쪼개 세운다. 조각마다 내구도가 있고
 // 목책(T1) → 석벽(T2) 으로 올린다. gate:true 조각은 문이다(사람은 지나고 적은 두드린다).
-import { townOf, territoryRadius, terrainNameAt, dist, cheb } from './world.js';
+import { townOf, inTerritory, terrainNameAt, dist, cheb } from './world.js';
 import { settlementTier } from './tiers.js';
 import { round2, round3 } from './economy.js';
+// ★ §17-13 — 매립한 물 칸은 뭍이다(울타리도 그 위에 선다)
+import { onFill } from './research.js';
 
 export const fenceCfg = (data) => data.world.fences;
 
@@ -82,16 +84,20 @@ function validateSegment(world, nation, seg, data) {
   const size = data.world.size;
   for (const [x, y] of [[seg.x1, seg.y1], [seg.x2, seg.y2]]) {
     if (x < 0 || y < 0 || x >= size || y >= size) return { ok: false, code: 'BAD_POSITION', message: '지도 밖입니다.' };
-    if (cfg.blockedTerrain.includes(terrainNameAt(world.map, x, y, data))) {
+    if (cfg.blockedTerrain.includes(terrainNameAt(world.map, x, y, data))
+      /* ★ §17-13 매립 — 메운 물 칸은 뭍이다. 울타리도 그 위에 선다. */
+      && !onFill(nation, x, y)) {
       return { ok: false, code: 'BAD_TERRAIN', message: '물 위에는 세울 수 없습니다.' };
     }
   }
   if (cfg.requiresTerritory) {
     const town = townOf(world, nation.id);
     if (!town) return { ok: false, code: 'NO_TOWN', message: '정착지가 없습니다.' };
-    const r = territoryRadius(nation, data) + 0.001;
     const m = fenceMid(seg);
-    if (dist(town.x, town.y, m.x, m.y) > r) return { ok: false, code: 'OUT_OF_TERRITORY', message: '아직 우리 땅이 아닙니다.' };
+    /* ★ §17-14 — 깃발로 얻은 점령지(claims)도 우리 땅이다. 새 땅에도 울타리를 두른다. */
+    if (!inTerritory(world, nation, m.x, m.y, data)) {
+      return { ok: false, code: 'OUT_OF_TERRITORY', message: '아직 우리 땅이 아닙니다.' };
+    }
   }
   for (const s of nation.structures || []) {
     if (cheb(s.x, s.y, seg.x1, seg.y1) === 0 || cheb(s.x, s.y, seg.x2, seg.y2) === 0) {

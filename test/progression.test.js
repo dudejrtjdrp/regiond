@@ -239,9 +239,9 @@ test('감정소 — 건물 뷰가 [땅을 감정한다] 단추를 데리고 온�
 // 7장 — 정찰이 웨이브를 연다
 // ────────────────────────────────────────────────────────────────
 test('★ 웨이브 — 흔적을 살피기 전에는 며칠이 지나도 오지 않는다', () => {
-  const w = newWorld(117);
+  const w = newWorld(119);
   const n = w.nations.player;
-  const rng = createRng(117);
+  const rng = createRng(119);
   openChapterForDebug(w, n, data, 7);
   n.tier = 4;                                   // 티어를 올려도 소용없다
 

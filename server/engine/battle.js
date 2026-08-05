@@ -6,7 +6,7 @@
 // 아키텍처: 일 틱(기존 파이프라인)은 그대로 두고, 전투만 subtickSeconds 단위로 따로 돈다.
 //   · 서버 실시간: GameRuntime 이 subtick 타이머로 stepBattle 을 부르고 battleTick 을 흘려보낸다
 //   · 헤드리스(테스트·시뮬): runBattle 이 같은 함수를 루프로 돌린다 → 결과 동일
-import { townOf, territoryRadius, dist } from './world.js';
+import { townOf, territoryRadius, dist, isWaterAt } from './world.js';
 import { turretList, damageStructure, isRuined, structureName } from './structures.js';
 import { militiaList } from './residents.js';
 // ★ GDD3 §13-D-3 — 손에 든 것과 두른 것. 무기는 피해를, 방어구는 맞는 피해와 다운 시간을 바꾼다.
@@ -302,7 +302,7 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
           }
           continue;
         }
-        moveToward(e, m.x, m.y, dt);
+        moveToward(e, m.x, m.y, dt, world, data);
         continue;
       }
     }
@@ -333,7 +333,7 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
       continue;
     }
 
-    moveToward(e, b.core.x, b.core.y, dt);
+    moveToward(e, b.core.x, b.core.y, dt, world, data);
   }
 
   // ── 5. 종료 판정 ─────────────────────────────────────────────
@@ -355,12 +355,23 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
   return { events: b.timeline.slice(before), done: b.over };
 }
 
-function moveToward(e, tx, ty, dt) {
+function moveToward(e, tx, ty, dt, world, data) {
   const d = dist(e.x, e.y, tx, ty);
   if (d <= 0.001) return;
   const k = Math.min(1, (e.speed * dt) / d);
-  e.x = round2(e.x + (tx - e.x) * k);
-  e.y = round2(e.y + (ty - e.y) * k);
+  const nx = round2(e.x + (tx - e.x) * k);
+  const ny = round2(e.y + (ty - e.y) * k);
+  /* ★ §17-4 — 나는 것 말고는 물을 못 건넌다(피드백: "적이 물에 들어감").
+     곧장이 막히면 생태계(§16-3)와 같은 축 미끄러짐 — 난수 없음, 결정론 유지. */
+  if (e.flying || !world || !isWaterAt(world.map, nx, ny, data)) { e.x = nx; e.y = ny; return; }
+  const step = Math.min(e.speed * dt, d);
+  const cand = [
+    { x: round2(e.x + Math.sign(tx - e.x) * Math.min(step, Math.abs(tx - e.x))), y: e.y },
+    { x: e.x, y: round2(e.y + Math.sign(ty - e.y) * Math.min(step, Math.abs(ty - e.y))) },
+  ];
+  for (const c of cand) {
+    if ((c.x !== e.x || c.y !== e.y) && !isWaterAt(world.map, c.x, c.y, data)) { e.x = c.x; e.y = c.y; return; }
+  }
 }
 
 /** 부술 건물 고르기 — 가까운 셋 중 하나를 (결정론 rng 로) 고른다. 한 채만 집중해서 무너뜨리지 않는다. */

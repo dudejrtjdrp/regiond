@@ -68,6 +68,10 @@ export function visionSources(world, nation, data) {
   const out = [];
   const town = townOf(world, nation.id);
   if (town) out.push({ kind: 'town', x: town.x, y: town.y, r: v.town + bonus });
+  /* ★ §17-14 — 깃발로 얻은 점령지도 본영처럼 스스로 밝다(우리 땅인데 안 보이면 이상하다) */
+  for (const c of nation.claims || []) {
+    out.push({ kind: 'claim', x: c.x, y: c.y, r: c.radius + 2 });
+  }
   for (const b of nation.structures || []) {
     // 큰 건물은 제 중심에서 본다 (§12-1 풋프린트)
     const c = centerOf(b.key, b.x, b.y, data);

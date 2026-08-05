@@ -31,13 +31,15 @@ import { isFull } from './storage.js';
 import { grainDays, freeBeds, recruitResident, recruitStatus } from './residents.js';
 import { defaultName } from './npc.js';
 import { revealAvatar } from './fog.js';
-import { startResearch, RESEARCH_KEYS } from './research.js';
+import { startResearch, RESEARCH_KEYS, onBridge, onFill } from './research.js';
 import { commandUnlocked, featureUnlocked, buildingUnlocked, currentChapter, measure } from './progression.js';
 import { round2 } from './economy.js';
 
 export const companionCfg = (data) => data.companions ?? {};
 const laborCfg = (data) => companionCfg(data).labor ?? {};
 const brainCfg = (data) => companionCfg(data).brain ?? {};
+// ★ §17-11 — 수동 지시(「이곳으로 보낸다」) 튜닝. 값은 data/companions.json 의 orders 가 정본이다.
+const ordersCfg = (data) => companionCfg(data).orders ?? {};
 const roleCfgOf = (data, key) => (companionCfg(data).roles ?? {})[key] ?? {};
 export const autoPlayCfg = (data) => companionCfg(data).autoPlay ?? {};
 
@@ -261,6 +263,10 @@ export function companionViews(nation, data) {
     hp: round2(nation.players?.[c.id]?.hp ?? 0),
     maxHp: nation.players?.[c.id]?.maxHp ?? 0,
     down: (nation.players?.[c.id]?.downUntil ?? 0) > 0,
+    /* ★ §17-11 — 동료 패널이 아바타 표를 뒤지지 않고 초상을 그리도록 외형을 함께 싣고,
+       수동 지시가 걸려 있는지도 알려 준다(「지시 해제」 단추가 이 값으로 뜬다). */
+    appearance: c.appearance,
+    order: c.mem?.order ?? null,
   }));
 }
 
@@ -310,11 +316,14 @@ const NODE_KINDS = {
   grain: ['berry', 'fertile', 'field', 'water'],
 };
 
-function walkable(world, data, x, y) {
+export function walkable(world, data, x, y, nation = null) {
   const list = data.world.terrain.walkable || ['grass', 'forest', 'rock', 'fertile'];
   const idx = terrainIndex(data);
   const t = terrainAt(world.map, Math.round(x), Math.round(y));
-  return list.some((c) => idx[c] === t);
+  if (list.some((c) => idx[c] === t)) return true;
+  /* ★ §17-13 — 다리·매립 위의 물은 **사람에게만** 길이다(avatar.walkable 과 같은 규칙).
+     짐승(ecology.creatureMayStand)과 적(battle)은 이 문을 타지 않는다 — 다리를 못 쓴다. */
+  return nation != null && t === idx.water && (onBridge(nation, x, y) || onFill(nation, x, y));
 }
 
 /** 이 자리의 사람이 즐겨 머무는 건물 — 공장장은 대장간 곁에서 일한다(§15-C) */
@@ -458,6 +467,18 @@ function decide(world, nation, data, actor, player, av, opts = {}) {
   const roleKey = actor.comp?.role ?? null;
   const rc = roleCfgOf(data, roleKey);
 
+  /* ⓪ ★ §17-11 — **주인의 손가락이 가장 먼저다.** 동료를 눌러 내린 수동 지시(「이곳으로 보낸다」)는
+     두뇌의 어떤 갈래(경계·도주·사냥·공사·채집)보다 앞선다 — 지시를 내렸는데 제멋대로 딴 데로 가면
+     "상호작용과 지시가 되지 않음"이라는 피드백 그대로가 된다. 찍은 자리에 닿으면(arriveTiles)
+     그 자리에서 **지시 대기(hold)** 로 선다 — 지시를 걷거나 새로 내릴 때까지 떠나지 않는다.
+     걷는 데는 하루 예산을 쓰지 않는다(예산은 스윙에만 매인다 — driveActor 의 costly 판정). */
+  const order = actor.comp?.mem?.order;
+  if (order && order.kind === 'move') {
+    const arrive = ordersCfg(data).arriveTiles ?? 1.2;
+    if (dist(av.x, av.y, order.x, order.y) <= arrive) return { kind: 'hold', x: order.x, y: order.y };
+    return { kind: 'move', x: order.x, y: order.y };
+  }
+
   /* ★ workOnly — 일 틱(아무도 안 보는 시간)의 몫. 그 시각에는 짐승도 웨이브도 제 계층이 따로 굴린다
      (stepEcologyDay · battle). 여기서까지 싸우게 하면 한 사람의 칼이 두 번 세어진다. 일만 한다. */
   if (!opts.workOnly) {
@@ -532,7 +553,11 @@ function targetValid(world, nation, data, tgt) {
     }
     case 'rest':
     case 'haul':
-    case 'flee': return true;
+    case 'flee':
+    /* ★ §17-11 — 수동 지시 자리는 좌표라 늘 유효하다. 지시가 걷히면 commands 가 target 을
+       비우고 think 를 0으로 되돌려 다음 걸음에 곧바로 다시 고른다. */
+    case 'move':
+    case 'hold': return true;
     default: return false;
   }
 }
@@ -572,6 +597,9 @@ function reachOf(data, nation, tgt) {
     case 'enemy': return (c.rangeTiles ?? 2.5) - 0.5;
     case 'rest': return brainCfg(data).restNearTownRadius ?? 4;
     case 'haul': return laborCfg(data).carryHomeRadius ?? 2.5;
+    /* ★ §17-11 — 지시받은 자리는 코앞까지 걸어간다(쉼터의 4타일 여유를 쓰지 않는다) */
+    case 'move':
+    case 'hold': return ordersCfg(data).arriveTiles ?? 1.2;
     default: return 0.5;
   }
 }
@@ -588,9 +616,9 @@ function stepAvatar(world, nation, data, av, tx, ty, step) {
   const size = world.map?.size ?? data.world.size;
   const nx = clamp(av.x + (dx / d) * k, 1, size - 2);
   const ny = clamp(av.y + (dy / d) * k, 1, size - 2);
-  if (walkable(world, data, nx, ny)) { av.x = round2(nx); av.y = round2(ny); return true; }
-  if (walkable(world, data, nx, av.y)) { av.x = round2(nx); return true; }
-  if (walkable(world, data, av.x, ny)) { av.y = round2(ny); return true; }
+  if (walkable(world, data, nx, ny, nation)) { av.x = round2(nx); av.y = round2(ny); return true; }
+  if (walkable(world, data, nx, av.y, nation)) { av.x = round2(nx); return true; }
+  if (walkable(world, data, av.x, ny, nation)) { av.y = round2(ny); return true; }
   return false;
 }
 
@@ -687,6 +715,10 @@ function driveActor(world, nation, data, actor, dt, out) {
     return;
   }
   if (tgt.kind === 'rest') return;   // 다다랐으면 그 자리에서 숨을 고른다
+  /* ★ §17-11 — 지시받은 자리에 닿았다. 다음 결정이 곧 「지시 대기(hold)」다 — think 를 비워
+     명부의 상태가 한 박자 안에 갈아입게 한다. hold 는 그 자리를 지키는 것이 일이다. */
+  if (tgt.kind === 'move') { mem.target = null; mem.think = 0; return; }
+  if (tgt.kind === 'hold') return;
   /* ★ 하루 예산은 **노동**에만 매인다(캐기·짓기). 칼은 매이지 않는다 —
      예산은 경제를 흔들지 않으려고 둔 다이얼이지 「싸우지 말라」는 규칙이 아니다.
      웨이브 한복판에서 힘이 다해 서 있는 동료는 자리를 채운 것이 아니라 비운 것이다. */

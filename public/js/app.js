@@ -131,6 +131,15 @@
       GM.tierup.play(p);
     });
 
+    /* ★ §17-14 — 깃발 점령. 새 땅이 들어온 자리를 짚고 배너로 알린다. */
+    S.on('territoryClaimed', function (p) {
+      if (!inGame || !p) return;
+      GM.sfx.play('unlock');
+      U.banner({ icon: 'flag', kind: 'good', title: '새 영토를 얻었다!',
+                 sub: '깃발 둘레가 우리 땅이 되었습니다', ms: 3600 });
+      if (p.x != null) GM.world.ping(p.x, p.y, '#f6cf7a');
+    });
+
     /* ★ 주민 도착 */
     S.on('residentArrived', function (p) {
       if (!inGame) return;

@@ -1,0 +1,167 @@
+/* crewpanel.js — ★ §17-11 동료(봇) 상호작용 패널.
+   피드백: "일부 NPC(동료 봇)가 가만히 있으며 상호작용과 지시가 되지 않음" + "이름·모양새 커스텀이 필요함".
+   지도에서 동료를 누르면 이 패널이 열린다(input.js crewAt): 초상·자리·지금 하는 일·기력을 보여 주고,
+   [이곳으로 보낸다](지도 클릭 한 번 = 지시), [지시 해제], [이름·모양새 바꾸기]를 준다.
+   값은 전부 서버가 정본이다 — companions 뷰(state)와 avatars 채널을 읽을 뿐, 화면은 셈을 하지 않는다. */
+(function (global) {
+  'use strict';
+  var GM = global.GM = global.GM || {};
+  var S = GM.state, U = GM.ui;
+
+  /* world.js CREW_DOING 과 같은 낱말을 쓴다 — 이름표와 패널이 다른 말을 하면 안 된다 */
+  var DOING = {
+    node: '캐는 중', site: '짓는 중', creature: '싸우는 중', enemy: '싸우는 중',
+    haul: '나르는 중', rest: '쉬는 중', flee: '물러나는 중', down: '쓰러짐',
+    idle: '쉬는 중', move: '지시받은 곳으로 가는 중', hold: '지시 대기'
+  };
+
+  /** companions 뷰(정본) + avatars 채널(원본 좌표·이름) 폴백으로 이 동료의 지금을 모은다 */
+  function crewOf(id) {
+    var c = S.companionById(id);
+    var av = null;
+    var list = S.S.avatars || [];
+    for (var i = 0; i < list.length; i++) if (list[i] && list[i].id === id) av = list[i];
+    if (!c && !av) return null;
+    c = c || {};
+    av = av || {};
+    return {
+      id: id,
+      name: c.name || av.name || '동료',
+      roleName: c.roleName || av.roleName || null,
+      state: (c.down || av.down) ? 'down' : (c.state || av.state || 'idle'),
+      hp: c.hp != null ? c.hp : (av.hp || 0),
+      maxHp: c.maxHp || av.maxHp || 0,
+      appearance: c.appearance || av.appearance || S.defaultAppearance(),
+      order: c.order || null,
+      color: c.color || av.color || '#8fe3b4'
+    };
+  }
+
+  function nameMax() {
+    var cfg = S.appearanceCfg();
+    return (cfg && cfg.nameMaxLength) || 16;
+  }
+
+  function open(id) {
+    var c = crewOf(id);
+    if (!c) { U.toast('그 동료를 찾지 못했습니다.', 'warn'); return null; }
+
+    var body = U.el('div', 'crew-panel');
+
+    /* ── 머리: 초상 + 이름 + 자리 + 지금 하는 일 ── */
+    var head = U.el('div', 'cp-head');
+    head.style.display = 'flex';
+    head.style.gap = '10px';
+    head.style.alignItems = 'center';
+    head.appendChild(GM.atlas.avatarImg(c.appearance, 64));
+    var col = U.el('div', 'cp-col');
+    var nm = U.el('b', 'cp-name', c.name);
+    nm.style.color = c.color;
+    nm.style.display = 'block';
+    col.appendChild(nm);
+    col.appendChild(U.el('span', 'cp-role',
+      (c.roleName || '함께 일하는 이') + ' · ' + (DOING[c.state] || c.state)));
+    head.appendChild(col);
+    body.appendChild(head);
+
+    /* ── 기력 ── */
+    var g = U.makeGauge({ height: 14, color: '#6a994e' });
+    var ratio = c.maxHp > 0 ? c.hp / c.maxHp : 0;
+    g.setValue(ratio, '기력 ' + U.fmt(c.hp, 0) + ' / ' + U.fmt(c.maxHp, 0),
+      c.name + '의 기력', '0이 되면 잠시 쓰러졌다가 모닥불 곁에서 다시 일어납니다.');
+    body.appendChild(g);
+
+    body.appendChild(U.el('p', 'hint', c.order
+      ? '지금 지시: (' + Math.round(c.order.x) + ', ' + Math.round(c.order.y) + ') 자리로 가서 기다립니다.'
+      : '지시가 없으면 스스로 일감을 찾아다닙니다. 자리를 찍어 보내면 그곳을 지킵니다.'));
+
+    /* ── 지시 단추 ── */
+    var row = U.el('div', 'se-actions');
+    var go = U.btn('이곳으로 보낸다', 'btn-small btn-primary', function () {
+      U.closeTopModal();
+      S.setPlacing({ kind: 'crewMove', companionId: id });
+      U.toast('지도를 눌러 자리를 고르세요.', 'good', 3600);
+    });
+    go.setAttribute('data-crew-move', id);
+    row.appendChild(go);
+    if (c.order) {
+      var release = U.btn('지시 해제', 'btn-small', function () {
+        GM.net.send('commandCompanion', { companionId: id, order: null }, function (res) {
+          if (!res || !res.ok) {
+            U.toast((res && res.error && res.error.message) || '지금은 걷을 수 없습니다.', 'warn');
+            return;
+          }
+          U.toast('지시를 걷었습니다 — 다시 스스로 움직입니다.', 'good', 2800);
+          U.closeTopModal();
+          open(id);
+        });
+      });
+      release.setAttribute('data-crew-release', id);
+      row.appendChild(release);
+    }
+    body.appendChild(row);
+
+    /* ── 이름·모양새 바꾸기 (접이식) ── */
+    var widget = null;
+    var nameInput = null;
+    var edit = U.el('div', 'cp-edit');
+    edit.hidden = true;
+    var editBtn = U.btn('이름·모양새 바꾸기', 'btn-small', function () {
+      edit.hidden = !edit.hidden;
+      if (!edit.hidden && !widget) buildEdit();
+    });
+    editBtn.setAttribute('data-crew-edit', id);
+    body.appendChild(editBtn);
+    body.appendChild(edit);
+
+    function buildEdit() {
+      var nameRow = U.el('div', 'cp-edit-name');
+      nameRow.style.display = 'flex';
+      nameRow.style.gap = '8px';
+      nameRow.style.alignItems = 'center';
+      nameRow.style.margin = '8px 0';
+      nameRow.appendChild(U.el('span', 'cc-label', '이름'));
+      nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.id = 'crew-name-input';
+      nameInput.maxLength = nameMax();
+      nameInput.value = c.name;
+      nameInput.autocomplete = 'off';
+      nameRow.appendChild(nameInput);
+      edit.appendChild(nameRow);
+
+      var host = U.el('div');
+      edit.appendChild(host);
+      widget = GM.charcreate.mount(host, c.appearance, null);
+
+      var save = U.btn('바꾼다', 'btn-primary', function () {
+        var name = (nameInput.value || '').trim();
+        if (!name) { U.toast('이름을 적어 주세요.', 'warn'); return; }
+        GM.net.send('customizeCompanion', { companionId: id, name: name, appearance: widget.get() }, function (res) {
+          if (!res || !res.ok) {
+            U.toast((res && res.error && res.error.message) || '바꾸지 못했습니다.', 'warn');
+            return;
+          }
+          U.toast('동료의 이름과 모습을 바꿨습니다.', 'good', 2800);
+          GM.sfx.play('unlock');
+          U.closeTopModal();
+          open(id);
+        });
+      });
+      save.id = 'crew-customize-save';
+      edit.appendChild(save);
+    }
+
+    /* ── 발치 ── */
+    var foot = U.el('div');
+    foot.appendChild(U.btn('닫는다', 'btn-ghost', function () { U.closeTopModal(); }));
+
+    return U.openModal({
+      title: '동료 — ' + c.name, body: body, footer: foot, width: '620px',
+      key: 'crew', icon: GM.icons.img('person', 22),
+      onClose: function () { if (widget) widget.destroy(); }
+    });
+  }
+
+  GM.crewpanel = { open: open };
+})(window);

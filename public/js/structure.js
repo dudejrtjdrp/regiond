@@ -178,6 +178,36 @@
       body.appendChild(U.el('p', 'se-line',
         '깐 조각 ' + rail.tiles + ' / ' + rail.maxTiles
         + ' · 위를 걷는 주민은 ' + rail.speedMultiplier + '배로 빠릅니다.'));
+      var railBtn = U.btn('철로를 깐다', 'btn-small btn-primary', function () {
+        U.closeTopModal(); GM.hud.hideContext(); GM.build.openRail();
+      });
+      railBtn.id = 'rs-lay-rail';
+      body.appendChild(railBtn);
+    }
+    /* ★ §17-13 — 다리·매립. 철로와 같은 자리(연구 갈래)에서 놓기 시작한다. */
+    var bridge = S.bridgeInfo();
+    if (bridge && bridge.open) {
+      body.appendChild(U.el('h4', 'se-sec', '다리'));
+      body.appendChild(U.el('p', 'se-line',
+        '놓은 조각 ' + bridge.tiles + ' / ' + bridge.maxTiles
+        + ' · 사람은 다리 위로 물을 건넙니다. 짐승과 적은 못 씁니다.'));
+      var brBtn = U.btn('다리를 놓는다', 'btn-small btn-primary', function () {
+        U.closeTopModal(); GM.hud.hideContext(); GM.build.openOverlay('bridge');
+      });
+      brBtn.id = 'rs-lay-bridge';
+      body.appendChild(brBtn);
+    }
+    var fill = S.fillInfo();
+    if (fill && fill.open) {
+      body.appendChild(U.el('h4', 'se-sec', '매립'));
+      body.appendChild(U.el('p', 'se-line',
+        '메운 칸 ' + fill.tiles + ' / ' + fill.maxTiles
+        + ' · 메운 자리에는 걷고, 짓고, 울타리도 두를 수 있습니다.'));
+      var flBtn = U.btn('매립한다', 'btn-small btn-primary', function () {
+        U.closeTopModal(); GM.hud.hideContext(); GM.build.openOverlay('fill');
+      });
+      flBtn.id = 'rs-lay-fill';
+      body.appendChild(flBtn);
     }
     return body;
   }
@@ -408,6 +438,47 @@
         }
       });
     }
+    /* ★ §17-9 — 건물 손일(직접 상호작용): 제련소 손제련 · 우물 두레박 · 기도 · 톱질 등.
+       비용·산출·쿨다운 전부 서버 설정(handWork)이 정본이고, 여기서는 그리기만 한다. */
+    if (b.handWork && !b.ruined && !b.work) {
+      var hw = b.handWork;
+      var parts = [];
+      if (hw.cost) parts.push('든다: ' + GM.build.costText(hw.cost));
+      if (hw.yield) parts.push('받는다: ' + GM.build.costText(hw.yield));
+      if (hw.gold) parts.push('골드 +' + hw.gold);
+      if (hw.buildPoints) parts.push('공사력 +' + hw.buildPoints);
+      if (hw.heal) parts.push('체력 +' + hw.heal);
+      if (hw.morale) parts.push('사기 +' + hw.morale);
+      acts.push({
+        label: hw.label || '거든다', cls: 'btn-primary', id: 'st-handwork',
+        tip: hw.desc || '건물 곁에서 직접 거듭니다.',
+        detail: parts.join(' · ') + (hw.cooldownDays ? ' · 하루 한 번' : (hw.cooldownSeconds ? ' · ' + hw.cooldownSeconds + '초마다' : '')),
+        onClick: function () {
+          GM.net.send('handWork', { structureId: b.id }, function (r) {
+            if (!r) return;
+            if (!r.ok) { U.toast((r.error && r.error.message) || '지금은 할 수 없습니다.', 'warn'); return; }
+            GM.sfx.play('build');
+            var px = r.x != null ? r.x : b.x, py = r.y != null ? r.y : b.y;
+            var shown = 0;
+            Object.keys(r.gained || {}).forEach(function (k) {
+              var v = r.gained[k];
+              if (!(v > 0.009)) return;
+              var meta = S.resourceMeta(k);
+              GM.fx.resourcePop(px + (shown * 0.4 - 0.2), py - 0.5, k,
+                '+' + U.fmt(v, v < 10 ? 1 : 0) + ' ' + meta.name, meta.color);
+              shown += 1;
+            });
+            if (r.gold) GM.fx.floatText(px, py - 0.9, '+' + r.gold + ' 골드', '#f6cf7a');
+            if (r.buildPoints) GM.fx.floatText(px, py - 0.9, '공사 +' + r.buildPoints, '#c8e6a0');
+            if (r.healed) GM.fx.floatText(px, py - 0.9, '+' + U.fmt(r.healed, 0) + ' 체력', '#8fd06a');
+            if (r.morale != null) U.toast('마을의 사기가 조금 올랐습니다.', 'good');
+            if (r.resources) S.applyLiveResources(r.resources);
+            GM.fx.sparkle(px, py, '#fff0c8');
+            open(b.id);   /* 패널 값 새로 고침 */
+          });
+        }
+      });
+    }
     if (b.nextTier) {
       var afford = GM.build.canAfford(b.nextTier.cost, b.nextTier.gold);
       acts.push({
@@ -614,6 +685,49 @@
         GM.net.send('commandVillagers', { ids: ids, order: { type: 'work', nodeId: n.id } });
         GM.world.ping(n.x, n.y, '#8dfa8d');
       } });
+    }
+    /* ★ §17-12 — 걷어내기. 영토 안의 걷을 수 있는 종류(nodes.clear.refundResource)만 단추가 뜬다.
+       판정의 정본은 서버(clearNode)다 — 여기는 단추를 그릴지 말지만 가른다. */
+    var wCfg = S.worldCfg();
+    var clearCfg = wCfg && wCfg.nodes && wCfg.nodes.clear;
+    var clearOk = clearCfg && clearCfg.refundResource
+      && Object.prototype.hasOwnProperty.call(clearCfg.refundResource, n.type)
+      && (clearCfg.onlyTerritory === false || S.inTerritory(n.x, n.y));
+    if (clearOk) {
+      var refRes = clearCfg.refundResource[n.type];
+      var expect = refRes
+        ? Math.max((clearCfg.minRefund && clearCfg.minRefund[n.type]) || 0, (n.amount || 0) * (clearCfg.refundRatio || 0.5))
+        : 0;
+      acts.push({
+        label: '걷어낸다', cls: 'btn-danger', id: 'node-clear',
+        tip: '이 자리를 치워 건물 놓을 땅을 냅니다',
+        detail: refRes
+          ? ('걷으면 ' + S.resourceMeta(refRes).name + ' 약 ' + U.fmt(expect, 0) + '을(를) 돌려받습니다. 되돌릴 수 없습니다.')
+          : '돌려받는 것은 없습니다. 되돌릴 수 없습니다.',
+        onClick: function () {
+          U.confirmBox(meta.name + ' — 걷어내기',
+            '이 자리를 걷어내면 다시 자라지 않습니다.'
+            + (refRes ? ' ' + S.resourceMeta(refRes).name + ' 약 ' + U.fmt(expect, 0) + '이(가) 곳간으로 들어옵니다.' : ''),
+            function () {
+              GM.net.send('clearNode', { nodeId: n.id }, function (r) {
+                if (!r) return;
+                if (!r.ok) { U.toast((r.error && r.error.message) || '걷어 낼 수 없습니다.', 'bad'); GM.sfx.play('deny'); return; }
+                GM.sfx.play('dig');
+                U.toast('자리를 걷어냈습니다.', 'good', 2600);
+                if (r.refund && r.refund.res && r.refund.amount > 0.009) {
+                  var rm = S.resourceMeta(r.refund.res);
+                  GM.fx.resourcePop(n.x, n.y - 0.5, r.refund.res,
+                    '+' + U.fmt(r.refund.amount, r.refund.amount < 10 ? 1 : 0) + ' ' + rm.name, rm.color);
+                }
+                GM.fx.dust(n.x, n.y, 10, '#c8a874');
+                if (r.resources) S.applyLiveResources(r.resources);
+                S.dropNode(r.nodeId || n.id);
+                S.clearSelection();
+                GM.hud.hideContext();
+              });
+            }, '걷어낸다');
+        }
+      });
     }
     acts.push({ label: '닫는다', cls: 'btn-ghost', onClick: function () { S.clearSelection(); GM.hud.hideContext(); } });
 
