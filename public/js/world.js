@@ -789,6 +789,7 @@
           try { ctx.drawImage(GM.atlas.town(true), Math.round(p.x), Math.round(p.y), Math.ceil(t * 2), Math.ceil(t * 2)); } catch (e) {}
         });
       }
+      drawAiTowns(m, t);
       /* ★ §12-6 — 무역이 열리기 전에는 상단이 없다 (서버도 빈 목록을 준다. 화면도 한 번 더 막는다) */
       (S.featOn('trade') ? (m.caravans || []) : []).forEach(function (cvn, i) {
         var ph = ((animT / 9000) + i * 0.31) % 1;
@@ -931,6 +932,37 @@
       ctx.fill();
     }
     ctx.restore();
+  }
+
+  /* ══════════ ★ §17-16 이웃 나라의 도읍 ══════════
+     세 나라는 여태 교역 목록의 이름이었다 — 도읍 자리는 있는데 화면에 아무것도 서지 않았다.
+     이제 안개가 걷힌 자리(fog≥1)에서만 그 집들이 보인다: 가 보지도 않은 땅의 마을이 지도에 뜨면
+     탐사가 뜻을 잃는다. 스프라이트는 우리 건물과 같은 벌을 쓴다(atlas.building·hall). */
+  function drawAiTowns(m, t) {
+    (m.towns || []).forEach(function (tw) {
+      if (tw.isPlayer) return;
+      if (S.fogAt(Math.round(tw.x), Math.round(tw.y)) < 1) return;
+      if (!GM.camera.onScreen(tw.x, tw.y, t * 8)) return;
+      presetOf(tw).forEach(function (b) { drawPresetHouse(b, t); });
+      label(tw.name || '이웃 나라', tw.x, tw.y - 3.6, '#cfe0f6');
+    });
+  }
+
+  /** 뒤에 선 집부터 그린다 — 도읍 배치는 바뀌지 않으므로 한 번만 정렬해 둔다 */
+  function presetOf(tw) {
+    if (!tw.presetSorted) {
+      tw.presetSorted = (tw.preset || []).slice().sort(function (a, b) { return a.y - b.y; });
+    }
+    return tw.presetSorted;
+  }
+
+  function drawPresetHouse(b, t) {
+    if (S.fogAt(b.x, b.y) < 1) return;
+    var big = b.key === 'hall';
+    var span = big ? 2.6 : 1.7;
+    var p = GM.camera.worldToScreen(b.x - span / 2 + 0.5, b.y - span + 0.9);
+    var sprite = big ? GM.atlas.hall(2) : GM.atlas.building(b.key, 2);
+    try { ctx.drawImage(sprite, Math.round(p.x), Math.round(p.y), Math.ceil(t * span), Math.ceil(t * span)); } catch (e) {}
   }
 
   /* ══════════ 적 캠프 ══════════ */
@@ -1795,13 +1827,21 @@
 
   /** ① 근처 대상 상호작용 라벨 — 손이 닿는 것 하나에만 붙는다 */
   function drawInteractPrompt() {
-    if (!GM.swing || !GM.swing.target) return;
     if (GM.opening && GM.opening.busy && GM.opening.busy()) return;
+    /* ★ §17-16 — 이웃 도읍 앞에 서 있으면 「찾아간다」가 먼저다(손보다 발이 앞선 자리다) */
+    var tw = GM.diplomacy && GM.diplomacy.nearTown();
+    if (tw) { promptBox('E — ' + tw.name + ' 찾아가기', tw.x, tw.y, true); return; }
+    if (!GM.swing || !GM.swing.target) return;
     var t = GM.swing.target();
     if (!t) return;
     var txt = verbFor(t);
     if (!txt) return;
-    var p = GM.camera.worldToScreen(t.x, t.y);
+    promptBox(txt, t.x, t.y, GM.swing.ready && GM.swing.ready());
+  }
+
+  /** 말머리 상자 하나 — 대상 위에 떠서 까딱인다 */
+  function promptBox(txt, wx, wy, ready) {
+    var p = GM.camera.worldToScreen(wx, wy);
     var tile = GM.camera.cam.tile;
     var y = p.y - tile * 1.15;
     var bob = Math.sin(animT / 260) * 2;
@@ -1810,7 +1850,6 @@
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     var w = ctx.measureText(txt).width + 14;
-    var ready = GM.swing.ready && GM.swing.ready();
     ctx.globalAlpha = 0.92;
     ctx.fillStyle = 'rgba(16,12,22,.82)';
     ctx.fillRect(Math.round(p.x - w / 2), Math.round(y - 10 + bob), Math.round(w), 20);

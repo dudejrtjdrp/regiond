@@ -534,6 +534,8 @@ const CLIENT_COMMANDS = [
   'sleepVote',
   // ★ §17-9 — 건물 손일(제련소 손제련 · 우물 두레박 · 기도 등)
   'handWork',
+  // ★ §17-16 — 이웃 나라 찾아가기(도읍 앞에 서면 그 나라를 만난 것으로 적는다)
+  'visitNation',
 ];
 
 /** ★ 신원(누구의 아바타인가)은 서버 세션이 정한다 — 클라가 보낸 avatarId·playerName 은 신뢰하지 않는다. */
@@ -549,6 +551,8 @@ const IDENTITY_COMMANDS = new Set([
   'sleepVote',
   // ★ §17-9 — 손일도 내 아바타의 손이다(거리·쿨다운·회복이 사람마다 따로다)
   'handWork',
+  // ★ §17-16 — 찾아가는 것은 **내 발**이다. 남의 아바타가 선 자리로 방문을 청할 수 없다.
+  'visitNation',
 ]);
 
 /** ★ 실시간 명령 — 처리 후 곧바로 결과를 돌려주고, 전투 중이면 스냅샷도 함께 흘린다 */
@@ -832,6 +836,9 @@ io.on('connection', (socket) => {
          (다음 상태 방송을 기다리면 이름표가 잠깐 옛 사람으로 남는다). */
       if (type === 'customizeCompanion') io.to(s.gameId).emit('avatars', Object.values(rt.world.nations[s.nationId].avatars || {}));
       if (type === 'chat' && res.message) io.to(s.gameId).emit('chat', res.message);
+      /* ★ §17-16 — 이웃을 만났으니 그 나라의 시세가 그 자리에서 열린다.
+         세계 뷰는 하루에 한 번만 흐르므로, 이 한 줄이 없으면 문 앞에 서 있고도 최대 10분을 기다린다. */
+      if (type === 'visitNation') socket.emit('worldState', buildWorldState(rt.world, s.nationId, data));
       socket.emit('state', buildNationView(rt.world, s.nationId, s.role, data, { avatarId: s.avatarId }));
       if (ack) ack(out);
       return undefined;

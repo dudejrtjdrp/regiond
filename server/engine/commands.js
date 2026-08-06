@@ -6,7 +6,8 @@ import { collectHooks, useArtifact } from './artifacts.js';
 import { localPrice, importPrice, exportPrice, round2, clamp } from './economy.js';
 import { validateOrders } from './orders.js';
 import { reassign } from './npc.js';
-import { isLastPlace } from './ai_nation.js';
+// ★ §17-16 — 찾아간 나라의 시세표(방문 모달이 그대로 읽는다)
+import { isLastPlace, foreignPriceTable } from './ai_nation.js';
 import { performApAction, harvestNode, resolveRuinChoice } from './king.js';
 import { townOf, ringAt, revealConcealed, nodeById, inTerritory, removeNode } from './world.js';
 import { recordRuinFound } from './codex.js';
@@ -118,6 +119,44 @@ export function applyLabor(world, nation, alloc, data) {
 }
 
 export { buildingCost } from './build_cost.js';
+
+/* ★ §17-16 — 이웃 나라 찾아가기.
+   세 나라는 여태 '교역 목록의 이름'이었다. 도읍이 지도 위에 서 있는데도 걸어가 볼 일이 없었다.
+   이제 도읍 중심 towns.visitRadius 안에 내 아바타가 서면 그 나라를 **만난 나라**로 적는다
+   (metNations[상대] = 그날). 만난 나라의 시세는 외교관 자리가 비어도 계속 보인다 —
+   발로 얻은 정보는 사람이 자리를 비운다고 잊히지 않는다(view.js buildWorldState 가 이 표를 읽는다). */
+export const visitRadius = (data) => data.world.towns.visitRadius ?? 6;
+
+/** 찾아간 나라의 첩(帖) — 이름·컨셉·태그·시세. 방문 화면이 이대로 읽는다. */
+function nationBrief(other, data) {
+  const def = data.aiNations.nations.find((a) => a.id === other.id) ?? null;
+  return {
+    nationId: other.id,
+    name: other.name,
+    concept: def?.concept ?? null,
+    tagNames: (other.tags || []).map((t) => data.tags[t]?.name ?? t),
+    prices: foreignPriceTable(other, data),
+  };
+}
+
+export function visitNation(world, nation, cmd, data) {
+  const av = nation.avatars?.[cmd.avatarId ?? cmd.playerName ?? 'lord'];
+  if (!av) return err('NO_AVATAR', '아바타가 없습니다.');
+  const other = world.nations[String(cmd.nationId ?? cmd.payload?.nationId ?? '')];
+  if (!other || other.id === nation.id) return err('NO_NATION', '그런 나라가 없습니다.');
+  const town = townOf(world, other.id);
+  if (!town) return err('NO_TOWN', '그 나라의 도읍을 아직 찾지 못했습니다.');
+  if (dist(av.x, av.y, town.x, town.y) > visitRadius(data)) {
+    return err('OUT_OF_RANGE', '도읍 앞까지 더 걸어가야 합니다.');
+  }
+  const met = (nation.metNations ||= {});
+  const first = met[other.id] == null;
+  met[other.id] = world.tick;
+  return ok({ ...nationBrief(other, data), first, tick: world.tick, x: town.x, y: town.y });
+}
+
+/** ★ §17-16 — 이 나라를 만난 적이 있는가(가격 마스킹 완화의 정본) */
+export const hasMet = (nation, otherId) => (nation?.metNations?.[otherId] ?? null) != null;
 
 /** 역할 명령 잠금 — 티어 3(감정의 날) 전에는 역할이 없다 */
 function roleLocked(world, nation, data) {
@@ -569,6 +608,10 @@ function runCommand(world, nationId, cmd, data, rng) {
       if (advance) nation.sleepVotes = {};
       return ok({ slept, need, advanceDay: advance });
     }
+
+    // ── ★ §17-16 이웃 나라 찾아가기 — 세 나라가 지도 위에 실제로 서 있게 한다 ──────
+    //   교역 상대가 이름만 있는 목록이 아니라 걸어가 볼 수 있는 자리가 된다.
+    case 'visitNation': return visitNation(world, nation, cmd, data);
 
     // ── 군주 아바타 (연출·안개용) ────────────────────────────────
     case 'lordMove': {

@@ -2,7 +2,8 @@
 import { localPriceTable, round2, hasDiplomat, effectiveTariff, freightRate, round3 } from './economy.js';
 import { collectHooks } from './artifacts.js';
 import { foreignPriceTable } from './ai_nation.js';
-import { recommendedLabor, freightEventDelta } from './commands.js';
+// ★ §17-16 — hasMet: 직접 찾아가 본 나라인가(가격·태그 마스킹 완화의 정본)
+import { recommendedLabor, freightEventDelta, hasMet } from './commands.js';
 import { roleSummary } from './npc.js';
 import { difficultyView, difficultyPreset } from './difficulty.js';
 import { canSeeTacticHint, tacticOptions, waveTacticHint } from './tactics.js';
@@ -642,10 +643,15 @@ export function buildRevealDiff(world, nationId, data, chunks) {
   };
 }
 
-/** 세계 뷰 — 외교관 없으면 가격 마스킹 */
+/**
+ * 세계 뷰 — 외교관 없으면 가격 마스킹.
+ * ★ §17-16 — 다만 **직접 찾아가 본 나라**는 예외다: 도읍 앞까지 걸어간 값이 metNations 에 적혀 있으면
+ *   외교관 자리가 비어도 그 나라의 시세는 계속 보인다(발로 얻은 정보는 사람이 자리를 비워도 남는다).
+ */
 export function buildWorldState(world, nationId, data) {
   const me = world.nations[nationId];
   const diplomat = hasDiplomat(me);
+  const knownPrices = (id) => diplomat || hasMet(me, id);
   const hooks = collectHooks(me, data);
   const precise = hasSaintSight(me, data, hooks);
   const days = daysUntilWave(world, me);
@@ -653,14 +659,18 @@ export function buildWorldState(world, nationId, data) {
   return {
     nations: Object.values(world.nations).map((n) => {
       const t = townOf(world, n.id);
+      const open = knownPrices(n.id);
       return {
         id: n.id,
         name: n.name,
         isPlayer: n.isPlayer,
         concept: data.aiNations.nations.find((a) => a.id === n.id)?.concept ?? null,
-        tags: n.tagsRevealed ? n.tags.map((tag) => data.tags[tag]?.name ?? tag) : null,
-        prices: diplomat ? foreignPriceTable(n, data) : null,
-        masked: !diplomat,
+        /* ★ §17-16 — 찾아가 본 나라는 그 땅이 무엇을 품었는지도 함께 열린다(눈으로 봤으니까) */
+        tags: n.tagsRevealed || hasMet(me, n.id) ? n.tags.map((tag) => data.tags[tag]?.name ?? tag) : null,
+        prices: open ? foreignPriceTable(n, data) : null,
+        masked: !open,
+        // ★ §17-16 — 만난 날(게임일). 화면이 「언제 다녀왔는가」를 적는다. 못 만났으면 필드가 없다.
+        ...(hasMet(me, n.id) ? { metTick: me.metNations[n.id] } : {}),
         population: n.isPlayer || diplomat ? Math.round(n.population) : null,
         town: t ? { x: t.x, y: t.y } : null,
         territoryRadius: territoryRadius(n, data),

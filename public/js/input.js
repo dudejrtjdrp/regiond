@@ -367,7 +367,7 @@
       case 'arrowleft': keys.camLeft = 1; e.preventDefault(); break;
       case 'arrowright': keys.camRight = 1; e.preventDefault(); break;
       case 'e':
-        if (!eHeld) { eHeld = true; GM.swing.startHold(); }
+        if (!eHeld) { eHeld = true; startInteract(); }
         e.preventDefault();
         break;
       case 'b': GM.build.open(); break;
@@ -388,6 +388,14 @@
       case '-': GM.camera.zoomBy(-1); break;
       default: break;
     }
+  }
+
+  /** ★ §17-16 — E 한 손잡이. 이웃 도읍 앞이면 찾아가고, 아니면 여느 때처럼 휘두른다.
+      (문 앞에서 허공을 도끼질하지 않게 — 화면의 말머리 상자도 같은 순서로 고른다) */
+  function startInteract() {
+    var tw = GM.diplomacy && GM.diplomacy.nearTown();
+    if (tw) { GM.diplomacy.visit(tw); return; }
+    GM.swing.startHold();
   }
 
   function onKeyUp(e) {

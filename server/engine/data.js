@@ -183,6 +183,8 @@ export function publicWorld(d = loadGameData()) {
       buildVeil: w.light.buildVeil,
       minLuma: w.light.minLuma,
     } : null,
+    // ★ §17-16 — 이웃 도읍 찾아가기 반경. 화면이 「E — 찾아가기」를 서버와 **같은 자**로 잰다.
+    towns: { visitRadius: w.towns.visitRadius ?? 6 },
     // ★ GDD3 §12-8 — 화면도 같은 식으로 시야를 잰다(기본 + 티어 × visionPerTier)
     fog: {
       chunk: w.fog.chunk,
