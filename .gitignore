@@ -31,3 +31,4 @@ desktop.ini
 *.swp
 coverage/
 .nyc_output/
+_to_delete/
