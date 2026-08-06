@@ -85,15 +85,20 @@
     });
     if (bestT) return bestT;
 
-    S.nodeList().forEach(function (n) {
-      if (!nodeWorkable(n)) return;
-      var d = Math.hypot(n.x - me.x, n.y - me.y);
-      if (d <= r && d < bestD) {
-        bestD = d;
+    /* ★ Sprint 3 — 손이 닿는 반경은 두어 칸인데 옛 셈은 지도의 자원 자리를 **통째로** 훑었다
+       (늦은 판이면 삼천 개). 둘레의 바구니만 열어 볼 것을 한 줌으로 줄인다 —
+       고르는 규칙(가장 가까운 것)은 한 글자도 바뀌지 않는다. */
+    var near = (GM.world && GM.world.nodesNear) ? GM.world.nodesNear(me.x, me.y, r) : S.nodeList();
+    for (var ni = 0; ni < near.length; ni++) {
+      var n = near[ni];
+      if (!nodeWorkable(n)) continue;
+      var nd = Math.hypot(n.x - me.x, n.y - me.y);
+      if (nd <= r && nd < bestD) {
+        bestD = nd;
         bestT = { kind: 'node', id: n.id, x: n.x, y: n.y, obj: n,
                   skill: S.nodeMeta(n.type).skill || 'lumber', nodeType: n.type };
       }
-    });
+    }
     return bestT;
   }
 

@@ -15,6 +15,8 @@ import {
   townOf, territoryRadius, dist, terrainAt, terrainIndex, ringAt, ringRadii, inTerritory, isWaterAt,
 } from './world.js';
 import { isRuined, turretList } from './structures.js';
+// ★ Sprint 3 — 울타리 칸 색인(fences.js 머리말 참고). 걸음마다 400조각을 재던 셈을 코앞 몇 조각으로 줄인다.
+import { fencesNear } from './fences.js';
 import { rngFromState } from './rng.js';
 import {
   combatSkillCfg, ensurePlayer, canSwing, markSwing, grantXp, swingDamage, skillLevel,
@@ -84,7 +86,11 @@ export function segmentsCross(ax, ay, bx, by, cx, cy, dx, dy) {
  * 웨이브가 울타리를 부순 밤에는 여우도 들어온다.
  */
 export function crossesFence(nation, x0, y0, x1, y1) {
-  for (const f of nation.fences || []) {
+  /* ★ Sprint 3 — 한 걸음마다 울타리 400조각과 선분 교차를 재던 자리(실측 216,000회/초).
+     한 걸음은 길어야 한두 타일이고, 두 선분이 만나려면 **네모 상자가 먼저 겹쳐야** 한다 —
+     그러니 걸음의 상자와 겹치는 칸의 조각만 물으면 된다. 색인이 돌려주는 것은 상위집합이라
+     빠뜨리는 조각이 없고, 답은 참·거짓 하나라 차례가 결과를 바꾸지도 않는다. */
+  for (const f of fencesNear(nation, x0, y0, x1, y1)) {
     if ((f.hp ?? 0) <= 0 || f.broken) continue;
     if (segmentsCross(x0, y0, x1, y1, f.x1, f.y1, f.x2, f.y2)) return true;
   }
@@ -230,10 +236,38 @@ export function ensureCreatures(world, nation, data, rngOverride = null) {
 // ────────────────────────────────────────────────────────────────
 export const ranchCfg = (data) => data.creatures.ranch ?? { building: 'ranch', radius: 6 };
 
-/** 다 지어져 효과가 도는 목장들 */
-function activeRanches(nation, data) {
+/**
+ * ★ Sprint 3 — 목장 후보 색인 (파생 캐시. 저장되지 않는다)
+ *
+ * 왜. ranchOpenFor 는 짐승이 한 걸음을 뗄 때마다(후보 세 자리) 그리고 터렛이 겨눌 때마다 불린다.
+ * 그때마다 건물 목록 전체를 훑어 **새 배열을 빚었다** — 목장이 한 채도 없는 판에서도 그랬다.
+ *
+ * 무효화. 건물의 **열쇠말은 바뀌지 않는다** — 그러니 「어느 것이 목장인가」는 건물 목록이라는
+ * 그릇이 바뀌거나(일 틱의 복제) 목록이 늘거나 줄 때(신축·철거)만 다시 고르면 된다. 늘고 줆을
+ * 길이만으로 재면 「하나 헐고 하나 지음」이 같은 길이라 새어 나가므로 **nextStructureId** 를
+ * 함께 본다(건물이 하나 서면 반드시 오른다 — structures.js `s${nation.nextStructureId++}`).
+ * **살아 있는가**(inactive · 폐허)와 **어디 있는가**(이전으로 자리가 바뀐다)는 캐시가 아니라
+ * 쓰는 쪽이 건물 객체에서 그때그때 읽는다 — 캐시가 들고 있는 것은 참조뿐이라 한 박자도 늦지 않는다.
+ * @type {WeakMap<object, {list:Array, stamp:string, key:string, cands:Array}>}
+ */
+const RANCH_CANDS = new WeakMap();
+
+/** 목장 후보(열쇠말이 맞는 건물). 살았는지는 부르는 쪽이 판정한다. */
+function ranchCandidates(nation, data) {
   const key = ranchCfg(data).building ?? 'ranch';
-  return (nation.structures || []).filter((s) => s.key === key && !s.inactive && !isRuined(s));
+  const list = nation.structures;
+  if (!Array.isArray(list) || !list.length) return [];
+  const stamp = `${list.length}:${nation.nextStructureId ?? 0}`;
+  const hit = RANCH_CANDS.get(nation);
+  if (hit && hit.list === list && hit.stamp === stamp && hit.key === key) return hit.cands;
+  const cands = list.filter((s) => s.key === key);
+  RANCH_CANDS.set(nation, { list, stamp, key, cands });
+  return cands;
+}
+
+/** 다 지어져 효과가 도는 목장들 (뷰·진단용 — 뜨거운 길은 아래 ranchOpenFor 가 그 자리에서 훑는다) */
+export function activeRanches(nation, data) {
+  return ranchCandidates(nation, data).filter((s) => !s.inactive && !isRuined(s));
 }
 
 /**
@@ -245,7 +279,11 @@ export function ranchOpenFor(world, nation, data, sp, x, y) {
   if (!def || def.kind !== 'animal') return false;          // 사나운 것은 목장이 있어도 못 든다
   const cfg = ranchCfg(data);
   const r = cfg.radius ?? 6;
-  for (const s of activeRanches(nation, data)) {
+  /* ★ Sprint 3 — activeRanches 는 배열을 하나 빚는다. 여기는 초당 수백 번 지나는 길이라
+     후보를 그 자리에서 훑고 「살았는가」만 함께 본다(판정은 activeRanches 와 한 글자도 같다).
+     (짐승 한 마리의 한 걸음이 이 문을 세 번 지난다 — 걸음마다 배열을 빚을 자리가 아니다.) */
+  for (const s of ranchCandidates(nation, data)) {
+    if (s.inactive || isRuined(s)) continue;
     const fp = data.buildings?.[s.key]?.footprint ?? [1, 1];
     const cx = s.x + (fp[0] - 1) / 2;
     const cy = s.y + (fp[1] - 1) / 2;

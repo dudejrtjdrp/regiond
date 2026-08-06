@@ -12,6 +12,29 @@
 
   var SQRT2 = Math.SQRT2;
 
+  /* ══════════ ★ Sprint 3 — 뒤진 자국을 담는 그릇 ══════════
+     옛 셈은 g·from 을 그냥 객체({})에 담았다. 칸 하나를 적을 때마다 숨은 표(hidden class)가
+     자라고, 4천 칸을 뒤지면 그 객체는 프레임이 끝나자마자 통째로 버려질 쓰레기가 된다.
+     한 번 상태를 밀 때 주민 예순이 길을 내면 그 쓰레기가 프레임을 끊는다.
+
+     그래서 **칸 번호로 바로 찍는 띠**(TypedArray)로 바꾼다. 창(window)의 넓이만큼만 잡고
+     모듈에 얹어 두어 되쓴다 — 매번 새로 잡으면 띠가 곧 새 쓰레기가 되기 때문이다.
+     되쓰려면 「지난 번 자국」을 지워야 하는데, 14만 칸을 매번 0으로 미는 대신
+     **세대 도장**(stampArr === gen)을 찍는다: 도장이 이번 세대가 아니면 빈 칸이다.
+     셈·순서·결과는 옛것과 **글자 그대로 같다**(seq 로 잡던 동점 처리도 그대로 둔다).
+
+     계약: walkable 은 조회만 하는 판이어야 한다(그 안에서 다시 find 를 부르면 띠가 겹친다).
+     지금 부르는 곳(world.unitWalkable · avatar 의 사람 판정)은 모두 조회뿐이다. */
+  var scratchN = 0, gArr = null, fromArr = null, stampArr = null, gen = 0;
+  function ensureScratch(n) {
+    if (scratchN >= n) return;
+    gArr = new Float64Array(n);
+    fromArr = new Int32Array(n);
+    stampArr = new Int32Array(n);   // 갓 잡은 띠는 0 — 아래에서 gen 을 1부터 올린다
+    scratchN = n;
+    gen = 0;
+  }
+
   /**
    * @param sx,sy 시작(월드 좌표 — 반올림해 칸으로 쓴다)
    * @param tx,ty 목표
@@ -24,7 +47,13 @@
     var pad = opts.pad || 16;
     var maxNodes = opts.maxNodes || 4000;
     var size = opts.size || (GM.state && GM.state.mapSize && GM.state.mapSize()) || 512;
-    var st = { x: Math.round(sx), y: Math.round(sy) };
+    /* ★ Sprint 3 — 시작 칸을 지도 안으로 물린다. 「왜」 이제 와서 —
+       옛 셈은 자국을 객체에 담아서 칸 번호가 음수여도 그냥 적혔지만, 띠(TypedArray)는
+       음수 자리를 **소리 없이 버린다**. 그러면 시작 칸의 값이 사라져 셈이 NaN 으로 번진다.
+       지도 밖에 선 몸은 원래 있을 수 없는 자리이므로(좌표는 서버가 죈다) 안으로 물리는 것이
+       옳고, 지도 안의 보통 경우에는 이 줄이 아무것도 바꾸지 않는다. */
+    var st = { x: Math.max(0, Math.min(size - 1, Math.round(sx))),
+               y: Math.max(0, Math.min(size - 1, Math.round(sy))) };
     var gx = Math.round(tx), gy = Math.round(ty);
 
     /* 목표가 설 수 없는 칸(물을 찍었다)이면 곁의 뭍으로 갈아 끼운다 */
@@ -39,8 +68,14 @@
     var x1 = Math.min(size - 1, Math.max(st.x, gx) + pad);
     var y1 = Math.min(size - 1, Math.max(st.y, gy) + pad);
     var w = x1 - x0 + 1;
+    var hgt = y1 - y0 + 1;
 
-    var g = {}, from = {};
+    /* ★ Sprint 3 — 이번 창(w×hgt)만큼 띠를 마련하고 세대 도장을 하나 올린다 */
+    ensureScratch(w * hgt);
+    gen += 1;
+    if (gen >= 2147483647) { stampArr.fill(0); gen = 1; }   // 도장 자리가 넘치면 한 번만 민다
+    var g = gArr, from = fromArr, stamp = stampArr, mark = gen;
+
     var heap = [];
     var seq = 0;
 
@@ -85,7 +120,8 @@
     }
 
     var startK = key(st.x, st.y);
-    g[startK] = 0;
+    g[startK] = 0; stamp[startK] = mark;
+    from[startK] = -1;                    // ★ Sprint 3 — 되짚기의 끝 표시(-1 = 없음)
     push(oct(st.x, st.y), oct(st.x, st.y), st.x, st.y);
     var best = { x: st.x, y: st.y, h: oct(st.x, st.y) };
     var expanded = 0;
@@ -105,8 +141,9 @@
           if (dx && dy && (!walk(cx + dx, cy) || !walk(cx, cy + dy))) continue;
           var nk = key(nx, ny);
           var ng = cg + (dx && dy ? SQRT2 : 1);
-          if (g[nk] != null && ng >= g[nk]) continue;
-          g[nk] = ng;
+          /* ★ Sprint 3 — 「적힌 적 있는가」를 세대 도장으로 본다(옛 g[nk] != null 과 같은 뜻) */
+          if (stamp[nk] === mark && ng >= g[nk]) continue;
+          g[nk] = ng; stamp[nk] = mark;
           from[nk] = key(cx, cy);
           var nh = oct(nx, ny);
           push(ng + nh, nh, nx, ny);
@@ -116,7 +153,9 @@
 
     var out = [];
     var cur = key(best.x, best.y);
-    while (cur != null) {
+    /* ★ Sprint 3 — 되짚기는 -1(끝)에서 멈춘다. 도장까지 견주는 것은 지난 세대의 자국을
+       실수로 따라가지 않기 위한 빗장이다(정상 사슬에서는 옛 셈과 한 걸음도 다르지 않다). */
+    while (cur >= 0 && stamp[cur] === mark) {
       out.push({ x: (cur % w) + x0, y: Math.floor(cur / w) + y0 });
       if (cur === startK) break;
       cur = from[cur];

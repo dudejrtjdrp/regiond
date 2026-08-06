@@ -192,44 +192,69 @@
     if (!v) return;
     var t = S.tier();
 
-    /* 정착지 이름과 단계 */
+    /* 정착지 이름과 단계
+       ★ Sprint 3 — 이 배지는 승격을 할 때 말고는 바뀌지 않는데, 상태가 밀릴 때마다
+       조건 표를 다시 세우고 아이콘·점(pip)·긴 설명말을 통째로 다시 짓고 있었다.
+       그리는 데 쓰는 값(이름·다음 단계·조건마다의 참/거짓과 현재값/필요값)으로 서명을 만든다.
+       ※ 아래 「하루」 배지는 일부러 그냥 둔다 — dayFraction 이 밀 때마다 달라져서
+         서명을 달아 봐야 늘 어긋난다(해·달 원호가 움직여야 하는 것이 옳다). */
     var tb = U.qs('#badge-tier');
     if (tb) {
-      U.clear(tb);
-      tb.appendChild(GM.icons.img('tier', 24));
-      var col = U.el('div');
-      col.appendChild(U.el('span', 'bt-name', t.name || '야영지'));
-      var nx = t.next;
-      col.appendChild(U.el('span', 'bt-sub', nx ? ('다음 — ' + nx.name) : '끝이 없는 길'));
-      tb.appendChild(col);
-      if (nx) {
-        /* ★ §13-A-1 — 배지도 서버 스냅샷이 아니라 지금 장부로 다시 잰 값을 그린다 */
-        var reqs = S.reqList(nx.reqs);
-        var okN = reqs.filter(function (r) { return r.ok; }).length;
-        var g = U.el('span', 'bt-pips');
-        reqs.forEach(function (r) { g.appendChild(U.el('i', 'pip' + (r.ok ? ' on' : ''))); });
-        tb.appendChild(g);
-        /* ★ §12-3 — 조건마다 현재값/필요값을 그대로 보여 준다 */
-        U.tipSet(tb, t.name + ' — 다음은 ' + nx.name,
-          reqs.map(function (r) {
-            return (r.ok ? '✔ ' : '✕ ') + r.text + ' (' + U.fmt(r.have, r.dec || 0) + '/' + U.fmt(r.need, r.dec || 0) + ')';
-          }).join('\n') +
-          '\n땅이 반경 ' + nx.radius + '까지 넓어집니다. (' + okN + '/' + reqs.length + ')' +
-          '\n\n눌러서 정착지 패널을 엽니다 — 승격도 거기서 합니다.');
-      } else {
-        U.tipSet(tb, t.name, (t.line || '') + '\n\n눌러서 정착지 패널을 엽니다.');
+      var tnx = t.next;
+      var treqs = tnx ? S.reqList(tnx.reqs) : null;
+      var tsig = [t.name || '', tnx ? tnx.name : '-', tnx ? tnx.radius : '-', tnx ? '' : (t.line || '')];
+      if (treqs) {
+        for (var ri = 0; ri < treqs.length; ri += 1) {
+          var rr = treqs[ri];
+          tsig.push((rr.ok ? 1 : 0) + ',' + rr.text + ',' + rr.have + ',' + rr.need + ',' + (rr.dec || 0));
+        }
       }
-      /* ★ §12-2 — 본부를 못 찾아도 여기로 들어갈 수 있다 (같은 패널) */
-      tb.classList.add('clickable');
-      tb.onclick = function () {
-        var b = S.hq();
-        if (!b) return;
-        S.selectTarget('structureId', b.id);
-        GM.structure.openSettlement(b);
-        GM.camera.moveTo(b.cx == null ? b.x : b.cx, b.cy == null ? b.y : b.cy);
-      };
+      renderTierBadge(tb, t, tnx, treqs, tsig.join('|'));
     }
 
+    renderDayBadge(v);
+    renderThreatBadge();
+  }
+
+  function renderTierBadge(tb, t, nx, reqs, sig) {
+    if (tb.getAttribute('data-sig') === sig) return;
+    tb.setAttribute('data-sig', sig);
+    U.clear(tb);
+    tb.appendChild(GM.icons.img('tier', 24));
+    var col = U.el('div');
+    col.appendChild(U.el('span', 'bt-name', t.name || '야영지'));
+    col.appendChild(U.el('span', 'bt-sub', nx ? ('다음 — ' + nx.name) : '끝이 없는 길'));
+    tb.appendChild(col);
+    if (nx) {
+      /* ★ §13-A-1 — 배지도 서버 스냅샷이 아니라 지금 장부로 다시 잰 값을 그린다
+         (★ Sprint 3 — 그 값은 서명을 만들 때 이미 쟀다. 두 번 재지 않는다.) */
+      var okN = reqs.filter(function (r) { return r.ok; }).length;
+      var g = U.el('span', 'bt-pips');
+      reqs.forEach(function (r) { g.appendChild(U.el('i', 'pip' + (r.ok ? ' on' : ''))); });
+      tb.appendChild(g);
+      /* ★ §12-3 — 조건마다 현재값/필요값을 그대로 보여 준다 */
+      U.tipSet(tb, t.name + ' — 다음은 ' + nx.name,
+        reqs.map(function (r) {
+          return (r.ok ? '✔ ' : '✕ ') + r.text + ' (' + U.fmt(r.have, r.dec || 0) + '/' + U.fmt(r.need, r.dec || 0) + ')';
+        }).join('\n') +
+        '\n땅이 반경 ' + nx.radius + '까지 넓어집니다. (' + okN + '/' + reqs.length + ')' +
+        '\n\n눌러서 정착지 패널을 엽니다 — 승격도 거기서 합니다.');
+    } else {
+      U.tipSet(tb, t.name, (t.line || '') + '\n\n눌러서 정착지 패널을 엽니다.');
+    }
+    /* ★ §12-2 — 본부를 못 찾아도 여기로 들어갈 수 있다 (같은 패널)
+       ※ 이 닫힘은 그때 그때 S.hq() 를 다시 물으므로 헌 것을 잡지 않는다 — 서명으로 걸러도 안전하다. */
+    tb.classList.add('clickable');
+    tb.onclick = function () {
+      var b = S.hq();
+      if (!b) return;
+      S.selectTarget('structureId', b.id);
+      GM.structure.openSettlement(b);
+      GM.camera.moveTo(b.cx == null ? b.x : b.cx, b.cy == null ? b.y : b.cy);
+    };
+  }
+
+  function renderDayBadge(v) {
     /* 하루 — 며칠째 + 지금이 언제인가 */
     var badge = U.qs('#badge-day');
     if (badge) {
@@ -254,24 +279,34 @@
         '\n해가 원호의 왼쪽에서 떠 오른쪽으로 지고, 밤에는 달이 그 길을 갑니다.' +
         (v.paused ? '\n지금 시간이 멈춰 있습니다.' : ''));
     }
+  }
 
+  function renderThreatBadge() {
     /* 위협 — 티어 2부터 */
     var ib = U.qs('#badge-threat');
     var w = S.wave();
     if (!ib) return;
     if (!S.uiOn('hud.threat') || !w || !w.unlocked || !w.enemy) { ib.hidden = true; return; }
     ib.hidden = false;
-    U.clear(ib);
     var meta = S.enemyMeta(w.enemy.type);
-    ib.appendChild(GM.icons.img(meta.icon, 22));
     var days = w.precise ? w.daysUntil : w.daysUntilMin;
     var txt = w.active ? meta.name + ' · 지금 옵니다'
       : (days === null || days === undefined ? meta.name + ' · 언제일지 모름'
         : meta.name + ' · ' + days + '일' + (w.precise ? ' 뒤' : ' 안쪽'));
-    ib.appendChild(U.el('span', null, txt));
+    /* ★ Sprint 3 — 이 배지가 읽는 것은 아이콘·글자·급함 표시·설명말 넷뿐이다.
+       파도는 하루 단위로 다가오므로 밀 때마다 다시 지을 까닭이 없다. */
+    var sig = meta.icon + '|' + txt + '|' + (w.precise ? 1 : 0) + '|' + (w.hint || '') + '|' +
+              S.directionMeta(w.enemy.direction).name;
+    if (ib.getAttribute('data-sig') !== sig) {
+      ib.setAttribute('data-sig', sig);
+      U.clear(ib);
+      ib.appendChild(GM.icons.img(meta.icon, 22));
+      ib.appendChild(U.el('span', null, txt));
+      U.tipSet(ib, txt + (w.precise ? ' (성녀가 날을 못 박았습니다)' : ' (소문만 돕니다)'),
+        (w.hint || '') + '\n' + S.directionMeta(w.enemy.direction).name + '에서 옵니다. 눌러서 방어를 살피세요.');
+    }
+    /* 급함·비네트는 값싼 판정이라 서명 밖에 둔다(늘 지금 값을 따른다) */
     ib.classList.toggle('soon', !!(days !== null && days !== undefined && days <= 2) || !!w.active);
-    U.tipSet(ib, txt + (w.precise ? ' (성녀가 날을 못 박았습니다)' : ' (소문만 돕니다)'),
-      (w.hint || '') + '\n' + S.directionMeta(w.enemy.direction).name + '에서 옵니다. 눌러서 방어를 살피세요.');
 
     var vg = U.qs('#vignette');
     if (vg) vg.classList.toggle('on', !!(days !== null && days !== undefined && days <= 1) || !!w.active);
@@ -473,12 +508,41 @@
     return s.length > n ? s.slice(0, n - 1) + '…' : s;
   }
 
+  /* ══════════ ★ Sprint 3 — 안내 쪽지의 서명 ══════════
+     「왜」 서명을 다나 — renderNotices 는 상태가 밀릴 때마다(초에 여러 번) 불리는데,
+     그때마다 쪽지 일곱 장을 부수고 다시 짓는다. 아이콘 그림 일곱 개를 새로 만들고
+     설명말(tip)까지 다시 다는 일이 매번 되풀이된다. 그런데 열에 아홉은 **글자 한 자도
+     달라지지 않는다**. 그리는 데 쓰는 값(id·갈래·아이콘·제목·잔글)을 그대로 이어 서명을
+     만들고, 같으면 손대지 않는다.
+     ★ 한 가지 함정: 쪽지의 open 은 그때 그때의 알맹이(cp·o·d…)를 품은 닫힘(closure)이다.
+     헌 쪽지를 그대로 두면 닫힘도 헌 것이 남는다. 그래서 **누를 때 id 로 지금 목록에서
+     다시 찾아** 부른다 — 화면은 그대로 두면서 손은 늘 새것을 잡는다. */
+  var noticeNow = [];
+
+  function noticeSig(list) {
+    var parts = [];
+    for (var i = 0; i < list.length; i += 1) {
+      var it = list[i];
+      parts.push(it.id + '' + it.kind + '' + it.icon + '' + it.title + '' + (it.sub || ''));
+    }
+    return parts.join('');
+  }
+
+  function noticeById(id, fallback) {
+    for (var i = 0; i < noticeNow.length; i += 1) if (noticeNow[i].id === id) return noticeNow[i];
+    return fallback;
+  }
+
   function renderNotices() {
     var box = U.qs('#notices');
     if (!box) return;
-    var list = notices();
+    var list = notices().slice(0, 7);
+    noticeNow = list;                       // 닫힘이 되짚을 「지금」 목록은 늘 새로 둔다
+    var sig = noticeSig(list);
+    if (box.getAttribute('data-sig') === sig) return;
+    box.setAttribute('data-sig', sig);
     U.clear(box);
-    list.slice(0, 7).forEach(function (it) {
+    list.forEach(function (it) {
       var b = U.el('button', 'notice kind-' + it.kind);
       b.type = 'button';
       b.setAttribute('data-id', it.id);
@@ -488,8 +552,9 @@
       if (it.sub) col.appendChild(U.el('span', 'nt-s', it.sub));
       b.appendChild(col);
       b.onclick = function () {
-        if (it.kind === 'warn' || it.kind === 'good') S.S.dismissed[it.id] = 1;
-        if (it.open) it.open();
+        var cur = noticeById(it.id, it);     // ★ Sprint 3 — 헌 닫힘을 잡지 않는다
+        if (cur.kind === 'warn' || cur.kind === 'good') S.S.dismissed[cur.id] = 1;
+        if (cur.open) cur.open();
         renderNotices();
       };
       U.tipSet(b, it.title, it.sub || '눌러서 펼칩니다.');
@@ -729,16 +794,32 @@
     return b;
   }
 
+  /* ★ Sprint 3 — 「나」 칸의 서명. 이 칸이 읽는 값을 **하나도 빼놓지 않고** 이어 붙인다:
+     쓰러짐·이름·체력·최대체력 / 단계·눈금비·능력치점수·눈금·다음눈금·이전눈금 / 생김새 / 잠자기 표.
+     하나라도 빠뜨리면 화면이 옛 값에 멈춰 버리므로, 의심스러우면 넣는 쪽을 골랐다. */
+  function meSig(p, prog) {
+    var mine = (S.S.avatars || []).filter(function (a) { return a.id === S.S.avatarId; })[0];
+    var look = (mine && mine.appearance) || (S.S.you && S.S.you.appearance) || null;
+    return [p.down ? 1 : 0, p.name || '', p.hp || 0, p.maxHp || 0,
+            prog.level, prog.ratio, prog.points, prog.xp, prog.need, prog.from,
+            look && GM.atlas.appKey ? GM.atlas.appKey(look) : '-',
+            sleep.on ? 1 : 0, sleep.slept, sleep.need].join('|');
+  }
+
   function renderMe() {
     var host = U.qs('#me-panel');
     if (!host) return;
     var p = S.player();
-    if (!p) { host.hidden = true; U.clear(host); return; }
+    if (!p) { host.hidden = true; U.clear(host); host.removeAttribute('data-sig'); return; }
     var prog = p.progress || { level: 1, ratio: 0, points: 0, xp: 0, need: null };
     host.hidden = false;
+    watchHp(p);                              // ★ §17-19 — 체력이 깎인 순간을 여기서 잡는다
+                                             //   (★ Sprint 3 — 서명보다 **먼저**: 걸러 낼 수 없는 일이다)
+    var meSg = meSig(p, prog);
+    if (host.getAttribute('data-sig') === meSg) { meLevelWatch(prog); return; }
+    host.setAttribute('data-sig', meSg);
     U.clear(host);
     host.classList.toggle('down', !!p.down);
-    watchHp(p);                              // ★ §17-19 — 체력이 깎인 순간을 여기서 잡는다
 
     var face = U.el('div', 'me-face');
     var mine = (S.S.avatars || []).filter(function (a) { return a.id === S.S.avatarId; })[0];
@@ -799,7 +880,13 @@
     host.onclick = function () { GM.equip.open(); };
     U.tipSet(host, '나의 상태', '눌러서 캐릭터 창을 엽니다 (C).');
 
-    /* 단계가 오른 순간은 한 번만 알린다 */
+    meLevelWatch(prog);
+  }
+
+  /** ★ Sprint 3 — 단계가 오른 순간은 한 번만 알린다.
+      서명이 같아 화면을 안 고치는 프레임에도 이 판정은 반드시 지나가야 하므로 따로 뺐다
+      (사실 단계가 오르면 서명이 달라지지만, 이 알림을 서명에 매달아 두지 않는 편이 안전하다). */
+  function meLevelWatch(prog) {
     if (lastLevel != null && prog.level > lastLevel) {
       GM.sfx.play('levelup');
       U.banner({ icon: 'up', kind: 'good', title: prog.level + '단계가 되었다',
@@ -864,9 +951,15 @@
   function reset() {
     lastRes = {}; flashes = []; lastStructures = null; lastLevel = null;
     lastHp = null; lastHurtAt = 0;           // ★ §17-19 — 판이 바뀌면 옛 체력 기억도 버린다
-    var me = U.qs('#me-panel'); if (me) { me.hidden = true; U.clear(me); }
+    var me = U.qs('#me-panel'); if (me) { me.hidden = true; U.clear(me); me.removeAttribute('data-sig'); }
     var cab = U.qs('#cabinet'); if (cab) cab.removeAttribute('data-sig');
     var bar = U.qs('#toolbar'); if (bar) bar.removeAttribute('data-sig');
+    /* ★ Sprint 3 — 새로 단 서명들도 함께 버린다. 판이 갈렸는데 옛 서명이 남아 있으면
+       화면이 「똑같다」고 잘못 짚어 헌 그림을 그대로 붙들고 있게 된다. */
+    noticeNow = [];
+    ['#notices', '#upcoming', '#badge-tier', '#badge-threat'].forEach(function (sel) {
+      var el = U.qs(sel); if (el) el.removeAttribute('data-sig');
+    });
     closeSpeech(); hideContext();
   }
 
@@ -962,15 +1055,25 @@
     var rows = upcomingRows();
     if (!rows.length) { box.hidden = true; return; }
     box.hidden = false;
-    U.clear(box);
-    var head = U.el('div', 'up-head', '다가오는 것');
-    box.appendChild(head);
-    rows.forEach(function (r) {
-      var line = U.el('div', 'up-row');
-      line.appendChild(GM.icons.img(r.icon, 14));
-      line.appendChild(U.el('span', null, r.text));
-      box.appendChild(line);
-    });
+    /* ★ Sprint 3 — 「다가오는 것」 네 줄은 하루에 몇 번이나 바뀔까. 거의 안 바뀐다.
+       그런데도 상태가 밀릴 때마다 줄을 부수고 아이콘 그림을 새로 만들고 있었다.
+       그리는 데 쓰는 값은 아이콘과 글자 둘뿐이니 그것으로 서명을 만든다.
+       ★ 아침 안내판(morningBoard)은 **서명과 무관하게 늘** 부른다 — 날이 바뀐 순간을
+       재는 일이라 한 번이라도 걸러 먹으면 그날 아침이 통째로 사라진다. */
+    var sig = '';
+    for (var i = 0; i < rows.length; i += 1) sig += rows[i].icon + '' + rows[i].text + '';
+    if (box.getAttribute('data-sig') !== sig) {
+      box.setAttribute('data-sig', sig);
+      U.clear(box);
+      var head = U.el('div', 'up-head', '다가오는 것');
+      box.appendChild(head);
+      rows.forEach(function (r) {
+        var line = U.el('div', 'up-row');
+        line.appendChild(GM.icons.img(r.icon, 14));
+        line.appendChild(U.el('span', null, r.text));
+        box.appendChild(line);
+      });
+    }
     morningBoard(rows);
   }
 

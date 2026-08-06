@@ -379,15 +379,31 @@ function moveToward(e, tx, ty, dt, world, data) {
   }
 }
 
-/** 부술 건물 고르기 — 가까운 셋 중 하나를 (결정론 rng 로) 고른다. 한 채만 집중해서 무너뜨리지 않는다. */
+/**
+ * 부술 건물 고르기 — 가까운 셋 중 하나를 (결정론 rng 로) 고른다. 한 채만 집중해서 무너뜨리지 않는다.
+ *
+ * ★ Sprint 3 — 옛 구현은 적 하나가 본부에 닿을 때마다 건물 전부를 걸러 배열을 빚고, 다시 {건물,거리}
+ *   짝을 빚고, 정렬한 뒤 셋만 남겼다. 서브틱마다 적 수십이 이 길을 지나므로 쓰레기가 쏟아진다.
+ *   이제 **한 번만 훑으며 가장 가까운 셋을 손에 든다**. 결과는 옛것과 같다:
+ *   JS 정렬은 안정 정렬이라 거리가 같으면 **먼저 온 것이 앞**이었고, 아래 끼워 넣기도
+ *   같은 거리면 새로 온 것을 뒤에 세운다(`bd[i] <= d` 인 동안 지나친다).
+ */
 function pickStructure(nation, enemy, rng) {
-  const list = (nation.structures || []).filter((s) => !isRuined(s));
-  if (!list.length) return null;
-  const near = list
-    .map((s) => ({ s, d: dist(s.x, s.y, enemy.x, enemy.y) }))
-    .sort((a, b) => a.d - b.d)
-    .slice(0, 3);
-  return near[Math.min(near.length - 1, Math.floor(rng.next() * near.length))].s;
+  const best = [];
+  const bd = [];
+  for (const s of nation.structures || []) {
+    if (isRuined(s)) continue;
+    const d = dist(s.x, s.y, enemy.x, enemy.y);
+    // 이미 셋이 찼고 그 셋보다 가깝지 않으면(같아도) 들어설 자리가 없다 — 안정 정렬과 같은 판정이다
+    if (best.length >= 3 && d >= bd[2]) continue;
+    let i = 0;
+    while (i < best.length && bd[i] <= d) i += 1;
+    best.splice(i, 0, s);
+    bd.splice(i, 0, d);
+    if (best.length > 3) { best.pop(); bd.pop(); }
+  }
+  if (!best.length) return null;
+  return best[Math.min(best.length - 1, Math.floor(rng.next() * best.length))];
 }
 
 /** 적 하나가 마을 한복판에서 한 서브틱 동안 퍼 가는 양 */
@@ -547,7 +563,13 @@ export function finishBattle(world, nation, data) {
   clearCamps(world, b.waveIndex);
   nation.battlePlan = null;
   nation.battle = null;
-  nation.lastBattleResult = result;
+  /* ★ Sprint 3 — 세이브에 남기는 몫만 자른다. 타임라인은 웨이브 하나에 수백 줄이고
+     nation.lastBattleResult 는 스냅샷에 통째로 실려 저장 파일을 계속 부풀린다(뷰는 개수만 쓴다).
+     **돌려주는 result 는 온전하다** — 연대기·리플레이·회귀 시험이 보는 것은 그쪽이다. */
+  const keep = data.world.simulation?.battleResultTimelineMax ?? 200;
+  nation.lastBattleResult = keep > 0 && result.timeline.length > keep
+    ? { ...result, timeline: result.timeline.slice(-keep) }
+    : result;
   /* ★ Sprint 2 — 종이 그쳤다. 저마다 제 일터의 발치로 돌아간다. */
   standDown(world, nation, data);
   return result;

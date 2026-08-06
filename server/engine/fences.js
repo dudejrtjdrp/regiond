@@ -250,10 +250,98 @@ export function removeFence(world, nation, cmd, data) {
 // ────────────────────────────────────────────────────────────────
 export const aliveFences = (nation) => (nation.fences || []).filter((f) => (f.hp ?? 0) > 0);
 
-/** 적이 부딪히는 조각 — 적→중심 직선에 걸린 것 중 가장 가까운 것 */
+// ────────────────────────────────────────────────────────────────
+// ★ Sprint 3 — 울타리 칸 색인 (파생 캐시. 저장되지 않는다)
+//
+// 왜. 짐승 한 마리가 한 걸음을 뗄 때마다 후보 세 자리를 시험하고, 그때마다 울타리 전부와
+// 선분 교차를 잰다(ecology.crossesFence). 조각이 400개, 짐승이 90마리, 초당 한 걸음이면
+// 초당 십만 번을 훌쩍 넘는다 — 실측 216,000회/초. 그런데 한 걸음은 길어야 한두 타일이라,
+// 그 걸음과 만날 수 있는 조각은 언제나 코앞의 몇 조각뿐이다.
+//
+// 무효화. 울타리 조각은 **한번 선 자리에서 움직이지 않는다**(부서져도 그 자리다). 그래서
+// 색인은 목록이라는 그릇 자체가 바뀌거나(removeFence 가 새 배열을 끼운다) 길이가 달라질 때만
+// 다시 지으면 된다(placeFence 는 같은 배열에 밀어 넣으므로 길이가 반드시 는다).
+// 부서짐(hp)은 색인이 아니라 **쓰는 쪽**이 그때그때 본다.
+//
+// ⚠ 칸을 크게 잡으면 색인이 도로 헛일이 된다. 첫 판(16칸)을 실측했더니 200,000번의 걸음 판정이
+//   67ms → 108ms 로 **느려졌다**: 마을을 두른 울타리는 스물너덧 칸짜리 네모라 16칸 격자에서는
+//   조각 전부가 한두 칸에 몰려 앉고, 그러고도 Set·정렬·새 배열 값을 치렀기 때문이다.
+//   그래서 ① 칸을 8로 줄이고 ② **한 칸만 걸리는 물음**(걸음은 언제나 한 칸 미만이다)에는
+//   그 칸의 목록을 그대로 돌려주어 값을 한 톨도 치르지 않는다.
+// ────────────────────────────────────────────────────────────────
+/** 칸 크기(타일). 걸음 하나(≤1칸)가 대개 한 칸 안에 들어가도록 잘게 썬다. */
+const FENCE_BUCKET = 8;
+/** 빈 답은 늘 같은 그릇을 돌려준다 — 초당 십만 번 부르는 자리라 빈 배열도 쓰레기가 된다. */
+const NO_FENCES = Object.freeze([]);
+/** @type {WeakMap<Array, {len:number, grid:Map<string, {idx:number[], items:object[]}>}>} */
+const FENCE_GRID = new WeakMap();
+
+function fenceGridOf(list) {
+  const hit = FENCE_GRID.get(list);
+  if (hit && hit.len === list.length) return hit;
+  const grid = new Map();
+  for (let i = 0; i < list.length; i += 1) {
+    const f = list[i];
+    const gx0 = Math.floor(Math.min(f.x1, f.x2) / FENCE_BUCKET);
+    const gx1 = Math.floor(Math.max(f.x1, f.x2) / FENCE_BUCKET);
+    const gy0 = Math.floor(Math.min(f.y1, f.y2) / FENCE_BUCKET);
+    const gy1 = Math.floor(Math.max(f.y1, f.y2) / FENCE_BUCKET);
+    for (let gy = gy0; gy <= gy1; gy += 1) {
+      for (let gx = gx0; gx <= gx1; gx += 1) {
+        const k = `${gx},${gy}`;
+        const b = grid.get(k);
+        // 번호와 조각을 나란히 담는다 — 한 칸짜리 물음은 items 를 그대로 돌려주고(값 0),
+        // 여러 칸이 걸릴 때만 idx 로 원래 차례를 되세운다. 칸 안의 차례는 지을 때부터 원래 차례다.
+        if (b) { b.idx.push(i); b.items.push(f); }
+        else grid.set(k, { idx: [i], items: [f] });
+      }
+    }
+  }
+  const made = { len: list.length, grid };
+  FENCE_GRID.set(list, made);
+  return made;
+}
+
+/**
+ * 이 사각형에 **걸칠 수 있는** 조각들 — 칸 단위라 언제나 「진짜 답의 상위집합」이다.
+ * 돌려주는 차례는 원래 배열 차례다(첫 일치가 승부를 가르는 자리가 있어 차례를 지켜야 한다).
+ * 부서진 조각도 그대로 들어 있다 — 살았는가는 부르는 쪽이 판정한다.
+ * ⚠ 돌려주는 배열은 **색인의 것이다. 읽기만 할 것**(고치면 색인이 함께 상한다).
+ */
+export function fencesNear(nation, x0, y0, x1, y1) {
+  const list = nation?.fences;
+  if (!Array.isArray(list) || !list.length) return NO_FENCES;
+  const { grid } = fenceGridOf(list);
+  const gx0 = Math.floor(Math.min(x0, x1) / FENCE_BUCKET);
+  const gx1 = Math.floor(Math.max(x0, x1) / FENCE_BUCKET);
+  const gy0 = Math.floor(Math.min(y0, y1) / FENCE_BUCKET);
+  const gy1 = Math.floor(Math.max(y0, y1) / FENCE_BUCKET);
+  // ★ 뜨거운 길 — 걸음 하나는 대개 한 칸 안에서 끝난다. 그때는 아무것도 짓지 않는다.
+  if (gx0 === gx1 && gy0 === gy1) return grid.get(`${gx0},${gy0}`)?.items ?? NO_FENCES;
+  const idx = new Set();
+  for (let gy = gy0; gy <= gy1; gy += 1) {
+    for (let gx = gx0; gx <= gx1; gx += 1) {
+      const b = grid.get(`${gx},${gy}`);
+      if (b) for (let k = 0; k < b.idx.length; k += 1) idx.add(b.idx[k]);
+    }
+  }
+  if (!idx.size) return NO_FENCES;
+  const sorted = [...idx].sort((a, b) => a - b);
+  const out = new Array(sorted.length);
+  for (let k = 0; k < sorted.length; k += 1) out[k] = list[sorted[k]];
+  return out;
+}
+
+/**
+ * 적이 부딪히는 조각 — 적→중심 직선에 걸린 것 중 가장 가까운 것.
+ * ★ Sprint 3 — 옛 구현은 부를 때마다 `aliveFences(nation)` 로 **새 배열을 하나 빚었다**.
+ *   전투 서브틱마다 적 40마리가 저마다 400칸짜리 배열을 만드니 초당 6만 개가 났다 — 계산보다
+ *   쓰레기 수거가 더 아팠다. 이제 목록을 그 자리에서 훑으며 살았는지를 함께 본다: 훑는 차례도
+ *   (aliveFences 가 차례를 지켰으므로) 고르는 결과도 옛것과 한 톨도 다르지 않다.
+ */
 export function blockingFence(nation, from, core) {
-  const list = aliveFences(nation);
-  if (!list.length) return null;
+  const list = nation.fences;
+  if (!Array.isArray(list) || !list.length) return null;
   const vx = core.x - from.x;
   const vy = core.y - from.y;
   const len2 = vx * vx + vy * vy;
@@ -261,6 +349,7 @@ export function blockingFence(nation, from, core) {
   let best = null;
   let bestT = Infinity;
   for (const f of list) {
+    if ((f.hp ?? 0) <= 0) continue;                 // 부서진 조각은 막지 못한다(옛 aliveFences 와 같은 문)
     const m = fenceMid(f);
     const t = ((m.x - from.x) * vx + (m.y - from.y) * vy) / len2;
     if (t < -0.02 || t > 1.02) continue;

@@ -186,6 +186,33 @@
   }
 
   /* ── 숫자 트윈 + 증감 플로팅 ─────────────────────────── */
+  /* ══════════ ★ Sprint 3 — 트윈 몰이꾼 하나 ══════════
+     「왜」 하나로 모으나 — 상태를 한 번 밀 때 자원칸 열 개가 한꺼번에 트윈을 건다. 옛 셈은
+     칸마다 requestAnimationFrame 고리를 **따로** 돌려서, 반 초 동안 브라우저가 프레임마다
+     콜백 열 개를 따로 깨우고 그때마다 레이아웃 셈을 다시 하게 만들었다.
+     고리는 하나면 된다: 줄(queue)에 트윈을 담고 한 고리가 전부 한 번씩 밀어 준다.
+     줄이 비면 고리는 스스로 멈춘다(빈 프레임에 일을 남기지 않는다).
+     시간·감속 곡선·글자 꼴은 옛 셈과 **한 글자도 다르지 않다**. */
+  var tweens = [];
+  var tweenRunning = false;
+  function hasRAF() { return typeof requestAnimationFrame === 'function'; }
+  function tweenTick(t) {
+    var i = 0;
+    while (i < tweens.length) {
+      var tw = tweens[i];
+      var p = clamp((t - tw.t0) / tw.dur, 0, 1);
+      if (p < 1) {
+        tw.node.textContent = tw.f(tw.from + tw.d * (1 - Math.pow(1 - p, 3)));
+        i += 1;
+      } else {
+        tw.node.textContent = tw.f(tw.to);
+        tweens.splice(i, 1);
+      }
+    }
+    if (tweens.length) requestAnimationFrame(tweenTick);
+    else tweenRunning = false;
+  }
+
   function tweenNum(node, to, opts) {
     opts = opts || {};
     var from = parseFloat(node.getAttribute('data-v'));
@@ -196,15 +223,17 @@
     if (from === to) { node.textContent = f(to); return; }
 
     var d = to - from, t0 = (global.performance && performance.now) ? performance.now() : Date.now();
-    function frame(t) {
-      var p = clamp((t - t0) / dur, 0, 1);
-      var e = 1 - Math.pow(1 - p, 3);
-      node.textContent = f(from + d * e);
-      if (p < 1) requestAnimationFrame(frame);
-      else node.textContent = f(to);
+    /* ★ Sprint 3 — 고리를 새로 트는 대신 줄에 얹는다. 고리가 놀고 있을 때만 깨운다. */
+    if (hasRAF()) {
+      tweens.push({ node: node, from: from, to: to, d: d, t0: t0, dur: dur, f: f });
+      if (!tweenRunning) { tweenRunning = true; requestAnimationFrame(tweenTick); }
+    } else {
+      node.textContent = f(to);       // 프레임 고리가 없는 곳(테스트 등)에서는 곧장 끝값
     }
-    requestAnimationFrame(frame);
 
+    /* 이 한 번의 강제 리플로우는 CSS 애니메이션을 **다시 트기 위한** 것이다 —
+       클래스를 뺐다 넣는 사이에 브라우저가 「지웠다」는 사실을 알아야 다시 재생된다.
+       ★ Sprint 3 — 프레임마다가 아니라 트윈을 걸 때 한 번뿐이므로 그대로 둔다. */
     node.classList.remove('up', 'down');
     void node.offsetWidth;
     node.classList.add(d > 0 ? 'up' : 'down');

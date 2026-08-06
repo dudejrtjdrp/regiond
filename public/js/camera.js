@@ -57,6 +57,12 @@
   function worldToScreen(wx, wy) {
     return { x: (wx - cam.cx) * cam.tile + cam.w / 2, y: (wy - cam.cy) * cam.tile + cam.h / 2 };
   }
+  /* ★ Sprint 3 — 자리 하나만 필요한 곳을 위한 셈. 「왜」 따로 두나 —
+     worldToScreen 은 부를 때마다 {x,y} 를 하나씩 낳는다. 노드 3천, 울타리 400, 주민 60을
+     프레임마다 훑는 자리에서는 그 쓰레기가 초당 수십만 개가 되어 GC 가 프레임을 끊는다.
+     값은 위 식과 **글자 그대로 같다** — 그림은 한 점도 달라지지 않는다. */
+  function worldToScreenX(wx) { return (wx - cam.cx) * cam.tile + cam.w / 2; }
+  function worldToScreenY(wy) { return (wy - cam.cy) * cam.tile + cam.h / 2; }
   function screenToWorld(sx, sy) { return screenToWorldWith(sx, sy, cam.tile, cam.cx, cam.cy); }
   function screenToWorldWith(sx, sy, tile, cx, cy) {
     return { x: (sx - cam.w / 2) / tile + cx, y: (sy - cam.h / 2) / tile + cy };
@@ -78,10 +84,14 @@
     };
   }
 
+  /* ★ Sprint 3 — 화면 밖 걸러 내기. 이 판정은 그리기 전에 **모든** 것에 한 번씩 걸리는
+     가장 잦은 셈이라, 안에서 점 객체를 만들지 않고 좌표를 그 자리에서 센다(결과는 같다). */
   function onScreen(wx, wy, margin) {
-    var p = worldToScreen(wx, wy);
     var m = margin === undefined ? 40 : margin;
-    return p.x > -m && p.y > -m && p.x < cam.w + m && p.y < cam.h + m;
+    var x = (wx - cam.cx) * cam.tile + cam.w / 2;
+    if (!(x > -m) || !(x < cam.w + m)) return false;
+    var y = (wy - cam.cy) * cam.tile + cam.h / 2;
+    return y > -m && y < cam.h + m;
   }
 
   /** 고정 스텝 보간 — dt 는 초 */
@@ -107,7 +117,10 @@
     cam: cam, STEPS: STEPS,
     setViewport: setViewport, moveTo: moveTo, pan: pan,
     setZoom: setZoom, zoomBy: zoomBy,
-    worldToScreen: worldToScreen, screenToWorld: screenToWorld, screenToTile: screenToTile,
+    worldToScreen: worldToScreen,
+    /* ★ Sprint 3 — 쓰레기를 안 남기는 판(값은 worldToScreen 과 같다) */
+    worldToScreenX: worldToScreenX, worldToScreenY: worldToScreenY,
+    screenToWorld: screenToWorld, screenToTile: screenToTile,
     visible: visible, onScreen: onScreen, update: update, reset: reset,
     tile: function () { return cam.tile; }
   };

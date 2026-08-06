@@ -1,6 +1,8 @@
 // 주민 — docs/GDD3.md §4. 인구 0에서 시작해 한 명씩 걸어온다.
 // ★ 옛 '인구 50 시작 · 이주민 %'는 폐기됐다. 주민은 실인원이다: unitCompressionFrom 명까지 1유닛=1명.
 import { townOf, territoryRadius, dist, inTerritory } from './world.js';
+// ★ Sprint 3 — 노드 조회는 파생 색인 하나로 모은다(옛 find 는 방송마다 60×5,000 을 두 번 훑었다)
+import { nodeById } from './spatial.js';
 // ★ §16-18 — 집결지: 갓 도착한 주민을 지정한 일터로 곧장 보낸다
 import { rallyResident } from './villagers.js';
 import {
@@ -400,9 +402,13 @@ export function isOutdoorNode(world, nation, node, data) {
   return !inTerritory(world, nation, node.x, node.y, data);
 }
 
-/** 주민이 지금 붙어 있는 노드 (건물 일자리면 null) */
+/**
+ * 주민이 지금 붙어 있는 노드 (건물 일자리면 null).
+ * ★ Sprint 3 — 옛 구현은 `nodes.find(...)` 였다. residentViews 가 사람마다 부르고, 그 뷰가
+ *   state 와 worldDiff 두 곳에서 다시 만들어지므로 방송 한 번에 60×5,000×2 번을 훑었다.
+ */
 export const nodeOfResident = (world, u) =>
-  (u?.targetId ? (world?.map?.nodes || []).find((n) => n.id === u.targetId) : null) || null;
+  (u?.targetId ? nodeById(world, u.targetId) : null) || null;
 
 /**
  * 주민 개별 노동 산출(하루). 노드에 붙은 주민만 낸다.
@@ -411,9 +417,9 @@ export const nodeOfResident = (world, u) =>
  */
 export function residentGather(world, nation, data) {
   const out = { resources: {}, buildPoints: 0, workers: 0 };
-  const nodeById = new Map((world.map?.nodes || []).map((n) => [n.id, n]));
+  /* ★ Sprint 3 — 부를 때마다 노드 5,000개로 Map 을 새로 짓던 자리. 이제 파생 색인을 그대로 본다. */
   for (const u of nation.villagers || []) {
-    const node = u.targetId ? (nodeById.get(u.targetId) ?? null) : null;
+    const node = u.targetId ? nodeById(world, u.targetId) : null;
     const y = residentYield(u, node, data, isOutdoorNode(world, nation, node, data), nation);
     if (y.kind === 'buildPoints') { out.buildPoints += y.perDay; out.workers += 1; continue; }
     if (y.kind !== 'resource' || !(y.perDay > 0)) continue;
@@ -487,9 +493,10 @@ export function stepResidentWork(world, nation, data, dt = 1) {
   if (!(dt > 0) || !nation?.isPlayer) return out;
   const cycles = Math.max(1, workCfg(data).cyclesPerDay ?? 30);
   const cycleSec = workCycleSeconds(data);
-  const nodeById = new Map((world.map?.nodes || []).map((n) => [n.id, n]));
+  /* ★ Sprint 3 — 1초 루프가 매 걸음 노드 5,000개로 Map 을 새로 짓고 있었다(초당 5,000회 삽입).
+     파생 색인은 노드가 늘거나 줄 때만 다시 지어지므로, 여느 걸음에서는 조회 값이 공짜다. */
   for (const u of nation.villagers || []) {
-    const node = u.targetId ? (nodeById.get(u.targetId) ?? null) : null;
+    const node = u.targetId ? nodeById(world, u.targetId) : null;
     const y = residentYield(u, node, data, isOutdoorNode(world, nation, node, data), nation);
     // 노는 사람·수비·공사는 실시간으로 적립하지 않는다 — 일 틱이 통째로 맡는다(합계는 그대로다).
     if (y.kind !== 'resource' || y.idle || !(y.perDay > 0)) continue;

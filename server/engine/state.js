@@ -248,9 +248,26 @@ export function isLegacySnapshot(world) {
   return !(world.schema >= 6);
 }
 
+/**
+ * ★ Sprint 3 — 이관을 **한 번만** 돌리기 위한 눈금.
+ *
+ * migrateWorld 는 옛 세이브를 여는 문이지만, tick.js 가 **매 틱** 이것을 부른다
+ * (`migrateWorld(structuredClone(state), data)`). 하루가 갈 때마다 나라마다 서른 줄 남짓의
+ * `||=` 를 훑고 주민 예순 명의 능력치 유무를 다시 물었다 — 답이 늘 「이미 다 있다」인데도.
+ *
+ * `schema` 를 그 눈금으로 쓸 수는 없다. schema 는 **세이브를 버릴지**를 가르는 계약이고
+ * (docs/PROTOCOL.md · schema 6), 아래 기본값 채우기는 schema 를 올리지 않고 계속 늘어 왔다.
+ * 그래서 그와 별개로 「이 판의 이관 규칙까지 다 돌았다」만 적는 자리를 따로 둔다.
+ *
+ * ⚠ **아래 migrateWorld 에 줄을 더하면 이 숫자를 반드시 올려라.** 올리지 않으면 이미 표를 받은
+ *   세이브가 새 줄을 건너뛴다 — 그것이 이 눈금이 지는 유일한 빚이다.
+ */
+const MIGRATION_REV = 1;
+
 export function migrateWorld(world, data) {
   if (!world) return world;
   if (isLegacySnapshot(world)) return null;
+  if (world.migrationRev === MIGRATION_REV) return world;   // ★ Sprint 3 — 이미 다 돌았다
   if (world.difficulty == null) world.difficulty = data.difficulty.default;
   world.camps ||= [];
   world.chat ||= [];
@@ -300,6 +317,8 @@ export function migrateWorld(world, data) {
       if (!u.stats) u.stats = rollStats(statRng(`${world.seed}:${nation.id}:${u.id}`), data);
     }
   }
+  // ★ Sprint 3 — 표를 찍는다. structuredClone 이 이 값을 그대로 옮기므로 다음 틱은 위에서 곧장 돌아선다.
+  world.migrationRev = MIGRATION_REV;
   return world;
 }
 

@@ -383,6 +383,13 @@ function openCouncilNow(world, nation, data, r, tick) {
   const out = [];
   const council = openCouncil(world, nation, data, r);
   world.councils.push(council);
+  /* ★ Sprint 3 — 회의록은 지금껏 끝없이 쌓였다. 엔드리스라 끝이 없으니 이 배열도 끝이 없었고,
+     그 전부가 스냅샷에 실려 매 틱 structuredClone 되고 매 저장마다 JSON 으로 굳었다.
+     그런데 화면이 보는 것은 마지막 셋이고(view.js `slice(-3)`), 답을 기다리는 회의도 언제나
+     맨 뒤의 몇이다. 그래서 최근 councilHistoryMax 개만 남긴다 — 그보다 오래된 회의는
+     아무도 열지 않고 아무도 답하지 않는다. (다이얼: data/world.json simulation) */
+  const keep = data.world.simulation?.councilHistoryMax ?? 20;
+  if (keep > 0 && world.councils.length > keep) world.councils.splice(0, world.councils.length - keep);
   out.push({ tick, kind: 'council_open', nationId: nation.id, data: { councilId: council.councilId, decisions: council.decisions.length, artifactDrop: council.artifactDrop } });
   if (council.artifactDrop?.key) {
     out.push({ tick, kind: 'artifact_found', nationId: nation.id, data: { artifact: council.artifactDrop.name, grade: council.artifactDrop.grade, effect: council.artifactDrop.desc, role: '어전 회의' } });

@@ -31,6 +31,57 @@
   var frameTimes = [];       // 프레임 간격 (스모크가 읽는다)
   var workTimes = [];        // 한 프레임을 그리는 데 든 시간 — 60fps 예산(16.7ms) 대비 여유
 
+  /* ══════════ ★ Sprint 3 — 어디에 시간이 갔는가 ══════════
+     「무엇을 고쳤나」를 말로 다투지 않으려고 세 자리만 따로 잰다:
+       nodes  — 자원 자리 그리기(늦은 판에 목록이 3천까지 자란다)
+       minimap— 축소 지도 한 판
+       path   — 주민 길찾기(A*)에 든 시간과 **횟수**. 한 프레임에 몰리면 그때 화면이 멎는다.
+     재는 값은 performance.now() 한 쌍뿐이라 재는 일 자체가 예산을 먹지 않는다. */
+  var nodesTimes = [], minimapTimes = [], pathTimes = [], pathCallTimes = [];
+  var nodesMs = 0, minimapMs = 0, pathMs = 0, pathCalls = 0;
+  function nowMs() { return (global.performance && performance.now) ? performance.now() : Date.now(); }
+
+  /* ★ Sprint 3 — 프레임 예산 다이얼(data/world.json render.perf). 자료가 없는 자리
+     (구경 모드·하니스)에서도 그림이 멎지 않게 옛 성질 그대로의 예비값을 든다. */
+  /* ★ Sprint 3 — 되쓰는 점 하나. 화면 좌표를 담을 그릇이 필요할 뿐인 자리에서
+     프레임마다 {x,y} 를 새로 낳지 않는다(값은 옛것과 같다). 쓰고 곧 버리는 자리에만 쓴다. */
+  var P2 = { x: 0, y: 0 };
+
+  /** ★ Sprint 3 — 화면(픽셀) 밖인가. 걸러 낼 것을 걸러 내야 명령이 안 쌓인다. */
+  function offScreen(px, py, m) { return px < -m || py < -m || px > W + m || py > H + m; }
+
+  var PERF_FALLBACK = { pathFindsPerFrame: 2, minimapHz: 8 };
+  function perfCfg() {
+    var w = S.worldCfg();
+    return (w && w.render && w.render.perf) || PERF_FALLBACK;
+  }
+
+  /* ══════════ ★ Sprint 3 — 그라데이션 곳간 ══════════
+     「왜」 — createRadialGradient 은 부를 때마다 브라우저 안에서 색 띠 하나를 새로 굽는다.
+     군락 바닥·광장·밤 등불은 **프레임마다** 그것을 수십 개씩 구워 버렸다(등불만 최대 18개).
+     띠는 자리(중심)를 품으므로 그대로는 되쓸 수 없다 — 그래서 원점(0,0)에 굽고 그릴 때
+     ctx.translate 로 자리를 옮긴다. 옮겨 그린 그림은 제자리에 구운 것과 **같다**.
+     열쇠에 반지름을 그대로 넣는 까닭: 줌이 멎어 있으면 반지름이 몇 값뿐이라 거의 다 맞고,
+     줌이 도는 몇 프레임만 새로 굽는다(상한을 넘으면 통째로 비운다 — 곳간이 새지 않는다). */
+  /* 상한 — 줌이 멎어 있을 때 실제로 도는 열쇠는 쉰 남짓이다(등불의 흔들리는 반지름이 대부분이라
+     넉넉히 잡는다). 넘치면 통째로 비우고 다시 채운다 — 몇 프레임의 값으로 곳간이 새는 것을 막는다. */
+  var GRAD_CAP = 256;
+  var gradCache = {}, gradCount = 0;
+  function radialAt0(key, inner, outer, stops) {
+    var g = gradCache[key];
+    if (g !== undefined) return g;
+    if (gradCount >= GRAD_CAP) { gradCache = {}; gradCount = 0; }
+    try {
+      g = ctx.createRadialGradient(0, 0, inner, 0, 0, outer);
+      for (var i = 0; i < stops.length; i++) g.addColorStop(stops[i][0], stops[i][1]);
+    } catch (e) { g = null; }
+    gradCache[key] = g; gradCount += 1;
+    return g;
+  }
+  /* 세로 하늘 띠 — 색은 구간이 바뀔 때만 갈리므로 열쇠가 곧 그 색이다(값이 같으면 같은 띠다) */
+  var skyGrad = { key: '', g: null };
+  function dropGradients() { gradCache = {}; gradCount = 0; skyGrad = { key: '', g: null }; }
+
   /* ══════════ 마운트 ══════════ */
   function mount() {
     cv = U.qs('#world-canvas');
@@ -54,6 +105,7 @@
     cv.style.width = W + 'px';
     cv.style.height = H + 'px';
     ctx = U.fitCanvas(cv, W, H);
+    dropGradients();          /* ★ Sprint 3 — 캔버스가 다시 잡히면 구워 둔 띠도 버린다 */
     GM.camera.setViewport(W, H);
   }
 
@@ -137,15 +189,17 @@
       var rad = (c.r + 1.4) * t;
       if (!GM.camera.onScreen(c.x, c.y, rad * 2)) continue;
       if (S.fogAt(c.x, c.y) < 1) continue;
-      var p = GM.camera.worldToScreen(c.x, c.y);
-      var g = ctx.createRadialGradient(p.x, p.y, Math.max(1, rad * 0.25), p.x, p.y, rad);
-      g.addColorStop(0, tint.fill);
-      g.addColorStop(0.68, tint.edge);
-      g.addColorStop(1, 'rgba(0,0,0,0)');
+      /* ★ Sprint 3 — 원점에 구워 둔 띠를 자리로 옮겨 칠한다(그림은 옛것과 같다) */
+      var g = radialAt0(c.type + ':' + rad, Math.max(1, rad * 0.25), rad,
+        [[0, tint.fill], [0.68, tint.edge], [1, 'rgba(0,0,0,0)']]);
+      if (!g) continue;
+      ctx.save();
+      ctx.translate(GM.camera.worldToScreenX(c.x), GM.camera.worldToScreenY(c.y));
       ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+      ctx.arc(0, 0, rad, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
     }
     ctx.restore();
   }
@@ -277,9 +331,14 @@
     ctx.strokeStyle = 'rgba(198,166,110,.75)';
     ctx.lineWidth = Math.max(1, tile * 0.055);
     ctx.lineCap = 'round';
+    var cull = postH * 2 + 12;                          // ★ Sprint 3 — 늘어짐·기둥 높이만큼 넉넉히
     for (var j = 0; j < pts.length; j++) {
       var p0 = pts[j], p1 = pts[(j + 1) % pts.length];
       if (!p0 || !p1) continue;
+      /* ★ Sprint 3 — 양 끝이 다 화면 밖이면 그 밧줄은 눈에 들 수 없다.
+         영토가 넓어지면 말뚝이 마흔여덟, 밧줄이 마흔여덟인데 옛 셈은 화면 밖 것까지
+         곡선 명령을 다 쌓았다(잘라 내는 일은 캔버스가 뒤늦게 한다). */
+      if (offScreen(p0.x, p0.y, cull) && offScreen(p1.x, p1.y, cull)) continue;
       var mx = (p0.x + p1.x) / 2, my = (p0.y + p1.y) / 2;
       var sag = Math.max(1.5, tile * 0.1);              // 늘어짐
       var ox = mx - c.x, oy = my - c.y;
@@ -296,6 +355,7 @@
     for (var k = 0; k < pts.length; k++) {
       var p = pts[k];
       if (!p) continue;
+      if (offScreen(p.x, p.y, cull)) continue;          /* ★ Sprint 3 — 화면 밖 말뚝은 건너뛴다 */
       var h = postH * (1 + p.pop * 0.55);
       ctx.fillStyle = 'rgba(20,14,8,.35)';              // 그림자
       ctx.fillRect(p.x - postW, p.y - 1, postW * 2, Math.max(1, postW * 0.7));
@@ -420,11 +480,92 @@
     }
   }
 
+  /* ══════════ ★ Sprint 3 — 칸 바구니(공간 색인) ══════════
+     「왜」 — 화면에 드는 것은 늘 한 줌인데, 옛 셈은 늦은 판에 3천까지 자라는 자원 자리와
+     울타리 400조각을 **프레임마다 통째로** 훑고 나서야 화면 밖인 줄 알았다(초당 20만 번의 헛걸음).
+     목록이 바뀔 때만 16칸 격자에 나눠 담고, 그릴 때는 화면에 걸친 바구니만 연다.
+     담는 것은 물건이 아니라 **목록에서의 자리(index)** 다 — 꺼낸 뒤 번호순으로 세우면
+     겹쳐 그리는 차례가 옛 그림과 글자 그대로 같다(그림이 달라지면 최적화가 아니다). */
+  var BUCKET = 16;
+  var nodeIndex = { src: null, n: -1, cells: null, w: 0 };
+  var fenceIndex = { src: null, n: -1, cells: null, w: 0 };
+  var pickBuf = [];          // 바구니에서 꺼낸 번호들 — 프레임마다 새로 만들지 않고 되쓴다
+
+  function buildIndex(ix, list, xOf, yOf) {
+    if (ix.src === list && ix.n === list.length) return ix;
+    var w = Math.max(1, Math.ceil((S.mapSize() || 384) / BUCKET));
+    var cells = {};
+    for (var i = 0; i < list.length; i++) {
+      var cx = Math.floor(xOf(list[i]) / BUCKET), cy = Math.floor(yOf(list[i]) / BUCKET);
+      var k = cy * w + cx;
+      if (cells[k]) cells[k].push(i);
+      else cells[k] = [i];
+    }
+    ix.src = list; ix.n = list.length; ix.cells = cells; ix.w = w;
+    return ix;
+  }
+
+  /** 화면(여유 margin 칸)에 걸친 바구니의 번호들 — 목록 순서 그대로 */
+  function pickVisible(ix, margin) {
+    var vis = GM.camera.visible();
+    var w = ix.w;
+    var cx0 = Math.floor((vis.x0 - margin) / BUCKET), cx1 = Math.floor((vis.x1 + margin) / BUCKET);
+    var cy0 = Math.floor((vis.y0 - margin) / BUCKET), cy1 = Math.floor((vis.y1 + margin) / BUCKET);
+    pickBuf.length = 0;
+    for (var cy = cy0; cy <= cy1; cy++) {
+      if (cy < 0 || cy >= w) continue;
+      for (var cx = cx0; cx <= cx1; cx++) {
+        if (cx < 0 || cx >= w) continue;
+        var b = ix.cells[cy * w + cx];
+        if (!b) continue;
+        for (var i = 0; i < b.length; i++) pickBuf.push(b[i]);
+      }
+    }
+    pickBuf.sort(function (a, b2) { return a - b2; });   // 옛 그리기 차례를 그대로 지킨다
+    return pickBuf;
+  }
+
+  function fenceMidX(f) { return (f.x1 + f.x2) / 2; }
+  function fenceMidY(f) { return (f.y1 + f.y2) / 2; }
+
+  /**
+   * ★ Sprint 3 — 이 자리 둘레(반경 r)의 자원 자리들.
+   * 손이 닿는 것을 고르는 일(swing.findTarget)은 반경 두어 칸을 보면서 목록 삼천 개를
+   * 통째로 훑고 있었다. 바구니를 쓰면 볼 것이 한 줌이다 — 고르는 규칙은 부르는 쪽 그대로다.
+   * 돌려주는 배열은 **되쓰는 그릇**이라 다음 부름 전까지만 쓴다(목록 순서는 지킨다).
+   */
+  var nearBuf = [], nearIdx = [];
+  function nodesNear(x, y, r) {
+    var list = S.nodeList();
+    var ix = buildIndex(nodeIndex, list, nodeX, nodeY);
+    var w = ix.w;
+    nearIdx.length = 0; nearBuf.length = 0;
+    var cx0 = Math.floor((x - r) / BUCKET), cx1 = Math.floor((x + r) / BUCKET);
+    var cy0 = Math.floor((y - r) / BUCKET), cy1 = Math.floor((y + r) / BUCKET);
+    for (var cy = cy0; cy <= cy1; cy++) {
+      if (cy < 0 || cy >= w) continue;
+      for (var cx = cx0; cx <= cx1; cx++) {
+        if (cx < 0 || cx >= w) continue;
+        var b = ix.cells[cy * w + cx];
+        if (!b) continue;
+        for (var i = 0; i < b.length; i++) nearIdx.push(b[i]);
+      }
+    }
+    nearIdx.sort(function (a, b2) { return a - b2; });
+    for (var k = 0; k < nearIdx.length; k++) {
+      var n = list[nearIdx[k]];
+      if (Math.abs(n.x - x) <= r && Math.abs(n.y - y) <= r) nearBuf.push(n);
+    }
+    return nearBuf;
+  }
+
   function drawFences() {
     var list = S.fences();
     if (!list.length) return;
     var tile = GM.camera.cam.tile;
-    for (var i = 0; i < list.length; i++) {
+    var pick = pickVisible(buildIndex(fenceIndex, list, fenceMidX, fenceMidY), 2);
+    for (var pi = 0; pi < pick.length; pi++) {
+      var i = pick[pi];
       var f = list[i];
       var mx = (f.x1 + f.x2) / 2, my = (f.y1 + f.y2) / 2;
       if (!GM.camera.onScreen(mx, my, tile * 2)) continue;
@@ -433,26 +574,42 @@
       var cond = f.condition === undefined ? 1 : f.condition;
       var dmg = f.broken ? 2 : (cond < 0.6 ? 1 : 0);
       var sp = GM.atlas.fence({ vertical: vertical, tier: f.tier, gate: f.gate, damage: dmg });
-      var p = GM.camera.worldToScreen(mx - 0.5, my - 0.62);
+      /* ★ Sprint 3 — 점 객체를 안 만든다(값은 worldToScreen 과 같다) */
+      var px = GM.camera.worldToScreenX(mx - 0.5), py = GM.camera.worldToScreenY(my - 0.62);
       ctx.save();
       if (f.broken) ctx.globalAlpha = 0.6;
-      try { ctx.drawImage(sp, Math.round(p.x), Math.round(p.y), Math.ceil(tile), Math.ceil(tile)); } catch (e) {}
+      try { ctx.drawImage(sp, Math.round(px), Math.round(py), Math.ceil(tile), Math.ceil(tile)); } catch (e) {}
       ctx.restore();
       if (S.S.selection && S.S.selection.fenceId === f.id) ringAt(mx, my, '#e8a33d', 0.9);
     }
   }
 
   /* ══════════ 자원 자리 ══════════ */
+  function nodeX(n) { return n.x; }
+  function nodeY(n) { return n.y; }
+
   function drawNodes() {
+    var t0 = nowMs();
+    drawNodesInner();
+    nodesMs += nowMs() - t0;
+  }
+
+  function drawNodesInner() {
     var cam = GM.camera.cam;
     var list = S.nodeList();
     var t = cam.tile;
-    for (var i = 0; i < list.length; i++) {
+    /* ★ Sprint 3 — 화면에 걸친 바구니만 연다. 자리 하나가 흔들려도(nodeShake) 한 칸을 넘지
+       않으므로 여유 한 바구니면 충분하다 — 걸러 내는 자는 아래 onScreen 이 그대로 든다. */
+    var pick = pickVisible(buildIndex(nodeIndex, list, nodeX, nodeY), BUCKET);
+    for (var pi = 0; pi < pick.length; pi++) {
+      var i = pick[pi];
       var n = list[i];
       if (!GM.camera.onScreen(n.x, n.y, t)) continue;
       if (S.fogAt(n.x, n.y) < 1) continue;
       var sh = GM.fx ? GM.fx.nodeShake(n.id) : 0;
-      var p = GM.camera.worldToScreen(n.x - 0.5 + sh, n.y - 0.5);
+      var p = P2;                                       // 되쓰는 점 하나 — 프레임마다 쓰레기를 안 남긴다
+      p.x = GM.camera.worldToScreenX(n.x - 0.5 + sh);
+      p.y = GM.camera.worldToScreenY(n.y - 0.5);
       /* ★ §13-B-3 — 다 캔 자리는 **그루터기**다. 아이콘을 어둡게 덮는 게 아니라 그루터기를 그린다. */
       if (n.depleted) {
         ctx.save();
@@ -620,17 +777,20 @@
   /** 새 좌표 묶음이 왔다 — 각자의 띠에 한 장씩 얹는다 */
   function pushWildSnapshot(list) {
     var now = wildClock;
-    for (var i = 0; i < (list || []).length; i++) {
-      var c = list[i];
+    var src = list || [];
+    /* ★ Sprint 3 — 살아 있는 놈의 표를 **먼저** 세운다. 옛 셈은 화면이 든 놈마다
+       새 묶음을 처음부터 훑어(n×n) 짐승이 늘수록 좌표 한 묶음 받는 값이 제곱으로 컸다. */
+    var alive = {};
+    for (var i = 0; i < src.length; i++) {
+      var c = src[i];
+      alive[c.id] = 1;
       var a = wild[c.id];
       if (!a) { wild[c.id] = newWild(c, now); continue; }
       bufPush(a, c.x, c.y, now, WILD_SNAP);
     }
     for (var k in wild) {
       if (!Object.prototype.hasOwnProperty.call(wild, k)) continue;
-      var alive = false;
-      for (var j = 0; j < (list || []).length; j++) if (list[j].id === k) { alive = true; break; }
-      if (!alive) delete wild[k];
+      if (alive[k] !== 1) delete wild[k];
     }
   }
 
@@ -740,7 +900,9 @@
       var a = wild[c.id] || { x: c.x, y: c.y, frame: 0, dir: 1, hurt: 0 };
       if (!GM.camera.onScreen(a.x, a.y, t * 2)) continue;
       if (S.fogAt(Math.round(a.x), Math.round(a.y)) < 2) continue;   // 지금 눈에 보이는 것만
-      var p = GM.camera.worldToScreen(a.x - 0.5, a.y - 0.5);
+      var p = P2;                                                    // ★ Sprint 3 — 되쓰는 점
+      p.x = GM.camera.worldToScreenX(a.x - 0.5);
+      p.y = GM.camera.worldToScreenY(a.y - 0.5);
       var img = GM.atlas.wild(c.sp, a.frame, { hurt: a.hurt > 0 });
       ctx.save();
       if (a.dir < 0) {
@@ -774,24 +936,25 @@
 
   /* ══════════ 건물 · 공사 · 도읍 ══════════ */
   var doneBounce = {};      // structureId → 완공 연출 시작 시각
-  var structSort = { sig: '', list: [] };
+  var structSort = { src: null, n: -1, rev: -2, list: [] };
 
   function bounceStructure(id) { doneBounce[id] = animT; }
 
   /** y 순으로 정렬된 건물 목록 — 60fps 예산을 위해 목록이 바뀔 때만 다시 정렬한다.
       ★ §17-2 — 서명에 좌표·티어·상태를 넣는다. 개수+양끝 id 만 보던 옛 서명은
       「이전(relocate)」 뒤에도 낡은 객체를 그려 건물이 옛 자리에 남아 보였다. */
+  /* ★ Sprint 3 — 서명을 **판 번호**로 바꾼다.
+     옛 셈은 프레임마다 건물 수만큼 문자열을 이어 붙여(건물 50채면 50번의 문자열 잇기)
+     「바뀌었는가」를 물었다. 값은 거의 언제나 같은데 묻는 값이 더 컸다.
+     장부는 갱신 때 통째로 갈아 끼워지므로 **같은 배열·같은 길이**면 그대로다.
+     배열 안에서 한 칸만 바꿔 끼우는 길(완공 ack)은 state 가 structuresRev 를 한 칸 민다 —
+     §17-2 의 「이전한 건물이 옛 자리에 남는다」를 그 한 칸이 막는다. */
   function sortedStructures() {
     var src = S.structures();
-    var sig = '';
-    for (var i = 0; i < src.length; i++) {
-      var b = src[i];
-      sig += b.id + ',' + b.x + ',' + b.y + ',' + (b.tier || 1) + ',' + (b.condition || '') + (b.inactive ? 'i' : '') + ';';
-    }
-    if (structSort.sig !== sig) {
-      structSort.sig = sig;
-      structSort.list = src.slice().sort(function (a, b) { return (a.y || 0) - (b.y || 0); });
-    }
+    var rev = S.structuresRev ? S.structuresRev() : 0;
+    if (structSort.src === src && structSort.n === src.length && structSort.rev === rev) return structSort.list;
+    structSort.src = src; structSort.n = src.length; structSort.rev = rev;
+    structSort.list = src.slice().sort(function (a, b) { return (a.y || 0) - (b.y || 0); });
     return structSort.list;
   }
 
@@ -867,7 +1030,9 @@
       /* ★ §17-19 — 사각형은 structureRect 한 곳에서만 잰다(클릭 판정도 같은 것을 쓴다) */
       var r = structureRect(b, scale);
       var w = t * r.w, h = t * r.h;
-      var p = GM.camera.worldToScreen(r.x, r.y);
+      var p = P2;                                       // ★ Sprint 3 — 되쓰는 점
+      p.x = GM.camera.worldToScreenX(r.x);
+      p.y = GM.camera.worldToScreenY(r.y);
       /* 본부 둘레의 광장 — 티어에 비례해 넓어진다 (§12-2) */
       if (b.hq) drawPlaza(c, t);
       /* 그림자 */
@@ -963,21 +1128,16 @@
   /** ★ §12-2 본부 광장 — 티어에 비례해 넓어지는 장식 바닥 */
   function drawPlaza(c, t) {
     var r = (3.2 + S.tierNo() * 0.9) * t;
-    var p = GM.camera.worldToScreen(c.x, c.y);
+    /* ★ Sprint 3 — 띠는 원점에 한 번 구워 두고 자리로 옮겨 칠한다(그림은 옛것과 같다) */
+    var g = radialAt0('plaza:' + r, r * 0.2, r,
+      [[0, 'rgba(146,120,86,.34)'], [0.75, 'rgba(120,98,70,.18)'], [1, 'rgba(120,98,70,0)']]);
+    if (!g) return;
     ctx.save();
-    var g;
-    try {
-      g = ctx.createRadialGradient(p.x, p.y, r * 0.2, p.x, p.y, r);
-      g.addColorStop(0, 'rgba(146,120,86,.34)');
-      g.addColorStop(0.75, 'rgba(120,98,70,.18)');
-      g.addColorStop(1, 'rgba(120,98,70,0)');
-    } catch (e) { g = null; }
-    if (g) {
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    ctx.translate(GM.camera.worldToScreenX(c.x), GM.camera.worldToScreenY(c.y));
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   }
 
@@ -1115,12 +1275,26 @@
 
   /* ★ Sprint 1 — 주민 걸음의 통행 판정. avatar.walkable 과 같은 「사람」 규칙(지형 + 다리·매립).
      걷기 연출에는 판정이 아예 없어 주민이 호수를 그대로 질러 걸었다. */
+  /* ★ Sprint 3 — 걸을 수 있는 지형을 **표**로 세워 둔다. 길찾기(A*)가 칸마다 이 판정을
+     부르므로 길 한 번에 수천 번이 걸리는데, 옛 셈은 그때마다 설정을 꺼내 배열을 훑었다.
+     설정 객체는 좀처럼 바뀌지 않으니 같은 배열이면 세워 둔 표를 그대로 쓴다(값은 같다). */
+  var WALK_FALLBACK = ['grass', 'forest', 'rock', 'fertile', 'snow', 'jungle'];
+  var walkTable = { src: null, map: null };
+  function walkableCodes() {
+    var w = S.worldCfg();
+    var list = (w && w.terrain && w.terrain.walkable) || WALK_FALLBACK;
+    if (walkTable.src !== list) {
+      var map = {};
+      for (var i = 0; i < list.length; i++) map[list[i]] = 1;
+      walkTable.src = list; walkTable.map = map;
+    }
+    return walkTable.map;
+  }
+
   function unitWalkable(x, y) {
     var code = S.terrainKey(Math.round(x), Math.round(y));
     if (!code) return false;
-    var w = S.worldCfg();
-    var list = (w && w.terrain && w.terrain.walkable) || ['grass', 'forest', 'rock', 'fertile', 'snow', 'jungle'];
-    if (list.indexOf(code) >= 0) return true;
+    if (walkableCodes()[code] === 1) return true;
     return code === 'water' && (S.onBridge(x, y) || S.onFill(x, y));
   }
 
@@ -1130,12 +1304,53 @@
    * 목표가 물이면 GM.path 가 곁의 뭍으로 스냅하고, 못 닿으면 갈 수 있는 데까지 간다.
    * 닿았으면(또는 더 갈 수 없으면) true.
    */
+  /**
+   * ★ Sprint 3 — 한 프레임에 낼 수 있는 길의 수(예산).
+   *
+   * 「왜」 — 길은 목표가 바뀔 때 한 번만 낸다는 계약은 지켜지고 있었다. 문제는 **언제**다:
+   * 날이 넘어가며 서버가 주민 예순 명의 일터를 한꺼번에 갈아 주면, 예순 개의 pathKey 가
+   * **같은 프레임에** 바뀐다 — A* 한 번이 1~5ms 라 그 프레임 하나가 100ms 를 넘게 멎었다
+   * (인구가 늘수록 정확히 그만큼 더 크게 멎는 「인구에 비례하는 딸꾹질」의 정체).
+   * 이제 한 프레임에는 pathFindsPerFrame 만큼만 새로 내고, 못 낸 사람은 다음 프레임에 낸다.
+   * 기다리는 동안 가만히 서 있으면 온 마을이 굳어 보이므로 목표 쪽으로 곧장 한 걸음 떼되,
+   * **딛을 칸이 뭍일 때만** 뗀다 — 물 위를 걸어 건너던 Sprint 1 이전의 사고를 되살리지 않는다.
+   */
+  function resetPathBudget() {
+    var n = perfCfg().pathFindsPerFrame;
+    pathBudget = (typeof n === 'number' && n >= 0) ? n : PERF_FALLBACK.pathFindsPerFrame;
+  }
+  var pathBudget = 2;
+
+  /** 예산이 빈 프레임의 임시 걸음 — 다음 발끝이 뭍이 아니면 서서 기다린다 */
+  function straightStep(a, tx, ty, dt, speed) {
+    var dx = tx - a.x, dy = ty - a.y;
+    var d = Math.hypot(dx, dy);
+    if (d <= 0.08) { a.frame = 0; return true; }
+    var mv = Math.min(d, (speed || WALK_SPEED) * dt);
+    var nx = a.x + dx / d * mv, ny = a.y + dy / d * mv;
+    if (!unitWalkable(nx, ny)) { a.frame = 0; return false; }   // 물가에서는 선다 — 길이 나면 돌아간다
+    a.x = nx; a.y = ny;
+    faceTo(a, dx, dy);
+    a.ft += dt;
+    if (a.ft > 0.22) { a.ft = 0; a.frame = a.frame ? 0 : 1; }
+    return false;
+  }
+
   function walkAlong(a, tx, ty, dt, speed) {
     var key = Math.round(tx) + ',' + Math.round(ty);
     if (a.pathKey !== key) {
       a.pathKey = key;
-      a.path = (GM.path && GM.path.find) ? GM.path.find(a.x, a.y, tx, ty, unitWalkable) : null;
+      a.path = null; a.pathI = 1;
+      a.pathPending = true;                                // 길은 예산이 허락하는 프레임에 낸다
+    }
+    if (a.pathPending) {
+      if (pathBudget <= 0 || !(GM.path && GM.path.find)) return straightStep(a, tx, ty, dt, speed);
+      pathBudget -= 1;
+      var t0 = nowMs();
+      a.path = GM.path.find(a.x, a.y, tx, ty, unitWalkable);
+      pathMs += nowMs() - t0; pathCalls += 1;
       a.pathI = 1;
+      a.pathPending = false;
     }
     if (!a.path) return walkStep(a, tx, ty, dt, speed);   // 제자리·못 가는 곳 — 옛 직선 걸음이 안전망
     /* 다음 웨이포인트를 고른다 — 밟은 것은 접는다 */
@@ -1301,6 +1516,7 @@
         a.phase = 'travel';
         a.carry = 0; a.pose = 0; a.swingT = 0; a.lastHit = 0; a.drop = null; a.home = null;
         a.path = null; a.pathKey = null;      // ★ Sprint 1 — 대상이 바뀌면 길도 새로 낸다
+        a.pathPending = true;                 // ★ Sprint 3 — 다시 내는 일은 예산이 허락할 때
         if (Math.hypot(a.x - v.x, a.y - v.y) > SNAP_TILES) { a.x = v.x; a.y = v.y; }
       }
 
@@ -1357,7 +1573,9 @@
       if (!a) continue;
       if (!GM.camera.onScreen(a.x, a.y, t * 2)) continue;
       var w = t * 0.72, h = t * 0.92;
-      var p = GM.camera.worldToScreen(a.x - 0.36, a.y - 0.8);
+      var p = P2;                                       // ★ Sprint 3 — 되쓰는 점
+      p.x = GM.camera.worldToScreenX(a.x - 0.36);
+      p.y = GM.camera.worldToScreenY(a.y - 0.8);
       if (sel.indexOf(v.id) >= 0) {
         ctx.save();
         ctx.strokeStyle = '#8dfa8d';
@@ -1810,15 +2028,22 @@
       ctx.fillRect(0, 0, W, H);
       ctx.restore();
     }
-    /* ② 새벽·노을 그라데이션 */
+    /* ② 새벽·노을 그라데이션
+       ★ Sprint 3 — 이 띠는 **구간 색**으로만 만들어진다(ph.sky·ph.ground 는 섞지 않은 값이다).
+       즉 하루 중 네 번만 달라지는데 옛 셈은 프레임마다 새로 구웠다. 색과 높이가 같으면 같은 띠다. */
     if (ph.sky || ph.ground) {
-      var g0 = null;
-      try {
-        g0 = ctx.createLinearGradient(0, 0, 0, H);
-        g0.addColorStop(0, ph.sky || 'rgba(0,0,0,0)');
-        g0.addColorStop(0.52, 'rgba(0,0,0,0)');
-        g0.addColorStop(1, ph.ground || 'rgba(0,0,0,0)');
-      } catch (e) { g0 = null; }
+      var skyKey = (ph.sky || '-') + '|' + (ph.ground || '-') + '|' + H;
+      if (skyGrad.key !== skyKey) {
+        var made = null;
+        try {
+          made = ctx.createLinearGradient(0, 0, 0, H);
+          made.addColorStop(0, ph.sky || 'rgba(0,0,0,0)');
+          made.addColorStop(0.52, 'rgba(0,0,0,0)');
+          made.addColorStop(1, ph.ground || 'rgba(0,0,0,0)');
+        } catch (e) { made = null; }
+        skyGrad = { key: skyKey, g: made };
+      }
+      var g0 = skyGrad.g;
       if (g0) {
         ctx.save();
         ctx.globalAlpha = ph.skyK;
@@ -1848,21 +2073,25 @@
         : (b.key === 'campfire' ? 'fire' : (LIT_HOUSES[b.key] ? 'window' : null)));
       if (!kind) return;
       lights++;
-      var p = GM.camera.worldToScreen(c.x, c.y);
       var flick = kind === 'window' ? 1 : (0.92 + 0.08 * Math.sin(animT / (kind === 'lamp' ? 520 : 190) + c.x));
-      var r = t * (kind === 'hq' ? 5.4 + S.tierNo() * 0.4 : (kind === 'fire' ? 4.6 : (kind === 'lamp' ? 3.4 : 2.4))) * flick;
-      var g;
-      try {
-        g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
-        g.addColorStop(0, kind === 'window' ? 'rgba(255,214,150,.26)' : 'rgba(255,190,110,.42)');
-        g.addColorStop(1, 'rgba(255,190,110,0)');
-      } catch (e) { g = null; }
+      var r0 = t * (kind === 'hq' ? 5.4 + S.tierNo() * 0.4 : (kind === 'fire' ? 4.6 : (kind === 'lamp' ? 3.4 : 2.4))) * flick;
+      /* ★ Sprint 3 — 등불 열여덟 개가 **프레임마다** 색 띠 열여덟 개를 새로 굽고 있었다.
+         모닥불·가로등은 반지름이 흔들려(flick) 값이 끝없이 갈리므로, 반지름을 픽셀 단위로
+         반올림해 곳간에 넣는다. 등불의 가장자리는 이미 투명으로 사그라드는 자리라
+         1픽셀 안쪽의 차이는 눈에 들지 않는다 — 세기(strength)와 겹침 방식은 그대로다. */
+      var r = Math.max(1, Math.round(r0));
+      var g = radialAt0('lit:' + kind + ':' + r, 0, r,
+        [[0, kind === 'window' ? 'rgba(255,214,150,.26)' : 'rgba(255,190,110,.42)'],
+         [1, 'rgba(255,190,110,0)']]);
       if (!g) return;
+      ctx.save();
+      ctx.translate(GM.camera.worldToScreenX(c.x), GM.camera.worldToScreenY(c.y));
       ctx.globalAlpha = strength;
       ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
     });
     ctx.restore();
   }
@@ -1872,18 +2101,34 @@
                      barracks: 1, market: 1, trading_post: 1, shrine: 1, consulate: 1, appraisal_post: 1 };
 
   /* ══════════ 라벨 ══════════ */
-  function label(text, wx, wy, color) {
-    var p = GM.camera.worldToScreen(wx, wy);
-    if (p.x < -80 || p.y < -20 || p.x > W + 80 || p.y > H + 20) return;
-    ctx.save();
-    ctx.font = '11px "Galmuri11", monospace';
-    ctx.textAlign = 'center';
-    var w = 0;
+  /* ★ Sprint 3 — 글자 폭 곳간. measureText 는 글꼴 셈을 브라우저에 시키는 값비싼 물음인데,
+     이름표는 프레임마다 같은 글자를 다시 묻는다(건물 이름·주민 이름은 좀처럼 바뀌지 않는다).
+     글꼴이 한 벌뿐이라 열쇠는 글자 자체다. 상한을 넘으면 통째로 비운다 — 곳간이 새지 않는다. */
+  var LABEL_FONT = '11px "Galmuri11", monospace';
+  var LABEL_CAP = 512;
+  var labelW = {}, labelWN = 0;
+  function textWidth(text) {
+    var w = labelW[text];
+    if (w !== undefined) return w;
     try { w = ctx.measureText(text).width; } catch (e) { w = String(text).length * 6; }
+    if (labelWN >= LABEL_CAP) { labelW = {}; labelWN = 0; }
+    labelW[text] = w; labelWN += 1;
+    return w;
+  }
+
+  function label(text, wx, wy, color) {
+    var px = GM.camera.worldToScreenX(wx);
+    if (px < -80 || px > W + 80) return;
+    var py = GM.camera.worldToScreenY(wy);
+    if (py < -20 || py > H + 20) return;
+    ctx.save();
+    ctx.font = LABEL_FONT;
+    ctx.textAlign = 'center';
+    var w = textWidth(text);
     ctx.fillStyle = 'rgba(20,14,8,.62)';
-    ctx.fillRect(p.x - w / 2 - 3, p.y - 11, w + 6, 14);
+    ctx.fillRect(px - w / 2 - 3, py - 11, w + 6, 14);
     ctx.fillStyle = color || '#f4e4bc';
-    try { ctx.fillText(text, p.x, p.y); } catch (e2) {}
+    try { ctx.fillText(text, px, py); } catch (e2) {}
     ctx.restore();
   }
 
@@ -2123,7 +2368,10 @@
     if (frameTimes.length > 240) frameTimes.shift();
     /* ★ 한 프레임을 만드는 데 실제로 든 시간. 프레임 간격(raw)은 60fps 로 맞물리면 늘 16.7ms 라
        그것만으로는 여유가 있는지 알 수 없다 — 그리는 일 자체의 값을 따로 잰다. */
-    var w0 = (global.performance && performance.now) ? performance.now() : Date.now();
+    var w0 = nowMs();
+    /* ★ Sprint 3 — 이 프레임의 몫을 새로 담는다(길 예산 · 구간별 시간계) */
+    resetPathBudget();
+    nodesMs = 0; minimapMs = 0; pathMs = 0; pathCalls = 0;
 
     var frozen = GM.fx && GM.fx.frozen();
     GM.camera.update(dt);
@@ -2145,11 +2393,25 @@
     if (GM.fx) GM.fx.step(dt);
     draw();
     if (GM.fx) GM.fx.drawLayer();
-    if (GM.minimap) GM.minimap.draw();
+    if (GM.minimap) {
+      var m0 = nowMs();
+      GM.minimap.draw(t);
+      minimapMs += nowMs() - m0;
+    }
 
-    var w1 = (global.performance && performance.now) ? performance.now() : Date.now();
+    var w1 = nowMs();
     workTimes.push(w1 - w0);
     if (workTimes.length > 240) workTimes.shift();
+    /* ★ Sprint 3 — 구간별 값도 같은 길이의 띠에 쌓는다(고치기 전·후를 같은 자로 견주려고) */
+    pushRing(nodesTimes, nodesMs);
+    pushRing(minimapTimes, minimapMs);
+    pushRing(pathTimes, pathMs);
+    pushRing(pathCallTimes, pathCalls);
+  }
+
+  function pushRing(list, v) {
+    list.push(v);
+    if (list.length > 240) list.shift();
   }
 
   function stat(list) {
@@ -2168,16 +2430,28 @@
   function frameStats() {
     var f = stat(frameTimes);
     var w = stat(workTimes);
-    return { avg: f.avg, p95: f.p95, n: f.n, workAvg: w.avg, workP95: w.p95 };
+    /* ★ Sprint 3 — 어디에 시간이 갔는가(띠 평균). 옛 필드는 한 칸도 건드리지 않는다. */
+    return { avg: f.avg, p95: f.p95, n: f.n, workAvg: w.avg, workP95: w.p95,
+             nodesMs: stat(nodesTimes).avg, minimapMs: stat(minimapTimes).avg,
+             pathMs: stat(pathTimes).avg, pathCalls: stat(pathCallTimes).avg,
+             pathP95: stat(pathTimes).p95 };
   }
-  function resetStats() { frameTimes = []; workTimes = []; }
+  function resetStats() {
+    frameTimes = []; workTimes = [];
+    nodesTimes = []; minimapTimes = []; pathTimes = []; pathCallTimes = [];
+  }
 
   function setHover(x, y) { hoverTile.x = x; hoverTile.y = y; }
   function hover() { return hoverTile; }
   function setDragBox(b) { dragBox = b; }
   function reset() {
     chunkCache = {}; chunkOrder = []; units = {}; walkIns = []; doneBounce = {}; territoryAnim = null;
-    structSort = { sig: '', list: [] };
+    structSort = { src: null, n: -1, rev: -2, list: [] };
+    /* ★ Sprint 3 — 세워 둔 색인·띠도 함께 버린다(판이 바뀌면 옛 표는 거짓말이 된다) */
+    nodeIndex = { src: null, n: -1, cells: null, w: 0 };
+    fenceIndex = { src: null, n: -1, cells: null, w: 0 };
+    labelW = {}; labelWN = 0;
+    dropGradients();
     wild = {};
   }
 
@@ -2210,6 +2484,8 @@
     /* ★ §16-12 — 동료·다른 사람의 화면 자리(보간) — 스윙 팝을 그 사람 곁에 띄울 때 쓴다 */
     matePos: function (id) { return mates[id] || null; },
     nearestWild: nearestWild, wildPos: wildPos, markWildHurt: markWildHurt,
+    /* ★ Sprint 3 — 둘레의 자원 자리만 추린다(칸 바구니). 손 닿는 것 고르기가 쓴다. */
+    nodesNear: nodesNear,
     /* ★ §17-19 — 건물 스프라이트 사각형의 정본. input.js 의 클릭 판정이 이것을 그대로 쓴다. */
     structureRect: structureRect,
     /* ★ GDD3 §14-1 — 주민 작업 사이클의 수치 표시 */

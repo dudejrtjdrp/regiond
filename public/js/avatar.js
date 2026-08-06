@@ -73,14 +73,28 @@
   function setHidden(v) { hidden = !!v; }
   function isHidden() { return hidden; }
 
+  /* ★ Sprint 1 — 폴백 목록에 설산·정글이 빠져 있었다. 설정이 늦게 오는 첫 몇 프레임에
+     그 땅을 밟고 있으면 「밟을 수 없는 곳에 서 있다」가 된다 — 잠복 버그를 미리 잰다.
+     ★ Sprint 3 — 그 목록을 **표**로 세워 둔다. 길찾기(A*)가 칸마다 이 판정을 부르는데
+     그때마다 배열을 훑으면(indexOf) 길 한 번에 수천 번의 헛걸음이 된다.
+     설정 객체는 좀처럼 바뀌지 않으므로 같은 배열이면 세워 둔 표를 그대로 쓴다(값은 같다). */
+  var WALK_FALLBACK = ['grass', 'forest', 'rock', 'fertile', 'snow', 'jungle'];
+  var walkTable = { src: null, map: null };
+  function walkableCodes() {
+    var w = S.worldCfg();
+    var list = (w && w.terrain && w.terrain.walkable) || WALK_FALLBACK;
+    if (walkTable.src !== list) {
+      var map = {};
+      for (var i = 0; i < list.length; i++) map[list[i]] = 1;
+      walkTable.src = list; walkTable.map = map;
+    }
+    return walkTable.map;
+  }
+
   function walkable(x, y) {
     var code = S.terrainKey(Math.round(x), Math.round(y));
     if (!code) return false;
-    var w = S.worldCfg();
-    /* ★ Sprint 1 — 폴백 목록에 설산·정글이 빠져 있었다. 설정이 늦게 오는 첫 몇 프레임에
-       그 땅을 밟고 있으면 「밟을 수 없는 곳에 서 있다」가 된다 — 잠복 버그를 미리 잰다. */
-    var list = (w && w.terrain && w.terrain.walkable) || ['grass', 'forest', 'rock', 'fertile', 'snow', 'jungle'];
-    if (list.indexOf(code) >= 0) return true;
+    if (walkableCodes()[code] === 1) return true;
     /* ★ §17-13 — 다리·매립 위의 물은 길이다. 사람만 — 짐승과 적은 서버가 그대로 막는다. */
     return code === 'water' && (S.onBridge(x, y) || S.onFill(x, y));
   }

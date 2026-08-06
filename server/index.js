@@ -18,6 +18,8 @@ import { step } from './engine/tick.js';
 import { applyCommand } from './engine/commands.js';
 import {
   buildNationView, buildWorldState, buildWorldSnapshot, buildWorldDiff, buildRevealDiff,
+  // ★ Sprint 3 — 한 번의 방송 동안만 사는 파생 그릇(view.js 머리말 참고)
+  newViewCache,
 } from './engine/view.js';
 import { buildRegencyReport, markSeen } from './engine/report.js';
 import { evaluateProgress } from './engine/progression.js';
@@ -37,7 +39,8 @@ import { chronicleView, record as chronicleRecord } from './engine/chronicle.js'
 import {
   upsertMember as upsertMemberEntry, normalizeAppearance, defaultAppearance, chatHistory,
 } from './engine/social.js';
-import { saveSnapshot, loadSnapshot, appendEvents, listGames, savesDir } from './persistence.js';
+// ★ Sprint 3 — markDirty: 사건 경로의 동기 저장을 걷어낸 미룬 저장(persistence.js 주석 참고)
+import { saveSnapshot, markDirty, loadSnapshot, appendEvents, listGames, savesDir } from './persistence.js';
 import { ExpressionQueue } from './expression/index.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -247,7 +250,11 @@ class GameRuntime {
       { tick: this.world.tick, nationId: e.nationId ?? nationId, ...e }, { nationId: e.nationId ?? nationId },
     ));
     this.world.log = [...(this.world.log || []), ...decorated].slice(-400);
-    saveSnapshot(this.world);
+    /* ★ Sprint 3 — 여기가 가장 뜨거운 자리였다. 늑대가 물 때마다(초에 한두 번) 세상 전부를
+       JSON 으로 굳혀 동기로 디스크에 썼고, 그 사이 이벤트 루프가 통째로 멎었다.
+       이제 「바뀌었다」고만 적어 두고 몇 초 뒤에 비동기로 한 번 쓴다 — 잃으면 안 되는 마디
+       (일 틱 · 전투 종료 · 건국)는 아래 세 자리에서 예전처럼 그 자리에서 동기로 남긴다. */
+    markDirty(this.world);
     appendEvents(this.gameId, decorated);
     io.to(this.gameId).emit('events', decorated);
     for (const e of decorated) this.emitTypedEvent(e);
@@ -370,14 +377,24 @@ class GameRuntime {
   }
 
   broadcastState() {
+    /* ★ Sprint 3 — 한 번의 방송 안에서만 사는 그릇 하나(view.js 머리말 참고).
+       한 판에 사람이 넷이면 주민 목록·울타리 목록·일자리 목록·짐승 목록·세계 뷰를
+       **여덟 번**(state 넷 + worldDiff 넷) 빚고 있었다. 그 조각들은 누가 보든 값이 같다 —
+       역할에 따라 갈리는 것은 농정관 작황·국방 약점처럼 몇 줄뿐이고, 그 몇 줄은 그릇에 담지 않는다.
+       그릇은 이 함수를 벗어나면 버려지므로 「낡은 값이 남는」 사고가 원천적으로 없다. */
+    const cache = newViewCache();
+    const worldStates = new Map();       // 세계 뷰는 나라마다 하나다(보는 사람과 무관하다)
     for (const [socketId, session] of sessions) {
       if (session.gameId !== this.gameId) continue;
       const sock = io.sockets.sockets.get(socketId);
       if (!sock) continue;
-      sock.emit('state', buildNationView(this.world, session.nationId, session.role, data, { avatarId: session.avatarId }));
-      sock.emit('worldDiff', buildWorldDiff(this.world, session.nationId, data, session.worldTick ?? -1));
+      sock.emit('state', buildNationView(this.world, session.nationId, session.role, data, { avatarId: session.avatarId, cache }));
+      sock.emit('worldDiff', buildWorldDiff(this.world, session.nationId, data, session.worldTick ?? -1, { cache }));
       session.worldTick = this.world.tick;
-      sock.emit('worldState', buildWorldState(this.world, session.nationId, data));
+      if (!worldStates.has(session.nationId)) {
+        worldStates.set(session.nationId, buildWorldState(this.world, session.nationId, data));
+      }
+      sock.emit('worldState', worldStates.get(session.nationId));
     }
   }
 }
@@ -821,6 +838,14 @@ io.on('connection', (socket) => {
         return undefined;
       }
 
+      /* ★ Sprint 3 — 명령 하나에 상태를 **두 번** 빚던 자리.
+         rt.apply() 가 성공하면 그 안에서 broadcastState() 가 이 방의 모든 세션에
+         state · worldDiff · worldState 를 이미 흘려보낸다. 그런데 그 아래에서 같은 세션에게
+         NationView 를 한 번 더 지어 보내고 있었다 — 노드 5,000·주민 60이 걸린 뷰를 명령마다 두 번씩
+         빚은 셈이다. 이제 방송으로 나간 그 뷰를 그대로 쓰고, **방송 뒤에 자리(역할)가 실제로 바뀐
+         경우에만** 한 번 더 보낸다(pickRole·delegate 는 refreshRoles 가 방송 이후에 자리를 확정한다).
+         화면이 받는 내용도, ack 와의 앞뒤 차례도 예전 그대로다. */
+      const roleAtBroadcast = s.role;
       const res = rt.apply(s.nationId, { ...payload, ...(identity || {}), type, payload });
       if (!res.ok) { s.role = prevRole; return fail(res.error); }
       const out = ackPayload(res);
@@ -837,9 +862,13 @@ io.on('connection', (socket) => {
       if (type === 'customizeCompanion') io.to(s.gameId).emit('avatars', Object.values(rt.world.nations[s.nationId].avatars || {}));
       if (type === 'chat' && res.message) io.to(s.gameId).emit('chat', res.message);
       /* ★ §17-16 — 이웃을 만났으니 그 나라의 시세가 그 자리에서 열린다.
-         세계 뷰는 하루에 한 번만 흐르므로, 이 한 줄이 없으면 문 앞에 서 있고도 최대 10분을 기다린다. */
-      if (type === 'visitNation') socket.emit('worldState', buildWorldState(rt.world, s.nationId, data));
-      socket.emit('state', buildNationView(rt.world, s.nationId, s.role, data, { avatarId: s.avatarId }));
+         ★ Sprint 3 — 이 자리에 있던 `socket.emit('worldState', ...)` 는 걷어냈다:
+         바로 위 rt.apply() 의 broadcastState 가 **똑같은 worldState 를 이미 보냈다**(내용도 값도 같다).
+         §17-16 이 막으려던 「최대 10분 기다림」은 그 방송이 그대로 막아 준다. */
+      if (s.role !== roleAtBroadcast) {
+        // 방송이 나간 뒤에 자리가 바뀐 사람에게만 새 눈으로 본 판을 한 번 더 보낸다
+        socket.emit('state', buildNationView(rt.world, s.nationId, s.role, data, { avatarId: s.avatarId }));
+      }
       if (ack) ack(out);
       return undefined;
     });

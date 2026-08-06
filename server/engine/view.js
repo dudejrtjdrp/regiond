@@ -52,6 +52,28 @@ const roleStaffed = (nation, key) => Boolean(nation.roles?.[key]?.holder);
 
 const round3Map = (o) => Object.fromEntries(Object.entries(o || {}).map(([k, v]) => [k, round3(v)]));
 
+// ────────────────────────────────────────────────────────────────
+// ★ Sprint 3 — **한 번의 방송 동안만** 사는 파생 캐시
+//
+// 명령 하나에 방 전체가 새 판을 받는다. 그런데 그 판의 큰 조각들 — 주민 목록, 울타리 목록,
+// 일자리 목록, 짐승 목록, 세계 뷰 — 은 **누가 보든 같은 값**이다(역할 마스킹이 걸리는 것은
+// 농정관 작황·국방 약점 같은 몇 줄뿐이다). 그런데도 세션 수만큼 처음부터 다시 빚었다.
+//
+// 그래서 캐시를 **밖에서 만들어 넣는다**: broadcastState 가 그릇 하나를 지어 그 방송에 쓰이는
+// 모든 호출에 건네고, 방송이 끝나면 그릇째 버린다. 모듈에 값을 눌러 두지 않으므로
+// 「낡은 좌표가 남는」 사고가 원천적으로 없다 — 다음 방송은 언제나 처음부터 다시 빚는다.
+// 캐시를 안 주면(테스트·단발 호출) 옛날처럼 그때그때 빚는다.
+// ────────────────────────────────────────────────────────────────
+export function newViewCache() { return new Map(); }
+
+function shared(cache, key, make) {
+  if (!cache) return make();
+  if (cache.has(key)) return cache.get(key);
+  const made = make();
+  cache.set(key, made);
+  return made;
+}
+
 export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
   const nation = world.nations[nationId];
   if (!nation) return null;
@@ -60,6 +82,9 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
   const derived = deriveLabor(nation, data);
   const architect = roleStaffed(nation, 'build');
   const avatarId = opts.avatarId ?? null;
+  // ★ Sprint 3 — 역할과 무관한 조각들은 이 방송 안에서 한 번만 빚는다(위 머리말 참고)
+  const cache = opts.cache ?? null;
+  const once = (key, make) => shared(cache, `${nationId}:${key}`, make);
   // ★ 진행 감독이 해금의 단일 정본이다(GDD3 §11-1). 아래 게이트는 전부 이 목록 하나만 본다.
   const unlocked = unlockedList(nation, data);
   const on = (f) => unlocked.features.includes(f);
@@ -129,30 +154,30 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
       rally: nation.rally ? { ...nation.rally } : null,
       defenseFlag: nation.defenseFlag ? { ...nation.defenseFlag } : null,
       // ★ GDD3 §4 — 주민은 실인원이다
-      residents: residentViews(nation, data, world),
-      housing: housingView(nation, data, world),
+      residents: once('residents', () => residentViews(nation, data, world)),
+      housing: once('housing', () => housingView(nation, data, world)),
       peoplePerUnit: round2(peoplePerUnit(nation, data)),
       villagerMix: derived ? { counts: derived.counts, mix: round3Map(derived.mix), units: derived.units } : null,
       // ★ GDD3 §7 — 개별 건물 티어
-      structures: (nation.structures || []).map((s) => structureView(nation, s, data, { architect })),
-      sites: (nation.construction || []).map((c) => siteView(nation, c, data)),
+      structures: once('structures', () => (nation.structures || []).map((s) => structureView(nation, s, data, { architect }))),
+      sites: once('sites', () => (nation.construction || []).map((c) => siteView(nation, c, data))),
       // ★ GDD3 §7 — 울타리 조각
-      fences: fenceViews(nation, data),
-      fenceSummary: fenceSummary(nation, data),
+      fences: once('fences', () => fenceViews(nation, data)),
+      fenceSummary: once('fenceSummary', () => fenceSummary(nation, data)),
       buildable,
       /* ★ GDD3 §14-7 — 열린 갈래 안의 잠긴 건물. 흐림 + 자물쇠 + 해금 조건으로 그려진다. */
       lockedBuildings: lockedCatalog(nation, data,
         new Set(buildable.map((b) => b.category).filter(Boolean))),
-      workPosts: listTargets(world, nation, data).map((t) => ({
+      workPosts: once('workPosts', () => listTargets(world, nation, data).map((t) => ({
         id: t.id, kind: t.kind, name: t.name, x: t.x, y: t.y, slots: t.slots,
         nodeType: t.nodeType ?? null, post: t.post ?? null, jobs: jobsForTarget(t, data),
         workers: (nation.villagers || []).filter((u) => u.targetId === t.id).length,
-      })),
+      }))),
       // 적 캠프는 '웨이브'가 열린 뒤에만 존재한다 — 그 전에는 지도에 아무 표시도 없다.
       camps: wavesOn ? campViews(world, nation, viewerRole, data) : [],
       exploredRatio: round3(exploredRatio(nation)),
-      avatars: avatarViews(nation, data),
-      players: playersView(nation, data),
+      avatars: once('avatars', () => avatarViews(nation, data)),   // ★ Sprint 3 — worldDiff 와 같은 값이다
+      players: once('players', () => playersView(nation, data)),
       /* ★ GDD3 §15-C — 정원 5인 중 동료가 채운 자리. 명부·이름표·각료 화면이 같은 표를 본다. */
       companions: companionViews(nation, data),
       seats: data.companions?.seats ?? 5,
@@ -281,7 +306,9 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
   }
 
   if (hasRole(nation, 'defense', viewerRole) && wavesOn) {
-    view.nation.weakSpots = weakSpots(world, nation, data);
+    // ★ Sprint 3 — 위(view.defense)에서 이미 빚은 요약을 그대로 넘긴다. 옛 구현은 여기서 한 번 더
+    //   지어 민병·터렛 목록과 다음 웨이브 규격을 국방대신 화면 한 장마다 두 번씩 셈했다.
+    view.nation.weakSpots = weakSpots(world, nation, data, view.defense);
     view.wave.tacticHint = waveTacticHint(nextWaveSpec(world, nation, data), data);
   } else if (roleStaffed(nation, 'defense') && wavesOn) {
     view.nation.defenseBrief = '국방부: 울타리를 점검했습니다.';
@@ -560,10 +587,17 @@ export function buildWorldSnapshot(world, nationId, data) {
   };
 }
 
-/** 매 틱 — 바뀐 것만. 안개는 청크 RLE, 노드는 stamp 기반. */
-export function buildWorldDiff(world, nationId, data, sinceTick = -1) {
+/**
+ * 매 틱 — 바뀐 것만. 안개는 청크 RLE, 노드는 stamp 기반.
+ * @param {object} opts {cache} — ★ Sprint 3. 한 방송 안에서 buildNationView 와 **같은 그릇**을 받으면
+ *   주민·울타리·공사장 목록을 그쪽이 이미 빚어 둔 것으로 쓴다(값이 같은 조각들이다).
+ *   안 주면 예전처럼 그때그때 빚는다 — 시험과 단발 호출의 계약은 그대로다.
+ */
+export function buildWorldDiff(world, nationId, data, sinceTick = -1, opts = {}) {
   const nation = world.nations[nationId];
   if (!nation) return null;
+  const cache = opts.cache ?? null;
+  const once = (key, make) => shared(cache, `${nationId}:${key}`, make);
   const fogChunks = fogChunksSince(nation, sinceTick);
   const chunk = nation.fog?.chunk ?? data.world.fog.chunk;
   const changedChunks = new Set(fogChunks.map((c) => `${c[0]},${c[1]}`));
@@ -588,7 +622,8 @@ export function buildWorldDiff(world, nationId, data, sinceTick = -1) {
     clusters: clusterViews(world, nation),
     rings: ringRadii(nation, data),
     // ★ GDD3 §13-C — 들에 사는 것들. 위치의 정본은 서버이고 화면은 그 사이를 보간한다.
-    creatures: creatureViews(world, nation, data),
+    //   ★ Sprint 3 — 짐승 목록은 누가 보든 같다. 한 방송 안에서는 한 번만 빚는다.
+    creatures: once('creatures', () => creatureViews(world, nation, data)),
     // ★ §12-6 — 무역이 열린 뒤에야 상단이 다닌다. 열리기 전에는 늘 빈 목록이라
     //   join 뒤에 8장이 열려도 다시 붙지 않고 그 자리에서 나타난다.
     caravans: caravansFor(nation, world.map, data),
@@ -601,12 +636,16 @@ export function buildWorldDiff(world, nationId, data, sinceTick = -1) {
       cx: townXY(world, nation)[0], cy: townXY(world, nation)[1],
       radius: territoryRadius(nation, data), claims: claimViews(nation),
     },
-    structures: (nation.structures || []).map((s) => structureView(nation, s, data)),
-    sites: (nation.construction || []).map((c) => siteView(nation, c, data)),
-    fences: fenceViews(nation, data),
-    residents: residentViews(nation, data, world),
+    /* ★ Sprint 3 — 아래 다섯은 **보는 사람과 무관한 값**이다(역할 마스킹이 걸리지 않는다).
+       그런데도 접속자 수만큼 처음부터 다시 빚었고, 주민 목록은 바로 위 buildNationView 가
+       같은 방송에서 이미 지어 둔 것과 한 톨도 다르지 않았다. 이제 그릇 하나를 나눠 쓴다.
+       건물 목록만 열쇠말이 다르다 — 뷰 쪽은 건축가 여부(architect)를 얹어 짓기 때문이다. */
+    structures: once('diffStructures', () => (nation.structures || []).map((s) => structureView(nation, s, data))),
+    sites: once('sites', () => (nation.construction || []).map((c) => siteView(nation, c, data))),
+    fences: once('fences', () => fenceViews(nation, data)),
+    residents: once('residents', () => residentViews(nation, data, world)),
     camps: campViews(world, nation, null, data),
-    avatars: avatarViews(nation, data),
+    avatars: once('avatars', () => avatarViews(nation, data)),
   };
 }
 

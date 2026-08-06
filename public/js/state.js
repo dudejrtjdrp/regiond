@@ -321,6 +321,7 @@
       dirty: true, fogDirty: true
     };
     S.boot = { phase: 'idle', title: null, hint: null };
+    bumpStructures();                  /* ★ Sprint 3 — 판이 새로 깔렸다(정렬 캐시를 버린다) */
     emit('world', S.map);
     emit('change', S);
   }
@@ -371,7 +372,7 @@
     if (d.caravans) m.caravans = d.caravans;
     if (d.camps) m.camps = d.camps;
     if (d.avatars) S.avatars = d.avatars;
-    if (d.structures && d.structures.length) m.structures = d.structures;
+    if (d.structures && d.structures.length) { m.structures = d.structures; bumpStructures(); }
     if (d.fences && d.fences.length) m.fences = d.fences;
     m.tick = d.tick;
     emit('worldDiff', d);
@@ -418,7 +419,10 @@
       }
     }
     m.localDisc = disc;
-    m.fogDirty = true;
+    /* ★ Sprint 3 — 여기서 세우던 것은 fogDirty 였다. 그런데 축소 지도의 안개 덮개(minimap.buildVeil)는
+       **서버 안개(m.fog)만** 읽는다 — 걸음마다 바뀌는 것은 m.localFog 뿐이라, 걷는 동안 초당 서너 번
+       384² 판을 **글자 그대로 똑같이** 다시 구웠다. 국지 예측은 제 깃발로 따로 세운다(덮개는 안 건드린다). */
+    m.localFogDirty = true;
     return fresh;
   }
 
@@ -522,6 +526,7 @@
             if (v.nation.structures[j].id === res.structure.id) { v.nation.structures[j] = res.structure; has = true; }
           }
           if (!has) v.nation.structures.push(res.structure);
+          bumpStructures();          /* ★ Sprint 3 — 배열 안이 바뀌었다(정렬 캐시가 알아야 한다) */
           if (S.map) {
             S.map.structures = (S.map.structures || []).filter(function (b) { return b.id !== res.structure.id; });
             S.map.structures.push(res.structure);
@@ -683,6 +688,13 @@
     for (var i = 0; i < l.length; i++) if (l[i].id === id) return l[i];
     return null;
   }
+  /* ★ Sprint 3 — 건물 장부가 바뀐 횟수. 「왜」 세는가 —
+     화면은 건물을 y 순으로 정렬해 두고 쓰는데(world.sortedStructures), 목록이 그대로인지
+     알아보려고 프레임마다 좌표·티어·상태를 이어 붙인 **긴 문자열**을 빚어 견주고 있었다.
+     대개는 배열이 통째로 갈아 끼워지니 같은 배열인지만 보면 되지만, 완공 ack 처럼 배열
+     **안에서** 한 칸을 바꿔 끼우는 길이 있어(§17-2 의 '옛 자리에 남는 건물') 그때는 여기서 한 번 센다. */
+  var structuresRev = 0;
+  function bumpStructures() { structuresRev += 1; }
   function structures() {
     var n = nation();
     if (n && n.structures) return n.structures;
@@ -800,17 +812,26 @@
   function fillInfo() { var n = nation(); return (n && n.fillSummary) || null; }
   function bridgeCfg() { var c = cfg(); return (c && c.research && c.research.bridges) || null; }
   function fillCfg() { var c = cfg(); return (c && c.research && c.research.fill) || null; }
+  /* ★ Sprint 3 — 다리·매립 칸 조회를 **표**로 바꾼다(계약은 그대로다).
+     「왜」 — 이 둘은 사람의 통행 판정 안에 들어 있고, 그 판정은 주민의 길찾기(A*)가
+     칸마다 부른다. 옛 셈은 그때마다 목록을 처음부터 훑어(다리 400칸이면 400번) 길 한 번에
+     수만 번의 헛걸음을 냈다. 목록은 갱신 때 통째로 갈아 끼워지므로 「같은 배열·같은 길이면
+     같은 표」로 두고 한 번만 세운다. 열쇠는 문자열이 아니라 숫자다(칸 하나가 y*4096+x) —
+     매 번 문자열을 빚으면 아낀 시간을 쓰레기 수거가 도로 가져간다. */
+  var cellIndex = { bridge: { src: null, n: -1, map: null }, fill: { src: null, n: -1, map: null } };
+  function cellMap(kind, list) {
+    var c = cellIndex[kind];
+    if (c.src === list && c.n === list.length) return c.map;
+    var map = {};
+    for (var i = 0; i < list.length; i++) map[list[i].y * 4096 + list[i].x] = 1;
+    c.src = list; c.n = list.length; c.map = map;
+    return map;
+  }
   function onBridge(x, y) {
-    var l = bridges();
-    var rx = Math.round(x), ry = Math.round(y);
-    for (var i = 0; i < l.length; i++) if (l[i].x === rx && l[i].y === ry) return true;
-    return false;
+    return cellMap('bridge', bridges())[Math.round(y) * 4096 + Math.round(x)] === 1;
   }
   function onFill(x, y) {
-    var l = fills();
-    var rx = Math.round(x), ry = Math.round(y);
-    for (var i = 0; i < l.length; i++) if (l[i].x === rx && l[i].y === ry) return true;
-    return false;
+    return cellMap('fill', fills())[Math.round(y) * 4096 + Math.round(x)] === 1;
   }
   function workPosts() { var n = nation(); return (n && n.workPosts) || []; }
   function camps() {
@@ -1500,6 +1521,8 @@
     myTown: myTown, territory: territory, inTerritory: inTerritory,
     residents: residents, residentById: residentById,
     structures: structures, structureById: structureById, sites: sites, siteById: siteById,
+    /* ★ Sprint 3 — 건물 장부가 바뀐 횟수(화면의 정렬 캐시가 이것만 견준다) */
+    structuresRev: function () { return structuresRev; },
     footprintOf: footprintOf, footprintOfThing: footprintOfThing, centerOfThing: centerOfThing,
     anchorFromCell: anchorFromCell, rectOfThing: rectOfThing, rectGap: rectGap, cellIn: cellIn, hq: hq,
     fences: fences, fenceSummary: fenceSummary, buildable: buildable, buildableOf: buildableOf,

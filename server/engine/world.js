@@ -1,6 +1,8 @@
 // 오픈월드 생성 — docs/WORLD.md §1. 128×128 공유 월드, 시드 재현.
 // 이 모듈은 '공간'만 안다. 경제·전투 공식은 건드리지 않는다(WORLD.md §5 무수정 규칙).
 import { createRng } from './rng.js';
+// ★ Sprint 3 — 노드 공간 색인(파생 캐시). 저장되지 않고 world.map 에 매달려 산다.
+import { nodeById as nodeByIdCached, nodesNear, nodeOrderIndex } from './spatial.js';
 
 export const worldCfg = (data) => data.world;
 export const terrainCodes = (data) => data.world.terrain.codes;
@@ -579,8 +581,14 @@ export function townOf(world, nationId) {
   return (world.map?.towns || []).find((t) => t.nationId === nationId) ?? null;
 }
 
+/**
+ * 아이디로 노드 하나.
+ * ★ Sprint 3 — 옛 구현은 노드 5,000개를 매번 훑는 `find` 한 줄이었다. 이 문을 지나는 길이
+ *   주민 뷰·동료 두뇌·고갈 재배치라 방송 한 번에 수십만 번이 됐다. 이제 파생 색인(spatial.js)의
+ *   Map 을 본다 — 답은 한 톨도 다르지 않고, 색인은 노드가 늘거나 줄 때만 다시 지어진다.
+ */
 export function nodeById(world, id) {
-  return (world.map?.nodes || []).find((n) => n.id === id) ?? null;
+  return nodeByIdCached(world, id);
 }
 
 /**
@@ -638,6 +646,8 @@ export function removeNode(world, id) {
   const i = nodes.findIndex((n) => n.id === id);
   if (i < 0) return null;
   const [node] = nodes.splice(i, 1);
+  // ★ Sprint 3 — 공간 색인이 낡았다고 알린다. 길이만으로는 「지우고 곧바로 넣기」를 못 가려낸다.
+  world.map.nodesStamp = (world.map.nodesStamp ?? 0) + 1;
   const log = (world.map.removedNodes ||= []);
   log.push({ id: node.id, tick: world.tick ?? 0 });
   if (log.length > 200) log.splice(0, log.length - 200);
@@ -655,6 +665,8 @@ export function addNode(world, type, x, y, data, { rich = false, tick = 0 } = {}
     depleted: false, hidden: false, workers: 0, readyAt: null, stamp: tick, respawnAt: null,
   };
   world.map.nodes.push(node);
+  // ★ Sprint 3 — 공간 색인 무효화(removeNode 와 같은 자물쇠)
+  world.map.nodesStamp = (world.map.nodesStamp ?? 0) + 1;
   return node;
 }
 
@@ -681,16 +693,23 @@ export function revealConcealed(world, nation, data, tick = 0) {
     ...(nation.villagers || []),
   ];
   if (!eyes.length) return [];
+  /* ★ Sprint 3 — 옛 셈은 (노드 5,000 × 눈 60) 을 하루마다 통째로 돌았다. 이제 **눈마다** 제
+     둘레(radius)의 노드만 묻는다(spatial.nodesNear) — 판정도 결과도 같다: 한 눈이라도 닿으면
+     드러난다는 규칙이 그대로다. 다만 눈을 바깥 고리로 돌리면 찾은 차례가 「눈 차례」가 되므로,
+     돌려주기 전에 **원래 노드 차례**로 되세운다(결정론 규율 — spatial.js 규율 ② 참고). */
   const found = [];
-  for (const n of world.map?.nodes || []) {
-    if (!n.concealed || n.revealed) continue;
-    for (const e of eyes) {
+  for (const e of eyes) {
+    for (const n of nodesNear(world, e.x, e.y, radius)) {
+      // 이미 드러난 것은 다음 눈이 다시 집지 않는다(중복 방지는 이 한 줄이 전부다)
+      if (!n.concealed || n.revealed) continue;
       if (dist(e.x, e.y, n.x, n.y) > radius) continue;
       n.revealed = true;
       n.stamp = tick;
       found.push(n);
-      break;
     }
+  }
+  if (found.length > 1) {
+    found.sort((a, b) => nodeOrderIndex(world, a.id) - nodeOrderIndex(world, b.id));
   }
   return found;
 }

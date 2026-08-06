@@ -78,9 +78,36 @@ function mergeInto(acc, opens) {
  *   ③ 통과한 칸(step)의 `opens`
  *   ④ **엔드리스 장에 들어선 뒤에만** 티어 해금 합류
  */
+/**
+ * ★ Sprint 3 — 해금 목록 메모 (declaredCommands 가 이미 쓰던 것과 같은 규칙의 캐시).
+ *
+ * 왜. buildingUnlocked·featureUnlocked·commandUnlocked 가 전부 이 함수를 부르고, NationView 한 장을
+ * 빚는 데만 76번 넘게 지난다. 그때마다 열 장을 처음부터 훑고 Set 넷을 새로 짓고 배열 넷을 뽑았다.
+ *
+ * 무효화 열쇠. 이 함수의 답을 바꾸는 것은 **네 가지뿐**이다 — 지금 장 · 지금 칸 · 통과한 칸의 수
+ * (cleared 는 늘기만 한다) · 정착지 티어(엔드리스에 들어선 뒤 티어 해금이 합류한다).
+ * 자료판(data)이 통째로 갈릴 수도 있으므로 그 신원도 함께 본다(테스트가 reload 로 바꿔 낀다).
+ * 캐시는 nation 에 매달린 WeakMap 이라 저장되지 않고, 일 틱의 복제가 새 nation 을 내면 저절로 새로 난다.
+ * @type {WeakMap<object, {key:string, data:object, value:object}>}
+ */
+const UNLOCK_CACHE = new WeakMap();
+
+const unlockKey = (nation, p) =>
+  `${p ? `${p.chapter}:${p.step}:${p.cleared.length}` : '-'}:${settlementTier(nation)}`;
+
 export function unlockedList(nation, data) {
   if (!nation?.isPlayer) return tierUnlockedList(nation, data);
   const p = ensureProgress(nation);
+  const key = unlockKey(nation, p);
+  const hit = UNLOCK_CACHE.get(nation);
+  if (hit && hit.key === key && hit.data === data) return hit.value;
+  const value = computeUnlocked(nation, p, data);
+  UNLOCK_CACHE.set(nation, { key, data, value });
+  return value;
+}
+
+/** 실제 셈 — unlockedList 의 규칙 ①~④ 가 여기에 그대로 산다 */
+function computeUnlocked(nation, p, data) {
   const acc = { buildings: new Set(), features: new Set(), ui: new Set(), commands: new Set() };
   const cleared = new Set(p.cleared);
   for (const ch of chapterList(data)) {

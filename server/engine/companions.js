@@ -17,6 +17,8 @@
 //   · 아무도 없을 때 — tick.js 의 일 틱이 stepCompanionsDay 로 **안 본 만큼만** 몰아 돌린다
 //     (liveSeconds 를 세어 두고 하루에서 뺀다). 그래서 방치가 이득도 손해도 되지 않는다.
 import { townOf, territoryRadius, dist, terrainAt, terrainIndex } from './world.js';
+// ★ Sprint 3 — 노드 조회·둘레 훑기는 파생 색인 하나로 모은다(spatial.js 머리말 참고)
+import { nodeById, nodesNear } from './spatial.js';
 import { rngFromState } from './rng.js';
 import { normalizeAppearance, appearanceCfg, upsertMember } from './social.js';
 import {
@@ -386,10 +388,14 @@ function pickNode(world, nation, data, actor, av, roleKey) {
   const anchor = roleAnchor(nation, data, roleKey) ?? { x: av.x, y: av.y };
   const seat = actor.comp?.seat ?? 0;
   const fullSet = new Set(data.resources.order.filter((r) => isFull(nation, r, data)));
+  /* ★ Sprint 3 — 필요 종류마다 지도의 노드 5,000개를 통째로 훑던 자리(동료 넷 × 종류 대여섯).
+     이제 본영 둘레 reach 안의 후보만 묻는다. 색인은 **원래 배열 차례**를 지켜 돌려주므로,
+     아래의 거리 정렬(안정 정렬)과 자리 번호 나눔(top[seat % top.length])이 옛 값과 같은 것을 고른다. */
+  const nearby = nodesNear(world, town.x, town.y, reach);
   for (const kind of needKinds(nation, data, roleKey)) {
     const types = nodeKindsOf(data)[kind] || [];
     const cands = [];
-    for (const n of world.map?.nodes || []) {
+    for (const n of nearby) {
       if (!types.includes(n.type)) continue;
       if (dist(n.x, n.y, town.x, town.y) > reach) continue;
       if (!nodeUsable(world, nation, data, n, fullSet)) continue;
@@ -577,7 +583,8 @@ function targetValid(world, nation, data, tgt) {
   if (!tgt) return false;
   switch (tgt.kind) {
     case 'node': {
-      const n = (world.map?.nodes || []).find((x) => x.id === tgt.id);
+      // ★ Sprint 3 — 옛 find 는 동료 넷 × 1초마다 노드 5,000개를 훑었다
+      const n = nodeById(world, tgt.id);
       return nodeUsable(world, nation, data, n);
     }
     case 'site': return (nation.construction || []).some((s) => s.id === tgt.id && joinableSite(s));
@@ -603,7 +610,7 @@ function targetValid(world, nation, data, tgt) {
 function aimPoint(world, nation, data, tgt) {
   switch (tgt.kind) {
     case 'node': {
-      const n = (world.map?.nodes || []).find((x) => x.id === tgt.id);
+      const n = nodeById(world, tgt.id);           // ★ Sprint 3 — targetValid 와 같은 색인
       return n ? { x: n.x, y: n.y } : null;
     }
     case 'site': {

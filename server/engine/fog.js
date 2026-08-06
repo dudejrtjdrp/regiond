@@ -258,11 +258,37 @@ export function fogSnapshot(nation, data) {
   return { size: fog.size, chunk: fog.chunk, chunks };
 }
 
-/** 탐사 진척도 — 목표 카드/업적용 */
+/**
+ * 탐사 진척도 — 목표 카드/업적용.
+ *
+ * ★ Sprint 3 — 이 한 줄이 384² = 147,456 글자를 세었다. NationView 마다 한 번이니 접속자 수만큼,
+ *   명령 하나에도 방 전체가 그만큼을 다시 센다. 그런데 안개는 **청크 해시**로 이미 「바뀌었는가」를
+ *   알고 있다(recomputeFog·stampVisionDisc 가 바뀐 청크에서만 해시를 고쳐 쓴다). 그 해시들의 합을
+ *   지문으로 삼으면 24×24=576 번의 덧셈으로 캐시가 살았는지 가릴 수 있다 — 250배 싸다.
+ *
+ * 캐시는 **WeakMap 이다**: fog 객체 자체는 스냅샷에 실리므로 거기에 값을 얹으면 저장 파일이
+ * 캐시를 물고 다니게 되고, 일 틱의 structuredClone 이 낡은 값을 그대로 복제해 온다.
+ * @type {WeakMap<object, {stamp:number, value:number}>}
+ */
+const RATIO_CACHE = new WeakMap();
+
+function maskStamp(fog) {
+  const hashes = fog.chunkHash;
+  if (!Array.isArray(hashes)) return NaN;            // 옛 세이브 — 캐시를 쓰지 않는다
+  let sum = 0;
+  for (let i = 0; i < hashes.length; i += 1) sum += hashes[i];
+  return sum;
+}
+
 export function exploredRatio(nation) {
   const fog = nation.fog;
   if (!fog) return 1;
+  const stamp = maskStamp(fog);
+  const hit = RATIO_CACHE.get(fog);
+  if (hit && hit.stamp === stamp) return hit.value;
   let n = 0;
   for (let i = 0; i < fog.mask.length; i += 1) if (fog.mask.charCodeAt(i) > 48) n += 1;
-  return n / fog.mask.length;
+  const value = n / fog.mask.length;
+  if (Number.isFinite(stamp)) RATIO_CACHE.set(fog, { stamp, value });
+  return value;
 }

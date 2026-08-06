@@ -85,14 +85,26 @@ export function defenseSummary(world, nation, data, hooks = {}) {
   };
 }
 
-/** 국방부 전용 — 약점 문장 */
-export function weakSpots(world, nation, data) {
-  const sum = defenseSummary(world, nation, data);
+/**
+ * 국방부 전용 — 약점 문장.
+ *
+ * ★ Sprint 3 — 뷰가 이미 빚어 둔 방어 요약을 넘겨받는다. 옛 구현은 제 손으로 한 번 더 지었고,
+ *   그래서 국방대신이 보는 화면 한 장마다 민병 목록·터렛 목록·다음 웨이브 규격이 **두 번씩** 났다.
+ *   넘겨주지 않으면 예전처럼 스스로 짓는다(다른 호출자와의 계약은 그대로다).
+ *
+ * ⚠ 성녀 판정만은 넘겨받은 요약을 **보지 않는다**. 뷰가 빚는 요약에는 유물 갈고리(hooks)가 걸려
+ *   있어 `saint` 가 유물로도 참이 되지만(prophecyAlways), 이 문장은 예로부터 갈고리 없이 —
+ *   즉 「성녀 자리에 사람이 앉았는가」만으로 — 판정해 왔다. 성능을 고치는 자리에서 판정을 바꾸지
+ *   않는다: 넘겨주든 안 주든 나오는 문장이 한 글자도 다르지 않아야 한다.
+ * @param {object|null} summary 같은 판에서 이미 빚어 둔 defenseSummary
+ */
+export function weakSpots(world, nation, data, summary = null) {
+  const sum = summary ?? defenseSummary(world, nation, data);
   const spots = [];
   if (sum.fenceSegments === 0) spots.push('울타리가 한 조각도 없습니다.');
   if (sum.turretCount === 0) spots.push('쏠 것이 없습니다 — 화살탑을 세우십시오.');
   if (sum.militiaCount === 0) spots.push('성 앞에 설 사람이 없습니다 — 주민을 수비로 배치하십시오.');
-  if (!sum.saint) spots.push('성녀 부재 — 웨이브 시점이 흐리고 축복이 없습니다.');
+  if (!hasSaintSight(nation, data)) spots.push('성녀 부재 — 웨이브 시점이 흐리고 축복이 없습니다.');
   if (sum.estimate.secondsToClear == null) spots.push('우리 화력이 0입니다.');
   return spots;
 }

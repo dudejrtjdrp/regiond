@@ -746,15 +746,23 @@
     /* ★ GDD3 §13-D-3 — 벼린 것이 몸에 보인다. 등급이 팔레트를, 강화가 자루의 띠를,
        인첸트가 옅은 기운을 정한다. 키에 섞어야 캐시가 옛 그림을 되돌려 주지 않는다. */
     var g = opts.gear || null;
-    var gk = g ? [g.weaponGrade | 0, g.weaponPlus | 0, g.weaponEnchant || '-',
-                  g.armorGrade | 0, g.armorPlus | 0, g.armorEnchant || '-'].join('.') : '-';
-    var key = 'a:' + appKey(app) + ':' + dir + ':' + frame + ':' + crown + ':' + sw + ':' + (tool || '-') + ':' + gk;
-    var skin = palette('skin', app.skin, '#f5d6b8');
-    var hairC = palette('hairColor', app.hairColor, '#3b2a1d');
-    var outC = palette('outfitColor', app.outfitColor, '#6a994e');
-    var hairS = styleOf('hair', app.hair, 'short');
-    var outS = styleOf('outfit', app.outfit, 'tunic');
+    /* ★ Sprint 3 — 열쇠는 배열을 거치지 않고 바로 잇는다(값·글자는 옛것과 같은 꼴이다).
+       이 판은 사람이 그려질 때마다, 즉 프레임마다 예순 번 넘게 불린다. */
+    var gk = g ? ((g.weaponGrade | 0) + '.' + (g.weaponPlus | 0) + '.' + (g.weaponEnchant || '-') + '.' +
+                  (g.armorGrade | 0) + '.' + (g.armorPlus | 0) + '.' + (g.armorEnchant || '-')) : '-';
+    var key = 'a:' + (app.skin | 0) + '_' + (app.hair | 0) + '_' + (app.hairColor | 0) + '_' +
+              (app.outfit | 0) + '_' + (app.outfitColor | 0) +
+              ':' + dir + ':' + frame + ':' + crown + ':' + sw + ':' + (tool || '-') + ':' + gk;
+    /* ★ Sprint 3 — 색·모양 고르기는 **곳간에 없을 때만** 한다. 「왜」 옮겼나 —
+       palette·styleOf 는 다섯 번 다 GM.state.appearanceCfg() 를 캐물어 표를 헤집는데,
+       그렇게 고른 색은 이미 구워 둔 그림에는 쓸 데가 없다(열쇠는 위의 번호들만 본다).
+       열에 아홉은 곳간이 맞히므로 그 다섯 번은 통째로 헛일이었다. 그림은 그대로다. */
     return cached(key, 16, 20, function (P) {
+      var skin = palette('skin', app.skin, '#f5d6b8');
+      var hairC = palette('hairColor', app.hairColor, '#3b2a1d');
+      var outC = palette('outfitColor', app.outfitColor, '#6a994e');
+      var hairS = styleOf('hair', app.hair, 'short');
+      var outS = styleOf('outfit', app.outfit, 'tunic');
       var bob = frame ? 1 : 0;
       var skinD = U.shade(skin, SKIN_SHADE);
       var lean = sw === 2 ? 1 : 0;                      // 내려치는 순간 몸이 앞으로

@@ -30,11 +30,42 @@ export function structureCap(s, data) {
   return base * Math.pow(mult, Math.max(0, (s.tier || 1) - 1));
 }
 
+// ────────────────────────────────────────────────────────────────
+// ★ Sprint 3 — 「저장 계열은 어느 것인가」 색인 (파생 캐시. 저장되지 않는다)
+//
+// 왜. storageLimit 은 조용한 함수처럼 생겼지만 실은 게임에서 가장 자주 지나는 문 가운데 하나다:
+// deposit → spaceFor → storageLimit 이라 **자원이 한 톨 들어올 때마다** 부르고,
+// companions.pickNode 는 자원 종류 열 개에 isFull 을 물어 동료 넷이 1초마다 마흔 번을 더 부른다.
+// 그때마다 건물 예순 채를 통째로 훑으며 채마다 data.buildings 를 두 번씩 뒤졌다 —
+// 그런데 그 예순 중 곳간은 서넛뿐이고, 나머지 쉰여섯은 언제나 0을 돌려주는 헛걸음이었다.
+//
+// 무효화. **건물의 열쇠말(key)은 바뀌지 않는다** — 저택이 창고가 되는 일은 없다. 그러니
+// 「어느 것이 곳간인가」는 목록이 늘거나 줄 때만 다시 고르면 된다. 그 「늘거나 줆」을 길이만으로
+// 재면 「하나 헐고 하나 지음」이 같은 길이라 새어 나가므로, **nextStructureId** 를 함께 본다
+// (건물이 하나 서면 반드시 오른다 — structures.js `s${nation.nextStructureId++}`).
+// 티어·inactive·폐허(hp)는 캐시가 아니라 structureCap 이 그때그때 읽는다 —
+// 개축도 철거 예약도 웨이브가 허문 곳간도 한 박자 늦지 않는다.
+/** @type {WeakMap<object, {list:Array, key:string, data:object, cands:Array}>} */
+const STORAGE_CANDS = new WeakMap();
+
+/** 저장 계열 건물들(살았는지·티어는 보지 않는다 — 그건 structureCap 이 그때그때 판정한다) */
+function storageStructures(nation, data) {
+  const list = nation?.structures;
+  if (!Array.isArray(list) || !list.length) return [];
+  const key = `${list.length}:${nation.nextStructureId ?? 0}`;
+  const hit = STORAGE_CANDS.get(nation);
+  if (hit && hit.list === list && hit.key === key && hit.data === data) return hit.cands;
+  const cands = list.filter((s) => isStorageBuilding(s.key, data));
+  STORAGE_CANDS.set(nation, { list, key, data, cands });
+  return cands;
+}
+
 /** 자원 하나가 쌓일 수 있는 총량 */
 export function storageLimit(nation, data) {
   const cfg = storageCfg(data);
   let total = (cfg.hqBase || 0) + (cfg.hqPerTier || 0) * settlementTier(nation);
-  for (const s of nation?.structures || []) total += structureCap(s, data);
+  // 곳간이 아닌 건물은 structureCap 이 어차피 0 을 준다 — 그 0 들을 아예 훑지 않는 것뿐, 합은 같다
+  for (const s of storageStructures(nation, data)) total += structureCap(s, data);
   return round2(total);
 }
 

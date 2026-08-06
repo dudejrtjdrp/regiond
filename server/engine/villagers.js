@@ -3,6 +3,8 @@
 // ★ 이 모듈의 핵심 계약: laborAlloc 은 더 이상 슬라이더가 아니라 '배치의 파생값'이다.
 //   referenceMix 대로 배치하면 옛 balance.json labor.defaultAlloc 과 채집 계수가 그대로 재현된다.
 import { townOf, territoryRadius, dist, nodeById, markDepleted } from './world.js';
+// ★ Sprint 3 — 일자리 목록의 노드 훑기를 둘레 질의로 좁힌다(world.nodeById 도 같은 색인을 쓴다)
+import { nodesNear } from './spatial.js';
 // ★ GDD3 §13-D-5 — 철로. 위를 걷는 걸음이 두 배가 된다.
 import { onRail, railCfg } from './research.js';
 // ★ Sprint 1 — 주민도 이제 물을 돌아간다. 통행·경로의 정본은 path.js 하나다.
@@ -53,10 +55,13 @@ export function listTargets(world, nation, data) {
   //   (영토 안만 보면 노드가 하나도 없어 배치가 통째로 무너진다 — 군락 개편의 필수 짝이다.)
   const town2 = town;
   const radius = territoryRadius(nation, data) + (vCfg(data).workRadiusBonus ?? 0);
-  for (const n of world.map?.nodes || []) {
+  /* ★ Sprint 3 — 도읍이 없으면 노드 일자리도 없다(옛 셈도 매 노드마다 town2 를 물어 다 걸렀다).
+     도읍이 있으면 그 둘레만 묻는다 — 색인이 **원래 배열 차례**를 지키므로 목록의 순서가 그대로다
+     (targetsForJob 의 거리 정렬은 안정 정렬이라 동점자의 승부가 이 차례로 갈린다). */
+  for (const n of town2 ? nodesNear(world, town2.x, town2.y, radius + 0.001) : []) {
     if (n.hidden || n.depleted) continue;
     if (n.concealed && !n.revealed) continue;
-    if (!town2 || dist(n.x, n.y, town2.x, town2.y) > radius + 0.001) continue;
+    if (dist(n.x, n.y, town2.x, town2.y) > radius + 0.001) continue;
     const def = data.world.nodes.types[n.type];
     if (!def) continue;
     out.push({ id: n.id, kind: 'node', nodeType: n.type, name: def.name, x: n.x, y: n.y, slots: def.slots, node: n });

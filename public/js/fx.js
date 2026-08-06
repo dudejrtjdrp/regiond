@@ -58,11 +58,19 @@
     if (p <= shake.power && shake.t < shake.dur) return;
     shake.power = p; shake.dur = dur === undefined ? 0.22 : dur; shake.t = 0;
   }
+  /* ★ Sprint 3 — 흔들림 값을 담을 그릇 하나를 되쓴다. 「왜」 —
+     이 판은 프레임마다 꼭 한 번 불리고(world.js 의 그리기 머리), 부르는 쪽은 값을 그 자리에서
+     읽고 버린다. 그런데도 옛 셈은 프레임마다 점 객체를 하나씩 낳아 초당 예순 개의 쓰레기를
+     쌓았다. 값은 옛것과 같다 — 다만 그릇을 새로 만들지 않을 뿐이다.
+     계약: 부르는 쪽은 이 값을 **간직하지 않는다**(다음 프레임에 덮어써진다). */
+  var SHAKE_OUT = { x: 0, y: 0 };
   function shakeOffset() {
-    if (shake.t >= shake.dur) return { x: 0, y: 0 };
+    if (shake.t >= shake.dur) { SHAKE_OUT.x = 0; SHAKE_OUT.y = 0; return SHAKE_OUT; }
     var k = 1 - shake.t / shake.dur;
     var a = shake.t * 92;
-    return { x: Math.sin(a) * shake.power * k, y: Math.cos(a * 1.37) * shake.power * k };
+    SHAKE_OUT.x = Math.sin(a) * shake.power * k;
+    SHAKE_OUT.y = Math.cos(a * 1.37) * shake.power * k;
+    return SHAKE_OUT;
   }
   function flash(color, alpha, dur) {
     flashes.push({ t: 0, dur: dur || 0.28, color: color || '#fff6dc', alpha: alpha === undefined ? 0.35 : alpha });
@@ -271,16 +279,19 @@
       ctx.stroke();
       ctx.restore();
     }
-    /* 파편 */
+    /* 파편 — ★ Sprint 3: 파편은 한 번에 260개까지 살아 있고 프레임마다 전부 그린다.
+       그 자리마다 점 객체를 낳으면 초당 만 개가 넘는 쓰레기가 된다. 좌표만 세는 셈으로 바꾼다
+       (worldToScreenX/Y 는 worldToScreen 과 **같은 식**이다 — 그림은 한 점도 안 달라진다). */
+    var W2SX = GM.camera.worldToScreenX, W2SY = GM.camera.worldToScreenY;
     ctx.save();
     for (i = 0; i < parts.length; i++) {
       p = parts[i];
-      var pp = GM.camera.worldToScreen(p.x, p.y);
+      var ppx = W2SX(p.x), ppy = W2SY(p.y);
       var al = U.clamp(p.life / p.max, 0, 1);
       ctx.globalAlpha = p.twinkle ? al * (0.55 + 0.45 * Math.sin(p.life * 40)) : al;
       ctx.fillStyle = p.color;
       var sz = p.size * (p.soft ? (1 + (1 - al) * 1.6) : 1) * Math.max(0.6, tile / 24);
-      ctx.fillRect(pp.x - sz / 2, pp.y - sz / 2, sz, sz);
+      ctx.fillRect(ppx - sz / 2, ppy - sz / 2, sz, sz);
     }
     ctx.restore();
     /* 떠오르는 글자 */
@@ -288,13 +299,13 @@
     ctx.textAlign = 'center';
     for (i = 0; i < floats.length; i++) {
       var f = floats[i];
-      var fp = GM.camera.worldToScreen(f.x, f.y);
+      var fpx = W2SX(f.x), fpy = W2SY(f.y);        // ★ Sprint 3 — 점 객체를 안 만든다
       ctx.globalAlpha = U.clamp(1 - f.t / f.dur, 0, 1);
       ctx.font = 'bold ' + Math.round(f.size) + 'px "Galmuri11", monospace';
       ctx.fillStyle = '#20160c';
-      try { ctx.fillText(f.text, fp.x + 1, fp.y + 1); } catch (e) {}
+      try { ctx.fillText(f.text, fpx + 1, fpy + 1); } catch (e) {}
       ctx.fillStyle = f.color;
-      try { ctx.fillText(f.text, fp.x, fp.y); } catch (e2) {}
+      try { ctx.fillText(f.text, fpx, fpy); } catch (e2) {}
     }
     ctx.restore();
   }
@@ -348,9 +359,20 @@
     lctx.restore();
   }
 
+  /* ★ Sprint 3 — 화면층은 대개 **텅 비어 있다**(자원 팝도 번쩍임도 없는 보통의 순간).
+     그런데도 옛 셈은 프레임마다 창 전체(1920×1080이면 200만 픽셀)를 지우고 있었다.
+     지울 것이 없으면 지우지 않는다. 다만 마지막 하나가 사라진 그 프레임에는 **반드시**
+     한 번 지워야 남은 그림이 화면에 눌어붙지 않는다 — 그래서 지난 프레임에 뭔가 있었는지를
+     기억해 둔다(layerWasDirty). 눈에 보이는 결과는 옛것과 똑같다. */
+  var layerWasDirty = false;
+
   function drawLayer() {
     if (!lctx) return;
+    var hasWork = danger.dur > 0 || flashes.length > 0 || pops.length > 0;
+    if (!hasWork && !layerWasDirty) return;
+    layerWasDirty = hasWork;
     lctx.clearRect(0, 0, LW, LH);
+    if (!hasWork) return;                 // 마지막 뒷정리 — 지우기만 하고 끝낸다
     var i;
     drawDangerEdge();
     for (i = 0; i < flashes.length; i++) {
@@ -390,6 +412,7 @@
     danger = { t: 0, dur: 0 };
     shake = { t: 0, dur: 0, power: 0 };
     freezeUntil = 0;
+    layerWasDirty = true;      // ★ Sprint 3 — 판을 갈아엎었으니 남은 그림을 한 번은 지워 준다
   }
 
   GM.fx = {

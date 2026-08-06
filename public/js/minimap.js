@@ -14,6 +14,27 @@
      「비었으니 다시 굽자」가 매 프레임 헛돌기 때문이다. */
   var veil = null, veilReady = false;
 
+  /* ══════════ ★ Sprint 3 ══════════
+     축소 지도는 **매 프레임** 다시 그려지고 있었다: 울타리 400조각(조각마다 캔버스 명령 넷),
+     철로·건물·주민·적진까지 전부. 게다가 겹 하나를 구울 때마다 캔버스와 ImageData 를
+     **새로** 만들어 384² 짜리 판을 프레임마다 두 장씩 버렸다. 세 가지를 고친다:
+       ① 겹을 담는 캔버스와 픽셀 그릇을 **하나씩 두고 되쓴다**(굽는 값은 그대로, 쓰레기는 없다)
+       ② 좀처럼 바뀌지 않는 것(철로·울타리)은 한 겹에 구워 두고 **바뀔 때만** 다시 굽는다
+       ③ 판 전체를 초당 minimapHz 번만 그린다 — 눈이 좇는 그림이 아니라 곁눈으로 보는 판이다
+     그림 자체는 한 점도 달라지지 않는다(겹의 순서도 그대로다). */
+  var layers = {};                       // 이름 → 되쓰는 캔버스(칸 하나 = 픽셀 하나)
+  var imgBuf = { size: -1, img: null };  // 되쓰는 픽셀 그릇
+  var statics = null, staticsDirty = true;   // 철로·울타리를 구워 둔 겹(축소 지도 크기 그대로)
+  var lastDraw = 0;                      // 마지막으로 판을 다 그린 시각(ms)
+  var MINIMAP_HZ_FALLBACK = 8;
+
+  function nowMs() { return (global.performance && performance.now) ? performance.now() : Date.now(); }
+  function minimapHz() {
+    var w = S.worldCfg && S.worldCfg();
+    var hz = w && w.render && w.render.perf && w.render.perf.minimapHz;
+    return (typeof hz === 'number' && hz > 0) ? hz : MINIMAP_HZ_FALLBACK;
+  }
+
   function mount() {
     cv = U.qs('#minimap');
     if (!cv) return;
@@ -28,14 +49,39 @@
     cv.addEventListener('pointermove', function (e) { if (dragging) jump(e); });
     cv.addEventListener('pointerup', function () { dragging = false; });
     cv.addEventListener('pointerleave', function () { dragging = false; });
-    S.on('world', function () { base = null; veil = null; veilReady = false; });
+    S.on('world', function () {
+      base = null; veil = null; veilReady = false;
+      layers = {}; imgBuf = { size: -1, img: null };
+      statics = null; staticsDirty = true;
+    });
+    /* ★ Sprint 3 — 장부가 바뀌면 구워 둔 겹을 버린다. 값이 진짜 바뀌었는지는 따지지 않는다:
+       다시 굽는 값이 옛 셈의 **한 프레임 값**과 같아서, 초당 몇 번이면 그 자체로 크게 남는다. */
+    S.on('change', function () { staticsDirty = true; });
   }
 
-  /** 축소본 한 겹을 담을 빈 캔버스 (한 칸 = 한 픽셀) */
-  function layerFor(m) {
-    var c = document.createElement('canvas');
-    c.width = m.size; c.height = m.size;
+  /** 축소본 한 겹을 담을 캔버스 (한 칸 = 한 픽셀) — 이름마다 하나를 두고 되쓴다 */
+  function layerFor(name, m) {
+    var c = layers[name];
+    if (!c || c.width !== m.size || c.height !== m.size) {
+      c = document.createElement('canvas');
+      c.width = m.size; c.height = m.size;
+      layers[name] = c;
+    }
     return c;
+  }
+
+  /** 되쓰는 픽셀 그릇 — 쓰기 전에 반드시 비운다(안 비우면 지난 겹이 비쳐 보인다) */
+  function bufFor(g, m) {
+    if (imgBuf.size !== m.size || !imgBuf.img) {
+      imgBuf.img = (g.createImageData && g.createImageData(m.size, m.size)) || null;
+      imgBuf.size = m.size;
+    }
+    var img = imgBuf.img;
+    if (!img || !img.data) return null;
+    var px = img.data;
+    if (px.fill) px.fill(0);
+    else for (var i = 0; i < px.length; i++) px[i] = 0;
+    return img;
   }
 
   var HEX = { r: 0, g: 0, b: 0 };
@@ -65,13 +111,15 @@
    * 줄어든다 — 그림은 같다. 캔버스가 흉내뿐인 자리(하니스 스텁)에는 ImageData 가 없으므로,
    * 그때만 옛 길(칸마다 fillRect)로 물러선다.
    */
-  function paintLayer(m, at) {
-    var c = layerFor(m);
+  function paintLayer(name, m, at) {
+    var c = layerFor(name, m);
     var g = c.getContext('2d');
     if (!g) return null;
-    var img = g.createImageData && g.createImageData(m.size, m.size);
-    if (img && img.data) fastPaint(g, img, m, at);
-    else slowPaint(g, m, at);
+    /* ★ Sprint 3 — 겹을 되쓰므로 지난 그림을 먼저 지운다. 픽셀 그릇으로 칠할 때는
+       putImageData 가 판을 통째로 덮으니 지울 일이 없다(칸마다 칠하는 물러선 길만 지운다). */
+    var img = bufFor(g, m);
+    if (img) fastPaint(g, img, m, at);
+    else { try { g.clearRect(0, 0, m.size, m.size); } catch (e) {} slowPaint(g, m, at); }
     return c;
   }
 
@@ -118,7 +166,7 @@
     var m = S.S.map;
     if (!m) return null;
     var pal = palette(m);
-    var c = paintLayer(m, function (i) { return pal[m.terrain[i]] || pal[0]; });
+    var c = paintLayer('base', m, function (i) { return pal[m.terrain[i]] || pal[0]; });
     baseSeed = m.seed;
     return c;
   }
@@ -142,11 +190,47 @@
    * 축소 지도 하나가 프레임 예산을 먹는다. 안개는 걸음마다 바뀌는 것이 아니라 **바뀔 때만** 바뀌므로
    * 한 판 구워 두고 그때만 다시 굽는다(state 가 세워 두는 fogDirty 가 그 신호다).
    */
+  /* ★ Sprint 3 — 여기가 **서버 안개(m.fog)만** 읽는다는 사실이 이 판의 열쇠였다.
+     state.revealAround(아바타 둘레의 클라 예측)이 걷는 내내 초당 서너 번 fogDirty 를 세웠고,
+     그때마다 이 함수가 384² 판을 **글자 그대로 똑같이** 다시 구웠다(그림은 한 픽셀도 안 바뀐다).
+     이제 국지 예측은 localFogDirty 로 따로 서고, 이 겹은 서버 안개가 올 때만 다시 굽는다. */
   function buildVeil(m) {
-    veil = paintLayer(m, function (i) { return VEIL[m.fog[i]] || null; });
+    veil = paintLayer('veil', m, function (i) { return VEIL[m.fog[i]] || null; });
     veilReady = true;
     m.fogDirty = false;
     return veil;
+  }
+
+  /**
+   * ★ Sprint 3 — 좀처럼 바뀌지 않는 겹(철로 · 울타리)을 구워 둔다.
+   * 축소 지도 크기(SIZE) 그대로 굽는 까닭: 굵기(1.5px)와 점 크기(2px)가 **화면 픽셀** 값이라
+   * 칸 단위로 구워 확대하면 굵기가 함께 늘어 그림이 달라진다. 여기서는 옛 코드와
+   * 글자 그대로 같은 명령을 같은 자리에 쌓는다 — 다만 프레임마다가 아니라 바뀔 때만.
+   * 건물은 이 겹에 넣지 않는다: 옛 차례가 「울타리 → 주민 → 건물」이라, 한 겹으로 묶으면
+   * 주민 점과 건물 점의 위아래가 뒤집힌다(건물은 쉰 개 남짓이라 값도 크지 않다).
+   */
+  function buildStatics(m, k) {
+    if (!statics) {
+      statics = document.createElement('canvas');
+      statics.width = SIZE; statics.height = SIZE;
+    }
+    var g = statics.getContext('2d');
+    if (!g) return null;
+    g.clearRect(0, 0, SIZE, SIZE);
+    /* ★ GDD3 §13-D-5 — 철로. 축소 지도에서도 길이 보여야 어디에 더 깔지 알 수 있다. */
+    g.fillStyle = '#9aa4ae';
+    S.rails().forEach(function (r) { g.fillRect(r.x * k - 0.5, r.y * k - 0.5, 2, 2); });
+    /* 울타리 */
+    g.strokeStyle = '#a3703f';
+    g.lineWidth = 1.5;
+    S.fences().forEach(function (f) {
+      g.beginPath();
+      g.moveTo(f.x1 * k, f.y1 * k);
+      g.lineTo(f.x2 * k, f.y2 * k);
+      g.stroke();
+    });
+    staticsDirty = false;
+    return statics;
   }
 
   function draw() {
