@@ -225,7 +225,8 @@ export function quota(mix, units, data) {
 // ────────────────────────────────────────────────────────────────
 // 배치
 // ────────────────────────────────────────────────────────────────
-function place(world, nation, unit, target, job, data) {
+/* ★ Sprint 2 — assign.js(자동 배치·전투 복귀)도 같은 문을 쓴다. 배치의 정본은 이 함수 하나다. */
+export function place(world, nation, unit, target, job, data) {
   unit.job = job;
   unit.targetId = target ? target.id : null;
   /* ★ Sprint 1 — 일자리가 물 위(낚시터 등)면 곁의 뭍에 선다. 물 칸을 목적지로 받으면
@@ -249,6 +250,9 @@ function place(world, nation, unit, target, job, data) {
 export function assignByMix(world, nation, mix, data) {
   const units = nation.villagers || [];
   if (!units.length) return null;
+  /* ★ Sprint 2 — 전체 재배치는 나라 단위 명령이다. 개별 수동 배치(manual)는 여기서 함께 걷힌다 —
+     「전부 다시 나눠라」가 개별 지시보다 나중의, 더 큰 손가락이기 때문이다. */
+  for (const u of units) u.manual = false;
   const want = quota(mix, units.length, data);
   const pool = [...units];
   const assigned = new Set();
@@ -332,6 +336,9 @@ export function commandVillagers(world, nation, cmd, data) {
       u.targetId = null;
       u.destX = x;
       u.destY = y;
+      /* ★ Sprint 2 — 주인의 손가락 표. 자동 배치(assign.autoPlaceIdle)는 이 표가 붙은 사람을
+         절대 건드리지 않는다 — 「저기 서 있어라」가 「노는 손」으로 읽히면 지시가 무너진다. */
+      u.manual = true;
     }
     syncNodeWorkers(world, nation, data);
     return { ok: true, moved: units.length, job: order.type === 'scout' ? 'scout' : 'idle', dest: { x, y } };
@@ -354,6 +361,7 @@ export function commandVillagers(world, nation, cmd, data) {
   for (const u of units) {
     if (used >= target.slots) { waiting.push(u); continue; }
     place(world, nation, u, target, job, data);
+    u.manual = true;               // ★ Sprint 2 — 손가락으로 앉힌 자리는 자동 배치가 못 옮긴다
     used += 1;
     placed.push(u.id);
   }
@@ -375,6 +383,7 @@ export function commandVillagers(world, nation, cmd, data) {
       const t2 = cands.find((c) => (usedBy.get(c.id) || 0) < c.slots);
       if (!t2) break;                                  // 곁에도 자리가 없다 — 남은 이들은 그대로
       place(world, nation, u, t2, job, data);
+      u.manual = true;             // ★ Sprint 2 — 흩어져 앉은 자리도 손가락의 연장이다
       usedBy.set(t2.id, (usedBy.get(t2.id) || 0) + 1);
       placed.push(u.id);
       spreadTo.add(t2.id);
@@ -532,7 +541,13 @@ export function reassignDepleted(world, nation, data) {
     const used = (id) => (nation.villagers || []).filter((x) => x.targetId === id).length;
     const next = targets.find((t) => used(t.id) < t.slots) ?? null;
     if (next) { place(world, nation, u, next, u.job, data); moved.push({ id: u.id, to: next.id }); }
-    else { place(world, nation, u, null, 'idle', data); moved.push({ id: u.id, to: null }); }
+    else {
+      place(world, nation, u, null, 'idle', data);
+      /* ★ Sprint 2 — 일터가 사라져 앉을 곳이 없다. 수동 표를 걷고 노동 풀로 돌려보낸다 —
+         표를 남기면 「고갈로 논다」가 「지시로 논다」로 읽혀 자동 배치가 영영 못 줍는다. */
+      u.manual = false;
+      moved.push({ id: u.id, to: null });
+    }
   }
   if (moved.length) syncNodeWorkers(world, nation, data);
   return moved;

@@ -39,6 +39,8 @@ import {
   departmentsActive, featureUnlocked, evaluateProgress, checkTrace, chapterIndex, ensureProgress,
 } from './progression.js';
 import { capacity, stepArrivals, residentSettle, loseResidents, grainDays, housewarmArrival } from './residents.js';
+// ★ Sprint 2 — 노는 손 자동 배치·정찰 목적지. 새로 온 사람도 그 자리에서 일을 받는다.
+import { stepAssignments, autoPlaceIdle } from './assign.js';
 import {
   updateWaveSchedule, ensureCamps, updateCampIntel, campEventView, daysUntilWave, nextWaveSpec,
 } from './waves.js';
@@ -97,13 +99,19 @@ export function step(state, inputs = [], rng = null, data = loadGameData(), opts
     });
   }
 
-  // ── 1-c. 월드 유지 — 주민 이동 · 고갈 재배치 · 배치 파생 laborAlloc ──
+  // ── 1-c. 월드 유지 — 주민 이동 · 고갈 재배치 · ★ Sprint 2 노는 손 자동 배치 · 배치 파생 laborAlloc ──
   for (const nation of Object.values(world.nations)) {
     if (!(nation.villagers || []).length) continue;
     stepVillagers(world, nation, data, tick);
     const moved = reassignDepleted(world, nation, data);
     if (moved.length) {
       events.push({ tick, kind: 'villagers_moved', nationId: nation.id, data: { count: moved.length, reason: 'depleted' } });
+    }
+    /* ★ Sprint 2 — 유휴는 더 이상 흡수 상태가 아니다: 노는 손(수동 지시 제외)을 필요도순으로
+       빈 자리에 앉히고, 정찰꾼에게는 안개 경계의 다음 목적지를 준다. */
+    const auto = stepAssignments(world, nation, data);
+    if (auto.moved.length) {
+      events.push({ tick, kind: 'villagers_moved', nationId: nation.id, data: { count: auto.moved.length, reason: 'idle' } });
     }
     syncNodeWorkers(world, nation, data);
     const derived = deriveLabor(nation, data);
@@ -140,6 +148,8 @@ export function step(state, inputs = [], rng = null, data = loadGameData(), opts
       events.push({ tick, kind: 'building_done', nationId: nation.id, data: done });
       // ★ §17-6 집들이 — 완공과 함께 들어온 사람은 도착 연출(이름표)도 같이 나간다
       if (done.housewarm) {
+        /* ★ Sprint 2 — 집들이로 들어온 사람도 그 자리에서 일을 받는다(집결지가 없었을 때) */
+        autoPlaceIdle(world, nation, data);
         nation.stats.residentsArrived = (nation.stats.residentsArrived || 0) + 1;
         events.push({
           tick, kind: 'resident_arrived', nationId: nation.id,
@@ -712,7 +722,9 @@ function updatePopulationAndMorale(world, nation, data, rng) {
 
   if (nation.isPlayer) {
     nation.populationCap = capacity(nation, data);
+    let arrivedNow = 0;
     for (const person of stepArrivals(world, nation, data, rng)) {
+      arrivedNow += 1;
       nation.stats.residentsArrived = (nation.stats.residentsArrived || 0) + 1;
       events.push({
         kind: 'resident_arrived',
@@ -724,6 +736,9 @@ function updatePopulationAndMorale(world, nation, data, rng) {
       });
     }
     nation.stats.peakPopulation = Math.max(nation.stats.peakPopulation || 0, Math.floor(nation.population));
+    /* ★ Sprint 2 — 갓 도착한 사람이 다음 틱(10분)까지 놀지 않게, 도착 처리 직후 한 번 더 앉힌다.
+       (집결지가 이미 앉힌 사람은 유휴가 아니라 여기 걸리지 않는다) */
+    if (arrivedNow > 0) autoPlaceIdle(world, nation, data);
   }
 
   if (!nation.rationing) {

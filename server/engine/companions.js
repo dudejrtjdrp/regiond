@@ -34,6 +34,8 @@ import { revealAvatar } from './fog.js';
 import { startResearch, RESEARCH_KEYS, onBridge, onFill } from './research.js';
 import { commandUnlocked, featureUnlocked, buildingUnlocked, currentChapter, measure } from './progression.js';
 import { round2 } from './economy.js';
+// ★ Sprint 2 — 곧장이 막히면 길을 내서 돌아간다(주민·아바타와 같은 A*). 물가 정지 종결.
+import { findPath } from './path.js';
 
 export const companionCfg = (data) => data.companions ?? {};
 const laborCfg = (data) => companionCfg(data).labor ?? {};
@@ -310,11 +312,14 @@ export function autoPlayView(nation, avatarId, data, now = Date.now()) {
 // ────────────────────────────────────────────────────────────────
 // 두뇌 — 목표 고르기
 // ────────────────────────────────────────────────────────────────
-const NODE_KINDS = {
+/* ★ Sprint 2 — 필요(need) → 노드 종류 매핑은 자료가 쥔다(data/companions.json brain.nodeKinds).
+   하드코딩 시절엔 철·석탄·기름 종류가 아예 빠져 있어, 연구로 노두가 드러나도 동료는 캘 줄 몰랐다. */
+const NODE_KINDS_FALLBACK = {
   wood: ['forest'],
   stone: ['rock'],
   grain: ['berry', 'fertile', 'field', 'water'],
 };
+const nodeKindsOf = (data) => brainCfg(data).nodeKinds ?? NODE_KINDS_FALLBACK;
 
 export function walkable(world, data, x, y, nation = null) {
   const list = data.world.terrain.walkable || ['grass', 'forest', 'rock', 'fertile'];
@@ -344,6 +349,9 @@ function needKinds(nation, data, roleKey) {
   const res = nation.resources || {};
   const stocks = ['wood', 'stone', 'grain'].sort((a, b) => (res[a] || 0) - (res[b] || 0));
   out.push(...stocks);
+  /* ★ Sprint 2 — 꼬리 수요. 기본 재고를 다 본 뒤에는 광물도 캔다(노두가 드러난 뒤의 이야기 —
+     skills 규격·저장 상한은 nodeUsable 이 그대로 거른다). 이게 없으면 「부족한 게 없다 → rest」였다. */
+  out.push(...(B.extraKinds ?? []));
   return [...new Set(out)];
 }
 
@@ -379,7 +387,7 @@ function pickNode(world, nation, data, actor, av, roleKey) {
   const seat = actor.comp?.seat ?? 0;
   const fullSet = new Set(data.resources.order.filter((r) => isFull(nation, r, data)));
   for (const kind of needKinds(nation, data, roleKey)) {
-    const types = NODE_KINDS[kind] || [];
+    const types = nodeKindsOf(data)[kind] || [];
     const cands = [];
     for (const n of world.map?.nodes || []) {
       if (!types.includes(n.type)) continue;
@@ -404,12 +412,16 @@ function joinableSite(s) {
   return mode === 'build' || mode === 'upgrade';
 }
 
-function pickSite(nation, data, actor, roleKey) {
+/**
+ * @param anySeat ★ Sprint 2 — 캘 것도 없이 손이 빌 때는 자리 홀짝을 따지지 않는다.
+ *   (옛 규칙: 짝수 자리는 공사를 무시 — 그 절반이 「공사장 옆에서 쉬는 봇」으로 보였다)
+ */
+function pickSite(nation, data, actor, roleKey, anySeat = false) {
   const sites = (nation.construction || []).filter(joinableSite);
   if (!sites.length) return null;
   const seat = actor.comp?.seat ?? 0;
   // 사람의 자동 플레이와 건축가는 언제나 망치를 든다. 나머지는 절반이 붙는다 — 살림도 굴러가야 한다.
-  const always = !actor.comp || roleCfgOf(data, roleKey).siteFirst;
+  const always = anySeat || !actor.comp || roleCfgOf(data, roleKey).siteFirst;
   if (!always && seat % 2 === 0) return null;
   return sites[seat % sites.length];
 }
@@ -485,16 +497,24 @@ function decide(world, nation, data, actor, player, av, opts = {}) {
     // ① 다쳤으면 모닥불로 물러난다 — 거기서 기운이 돈다(skills.combat.restHealPerSecond)
     const maxHp = playerMaxHp(player, data);
     const ratio = (player.hp ?? maxHp) / Math.max(1, maxHp);
-    if (ratio < (B.fleeHpRatio ?? 0.35) && town) return { kind: 'rest', x: town.x, y: town.y };
+    const mem = opts.mem || {};
+    /* ★ Sprint 2 — 회복 이력(히스테리시스). 0.35 문턱 하나만 있으면 0.36 에서 다시 나가
+       두 걸음 만에 또 쓰러진다 — returnHpRatio(0.75, 선언만 되고 아무도 안 읽던 다이얼)까지
+       회복해야 다시 나간다. 전투 중에는 옛 규칙 그대로다(자리를 비우면 그만큼 뚫린다). */
+    if (ratio < (B.fleeHpRatio ?? 0.35)) mem.recovering = true;
+    if (mem.recovering && ratio >= (B.returnHpRatio ?? 0.75)) mem.recovering = false;
 
     // ② 웨이브 — 몰려온 것들과 싸운다(combatSwing 규칙 동일). 성녀는 본부를 지킨다.
     const b = nation.battle;
     if (b && !b.over) {
-      if (rc.timid) return town ? { kind: 'rest', x: town.x, y: town.y } : null;
+      if (rc.timid || ratio < (B.fleeHpRatio ?? 0.35)) {
+        return town ? { kind: 'rest', x: town.x, y: town.y } : null;
+      }
       const e = nearestEnemy(b, av.x, av.y);
       if (e) return { kind: 'enemy', id: e.id };
       return town ? { kind: 'rest', x: town.x, y: town.y } : null;
     }
+    if (mem.recovering && town) return { kind: 'rest', x: town.x, y: town.y };
 
     /* ③-0 ★ §16-19 — 수비 깃발. 국방을 맡은 이는 깃발 곁을 지킨다(위협·웨이브가 없을 때). */
     if (rc.guard && nation.defenseFlag && !nearestPredator(world, nation, data, av)) {
@@ -526,6 +546,17 @@ function decide(world, nation, data, actor, player, av, opts = {}) {
     }
   }
 
+  /* ③-d ★ Sprint 2 — 하루 예산(크레딧)이 비었다. 서서 기다리는 대신 **걷는다**:
+     일터와 곳간 사이를 오간다(순찰). 스윙은 없으니 경제 총량은 크레딧이 그대로 지키고,
+     「봇이 아무것도 안 한다」의 최대 체감 원인(하루의 ~90%를 노드 옆에 서 있기)이 사라진다. */
+  if (opts.lowCredit && !opts.workOnly && town) {
+    const nearTown = dist(av.x, av.y, town.x, town.y) <= (B.restNearTownRadius ?? 4);
+    if (!nearTown) return { kind: 'patrol', x: town.x, y: town.y };
+    const spot = pickNode(world, nation, data, actor, av, roleKey);
+    if (spot) return { kind: 'patrol', x: spot.x, y: spot.y };
+    return { kind: 'rest', x: town.x, y: town.y };
+  }
+
   // ④ 공사장
   const site = pickSite(nation, data, actor, roleKey);
   if (site) return { kind: 'site', id: site.id };
@@ -533,6 +564,11 @@ function decide(world, nation, data, actor, player, av, opts = {}) {
   // ⑤ 부족한 것을 캔다
   const node = pickNode(world, nation, data, actor, av, roleKey);
   if (node) return { kind: 'node', id: node.id };
+
+  /* ⑥ ★ Sprint 2 — rest 로 끝나던 사다리의 마지막 계단. 캘 것이 없어 손이 빌 때는
+     자리 홀짝을 접고 공사라도 돕는다(RimWorld 폴백 사다리 — 유휴는 마지막 수단이다). */
+  const anySite = pickSite(nation, data, actor, roleKey, true);
+  if (anySite) return { kind: 'site', id: anySite.id };
 
   return town ? { kind: 'rest', x: town.x, y: town.y } : null;
 }
@@ -554,6 +590,8 @@ function targetValid(world, nation, data, tgt) {
     case 'rest':
     case 'haul':
     case 'flee':
+    /* ★ Sprint 2 — 순찰도 좌표라 늘 유효하다(닿으면 driveActor 가 비우고 다시 고른다) */
+    case 'patrol':
     /* ★ §17-11 — 수동 지시 자리는 좌표라 늘 유효하다. 지시가 걷히면 commands 가 target 을
        비우고 think 를 0으로 되돌려 다음 걸음에 곧바로 다시 고른다. */
     case 'move':
@@ -597,6 +635,8 @@ function reachOf(data, nation, tgt) {
     case 'enemy': return (c.rangeTiles ?? 2.5) - 0.5;
     case 'rest': return brainCfg(data).restNearTownRadius ?? 4;
     case 'haul': return laborCfg(data).carryHomeRadius ?? 2.5;
+    /* ★ Sprint 2 — 순찰 도착 판정. 닿으면 반대편(곳간↔일터)으로 되돈다 */
+    case 'patrol': return brainCfg(data).patrolArriveTiles ?? 1.5;
     /* ★ §17-11 — 지시받은 자리는 코앞까지 걸어간다(쉼터의 4타일 여유를 쓰지 않는다) */
     case 'move':
     case 'hold': return ordersCfg(data).arriveTiles ?? 1.2;
@@ -607,6 +647,10 @@ function reachOf(data, nation, tgt) {
 // ────────────────────────────────────────────────────────────────
 // 한 사람의 한 걸음
 // ────────────────────────────────────────────────────────────────
+/* ★ Sprint 2 — 막혔을 때의 길 기억. 아바타 객체는 저장 스냅샷에 실리므로 길을 그 몸에 얹지 않고
+   여기(파생 캐시)에 둔다 — 틱 복제(structuredClone)로 몸이 갈리면 캐시도 새로 낸다. */
+const avPaths = new WeakMap();
+
 function stepAvatar(world, nation, data, av, tx, ty, step) {
   const dx = tx - av.x;
   const dy = ty - av.y;
@@ -616,13 +660,37 @@ function stepAvatar(world, nation, data, av, tx, ty, step) {
   const size = world.map?.size ?? data.world.size;
   const nx = clamp(av.x + (dx / d) * k, 1, size - 2);
   const ny = clamp(av.y + (dy / d) * k, 1, size - 2);
-  if (walkable(world, data, nx, ny, nation)) { av.x = round2(nx); av.y = round2(ny); return true; }
+  if (walkable(world, data, nx, ny, nation)) {
+    avPaths.delete(av);
+    av.x = round2(nx); av.y = round2(ny);
+    return true;
+  }
   /* ★ Sprint 1 — 미끄러짐은 **실제로 나아갈 때만** 성공이다. 목표가 축과 나란하면(ny === av.y)
      「지금 서 있는 칸이 밟을 만한가」를 되묻는 꼴이라 늘 참이 되고, 한 발짝도 못 가면서
      true 를 돌려 물가에서 영원히 제자리 걸음을 했다(아바타·주민과 같은 결함의 봇 판). */
   if (Math.abs(nx - av.x) > 1e-6 && walkable(world, data, nx, av.y, nation)) { av.x = round2(nx); return true; }
   if (Math.abs(ny - av.y) > 1e-6 && walkable(world, data, av.x, ny, nation)) { av.y = round2(ny); return true; }
-  return false;
+  /* ★ Sprint 2 — 곧장도 미끄러짐도 막혔다: 호수가 앞을 가로막았다. 주민과 같은 A* 로 길을 내고
+     (목표가 그대로면 캐시를 따라간다), 그 길의 다음 웨이포인트로 걷는다 — 물가 정지 종결. */
+  const key = `${Math.round(tx)},${Math.round(ty)}`;
+  let pc = avPaths.get(av);
+  if (!pc || pc.key !== key) {
+    pc = { key, path: findPath(world, nation, data, av.x, av.y, tx, ty), i: 1 };
+    avPaths.set(av, pc);
+  }
+  if (!pc.path) return false;
+  while (pc.i < pc.path.length
+    && dist(av.x, av.y, pc.path[pc.i].x, pc.path[pc.i].y) < 0.15) pc.i += 1;
+  if (pc.i >= pc.path.length) { avPaths.delete(av); return false; }
+  const wp = pc.path[pc.i];
+  const wd = dist(av.x, av.y, wp.x, wp.y);
+  const wk = Math.min(step, wd) / Math.max(0.001, wd);
+  const px = clamp(av.x + (wp.x - av.x) * wk, 1, size - 2);
+  const py = clamp(av.y + (wp.y - av.y) * wk, 1, size - 2);
+  if (!walkable(world, data, px, py, nation)) { avPaths.delete(av); return false; }
+  av.x = round2(px);
+  av.y = round2(py);
+  return true;
 }
 
 /** 목표에 손이 닿았다 — 사람과 **같은 함수**를 부른다 */
@@ -675,7 +743,12 @@ function driveActor(world, nation, data, actor, dt, out) {
 
   mem.think = (mem.think || 0) - dt;
   if (mem.think <= 0 || !targetValid(world, nation, data, mem.target)) {
-    mem.target = decide(world, nation, data, actor, player, av, { hauling: Boolean(mem.hauling) });
+    mem.target = decide(world, nation, data, actor, player, av, {
+      hauling: Boolean(mem.hauling),
+      /* ★ Sprint 2 — 크레딧이 비면 두뇌가 안다: 캐기 대신 순찰(걷는 그림)을 고른다 */
+      lowCredit: Boolean(actor.budgeted) && (mem.credit || 0) < 1,
+      mem,
+    });
     mem.think = brainCfg(data).decideEverySeconds ?? 3;
   }
   const tgt = mem.target;
@@ -718,6 +791,8 @@ function driveActor(world, nation, data, actor, dt, out) {
     return;
   }
   if (tgt.kind === 'rest') return;   // 다다랐으면 그 자리에서 숨을 고른다
+  /* ★ Sprint 2 — 순찰 지점에 닿았다. 다음 결정이 반대편(곳간↔일터)을 고른다 — 걸음이 끊기지 않는다. */
+  if (tgt.kind === 'patrol') { mem.target = null; mem.think = 0; return; }
   /* ★ §17-11 — 지시받은 자리에 닿았다. 다음 결정이 곧 「지시 대기(hold)」다 — think 를 비워
      명부의 상태가 한 박자 안에 갈아입게 한다. hold 는 그 자리를 지키는 것이 일이다. */
   if (tgt.kind === 'move') { mem.target = null; mem.think = 0; return; }
@@ -726,7 +801,13 @@ function driveActor(world, nation, data, actor, dt, out) {
      예산은 경제를 흔들지 않으려고 둔 다이얼이지 「싸우지 말라」는 규칙이 아니다.
      웨이브 한복판에서 힘이 다해 서 있는 동료는 자리를 채운 것이 아니라 비운 것이다. */
   const costly = tgt.kind === 'node' || tgt.kind === 'site';
-  if (actor.budgeted && costly && (mem.credit || 0) < 1) return;   // ★ §16-7 — 일터 곁에서 숨을 고른다
+  if (actor.budgeted && costly && (mem.credit || 0) < 1) {
+    /* ★ Sprint 2(§16-7 의 완성) — 일터 곁에서 **서서** 기다리던 시간이 「봇이 논다」의 정체였다.
+       목표를 비우고 곧장 다시 고른다 — lowCredit 갈래가 순찰(걷는 그림)을 돌려준다. */
+    mem.target = null;
+    mem.think = 0;
+    return;
+  }
   if (act(world, nation, data, actor, player, tgt, actor.now, out)) {
     if (actor.budgeted && costly) {
       mem.credit = Math.max(0, (mem.credit || 0) - 1);

@@ -105,6 +105,10 @@ test('주민 유입 — 굶으면 사람이 떠난다(죽지 않는다)', () => 
   __openChapter(n, 8);
   put(w, n, 'house', 1, 3);
   for (let i = 0; i < 4; i += 1) stepArrivals(w, n, data, rng);
+  /* ★ Sprint 2 — 이제 노는 손은 자동으로 농사에 붙어 틱 안에서 제 밥을 벌어 버린다(그게 기능이다).
+     이 시험의 계약은 「식량이 정말 없으면 떠난다」이므로, 수동 대기(manual)로 묶어
+     생산 자체를 끊는다 — 주인의 손가락은 자동 배치가 절대 못 넘는 문이다. */
+  for (const u of n.villagers) { u.manual = true; u.job = 'idle'; u.targetId = null; }
   n.resources.grain = 0;
   const pop0 = n.population;
   assert.ok(pop0 >= 1);

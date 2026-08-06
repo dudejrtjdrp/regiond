@@ -1162,7 +1162,27 @@
    * 여기 남은 것은 그림뿐이다: 휘두르고, 지고, 날라 부리고, 돌아온다. 자루는 **시간으로만** 찬다
    * (deliveriesPerDay 는 이제 왕복 빈도 다이얼일 뿐 크레딧과 무관하다).
    */
+  /* ★ Sprint 2 — 건설 주민의 망치질. 옛 화면은 farm/lumber/quarry/mine 만 작업 연출이 있어
+     서버가 「짓는 중」으로 아는 사람도 화면에서는 미동 없이 서 있었다 — "주민이 논다"의 체감 절반.
+     수치는 서버 몫(buildPoints)이고 여기는 그림뿐이다: 몸이 기울고(스윙 포즈) 먼지가 인다. */
+  function stepBuild(v, a, dt) {
+    var site = null;
+    var list = S.sites();
+    for (var i = 0; i < list.length; i++) if (list[i].id === v.targetId) { site = list[i]; break; }
+    if (!site || site.x == null) { a.phase = 'idle'; a.carry = 0; return false; }
+    var wk = S.villagerWorkCfg();
+    a.swingT = (a.swingT || 0) + dt;
+    a.pose = Math.max(0, 1 - (a.swingT % wk.swingSeconds) / (wk.swingSeconds * 0.47));
+    faceTo(a, site.x - a.x, site.y - a.y);
+    if (a.swingT - (a.lastHit || 0) >= wk.swingSeconds) {
+      a.lastHit = a.swingT;
+      if (GM.fx) GM.fx.dust(site.x, site.y, 2, '#c8a874');
+    }
+    return true;
+  }
+
   function stepWork(v, a, dt) {
+    if (v.job === 'build') return stepBuild(v, a, dt);
     var res = CARRY_JOBS[v.job];
     var node = v.targetId ? S.nodeById(v.targetId) : null;
     if (!res || !node) { a.phase = 'idle'; a.carry = 0; return false; }
@@ -1293,6 +1313,9 @@
         /* 일터에 닿았다 — 노동 연출로 넘어간다 */
         if (a.phase === 'travel' && CARRY_JOBS[v.job] && v.targetId && S.nodeById(v.targetId)) {
           a.phase = 'work'; a.swingT = 0; a.lastHit = 0;
+        } else if (a.phase === 'travel' && v.job === 'build' && v.targetId) {
+          /* ★ Sprint 2 — 공사장에 닿은 건설 주민은 망치를 든다(stepBuild) */
+          a.phase = 'work'; a.swingT = 0; a.lastHit = 0;
         } else {
           a.phase = 'idle';
         }
@@ -1399,7 +1422,8 @@
     node: '캐는 중', site: '짓는 중', creature: '싸우는 중', enemy: '싸우는 중',
     haul: '나르는 중', rest: '쉬는 중', flee: '물러나는 중', down: '쓰러짐', idle: '',
     /* ★ §17-11 — 수동 지시(동료 패널의 「이곳으로 보낸다」)를 받은 사람 */
-    move: '지시받은 곳으로', hold: '지시 대기'
+    move: '지시받은 곳으로', hold: '지시 대기',
+    patrol: '오가는 중'   /* ★ Sprint 2 — 크레딧을 기다리며 일터와 곳간을 오간다 */
   };
 
   function drawAvatars() {

@@ -22,6 +22,8 @@ import {
 } from './skills.js';
 import { createRng, rngFromState } from './rng.js';
 import { round2, round3, clamp } from './economy.js';
+// ★ Sprint 2 — 전투의 발: 수비는 깃발로, 영토 밖 일꾼은 마을로. 끝나면 제 일터로.
+import { battleStations, standDown } from './assign.js';
 
 const err = (code, message) => ({ ok: false, error: { code, message } });
 
@@ -130,6 +132,9 @@ export function startBattle(world, nation, data, opts = {}) {
     p.hp = p.maxHp ?? combatSkillCfg(data).playerHp;
     p.downUntil = 0;
   }
+  /* ★ Sprint 2 — 종이 울렸다. 수비 주민은 깃발 곁으로, 영토 밖 일꾼은 마을로 발을 옮긴다.
+     (민병 전력은 위에서 이미 스냅샷됐다 — 이 발걸음은 행동·연출의 층이다) */
+  battleStations(world, nation, data);
   return battle;
 }
 
@@ -543,6 +548,8 @@ export function finishBattle(world, nation, data) {
   nation.battlePlan = null;
   nation.battle = null;
   nation.lastBattleResult = result;
+  /* ★ Sprint 2 — 종이 그쳤다. 저마다 제 일터의 발치로 돌아간다. */
+  standDown(world, nation, data);
   return result;
 }
 

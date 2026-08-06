@@ -20,9 +20,9 @@
     "arriveTiles": 1.2
   },
   "brain": {
-    "_note": "1초 FSM. decideEverySeconds 마다 목표를 다시 고르고, 그 사이에는 고른 목표로 걷는다.",
+    "_note": "1초 FSM. decideEverySeconds 마다 목표를 다시 고르고, 그 사이에는 고른 목표로 걷는다. ★ Sprint 2: workRadiusBonus 6→26 — 주민(world.villagers.workRadiusBonus)과 같은 자로 잰다. 좁은 반경이 「캘 것이 없다 → rest」로 떨어지는 최대 원인이었다. nodeKinds 는 필요(need) → 노드 종류 매핑의 정본(하드코딩 제거) — 철·석탄·기름도 캘 수 있다(연구로 노두가 드러난 뒤의 이야기다. skills 규격이 없으면 nodeUsable 이 거른다). extraKinds 는 재고 부족분을 다 본 뒤에 붙는 꼬리 수요다. patrolArriveTiles: 크레딧이 빌 때 서 있는 대신 일터↔곳간을 오가는 순찰의 도착 판정. returnHpRatio: 도망친 뒤 이만큼 회복해야 다시 나간다(0.35 문턱에서 나갔다 들어왔다 하는 떨림 방지 — 전투 중에는 옛 규칙 그대로 fleeHpRatio 만 본다).",
     "decideEverySeconds": 3,
-    "workRadiusBonus": 6,
+    "workRadiusBonus": 26,
     "dangerRadius": 8,
     "engageRadius": 10,
     "fleeHpRatio": 0.35,
@@ -32,7 +32,17 @@
     "restNearTownRadius": 4,
     "creatureLeash": 26,
     "huntGrainDays": 5,
-    "huntRadius": 24
+    "huntRadius": 24,
+    "patrolArriveTiles": 1.5,
+    "extraKinds": ["ironOre", "coal", "oil"],
+    "nodeKinds": {
+      "wood": ["forest"],
+      "stone": ["rock"],
+      "grain": ["berry", "fertile", "field", "water"],
+      "ironOre": ["iron"],
+      "coal": ["coal"],
+      "oil": ["oil"]
+    }
   },
   "steward": {
     "_note": "★ §16-6 집사 — 자동 플레이·동료가 나라 살림(집·저장고·모집)도 본다. 사람과 같은 문(buildingUnlocked·commandUnlocked·startBuild autoSpot·recruitResident)을 그대로 지나고, 값의 costReserve 배가 곳간에 있어야만 짓는다(살림을 비우지 않는다). 동료 단독일 때는 botsFromChapter(첫 웨이브 뒤)부터만 — 튜토리얼의 「처음 세워 보세요」는 사람의 몫이다. 자동 플레이는 사람이 스스로 켠 손이라 장만 열려 있으면 언제든 본다.",
