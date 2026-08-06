@@ -1273,7 +1273,9 @@
     var n = nation();
     var r = n && n.roles && n.roles[key];
     if (!r || !r.holder) return null;
-    if (r.holder === 'player') return '그대';
+    /* ★ §19-A — 여럿이 함께 다스린다. 사람이 앉은 자리에는 **그 사람의 이름**을 적는다:
+       '그대'로 못 박아 두면 남의 자리까지 내 것처럼 보인다(내 자리도 이름으로 부른다). */
+    if (r.holder === 'player') return nameOf(r.owner) || myName();
     return r.npcName || roleMeta(key).name;
   }
   function mandateOpen() {
@@ -1450,6 +1452,15 @@
   }
   function decisionQueue() { var n = nation(); return (n && n.decisionQueue) || []; }
   function members() { var n = nation(); return (n && n.members) || []; }
+  /** ★ §19-A — 명부에서 그 아바타의 이름을 찾는다(못 찾으면 아이디 그대로 — 빈칸보다 낫다) */
+  function nameOf(avatarId) {
+    if (avatarId == null) return null;
+    var list = members();
+    for (var i = 0; i < list.length; i++) if (list[i].avatarId === avatarId) return list[i].name || avatarId;
+    return avatarId;
+  }
+  /** ★ §19-A — 내가 적어 넣은 이름. 이름표·명부가 이 하나를 본다('그대'는 마지막 그물이다) */
+  function myName() { return nameOf(S.avatarId) || '그대'; }
   function ap() { var n = nation(); return (n && n.ap) || { current: 0, max: 3 }; }
 
   function wordFor(ratio) {
@@ -1517,6 +1528,7 @@
     storageLimit: storageLimit, storageFull: storageFull, storageInfo: storageInfo,
 
     myRole: myRole, syncYou: syncYou, hasRole: hasRole, roleHolder: roleHolder, isVacant: isVacant,
+    nameOf: nameOf, myName: myName,
     holderName: holderName, mandateOpen: mandateOpen, members: members,
     tagName: tagName, nationTags: nationTags,
     hasForeignPrices: hasForeignPrices, hasPreciseWave: hasPreciseWave,

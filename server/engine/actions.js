@@ -216,6 +216,10 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
     xp: round2(player.skills[spec.skill].xp),
     ruin,
     cache,
+    /* ★ §19-A — 세상에서 **지워진** 자리. 잔량(amount)·그루터기(depleted)와 달리 지움은 화면의
+       노드 사전에서 빼야 하는 일이고, 실시간 스윙은 일 틱 worldDiff 를 기다리지 않는다.
+       (없으면 빈 목록이 아니라 아예 실리지 않는다 — 옛 화면과의 계약이 그대로다) */
+    ...(cache ? { removedNodes: [node.id] } : {}),
   };
 }
 

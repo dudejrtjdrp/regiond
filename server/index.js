@@ -20,6 +20,8 @@ import {
   buildNationView, buildWorldState, buildWorldSnapshot, buildWorldDiff, buildRevealDiff,
   // ★ Sprint 3 — 한 번의 방송 동안만 사는 파생 그릇(view.js 머리말 참고)
   newViewCache,
+  // ★ §19-A — 아바타 방송의 유일한 정본(down·bot·color·role·hp·정규화 외형). 아래 emitAvatars 참고.
+  avatarViews,
 } from './engine/view.js';
 import { buildRegencyReport, markSeen } from './engine/report.js';
 import { evaluateProgress } from './engine/progression.js';
@@ -92,6 +94,20 @@ const http = createServer(app);
 //   갈아타지 못하는 망에서는 폴링으로 계속 논다 — 그래서 transports 를 좁히지 않는다.
 const io = new Server(http, { cors: { origin: '*' } });
 
+/**
+ * ★ §19-A — 아바타 목록 방송의 **단 하나의 문**.
+ * 「왜」 함수를 따로 두나 — 여기 말고 여섯 자리에서 `Object.values(nation.avatars)` 를 날것 그대로
+ * 흘려보내고 있었다. 그 날것에는 `down`·`bot`·`color`·`role`·`state`·`hp` 가 없다(PROTOCOL §0-P 표가
+ * 있다고 적어 둔 칸들이다). 그런데 `worldDiff.avatars` 는 같은 목록을 avatarViews 로 빚어 보낸다 —
+ * 즉 화면은 **같은 이름의 두 소스**를 번갈아 받았다: 걸으면 날것이 와서 쓰러짐·동료 표시가 사라지고,
+ * 다음 방송이 오면 되살아났다. 팀원의 쓰러짐이 안 보이던 것도, 외형이 흔들리던 것도 여기서 났다.
+ */
+function emitAvatars(gameId, nation, exceptSocket = null) {
+  if (!nation) return;
+  const to = exceptSocket ? exceptSocket.to(gameId) : io.to(gameId);
+  to.emit('avatars', avatarViews(nation, data));
+}
+
 // ────────────────────────────────────────────────────────────────
 // 게임 런타임
 // ────────────────────────────────────────────────────────────────
@@ -151,6 +167,10 @@ class GameRuntime {
       const { events, shots, kills } = stepEcology(this.world, nation, data, dt);
       const painful = events.filter((e) => e.kind === 'player_down' || e.kind === 'wild_hit' || e.kind === 'player_revived');
       if (painful.length) this.emitImmediate(nation.id, painful);
+      /* ★ §19-A — 쓰러짐·부활은 **판(state)이 바뀐 사건**이다. 예전에는 알림(playerDown/playerRevived)만
+         흘리고 판은 안 다시 보냈다: 그래서 일어난 뒤에도 「그대 — 쓰러짐」이 다음 일 틱(최대 10분)까지
+         남았고(뷰의 you.player.down 이 낡았다), 팀원의 쓰러짐도 아바타 목록에 실리지 못했다. */
+      if (painful.some((e) => e.kind !== 'wild_hit')) this.broadcastNationState();
       /* ★ GDD3 §15-A — 터렛이 쏜 발과 잡은 것. 짐승 좌표와 **같은 박자**로 흘려보낸다:
          화면이 두 채널을 맞물릴 필요 없이, 받은 그 순간의 좌표로 궤적을 그린다. */
       io.to(this.gameId).emit('creatures', {
@@ -180,7 +200,7 @@ class GameRuntime {
       /* ★ GDD3 §15-C — 동료의 한 걸음. 사람과 같은 함수(actionSwing·huntSwing·combatSwing)를 타므로
          화면이 받는 것도 사람의 스윙과 **같은 규약**이다: 자리는 avatars, 손맛은 swing 이 나른다. */
       const crew = stepCompanions(this.world, nation, data, dt);
-      if (crew.avatars) io.to(this.gameId).emit('avatars', Object.values(nation.avatars || {}));
+      if (crew.avatars) emitAvatars(this.gameId, nation);
       for (const a of crew.actions) {
         io.to(this.gameId).emit('swing', { ...a, resources: liveResources(nation) });
       }
@@ -373,6 +393,23 @@ class GameRuntime {
       case 'chapter_done': io.to(this.gameId).emit('chapterDone', e.data); break;
       case 'chapter_open': io.to(this.gameId).emit('chapterOpen', e.data); break;
       default: break;
+    }
+  }
+
+  /**
+   * ★ §19-A — **판(state)만** 방 전체에 다시 보낸다. 세계(worldDiff·worldState)는 건드리지 않는다.
+   * 「왜」 반쪽짜리 방송이 따로 필요한가 — 사람이 들고 나는 일, 쓰러지고 일어나는 일은 **나라의 장부**
+   * (명부·동료 자리·아바타 목록·쓰러짐 표)만 바꾼다. 세계 변경분까지 함께 흘리면 그 자리에서 아무것도
+   * 안 바뀐 worldDiff 가 한 장 더 끼어들어, 「다음 worldDiff 를 기다리는」 쪽의 차례를 흐트러뜨린다.
+   */
+  broadcastNationState() {
+    const cache = newViewCache();
+    for (const [socketId, session] of sessions) {
+      if (session.gameId !== this.gameId) continue;
+      const sock = io.sockets.sockets.get(socketId);
+      if (!sock) continue;
+      sock.emit('state', buildNationView(this.world, session.nationId, session.role, data,
+        { avatarId: session.avatarId, cache }));
     }
   }
 
@@ -721,6 +758,11 @@ io.on('connection', (socket) => {
       .find((k) => nation.roles?.[k]?.holder === 'player' && (nation.roles[k].owner ?? avatarId) === avatarId) ?? null;
     const { appearance } = normalizeAppearance(payload.appearance, data, defaultAppearance(data));
 
+    /* ★ §19-A — 한 소켓은 한 방에만 있는다. socket.io 의 join 은 예전 방을 떠나지 않으므로,
+       같은 소켓이 두 번 접속하면(재접속·코드 갈아타기) 방 둘의 `io.to(...)` 방송이 **번갈아** 꽂힌다
+       — 자원칸이 널뛰고 안개·노드·아바타가 두 세상 사이에서 오갔다. 들어오기 전에 옛 방을 뗀다. */
+    const before = sessions.get(sock.id);
+    if (before && before.gameId !== rt.gameId) sock.leave(before.gameId);
     sessions.set(sock.id, { gameId: rt.gameId, nationId, role, playerName, avatarId, worldTick: -1 });
     sock.join(rt.gameId);
     nation.online = true;
@@ -755,7 +797,7 @@ io.on('connection', (socket) => {
     sock.emit('joined', joined);
     if (ack) ack({ ok: true, ...joined });
     sock.emit('chatHistory', chatHistory(rt.world, data));
-    io.to(rt.gameId).emit('avatars', Object.values(nation.avatars || {}));
+    emitAvatars(rt.gameId, nation);
     sock.emit('world', payloads.world);
     sessions.get(sock.id).worldTick = rt.world.tick;
     sock.emit('state', payloads.state);
@@ -767,6 +809,10 @@ io.on('connection', (socket) => {
       sock.emit('report', buildRegencyReport(rt.world, nation, data));
     }
     markSeen(nation, rt.world.tick);
+    /* ★ §19-A — 새 사람이 들어온 사실은 **방 전체의 판**이 바뀐 것이다(명부 `nation.members`,
+       비켜난 동료의 자리). 예전에는 들어온 사람에게만 판을 보내, 먼저 있던 사람의
+       「함께 다스리는 이들」에는 다음 일 틱(최대 10분)까지 새 사람이 뜨지 않았다. */
+    rt.broadcastNationState();
   }
 
   for (const type of CLIENT_COMMANDS) {
@@ -798,6 +844,14 @@ io.on('connection', (socket) => {
         out.resources = liveResources(rt.world.nations[s.nationId]);
         if (ack) ack(out);
         socket.to(s.gameId).emit('swing', { avatarId: identity.avatarId, type, ...out });
+        /* ★ §19-A — 궤를 열면 그 자리는 세상에서 **지워진다**(그루터기가 아니다). 그런데 실시간 경로는
+           swing 중계만 했고, 화면의 노드 사전은 잔량만 고쳐 쓸 뿐 지우지 못한다 — 팀원이 이미 연 궤가
+           내 화면에 남아 「그런 자리가 없다」를 부르던 자리다. 지운 사실만 담은 작은 worldDiff 를 방에 흘린다. */
+        if (out.removedNodes?.length) {
+          io.to(s.gameId).emit('worldDiff', {
+            tick: rt.world.tick, sinceTick: rt.world.tick, reveal: true, removedNodes: out.removedNodes,
+          });
+        }
         // ★ 스윙 하나로 장이 넘어갈 수 있다(「나무를 세 번」·「목재 10」). 그 순간을 일 틱까지 미루지 않는다.
         //   장이 실제로 넘어갔을 때만 상태를 다시 빚는다 — 스윙마다 NationView 를 만들면 초당 몇 번씩 돌게 된다.
         if (res.events?.length) {
@@ -825,7 +879,7 @@ io.on('connection', (socket) => {
         const res = applyCommand(rt.world, s.nationId, { ...payload, ...identity, type, payload }, data, rt.rng);
         if (!res.ok) { if (ack) ack({ ok: false, error: res.error }); return undefined; }
         const nation = rt.world.nations[s.nationId];
-        socket.to(s.gameId).emit('avatars', Object.values(nation.avatars || {}));
+        emitAvatars(s.gameId, nation, socket);
         const reveal = buildRevealDiff(rt.world, s.nationId, data, res.revealed);
         if (reveal) io.to(s.gameId).emit('worldDiff', reveal);
         if (res.events?.length) { rt.emitImmediate(s.nationId, res.events); rt.broadcastState(); }
@@ -868,10 +922,10 @@ io.on('connection', (socket) => {
         out.roles = roleSummary(rt.world.nations[s.nationId], data);
         out.you = { avatarId: s.avatarId ?? s.playerName, role: mine, roleName: out.roleName, takenFrom: res.takenFrom ?? null };
       }
-      if (type === 'setAppearance') io.to(s.gameId).emit('avatars', Object.values(rt.world.nations[s.nationId].avatars || {}));
+      if (type === 'setAppearance') emitAvatars(s.gameId, rt.world.nations[s.nationId]);
       /* ★ §17-11 — 동료의 새 이름·모양새도 setAppearance 처럼 그 자리에서 방 전체에 흐른다
          (다음 상태 방송을 기다리면 이름표가 잠깐 옛 사람으로 남는다). */
-      if (type === 'customizeCompanion') io.to(s.gameId).emit('avatars', Object.values(rt.world.nations[s.nationId].avatars || {}));
+      if (type === 'customizeCompanion') emitAvatars(s.gameId, rt.world.nations[s.nationId]);
       if (type === 'chat' && res.message) io.to(s.gameId).emit('chat', res.message);
       /* ★ §17-16 — 이웃을 만났으니 그 나라의 시세가 그 자리에서 열린다.
          ★ Sprint 3 — 이 자리에 있던 `socket.emit('worldState', ...)` 는 걷어냈다:
@@ -907,12 +961,14 @@ io.on('connection', (socket) => {
       delete nation.avatars[who];
       syncCompanionSeats(rt.world, nation, data);
       bindCompanionRoles(nation, data);
-      io.to(s.gameId).emit('avatars', Object.values(nation.avatars || {}));
+      emitAvatars(s.gameId, nation);
     }
     if (!stillOnline) {
       nation.online = false;
       markSeen(nation, rt.world.tick);
     }
+    // ★ §19-A — 나간 사실도 방 전체의 판이다(명부에서 「자리를 비웠습니다」로 바뀐다)
+    if (stillOnline) rt.broadcastNationState();
   });
 });
 

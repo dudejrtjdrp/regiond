@@ -439,7 +439,11 @@ function buildApView(nation, data) {
   };
 }
 
-function avatarViews(nation, data) {
+/**
+ * ★ §19-A — 아바타 목록의 **정본**. `state.nation.avatars` · `worldDiff.avatars` · `avatars` 이벤트가
+ *   모두 이 하나를 쓴다(PROTOCOL §0-P: bot·color·role·roleName·state·down·hp 는 서버가 실어 준다).
+ */
+export function avatarViews(nation, data) {
   return Object.values(nation.avatars || {}).map((a) => {
     /* ★ GDD3 §15-C — 이 아바타가 동료인가. 화면은 **아이디를 뜯어보지 않는다**:
        봇 여부·이름표 색·맡은 자리를 서버가 실어 보낸다(신원 판정은 서버의 몫이다). */

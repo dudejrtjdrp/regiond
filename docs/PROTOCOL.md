@@ -93,6 +93,11 @@ defenseIndex = Σ(터렛 dps × 사거리 ÷ turretRangeReference) + 민병 dps 
 | `state.nation.companions[]` | `{id,seat,name,color,role,roleName,state,hp,maxHp,down}` | ★ 정원을 채운 동료 요약(명부·각료 화면) |
 | `state.nation.seats` | 정수 | ★ 국가 정원(기본 5) |
 | `state.nation.roles[k]` | `botId` | ★ 그 자리를 맡은 동료의 아바타 — 각료 카드와 들에 선 사람을 잇는다 |
+
+**★ §19-A 아바타 방송의 정본** — `avatars` 이벤트 · `state.nation.avatars` · `worldDiff.avatars` 는
+**같은 함수(view.avatarViews)** 가 빚는다. 서버가 `nation.avatars` 를 날것으로 흘리면 위 표의 칸
+(`bot`·`color`·`role`·`roleName`·`state`·`down`·`hp`·정규화된 `appearance`)이 통째로 빠져,
+화면은 같은 이름의 두 소스를 번갈아 받는다(팀원의 쓰러짐이 사라졌다 나타나고 외형이 흔들린다).
 | `state.nation.members[]` | `bot` | ★ 명부에도 동료가 함께 오른다 |
 | `state.you` | `autoPlay {on,active,suspendedFor,suspendSeconds}` | ★ 자동 플레이 상태(서버 권위) |
 | `/api/config` | `companions {enabled,seats,nameplateColors,autoPlay}` | 규칙만. 누가 어느 자리인지는 state 로만 간다 |
@@ -1042,6 +1047,14 @@ ack / `joined` 이벤트 payload:
 **접속 순서 계약(어기면 P0)** — 서버는 `joined` 를 보내기 **전에** 월드 스냅샷을 만든다. 실패하면 `joined` 를 보내지 않고 `serverError {code:'NO_WORLD'}` 로 접속을 물린다. 성공 시 순서:
 `joined` → `chatHistory` → `avatars` → `world` → `state` → `worldState` → `chronicle` → (`battleStart` 진행 중이면) → (`report` 섭정 보고가 있으면)
 
+**★ §19-A 방 전체 재방송 계약** — 사람이 들어오거나 나가면, 들어온 사람의 스냅샷을 다 보낸 **뒤에**
+서버는 방 전체에 `state`·`worldDiff`·`worldState` 를 한 번 더 흘린다. 명부(`state.nation.members`)와
+비켜난 동료의 자리가 바뀌기 때문이다 — 이게 없으면 먼저 있던 사람의 「함께 다스리는 이들」에
+새 사람이 다음 일 틱(최대 `dayRealSeconds`)까지 뜨지 않는다.
+
+**★ §19-A 한 소켓 = 한 방** — 같은 소켓이 다시 `join` 하면 서버는 옛 방을 먼저 뗀다(`leave`).
+방을 겹쳐 두면 두 판의 `io.to(room)` 방송이 번갈아 꽂혀 자원·안개·노드·아바타가 두 세상 사이에서 오간다.
+
 `seed` 는 새 정착지를 열 때만 쓰인다(이미 있는 `gameId` 면 무시). 화면은 주소 `?seed=…` 가 붙어 있을 때만 실어 보낸다 —
 하니스·스모크가 **같은 땅을 다시 받기 위한 손잡이**이고, 평소에는 서버가 새 씨앗을 고른다.
 
@@ -1529,6 +1542,11 @@ ack / `joined` 이벤트 payload:
 { "avatarId": "가온", "type": "actionSwing", "nodeId": "n42", "gained": { "wood": 4.2 }, "cycle": false,
   "amount": 41, "depleted": false, "resources": { "grain": 12, "wood": 17.2, "stone": 5 } }
 ```
+`removedNodes: ["n42"]` — ★ §19-A. **세상에서 지워진 자리**(궤를 열면 자리가 사라진다 — 그루터기가 아니다).
+잔량(`amount`)·그루터기(`depleted`)로는 화면의 노드 사전에서 뺄 수 없어서 따로 싣는다.
+같은 순간 서버는 방 전체에 `worldDiff {tick, removedNodes}` 도 흘린다(발신자 포함 — 지움은 모두가 같이 봐야 한다).
+지울 것이 없으면 이 칸은 **아예 실리지 않는다**(빈 배열이 아니다).
+
 그 스윙의 ack 와 같은 payload에 `avatarId`·`type` 만 얹은 것이다. 창고(`resources`)와 노드 잔량은 나라 공용이므로
 동료의 화면도 함께 갱신된다 — 다만 `level`·`xp` 같은 **솜씨 장부는 제 것만** 쓴다(남의 스윙으로 내 레벨을 덮으면 안 된다).
 

@@ -1691,7 +1691,9 @@
     // ★ §12-7 — 마차가 굴러오는 동안 개척자는 아직 마차 안에 있다. 내리는 순간 나타난다.
     if (me && !(GM.avatar.isHidden && GM.avatar.isHidden())) {
       var sw = GM.swing ? GM.swing.pose() : { phase: 0, tool: null };
-      drawLord(me.x, me.y, S.S.you.appearance, me.dir, me.frame, '그대', '#f6cf7a', mine,
+      /* ★ §19-A — 이름표는 **제가 적어 넣은 이름**이다. '그대'로 못 박아 두었더니 여럿이 함께 있을 때
+         내 머리 위만 2인칭이 떠서, 팀원 화면의 내 이름과도 어긋났다(2인칭은 문장에서만 쓴다). */
+      drawLord(me.x, me.y, S.S.you.appearance, me.dir, me.frame, S.myName(), '#f6cf7a', mine,
         sw.phase, sw.tool, S.downed());
     }
   }
