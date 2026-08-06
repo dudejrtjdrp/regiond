@@ -1,12 +1,12 @@
 {
-  "_note": "엔드리스 침공 웨이브 — docs/GDD3.md §6. 시즌·고정 스케줄은 폐기됐다. 첫 위협은 정착지 티어 startTier 도달 후 firstDelayDays 뒤, 이후 intervalDays 간격으로 무한히 온다. 웨이브 파워 = basePower × growth^n × 난이도 배수 × 변형 배수(로테이션 한 바퀴마다). 전투는 결정론 서브틱 실시뮬(server/engine/battle.js)이고, 여기 있는 hp/dps/speed 가 그 시뮬의 입력이다.",
+  "_note": "엔드리스 침공 웨이브 — docs/GDD3.md §6. 시즌·고정 스케줄은 폐기됐다. 첫 위협은 정착지 티어 startTier 도달 후 firstDelayDays 뒤, 이후 intervalDays 간격으로 무한히 온다. 웨이브 파워 = basePower × growth^n × 난이도 배수 × 변형 배수(로테이션 한 바퀴마다). 전투는 결정론 서브틱 실시뮬(server/engine/battle.js)이고, 여기 있는 hp/dps/speed 가 그 시뮬의 입력이다. ★ §17-E 절충안(2026-08-06, 유저 결정): §17-8 영토 확대(시작 6→9·티어 반경 전면 확대)는 같은 병력으로 더 긴 둘레를 지키게 해 웨이브5 생존율을 68.4%→45%로 얇게 만들었다(GDD3 §17-E 원인 분해 표 — 티어3 도달에는 손대지 않는다). 영토 확대도 「초반이 심심하다」에 답한 설계라 되돌리지 않고, 적 쪽을 그만큼 내린다 — basePower 520→470(−9.6%, ±10%대 다이얼). simulate 4/4 재확인으로 확정한다.",
   "startTier": 2,
   "firstDelayDays": 6,
   "intervalDays": [
     5,
     7
   ],
-  "basePower": 520,
+  "basePower": 470,
   "growth": 1.07,
   "rotation": [
     "wolf",
