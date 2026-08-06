@@ -191,7 +191,12 @@ export function resolveRuinChoice(world, nation, decision, choice, data, rng) {
     switch (out.op) {
       case 'artifactRoll': {
         if (rng.chance(out.chance)) {
-          artifact = grantRandomArtifact(nation, data, rng, world.tick);
+          /* ★ §17-17 버그 수정 — 큰 유적의 gradeBoost 가 여태 굴림에 실리지 않았다.
+             actions.js 가 뒤진 유적의 등급 보정을 nation.ruinGradeBoost 에 쌓아 두기만 했고
+             카드를 여는 이 자리가 그것을 읽지 않았다: 「죽은 자의 성채」를 스무 번 두드려도
+             나오는 물건의 급이 「옛 자취」와 똑같았다. 여기서 넘겨 쓰고 **쓴 즉시 0 으로 되돌린다**
+             (한 번 쌓은 보정은 한 번의 굴림에만 얹힌다 — 안 그러면 성채 하나로 영영 후해진다). */
+          artifact = grantRandomArtifact(nation, data, rng, world.tick, consumeRuinGradeBoost(nation));
           lines.push(artifact ? `${out.successText} (${artifact.name})` : out.successText);
           applied.push(artifact ? `artifact:${artifact.key}` : 'artifact:none');
         } else {
@@ -234,12 +239,32 @@ function applyRuinEffect(nation, fx, data, applied) {
   }
 }
 
-/** 기존 등급표(balance.artifacts.gradeWeights)를 그대로 재사용한 유물 드랍 */
-function grantRandomArtifact(nation, data, rng, tick) {
+/**
+ * ★ §17-17 — 쌓인 유적 등급 보정을 꺼내 쓰고 그 자리에서 비운다. 「쓰고 되돌린다」가 한 곳에만 있어야
+ * 다음에 부르는 쪽(숨은 궤·상자)이 실수로 두 번 얹지 않는다.
+ */
+export function consumeRuinGradeBoost(nation) {
+  const boost = nation.ruinGradeBoost || 0;
+  nation.ruinGradeBoost = 0;
+  return boost;
+}
+
+/**
+ * 기존 등급표(balance.artifacts.gradeWeights)를 그대로 재사용한 유물 드랍.
+ * ★ §17-17 gradeBoost — 뽑힌 등급을 그만큼 위로 민다(common→rare→unique→legendary).
+ *   가중치 표를 고치지 않는 까닭: 표는 「보통 무엇이 나오는가」의 정본이고 유적 크기는 그 위에 얹는
+ *   보정이다. 표를 흔들면 상자·의회 드랍까지 함께 움직인다. 민 등급이 동나 있으면 원래 등급으로 내려온다
+ *   — 보정 때문에 오히려 빈손으로 돌아오는 일은 없어야 한다.
+ */
+export function grantRandomArtifact(nation, data, rng, tick, gradeBoost = 0) {
   const cfg = data.balance.artifacts;
-  const grade = rng.weighted(Object.entries(cfg.gradeWeights).map(([value, weight]) => ({ value, weight })));
+  const order = Object.keys(cfg.gradeWeights);
+  const rolled = rng.weighted(order.map((value) => ({ value, weight: cfg.gradeWeights[value] })));
   const owned = new Set((nation.artifacts || []).map((a) => a.key));
-  const pool = data.artifacts.list.filter((a) => a.grade === grade && !owned.has(a.key));
+  const inGrade = (g) => data.artifacts.list.filter((a) => a.grade === g && !owned.has(a.key));
+  const up = order[Math.min(order.length - 1, order.indexOf(rolled) + Math.max(0, gradeBoost))];
+  let pool = inGrade(up);
+  if (!pool.length) pool = inGrade(rolled);
   if (!pool.length) return null;
   const pickKey = rng.pick(pool).key;
   const entry = grantArtifact(nation, pickKey, tick, data);

@@ -12,8 +12,14 @@
 //
 // 유적 탭은 따로다 — 어떤 유적을 발견했고 얼마나 뒤졌는지가 남는다(§13-B-4).
 // ★ 자료 접근자는 여기서 직접 만든다 — ecology.js 에서 끌어오면 두 모듈이 서로를 부르는 고리가 된다.
+// ★ §17-17 — 새 땅의 첫 발견도 「무엇을 보았는가」의 장부다. 지형 이름은 월드가, 한 줄 기록은 연대기가 쥔다.
+//   (world.js → chronicle.js 를 직접 잇지 않는 까닭: chronicle → tiers → world 로 고리가 생긴다.)
+import { terrainNameAt } from './world.js';
+import { record } from './chronicle.js';
+
 const creatureCfg = (data) => data.creatures;
 const creatureDefs = (data) => data.creatures.defs;
+export const biomeCfg = (data) => data.world.terrain.biomes ?? null;
 
 export function ensureCodex(nation) {
   const c = (nation.codex ||= {});
@@ -68,6 +74,42 @@ export function recordRuin(nation, node, tick = 0) {
   r.cycles = (r.cycles || 0) + 1;
   r.lastTick = tick;
   return r;
+}
+
+// ────────────────────────────────────────────────────────────────
+// ★ §17-17 — 바이옴 첫 발견 (설산·밀림)
+// ────────────────────────────────────────────────────────────────
+/**
+ * 아바타·동료가 **선 칸**이 처음 보는 지형이면 그날을 적고 한 번의 몫을 준다(지형마다 한 번뿐).
+ * 안개가 걷힌 땅 전체를 훑지 않는 까닭: 발견은 '멀리서 본 것'이 아니라 '걸어 들어간 것'이기 때문이고,
+ * 걸음마다 부르는 자리라 size² 를 훑으면 값이 감당되지 않는다.
+ * @returns {Array<{code,name,text,morale,tick}>} 이번에 처음 밟은 지형들
+ */
+export function discoverBiomes(world, nation, data, tick = 0) {
+  const cfg = biomeCfg(data);
+  if (!cfg || !nation?.isPlayer) return [];
+  const seen = (nation.biomesSeen ||= {});
+  const out = [];
+  for (const a of Object.values(nation.avatars || {})) {
+    const code = terrainNameAt(world.map, Math.round(a.x), Math.round(a.y), data);
+    if (!code || seen[code] != null) continue;
+    if (!(cfg.codes || []).includes(code)) continue;
+    seen[code] = tick;
+    out.push(rewardBiome(world, nation, data, code, tick));
+  }
+  return out;
+}
+
+/** 첫 발견의 몫 — 연대기 한 줄 + 사기 한 번. 수치와 문구는 전부 자료(terrain.biomes.discovery)다. */
+function rewardBiome(world, nation, data, code, tick) {
+  const d = biomeCfg(data).discovery || {};
+  const name = data.world.terrain.names?.[code] ?? code;
+  const text = d.text?.[code] ?? name;
+  const gain = d.morale ?? 0;
+  const m = data.balance.morale;
+  nation.morale = Math.max(m.min, Math.min(m.max, (nation.morale || 0) + gain));
+  record(world, { kind: 'discovery', title: d.title ?? name, text, data: { biome: code } }, data);
+  return { code, name, text, morale: gain, tick };
 }
 
 // ────────────────────────────────────────────────────────────────

@@ -309,8 +309,20 @@
       GM.fx.sparkle(t.x, t.y, 10, '#b39ad6');
       GM.fx.floatText(t.x, t.y - 1.1, '옛 자취 ' + res.ruin.gauge + '/' + res.ruin.threshold, '#d0b8f0', 12);
     }
+    // ★ §17-17 — 궤가 열렸다. 자리는 그 자리에서 사라지므로 화면 장부에서도 함께 지운다.
+    if (res.cache) cacheOpened(t, res.cache);
     checkLevel(res);
     stats.swings++;
+  }
+
+  /** ★ §17-17 — 뚜껑이 열린 순간. 금빛 한 번, 나온 것 한 줄, 그리고 자리는 사라진다. */
+  function cacheOpened(t, c) {
+    GM.fx.sparkle(t.x, t.y, 16, '#f6cf7a');
+    GM.fx.ring(t.x, t.y, '#f6cf7a', 0.2, 2.2, 0.7, 3);
+    GM.fx.floatText(t.x, t.y - 1.2, '금 ' + c.gold, '#f6cf7a', 14);
+    if (c.artifact) U.toast(c.artifact.name + ' — 궤 안에 있었다', 'good', 3200);
+    if (GM.sfx) GM.sfx.play('harvest');
+    S.dropNode(c.nodeId);
   }
 
   /** 한 주기 완료 — 나무가 넘어가고 그루터기가 남는다 */

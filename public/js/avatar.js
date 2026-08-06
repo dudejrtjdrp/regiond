@@ -190,10 +190,25 @@
         if (GM.sfx) GM.sfx.play('deny');
       }
       if (res.revealedNodes && res.revealedNodes.length) {
-        U.toast('숨어 있던 옛 자취를 찾았습니다.', 'good', 4200);
+        // ★ §17-17 — 숨어 있던 것이 유적만은 아니다. 찾은 것의 이름을 그대로 부른다.
+        var kinds = res.revealedKinds || [];
+        var what = kinds.indexOf('cache') >= 0 ? '숨은 궤' : '옛 자취';
+        U.toast('숨어 있던 ' + what + '를 찾았습니다.', 'good', 4200);
         if (GM.sfx) GM.sfx.play('open');
       }
+      // ★ §17-17 — 처음 밟은 땅. 문구는 서버(자료)가 쥔다 — 화면이 제 낱말을 만들지 않는다.
+      if (res.biomes && res.biomes.length) announceBiomes(res.biomes);
     });
+  }
+
+  /** ★ §17-17 — 새 땅의 첫 발견. 한 지형에 한 번뿐이라 요란해도 된다(반짝임 + 한 줄). */
+  function announceBiomes(list) {
+    for (var i = 0; i < list.length; i++) {
+      var b = list[i];
+      U.toast(b.text || b.name, 'good', 5200);
+      if (GM.fx) GM.fx.sparkle(me.x, me.y, 18, '#eef2f6');
+      if (GM.sfx) GM.sfx.play('open');
+    }
   }
 
   function moveTo(x, y) {

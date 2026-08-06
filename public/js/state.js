@@ -111,7 +111,10 @@
     { key: 'forest',  name: '숲',        color: '#456b39', color2: '#527a42' },
     { key: 'rock',    name: '바위 노두',  color: '#8b8577', color2: '#9c968a' },
     { key: 'water',   name: '물',        color: '#3f6f96', color2: '#4d81ab' },
-    { key: 'fertile', name: '기름진 땅',  color: '#9c8341', color2: '#ae944e' }
+    { key: 'fertile', name: '기름진 땅',  color: '#9c8341', color2: '#ae944e' },
+    /* ★ §17-17 바이옴 — 지도 북쪽 끝의 설산, 남쪽 끝의 밀림. 축소본(미니맵)이 이 색으로 칠한다. */
+    { key: 'snow',    name: '설산',      color: '#d8dee6', color2: '#eef2f6' },
+    { key: 'jungle',  name: '밀림',      color: '#2c4a26', color2: '#37592e' }
   ];
 
   /* ── 자원 자리(노드) ── */
@@ -125,6 +128,8 @@
     coal:    { name: '석탄 노두',  color: '#4a4a52', job: 'mine',   res: 'coal',    verb: '캔다',   skill: 'mining', icon: 'coal' },
     oil:     { name: '유막',      color: '#6f5aa8', job: 'mine',   res: 'oil',     verb: '퍼낸다', skill: 'mining', icon: 'oil' },
     ruin:    { name: '옛 자취',   color: '#b39ad6', job: 'scout',  res: null,      verb: '살핀다', skill: 'build',  icon: 'gem' },
+    /* ★ §17-17 — 숨은 궤. 붙일 사람도 캘 자원도 없다(job·res 가 없다): 왕이 손수 여는 한 번뿐인 자리다. */
+    cache:   { name: '숨은 궤',   color: '#d8c070', job: null,     res: null,      verb: '연다',   skill: 'build',  icon: 'gem' },
     field:   { name: '밭',        color: '#e0c65a', job: 'farm',   res: 'grain',   verb: '거둔다', skill: 'farm',   icon: 'farmTile' }
   };
 

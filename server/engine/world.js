@@ -49,6 +49,23 @@ function octaveSample(fields, grids, x, y, size) {
   return v / total;
 }
 
+/**
+ * ★ §17-17 바이옴 덧칠 — 옛 다섯 지형을 먼저 정하고 그 위를 위도로 덮는다.
+ * 난수를 한 톨도 쓰지 않는다: 같은 씨앗은 언제나 같은 자리에 같은 설산·밀림을 낸다.
+ * 지도 한복판(protectRadius)은 손대지 않는다 — 시작 밸런스는 옛 다섯 지형 위에서 검증된 값이다.
+ * keepCodes 는 어떤 경우에도 덮이지 않는다(물·바위 노두 — 자료의 주석에 까닭이 있다).
+ */
+function biomeCode(t, code, x, y, elev, moist, size) {
+  const b = t.biomes;
+  if (!b || (b.keepCodes || []).includes(code)) return code;
+  const c = (size - 1) / 2;
+  if (Math.hypot(x - c, y - c) <= (b.protectRadius ?? 0)) return code;
+  const lat = y / Math.max(1, size - 1);
+  if (lat <= b.snow.latitudeMax && elev >= b.snow.elevationMin) return 'snow';
+  if (lat >= b.jungle.latitudeMin && moist >= b.jungle.moistureMin) return 'jungle';
+  return code;
+}
+
 /** 지형 생성 → 길이 size² 의 문자열(코드 인덱스를 문자로 저장 — 스냅샷·구조복제가 싸다) */
 export function generateTerrain(rng, data) {
   const cfg = worldCfg(data);
@@ -76,7 +93,7 @@ export function generateTerrain(rng, data) {
       else if (moist > t.forestMoisture) code = 'forest';
       else if (moist >= t.fertileMoisture[0] && moist <= t.fertileMoisture[1]
         && elev >= t.fertileElevation[0] && elev <= t.fertileElevation[1]) code = 'fertile';
-      out[y * size + x] = String.fromCharCode(48 + idx[code]);
+      out[y * size + x] = String.fromCharCode(48 + idx[biomeCode(t, code, x, y, elev, moist, size)]);
     }
   }
   return out.join('');
@@ -167,6 +184,9 @@ function makeNode(id, type, x, y, def, rng) {
     max: (def.amount ?? 0) * (rich ? (def.richMultiplier ?? 2) : 1),
     depleted: false,
     hidden: Boolean(def.subsurface),   // 감정의 날(티어 3)에 드러난다
+    /* ★ §17-17 — 종류 자체가 숨어 있는 자리(숨은 궤). 유적은 크기표가 은닉을 정하므로 여기 걸리지 않는다.
+       concealChance 가 0 이면 난수를 부르지 않는다 — 옛 종류의 월드 난수 소비를 한 톨도 바꾸지 않기 위해서다. */
+    concealed: Boolean(def.concealChance > 0 && rng.chance(def.concealChance)),
     workers: 0,
     // ★ 밭 계열(harvest)은 처음부터 여물어 있다 — 마차에서 내린 첫날 바로 거둘 것이 있어야 한다(GDD3 §2)
     readyAt: def.harvest ? 0 : null,
@@ -247,10 +267,13 @@ function clearRadiusOf(town, data) {
  * 노드 하나가 앉을 수 있는 자리인가.
  * ① 지도 안 ② 지형이 맞다 ③ 어느 도읍의 빈 땅(clearRadius)도 아니다
  * ④ 도읍 한복판이 아니다 ⑤ 같은 종류끼리 최소 간격 ⑥ 이미 다른 노드가 선 칸이 아니다
+ * ★ §17-17 ⑦ minTownDistance 가 있으면 본영에서 그만큼 밖 — 걸어 나가야 찾는 것들(숨은 궤)의 조건이다.
  */
 function spotOk(ctx, type, def, x, y, relax = false) {
-  const { map, data, towns, byType, taken, size, tIndex } = ctx;
+  const { map, data, towns, byType, taken, size, tIndex, playerTown } = ctx;
   if (x < 1 || y < 1 || x >= size - 1 || y >= size - 1) return false;
+  const minTown = def.minTownDistance ?? 0;
+  if (minTown > 0 && playerTown && dist(playerTown.x, playerTown.y, x, y) < minTown) return false;
   const terr = terrainAt(map, x, y);
   const wants = def.terrains || (def.terrain != null ? [def.terrain] : null);
   // ★ 첫 군락 보장(nearGuarantee)은 지형을 느슨하게 본다 — 마차가 어디에 서든 8~13타일 안에
@@ -263,16 +286,28 @@ function spotOk(ctx, type, def, x, y, relax = false) {
     if (dist(tw.x, tw.y, x, y) <= clearRadiusOf(tw, data)) return false;
   }
   if (taken.has(`${x},${y}`)) return false;
-  return !tooClose(byType[type] || [], x, y, def.minSpacing);
+  return !tooClose(ctx, type, x, y, def.minSpacing);
 }
 
 function pushNode(ctx, type, def, x, y) {
   const node = makeNode(`n${ctx.nextId}`, type, x, y, def, ctx.rng);
   ctx.nextId += 1;
   (ctx.byType[type] ||= []).push(node);
+  indexNode(ctx, type, def, x, y);
   ctx.taken.add(`${x},${y}`);
   ctx.nodes.push(node);
   return node;
+}
+
+/** 간격 판정용 격자 색인에 한 자리를 적는다 (칸 크기 = 그 종류의 minSpacing) */
+function indexNode(ctx, type, def, x, y) {
+  const s = def.minSpacing;
+  if (!(s > 0)) return;
+  const grid = (ctx.grid[type] ||= new Map());
+  const key = `${Math.floor(x / s)},${Math.floor(y / s)}`;
+  const bucket = grid.get(key);
+  if (!bucket) { grid.set(key, [{ x, y }]); return; }
+  bucket.push({ x, y });
 }
 
 /**
@@ -356,6 +391,8 @@ export function generateNodes(map, towns, rng, data, nationTags) {
   const ctx = {
     map, data, rng, towns, size: cfg.size, tIndex: terrainIndex(data),
     nodes: [], byType: {}, taken: new Set(), clusters: [],
+    // ★ §17-17 — 간격 판정용 격자 색인(종류별). 아래 tooClose 의 주석에 까닭이 있다.
+    grid: {},
     nextId: 1, nextClusterId: 1,
     playerTown: towns.find((t) => t.isPlayer) ?? null,
   };
@@ -449,9 +486,24 @@ function placeRuins(ctx, cfg, rng, data) {
   }
 }
 
-function tooClose(list, x, y, spacing) {
+/**
+ * 같은 종류끼리의 최소 간격 판정 — 격자 색인으로 **이웃 아홉 칸만** 본다.
+ * ★ §17-17 — 지도가 384² 로 넓어지며 한 종류의 노드가 1800개까지 갔다. 목록을 전부 훑던 옛 셈은
+ *   O(n²) 라 월드 생성이 100ms → 344ms 로 늘었다. 칸 크기를 spacing 으로 잡으면 cheb 거리가
+ *   spacing 미만인 이웃은 반드시 아홉 칸 안에 있다 — 판정 결과는 한 톨도 달라지지 않는다.
+ */
+function tooClose(ctx, type, x, y, spacing) {
   if (!(spacing > 0)) return false;
-  for (const n of list) if (cheb(n.x, n.y, x, y) < spacing) return true;
+  const grid = ctx.grid[type];
+  if (!grid) return false;
+  const cx = Math.floor(x / spacing);
+  const cy = Math.floor(y / spacing);
+  for (let gy = -1; gy <= 1; gy += 1) {
+    for (let gx = -1; gx <= 1; gx += 1) {
+      const b = grid.get(`${cx + gx},${cy + gy}`);
+      if (b && b.some((n) => cheb(n.x, n.y, x, y) < spacing)) return true;
+    }
+  }
   return false;
 }
 

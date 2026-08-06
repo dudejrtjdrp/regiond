@@ -209,6 +209,8 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
       nodeContribution: nodeContributionView(world, nation, data),
       // ★ GDD3 §13-B-5 — 위험 띠. HUD 가 지금 내가 어느 띠에 서 있는지를 이 값으로 읽는다.
       rings: ringRadii(nation, data),
+      // ★ §17-17 — 처음 밟은 바이옴과 그날. 화면이 「이미 아는 땅」과 「처음 보는 땅」을 가른다.
+      biomesSeen: { ...(nation.biomesSeen || {}) },
       /* ★ GDD3 §13-D-5 — 기술 트리와 철로. 두 겹의 문을 구별해 둔다.
          ① **장**(10장 끝이 없는 길)이 열기 전에는 필드 자체가 없다 — 연구 탭도 그려지지 않는다(§11-1).
          ② 장이 열린 뒤에는 **잠긴 연구도 목록에 남는다** — 조건 가시화 원칙(§12-3)대로

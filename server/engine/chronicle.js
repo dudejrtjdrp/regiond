@@ -31,6 +31,8 @@ export const MILESTONES = {
   skill: '숙련',
   artifact: '유물',
   disaster: '재난',
+  // ★ §17-17 — 새 땅(설산·밀림)을 처음 밟은 날. 탐험도 정착지의 역사다.
+  discovery: '발견',
 };
 
 /** 연대기 화면 — 최근 기록 + 누적 지표 */

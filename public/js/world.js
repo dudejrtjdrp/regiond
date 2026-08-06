@@ -11,8 +11,14 @@
   var cv = null, ctx = null;
   var W = 960, H = 540;
   var chunkCache = {};
+  var chunkOrder = [];       // ★ §17-17 — 구운 순서(가장 오래된 것부터 버린다). 아래 CHUNK_CAP 참고.
   var CH = 16;
   var BASE = 16;
+  /* ★ §17-17 — 구워 둔 지형 청크의 상한. 지도가 384² 가 되며 청크가 256 → 576 장으로 늘었고,
+     한 장이 256×256 픽셀이라 지도를 다 밟으면 캐시만 150MB 를 넘는다(옛 지도는 67MB 였다).
+     화면에 한 번에 드는 청크는 아무리 넓혀도 스무 장 남짓이라, 넉넉히 이만큼만 들고 있으면
+     되돌아가는 걸음에도 다시 굽는 일이 거의 없다 — 한 장 굽는 값은 1ms 안쪽이다. */
+  var CHUNK_CAP = 192;
 
   var units = {};            // 주민 걷기 연출 (클라 권위)
   var walkIns = [];          // ★ §13-A-4 막 도착한 주민의 이름표 {id,name,t} — 몸이 아니라 표시다
@@ -30,7 +36,7 @@
     cv = U.qs('#world-canvas');
     if (!cv) return;
     resize();
-    S.on('world', function () { chunkCache = {}; units = {}; recenter(); });
+    S.on('world', function () { chunkCache = {}; chunkOrder = []; units = {}; recenter(); });
   }
 
   function recenter() {
@@ -73,7 +79,15 @@
       }
     }
     chunkCache[key] = c;
+    chunkOrder.push(key);
+    if (chunkOrder.length > CHUNK_CAP) evictChunk();
     return c;
+  }
+
+  /** ★ §17-17 — 가장 오래 전에 구운 청크 한 장을 버린다(상한 초과분만). */
+  function evictChunk() {
+    var old = chunkOrder.shift();
+    if (old != null) delete chunkCache[old];
   }
 
   function drawTerrain() {
@@ -1811,7 +1825,9 @@
   var VERB = {
     forest: 'E — 나무 베기', rock: 'E — 돌 캐기', iron: 'E — 광맥 캐기', oil: 'E — 기름 긷기',
     water: 'E — 물고기 잡기', fertile: 'E — 거두기', field: 'E — 거두기', ruin: 'E — 유적 살피기',
-    berry: 'E — 열매 따기', site: 'E — 짓기', enemy: 'E — 베기', wild: 'E — 사냥하기'
+    berry: 'E — 열매 따기', site: 'E — 짓기', enemy: 'E — 베기', wild: 'E — 사냥하기',
+    // ★ §17-17 — 숨은 궤. 캐는 것이 아니라 여는 것이다(한 번 열면 그 자리는 사라진다).
+    cache: 'E — 궤를 연다'
   };
 
   function verbFor(t) {
@@ -2064,7 +2080,7 @@
   function hover() { return hoverTile; }
   function setDragBox(b) { dragBox = b; }
   function reset() {
-    chunkCache = {}; units = {}; walkIns = []; doneBounce = {}; territoryAnim = null;
+    chunkCache = {}; chunkOrder = []; units = {}; walkIns = []; doneBounce = {}; territoryAnim = null;
     structSort = { sig: '', list: [] };
     wild = {};
   }

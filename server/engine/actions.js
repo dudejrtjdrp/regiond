@@ -1,7 +1,11 @@
 // 실시간 액션 — docs/GDD3.md §3. 스윙(actionSwing)이 이 게임의 손맛이다.
 // ★ 아키텍처: 이 명령들은 '일 틱'을 기다리지 않는다. 소켓에서 즉시 처리되고 곧바로 결과가 돌아간다.
 //   서버가 정본으로 쥐는 것 — 스윙 쿨타임(플레이어 단위) · 사거리 · 노드별 스윙 카운트 · 노드 잔량.
-import { nodeById, townOf, territoryRadius, dist, markDepleted } from './world.js';
+import { nodeById, townOf, territoryRadius, dist, markDepleted, removeNode } from './world.js';
+// ★ §17-17 — 숨은 궤에서도 유물이 나온다. 등급표를 두 벌 두지 않으려고 유적 쪽 문을 그대로 쓴다.
+import { grantRandomArtifact } from './king.js';
+// ★ §17-17 — 궤 보상은 노드 id 로 지은 개인 난수다(월드 난수를 축내면 같은 씨앗이 다른 게임이 된다).
+import { statRng } from './traits.js';
 // ★ GDD3 §13-C-3 — 도감. 유적을 뒤진 기록도 서버가 권위로 쥔다.
 import { recordRuin } from './codex.js';
 import {
@@ -177,6 +181,10 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
     recordRuin(nation, node, world.tick);
   }
 
+  // ★ §17-17 — 숨은 궤. 유적과 달리 카드가 없다: 뚜껑이 열리면 값이 나오고 자리는 세상에서 사라진다.
+  let cache = null;
+  if (spec.cacheReward && cycleDone) cache = openCache(world, nation, node, data);
+
   const xpCfg = swingCfg(data);
   const xp = grantXp(player, spec.skill, xpCfg.xpPerSwing + (cycleDone ? xpCfg.xpPerCycle : 0), data);
 
@@ -207,7 +215,30 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
     leveled: xp.leveled,
     xp: round2(player.skills[spec.skill].xp),
     ruin,
+    cache,
   };
+}
+
+/**
+ * ★ §17-17 — 궤를 연다.
+ *
+ * 보상 난수가 **월드 난수가 아니라** 노드 id 로 지은 개인 난수인 까닭은 §13-C 에서 이미 겪었다:
+ * 실시간 스윙이 월드 난수를 한 톨이라도 축내면 웨이브 구성·사건·이름이 통째로 밀려 같은 씨앗이
+ * 다른 게임이 된다. 덕분에 「같은 지도의 같은 궤는 언제 열어도 같은 것을 낸다」가 공짜로 따라온다.
+ *
+ * 연 궤는 removeNode 로 지운다 — 그루터기(markDepleted)가 아니다. 다시 차는 궤는 궤가 아니다.
+ */
+function openCache(world, nation, node, data) {
+  const cfg = data.world.nodes.types[node.type]?.reward;
+  if (!cfg) return null;
+  const rng = statRng(`${world.seed}:cache:${node.id}`);
+  const gold = rng.int(cfg.gold[0], cfg.gold[1]);
+  nation.gold = round2((nation.gold || 0) + gold);
+  nation.stats.goldEarned = round2((nation.stats.goldEarned || 0) + gold);
+  let artifact = null;
+  if (rng.chance(cfg.artifactChance)) artifact = grantRandomArtifact(nation, data, rng, world.tick);
+  removeNode(world, node.id);
+  return { nodeId: node.id, gold, artifact, total: round2(nation.gold) };
 }
 
 // ────────────────────────────────────────────────────────────────

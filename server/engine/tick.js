@@ -52,7 +52,7 @@ import { revealConcealed } from './world.js';
 import { stepEcologyDay, huntYield, cullForHunters } from './ecology.js';
 // ★ GDD3 §15-C — 동료 봇. 아무도 안 보는 시간만큼을 일 틱이 몰아 돌린다(이중 계산 없음).
 import { stepCompanionsDay } from './companions.js';
-import { recordRuinFound } from './codex.js';
+import { recordRuinFound, discoverBiomes } from './codex.js';
 import { record as chronicle } from './chronicle.js';
 
 /**
@@ -178,6 +178,11 @@ export function step(state, inputs = [], rng = null, data = loadGameData(), opts
     if (hunt.workers > 0) cullForHunters(world, nation, data);
     // 은닉 유적 — 주민의 발길이 닿아도 드러난다
     for (const n of revealConcealed(world, nation, data, tick)) recordRuinFound(nation, n, tick);
+    /* ★ §17-17 — 새 땅의 첫 발견. 걸음마다 판정하는 문(lordMove)이 정본이지만, 동료가 지시를 받아
+       혼자 걸어 들어간 경우처럼 사람의 걸음이 없는 길도 있다 — 하루에 한 번 여기서도 훑는다. */
+    for (const b of discoverBiomes(world, nation, data, tick)) {
+      events.push({ tick, kind: 'biome_found', nationId: nation.id, data: b });
+    }
     /* ★ GDD3 §13-D-5 — 붙들고 있는 연구의 하루. 다 되는 날 석탄·석유 노두가 링1~2 에 드러난다. */
     for (const e of stepResearch(world, nation, data, r)) {
       events.push({ tick, ...e });

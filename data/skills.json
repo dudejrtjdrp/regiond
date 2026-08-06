@@ -311,6 +311,15 @@
       "drain": 0,
       "requiresRipe": true
     },
+    "cache": {
+      "_note": "★ §17-17 숨은 궤 — 뚜껑을 뜯는 일이라 건설 솜씨로 친다. 유적처럼 게이지가 차는 것이 아니라 세 번이면 열리고(swings 3), 열리는 그 순간 골드와 (가끔) 유물이 나오고 자리가 사라진다(cacheReward). 채집물이 없으므로 yield 도 drain 도 없다.",
+      "skill": "build",
+      "swings": 3,
+      "yield": {},
+      "cycleBonus": {},
+      "drain": 0,
+      "cacheReward": true
+    },
     "ruin": {
       "skill": "build",
       "swings": 6,

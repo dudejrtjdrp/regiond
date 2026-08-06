@@ -140,7 +140,13 @@ export function publicWorld(d = loadGameData()) {
   const w = d.world;
   return {
     size: w.size,
-    terrain: { codes: [...w.terrain.codes], names: { ...w.terrain.names }, buildable: [...w.terrain.buildable], walkable: [...w.terrain.walkable] },
+    /* ★ §17-17 — biomes 는 '어떤 코드가 새 땅인가'만 공개한다. 위도·문턱(어디에 나는가)은 지형 시드와
+       같은 급의 비밀이라 내려보내지 않는다(정보 비대칭 원칙 — 걸어서 찾아야 한다). */
+    terrain: {
+      codes: [...w.terrain.codes], names: { ...w.terrain.names },
+      buildable: [...w.terrain.buildable], walkable: [...w.terrain.walkable],
+      biomeCodes: [...(w.terrain.biomes?.codes || [])],
+    },
     nodes: {
       order: [...w.nodes.order],
       types: Object.fromEntries(Object.entries(w.nodes.types).map(([k, v]) => [k, {

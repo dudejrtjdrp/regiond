@@ -59,6 +59,18 @@ export function statRng(seedText) {
     float: (a, b) => a + next() * (b - a),
     chance: (p) => next() < p,
     pick: (arr) => arr[Math.floor(next() * arr.length)],
+    /* ★ §17-17 — 숨은 궤가 유물 등급표를 굴린다(king.grantRandomArtifact). rng.js 의 weighted 와
+       같은 셈이어야 「월드 난수 대신 개인 난수를 넣어도 규칙은 하나」가 성립한다. */
+    weighted(entries) {
+      const total = entries.reduce((s, e) => s + e.weight, 0);
+      if (total <= 0) return entries.length ? entries[0].value : null;
+      let r = next() * total;
+      for (const e of entries) {
+        r -= e.weight;
+        if (r <= 0) return e.value;
+      }
+      return entries[entries.length - 1].value;
+    },
   };
 }
 

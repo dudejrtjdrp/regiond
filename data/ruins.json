@@ -69,6 +69,87 @@
         { "key": "pray", "label": "불을 다시 지핀다", "text": "옛 장인의 이름으로 불을 올렸다.", "outcomes": [{ "op": "morale", "amount": 0.05, "text": "사기가 올랐다." }] },
         { "key": "leave", "label": "떠난다", "text": "가마를 덮어 두었다.", "outcomes": [] }
       ]
+    },
+    {
+      "_note": "★ §17-17 — 여기부터 여섯 장이 새로 든 카드다. 옛 여섯 장은 「파헤친다 / 기도한다 / 떠난다」한 벌이라 열 번을 열어도 같은 선택지였다. 새 카드들은 같은 op(gold·morale·resource·artifactRoll)만 쓰되 **셈이 다른 갈래**를 넣는다: 값을 치르고 확률을 사거나(굴림 확률을 높이는 대신 골드를 먼저 낸다), 유물을 포기하고 확실한 물자를 받거나, 아무것도 안 하는 쪽이 오히려 이득인 자리도 있다.",
+      "id": "granary",
+      "name": "무너진 곳간",
+      "text": "지붕이 내려앉은 곳간이다. 썩지 않은 자루가 몇 개 보인다.",
+      "options": [
+        { "key": "dig", "label": "자루를 헤친다", "text": "자루를 뜯자 마른 곡식이 쏟아졌다.",
+          "outcomes": [{ "op": "resource", "resource": "grain", "amount": 40, "text": "곡식을 거두었다." }] },
+        { "key": "pray", "label": "바닥을 파 본다", "text": "곡식 밑에 뭔가 단단한 것이 있었다.",
+          "outcomes": [{ "op": "artifactRoll", "chance": 0.3, "successText": "곳간 바닥에서 유물이 나왔다.", "failText": "썩은 바닥이 꺼졌다. 자루까지 함께 묻혔다.", "failEffects": [{ "op": "resource", "resource": "grain", "amount": -10 }] }] },
+        { "key": "leave", "label": "떠난다", "text": "문을 닫고 나왔다.", "outcomes": [] }
+      ]
+    },
+    {
+      "id": "cairn",
+      "name": "돌무지",
+      "text": "누군가 오가며 하나씩 얹은 돌무지다. 아직도 무너지지 않았다.",
+      "options": [
+        { "key": "dig", "label": "돌을 헐어 나른다", "text": "잘 다듬린 돌이라 그대로 쓸 수 있었다.",
+          "outcomes": [
+            { "op": "resource", "resource": "stone", "amount": 35, "text": "석재를 얻었다." },
+            { "op": "morale", "amount": -0.03, "text": "백성들이 말없이 지켜보았다." }
+          ] },
+        { "key": "pray", "label": "돌 하나를 얹는다", "text": "왕이 돌 하나를 얹자 백성들이 줄을 섰다.", "outcomes": [{ "op": "morale", "amount": 0.06, "text": "사기가 크게 올랐다." }] },
+        { "key": "leave", "label": "떠난다", "text": "돌무지를 돌아서 갔다.", "outcomes": [] }
+      ]
+    },
+    {
+      "id": "vault",
+      "name": "잠긴 지하실",
+      "text": "쇠문에 자물쇠가 셋이나 걸려 있다. 억지로 뜯을 물건이 아니다.",
+      "options": [
+        { "key": "dig", "label": "값을 치러 연장을 부른다", "text": "장인을 불러 자물쇠를 하나씩 땄다.",
+          "outcomes": [
+            { "op": "gold", "amount": -60 },
+            { "op": "artifactRoll", "chance": 0.75, "successText": "쇠문 안쪽에 물건이 있었다.", "failText": "문 뒤에는 빈 선반뿐이었다.", "failEffects": [] }
+          ] },
+        { "key": "pray", "label": "문을 두드려만 본다", "text": "안에서는 아무 소리도 나지 않았다.", "outcomes": [{ "op": "morale", "amount": 0.02, "text": "백성들이 왕의 조심스러움을 보았다." }] },
+        { "key": "leave", "label": "떠난다", "text": "자물쇠를 그대로 두었다.", "outcomes": [] }
+      ]
+    },
+    {
+      "id": "bones",
+      "name": "짐승의 뼈밭",
+      "text": "커다란 짐승의 뼈가 들판 가득 널려 있다. 이빨 자국은 사람의 것이 아니다.",
+      "options": [
+        { "key": "dig", "label": "뼈를 거둔다", "text": "쓸 만한 뼈와 마른 고기를 챙겼다.",
+          "outcomes": [{ "op": "resource", "resource": "meat", "amount": 14, "text": "고기를 얻었다." }] },
+        { "key": "pray", "label": "머리뼈를 세워 표석으로 삼는다", "text": "사냥꾼들이 그 앞에서 활을 들어 보였다.", "outcomes": [{ "op": "morale", "amount": 0.05, "text": "사기가 올랐다." }] },
+        { "key": "leave", "label": "떠난다", "text": "발자국을 피해 물러났다.", "outcomes": [] }
+      ]
+    },
+    {
+      "id": "market",
+      "name": "버려진 저잣거리",
+      "text": "좌판이 그대로 남은 거리다. 사람만 없다.",
+      "options": [
+        { "key": "dig", "label": "좌판을 뒤진다", "text": "동전 꾸러미와 목재 몇 짐이 나왔다.",
+          "outcomes": [
+            { "op": "gold", "amount": 45, "text": "옛 돈을 찾았다." },
+            { "op": "resource", "resource": "wood", "amount": 20 }
+          ] },
+        { "key": "pray", "label": "장을 다시 연다", "text": "왕이 좌판 하나를 펴자 백성들이 웃었다.",
+          "outcomes": [
+            { "op": "morale", "amount": 0.04, "text": "사기가 올랐다." },
+            { "op": "gold", "amount": -15 }
+          ] },
+        { "key": "leave", "label": "떠난다", "text": "좌판을 그대로 두었다.", "outcomes": [] }
+      ]
+    },
+    {
+      "id": "obelisk",
+      "name": "쪼개진 비석",
+      "text": "글자가 빼곡한 비석이 두 쪽으로 갈라져 있다. 갈라진 틈이 유난히 곧다.",
+      "options": [
+        { "key": "dig", "label": "틈을 벌린다", "text": "쇠지렛대를 걸고 힘껏 당겼다.",
+          "outcomes": [{ "op": "artifactRoll", "chance": 0.5, "successText": "틈 사이에 끼워 둔 물건이 있었다.", "failText": "비석이 완전히 부서졌다. 남은 것은 돌뿐이다.", "failEffects": [{ "op": "resource", "resource": "stone", "amount": 12 }] }] },
+        { "key": "pray", "label": "글자를 베껴 적는다", "text": "서기가 밤새 글자를 옮겨 적었다.", "outcomes": [{ "op": "morale", "amount": 0.05, "text": "옛말이 백성 사이에 돌았다." }] },
+        { "key": "leave", "label": "떠난다", "text": "비석을 세워만 두고 갔다.", "outcomes": [] }
+      ]
     }
   ]
 }

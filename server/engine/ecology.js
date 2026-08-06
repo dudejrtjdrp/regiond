@@ -137,11 +137,25 @@ function pickSpawn(world, nation, data, def, ring, rng) {
   return null;
 }
 
+/** ★ §17-17 — 이 자리가 그 띠의 안쪽·바깥쪽 사이인가 (반올림 뒤의 자리로 잰다) */
+function inBandAt(world, nation, data, ring, spot) {
+  const town = townOf(world, nation.id);
+  if (!town) return true;
+  const band = ringBand(nation, data, ring);
+  const d = dist(town.x, town.y, spot.x, spot.y);
+  return d >= band.inner - 0.001 && d <= band.outer + 0.001;
+}
+
 function spawnOne(world, nation, data, key, ring, rng, at = null) {
   const def = creatureDefs(data)[key];
   if (!def) return null;
   const spot = at ?? pickSpawn(world, nation, data, def, ring, rng);
   if (!spot) return null;
+  /* ★ §17-17 — 떼의 동무도 **제 띠 안에서** 태어난다. 옛 셈은 우두머리 곁 ±2 를 그대로 썼고,
+     우두머리가 띠 안쪽 끝에 서 있으면 그 동무가 근교(링0)로 넘어왔다 — 「사나운 것은 태어난 자리부터
+     링1 밖」이라는 §13-B-5 의 약속이 깨진다. 자리를 옮기지 않고 그 동무 하나만 포기한다
+     (난수를 더 쓰지 않으므로 같은 씨앗의 무리 크기 말고는 아무것도 흔들리지 않는다). */
+  if (at && !inBandAt(world, nation, data, ring, spot)) return null;
   const w = ensureWild(nation);
   const c = {
     id: `w${w.nextId++}`,

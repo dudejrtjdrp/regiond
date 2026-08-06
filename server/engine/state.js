@@ -142,6 +142,8 @@ export function createNation(id, name, opts, data, rng) {
     // ★ GDD3 §13-C — 들에 사는 것들 · 도감(조우·처치 장부)
     wild: { creatures: [], nextId: 1, respawnQueue: [], rngState: null, acc: 0 },
     codex: { species: {}, ruins: {} },
+    // ★ §17-17 — 처음 밟은 바이옴과 그날({snow: 12, jungle: 30}). 한 지형에 한 번만 적힌다.
+    biomesSeen: {},
     survey: null,
     autoAssist: b.advisor.autoAssistDefault,
     autoAssistIdleTicks: 0,

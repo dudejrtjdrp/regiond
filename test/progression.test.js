@@ -245,6 +245,15 @@ test('★ 웨이브 — 흔적을 살피기 전에는 며칠이 지나도 오지
   openChapterForDebug(w, n, data, 7);
   n.tier = 4;                                   // 티어를 올려도 소용없다
 
+  /* ★ §17-17 — 지도가 384² 로 넓어지며 자원 군락이 새로 뿌려졌고, 그 바람에 동료(자율 아바타)가
+     첫날부터 흔적 쪽으로 걸어가 스스로 열어 버렸다. 동료가 발견하는 것 자체는 규칙대로다 —
+     checkTrace 는 아바타·주민의 발을 가리지 않는다. 이 시험이 붙들려는 것은 「시간이 지난다고
+     열리지는 않는다」이므로, 흔적을 아무도 지나칠 일 없는 먼 들(일터 반경 35 밖)로 옮겨 둔다. */
+  const town = townOf(w, 'player');
+  const trace0 = ensureProgress(n).trace;
+  trace0.x = Math.min(data.world.size - 2, town.x + 80);
+  trace0.y = town.y;
+
   let world = w;
   for (let i = 0; i < 12; i += 1) world = step(world, [], rng, data).state;
   assert.equal(world.nations.player.wave.arrivalTick, null, '일정조차 잡히지 않는다');

@@ -10,7 +10,7 @@ import { reassign } from './npc.js';
 import { isLastPlace, foreignPriceTable } from './ai_nation.js';
 import { performApAction, harvestNode, resolveRuinChoice } from './king.js';
 import { townOf, ringAt, revealConcealed, nodeById, inTerritory, removeNode } from './world.js';
-import { recordRuinFound } from './codex.js';
+import { recordRuinFound, discoverBiomes } from './codex.js';
 import {
   validateAppearance, normalizeAppearance, pushChat, memberAppearance, upsertMember, normalizeMembers,
 } from './social.js';
@@ -641,6 +641,9 @@ function runCommand(world, nationId, cmd, data, rng) {
          링은 서버가 정본으로 판정한다 — 화면이 제 셈으로 경고를 띄우면 영토가 자란 뒤 어긋난다. */
       const found = moved && nation.isPlayer ? revealConcealed(world, nation, data, world.tick) : [];
       for (const n of found) recordRuinFound(nation, n, world.tick);
+      /* ★ §17-17 — 새 땅의 첫 발견. 안개가 아니라 **발**이 기준이다: 멀리서 흰 산줄기를 보는 것과
+         그 위에 서는 것은 다르다. 한 지형에 한 번뿐이고, 몫(사기)과 문구는 자료가 쥔다. */
+      const biomes = moved ? discoverBiomes(world, nation, data, world.tick) : [];
       const ring = nation.isPlayer ? ringAt(world, nation, x, y, data) : 0;
       const lastRing = prev?.ring ?? 0;
       if (avatars[who]) avatars[who].ring = ring;
@@ -651,6 +654,10 @@ function runCommand(world, nationId, cmd, data, rng) {
         ringEntered: ring >= warnAt && lastRing < warnAt,
         ringText: ring >= warnAt ? (data.world.rings?.warnText ?? null) : null,
         revealedNodes: found.map((n) => n.id),
+        // ★ §17-17 — 이제 은닉 자리가 유적만이 아니다(숨은 궤). 화면이 「무엇을 찾았는가」를 가려 말한다.
+        revealedKinds: found.map((n) => n.type),
+        biomes,
+        events: biomes.map((b) => ({ kind: 'biome_found', nationId: nation.id, data: b })),
       });
     }
 
