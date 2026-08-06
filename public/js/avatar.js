@@ -8,6 +8,12 @@
 
   var me = { x: 64, y: 64, dir: 0, frame: 0, ft: 0 };
   var dest = null;
+  /* ★ Sprint 1 — 목적지까지의 길(웨이포인트). 직진+한 번 미끄러짐은 물가에서 영원히
+     제자리 걸음을 했다(Q-qa-4). 이제 우클릭 한 번에 GM.path 가 길을 한 번 내고, 걸음은 그 길을 따른다. */
+  var path = null, pathI = 0, repathAt = 0;
+  /* ★ Sprint 1 — 쓰러짐의 화면 쪽 빗장. 서버의 down 표(S.downed)는 다음 state 푸시까지 늦어,
+     그 틈에 걷고 자리 보고까지 나갔다(부활 좌표를 덮는 절반). playerDown 이 오는 즉시 잠근다. */
+  var downLocal = false;
   var lastReport = 0, lastX = -1, lastY = -1;
   var lastRevealX = -999, lastRevealY = -999;
   var placed = false;
@@ -62,7 +68,7 @@
 
   function pos() { return S.S.map ? me : null; }
   function destPos() { return dest; }
-  function freeze(v) { frozen = !!v; if (v) dest = null; }
+  function freeze(v) { frozen = !!v; if (v) { dest = null; path = null; } }
   function isFrozen() { return frozen; }
   function setHidden(v) { hidden = !!v; }
   function isHidden() { return hidden; }
@@ -71,7 +77,9 @@
     var code = S.terrainKey(Math.round(x), Math.round(y));
     if (!code) return false;
     var w = S.worldCfg();
-    var list = (w && w.terrain && w.terrain.walkable) || ['grass', 'forest', 'rock', 'fertile'];
+    /* ★ Sprint 1 — 폴백 목록에 설산·정글이 빠져 있었다. 설정이 늦게 오는 첫 몇 프레임에
+       그 땅을 밟고 있으면 「밟을 수 없는 곳에 서 있다」가 된다 — 잠복 버그를 미리 잰다. */
+    var list = (w && w.terrain && w.terrain.walkable) || ['grass', 'forest', 'rock', 'fertile', 'snow', 'jungle'];
     if (list.indexOf(code) >= 0) return true;
     /* ★ §17-13 — 다리·매립 위의 물은 길이다. 사람만 — 짐승과 적은 서버가 그대로 막는다. */
     return code === 'water' && (S.onBridge(x, y) || S.onFill(x, y));
@@ -119,13 +127,45 @@
     reveal(false);
   }
 
+  /** 길 위의 다음 웨이포인트 — 다 밟았으면 null(도착) */
+  function nextWaypoint() {
+    if (!path) return dest;
+    while (pathI < path.length) {
+      var wp = path[pathI];
+      if (Math.hypot(wp.x - me.x, wp.y - me.y) > 0.14) return wp;
+      pathI += 1;
+    }
+    return null;
+  }
+
+  /** 목적지까지의 길을 한 번 낸다. 목표가 물이면 곁의 뭍으로, 못 닿으면 갈 수 있는 데까지. */
+  function computePath() {
+    if (!dest) return;
+    path = (GM.path && GM.path.find) ? GM.path.find(me.x, me.y, dest.x, dest.y, walkable) : null;
+    pathI = 1;
+    if (path) {
+      var end = path[path.length - 1];
+      dest = { x: end.x, y: end.y };
+    } else {
+      dest = null;      // 제자리를 찍었거나 한 칸도 갈 수 없다 — 걷는 척하지 않는다
+    }
+  }
+
+  /** 걷다가 막혔다(다리가 사라지는 등 드문 일) — 한 번만 다시 찾고, 그래도 없으면 선다 */
+  function repath() {
+    var now = Date.now();
+    if (now - repathAt < 700) { dest = null; path = null; return; }
+    repathAt = now;
+    computePath();
+  }
+
   function step(dt) {
     if (!S.S.map) return;
     if (!placed) snapToTown();
     if (frozen) return;
-    if (S.downed()) { me.frame = 0; return; }
+    if (downLocal || S.downed()) { me.frame = 0; return; }
     /* ★ §15-C — 자동 플레이가 도는 동안에는 키도 목적지도 읽지 않는다. 서버를 따라간다. */
-    if (S.autoPlay().active) { dest = null; autoStep(dt); return; }
+    if (S.autoPlay().active) { dest = null; path = null; autoStep(dt); return; }
     var sp = speed() * dt;
     var dx = 0, dy = 0;
     var k = GM.input ? GM.input.keys : {};
@@ -133,25 +173,35 @@
     if (k.down) dy += 1;
     if (k.left) dx -= 1;
     if (k.right) dx += 1;
-    if (dx || dy) dest = null;
+    if (dx || dy) { dest = null; path = null; }
     if (!dx && !dy && dest) {
-      var ddx = dest.x - me.x, ddy = dest.y - me.y;
-      var d = Math.hypot(ddx, ddy);
-      if (d < 0.12) { dest = null; }
-      else { dx = ddx / d; dy = ddy / d; }
+      var wp = nextWaypoint();
+      if (!wp) { dest = null; path = null; }
+      else {
+        var ddx = wp.x - me.x, ddy = wp.y - me.y;
+        var d = Math.hypot(ddx, ddy) || 1;
+        dx = ddx / d; dy = ddy / d;
+      }
     }
-    var moving = false;
+    var px0 = me.x, py0 = me.y;
     if (dx || dy) {
       var len = Math.hypot(dx, dy) || 1;
       dx /= len; dy /= len;
       var nx = me.x + dx * sp, ny = me.y + dy * sp;
-      if (walkable(nx, ny)) { me.x = nx; me.y = ny; moving = true; }
-      else if (walkable(nx, me.y)) { me.x = nx; moving = true; }
-      else if (walkable(me.x, ny)) { me.y = ny; moving = true; }
-      else dest = null;
+      /* ★ Sprint 1 — 미끄러짐은 실제로 나아갈 때만. 옛 코드는 목표가 축과 나란하면
+         「지금 선 칸」을 되물어 늘 참이 됐고, 걸음 애니메이션은 의도(dx||dy)에 걸려 있어
+         한 발짝도 못 가면서 영원히 걸었다. 이제 ① 나아감이 없는 미끄러짐은 실패고
+         ② 애니메이션은 실제 변위로만 돈다. */
+      if (walkable(nx, ny)) { me.x = nx; me.y = ny; }
+      else if (nx !== me.x && walkable(nx, me.y)) { me.x = nx; }
+      else if (ny !== me.y && walkable(me.x, ny)) { me.y = ny; }
+      else if (dest) repath();
       me.x = U.clamp(me.x, 0, S.mapSize() - 1);
       me.y = U.clamp(me.y, 0, S.mapSize() - 1);
       me.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 2 : 1) : (dy > 0 ? 0 : 3);
+    }
+    var moving = (me.x !== px0 || me.y !== py0);
+    if (moving) {
       me.ft += dt;
       if (me.ft > 0.17) { me.ft = 0; me.frame = me.frame ? 0 : 1; }
     } else if (!GM.swing || !GM.swing.busy()) {
@@ -172,6 +222,9 @@
 
   /** 저빈도 위치 보고 — 걸음마다 보내지 않는다 */
   function report(force) {
+    /* ★ Sprint 1 — 쓰러져 있는 동안에는 보고하지 않는다. 부활 좌표(모닥불)를
+       죽은 자리 좌표로 되덮는 것이 「죽은 자리에서 일어난다」의 클라 쪽 절반이었다. */
+    if (downLocal) return;
     /* ★ §16-7b — 마차에서 내리기 전에는 자리 보고를 보내지 않는다. 이 보고가 서버의 잠든
        동료들을 깨우는 신호라, 내리기 전에 새어 나가면 봇이 마차보다 먼저 일하기 시작한다. */
     if (GM.opening && GM.opening.busy && GM.opening.busy() && !GM.opening.dropped()) return;
@@ -212,9 +265,11 @@
   }
 
   function moveTo(x, y) {
-    if (frozen) return;
+    if (frozen) return null;
     GM.autoplay.touched();      // ★ §15-C — 손이 닿았다: 자동이 잠시 물러난다
     dest = { x: x, y: y };
+    computePath();              // ★ Sprint 1 — 길은 여기서 한 번만 낸다(프레임마다 찾지 않는다)
+    return dest;                //   물이면 곁의 뭍으로 스냅된 실제 목적지 | null(갈 수 없다·제자리)
   }
   function faceTo(x, y) {
     var dx = x - me.x, dy = y - me.y;
@@ -222,15 +277,23 @@
   }
   function setPos(x, y) {
     me.x = x; me.y = y; placed = true;
+    dest = null; path = null;
     if (GM.swing) GM.swing.invalidate();
     reveal(true); report(true);
+  }
+
+  /** ★ Sprint 1 — 쓰러짐 빗장. down.js 가 playerDown/playerRevived 순간에 잠그고 푼다. */
+  function setDowned(v) {
+    downLocal = !!v;
+    if (downLocal) { dest = null; path = null; }
   }
   function distTo(x, y) { return Math.hypot(me.x - x, me.y - y); }
 
   GM.avatar = {
     init: init, step: step, pos: pos, moveTo: moveTo, faceTo: faceTo, setPos: setPos,
     distTo: distTo, freeze: freeze, isFrozen: isFrozen, reveal: reveal,
-    destPos: destPos, stop: function () { dest = null; },
+    setDowned: setDowned,
+    destPos: destPos, stop: function () { dest = null; path = null; },
     setHidden: setHidden, isHidden: isHidden, startPos: startPos,
     /* ★ GDD3 §13-D-3 — 스프라이트가 읽는 장비 요약 */
     gear: gear, markGear: markGear,

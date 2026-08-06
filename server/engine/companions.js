@@ -617,8 +617,11 @@ function stepAvatar(world, nation, data, av, tx, ty, step) {
   const nx = clamp(av.x + (dx / d) * k, 1, size - 2);
   const ny = clamp(av.y + (dy / d) * k, 1, size - 2);
   if (walkable(world, data, nx, ny, nation)) { av.x = round2(nx); av.y = round2(ny); return true; }
-  if (walkable(world, data, nx, av.y, nation)) { av.x = round2(nx); return true; }
-  if (walkable(world, data, av.x, ny, nation)) { av.y = round2(ny); return true; }
+  /* ★ Sprint 1 — 미끄러짐은 **실제로 나아갈 때만** 성공이다. 목표가 축과 나란하면(ny === av.y)
+     「지금 서 있는 칸이 밟을 만한가」를 되묻는 꼴이라 늘 참이 되고, 한 발짝도 못 가면서
+     true 를 돌려 물가에서 영원히 제자리 걸음을 했다(아바타·주민과 같은 결함의 봇 판). */
+  if (Math.abs(nx - av.x) > 1e-6 && walkable(world, data, nx, av.y, nation)) { av.x = round2(nx); return true; }
+  if (Math.abs(ny - av.y) > 1e-6 && walkable(world, data, av.x, ny, nation)) { av.y = round2(ny); return true; }
   return false;
 }
 

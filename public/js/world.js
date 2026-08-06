@@ -729,8 +729,14 @@
     var list = S.creatureList();
     if (!list.length) return;
     var t = GM.camera.cam.tile;
+    /* ★ Sprint 1 — §11-1 「잠긴 것은 부재다」를 짐승에도 적용한다. 사냥(hunt)은 3장 해금인데
+       짐승은 1장부터 그려져, 보이는 것을 때릴 수 없는 채 「가까이 가라」는 엉뚱한 안내만 났다
+       (「시작하자마자 동물 타겟팅이 안 된다」의 정체). 해금 전에는 그리지 않는다 —
+       다만 이미 나를 쫓는 놈(chase)은 예외다: 보이지 않는 이빨에 물리는 일은 없어야 한다. */
+    var huntOn = S.featOn('hunt');
     for (var i = 0; i < list.length; i++) {
       var c = list[i];
+      if (!huntOn && !(c.kind === 'predator' && c.state === 'chase')) continue;
       var a = wild[c.id] || { x: c.x, y: c.y, frame: 0, dir: 1, hurt: 0 };
       if (!GM.camera.onScreen(a.x, a.y, t * 2)) continue;
       if (S.fogAt(Math.round(a.x), Math.round(a.y)) < 2) continue;   // 지금 눈에 보이는 것만
@@ -1107,6 +1113,44 @@
     return false;
   }
 
+  /* ★ Sprint 1 — 주민 걸음의 통행 판정. avatar.walkable 과 같은 「사람」 규칙(지형 + 다리·매립).
+     걷기 연출에는 판정이 아예 없어 주민이 호수를 그대로 질러 걸었다. */
+  function unitWalkable(x, y) {
+    var code = S.terrainKey(Math.round(x), Math.round(y));
+    if (!code) return false;
+    var w = S.worldCfg();
+    var list = (w && w.terrain && w.terrain.walkable) || ['grass', 'forest', 'rock', 'fertile', 'snow', 'jungle'];
+    if (list.indexOf(code) >= 0) return true;
+    return code === 'water' && (S.onBridge(x, y) || S.onFill(x, y));
+  }
+
+  /**
+   * ★ Sprint 1 — 길을 따라 목표점으로. walkStep 의 자리에 서는 물-우회 판.
+   * 길은 목표가 바뀔 때 **한 번만** 낸다(a.pathKey) — 주민 60명이 프레임마다 A* 를 돌리지 않는다.
+   * 목표가 물이면 GM.path 가 곁의 뭍으로 스냅하고, 못 닿으면 갈 수 있는 데까지 간다.
+   * 닿았으면(또는 더 갈 수 없으면) true.
+   */
+  function walkAlong(a, tx, ty, dt, speed) {
+    var key = Math.round(tx) + ',' + Math.round(ty);
+    if (a.pathKey !== key) {
+      a.pathKey = key;
+      a.path = (GM.path && GM.path.find) ? GM.path.find(a.x, a.y, tx, ty, unitWalkable) : null;
+      a.pathI = 1;
+    }
+    if (!a.path) return walkStep(a, tx, ty, dt, speed);   // 제자리·못 가는 곳 — 옛 직선 걸음이 안전망
+    /* 다음 웨이포인트를 고른다 — 밟은 것은 접는다 */
+    while (a.pathI < a.path.length
+      && Math.hypot(a.path[a.pathI].x - a.x, a.path[a.pathI].y - a.y) <= 0.1) a.pathI += 1;
+    if (a.pathI >= a.path.length) {
+      var end = a.path[a.path.length - 1];
+      /* 길 끝이 곧 도착이다 — 목표가 물이었어도 끝(뭍)까지 왔으면 닿은 것으로 친다 */
+      return walkStep(a, end.x, end.y, dt, speed);
+    }
+    var wp = a.path[a.pathI];
+    if (walkStep(a, wp.x, wp.y, dt, speed)) a.pathI += 1;
+    return false;
+  }
+
   /**
    * ★ §12-9 노동 루프 — ★ GDD3 §14-1 로 **순수 연출**이 되었다.
    *
@@ -1149,7 +1193,7 @@
     }
     if (a.phase === 'haul') {
       if (!a.drop) { a.phase = 'work'; return true; }
-      if (walkStep(a, a.drop.x, a.drop.y, dt, WALK_SPEED * 0.86)) { a.phase = 'unload'; a.unloadT = 0; }
+      if (walkAlong(a, a.drop.x, a.drop.y, dt, WALK_SPEED * 0.86)) { a.phase = 'unload'; a.unloadT = 0; }
       return true;
     }
     if (a.phase === 'unload') {
@@ -1163,7 +1207,7 @@
       return true;
     }
     if (a.phase === 'return') {
-      if (walkStep(a, a.home.x, a.home.y, dt, WALK_SPEED)) { a.phase = 'work'; a.swingT = 0; a.lastHit = 0; }
+      if (walkAlong(a, a.home.x, a.home.y, dt, WALK_SPEED)) { a.phase = 'work'; a.swingT = 0; a.lastHit = 0; }
       return true;
     }
     return false;
@@ -1236,6 +1280,7 @@
         a.sig = sig;
         a.phase = 'travel';
         a.carry = 0; a.pose = 0; a.swingT = 0; a.lastHit = 0; a.drop = null; a.home = null;
+        a.path = null; a.pathKey = null;      // ★ Sprint 1 — 대상이 바뀌면 길도 새로 낸다
         if (Math.hypot(a.x - v.x, a.y - v.y) > SNAP_TILES) { a.x = v.x; a.y = v.y; }
       }
 
@@ -1244,7 +1289,7 @@
 
       var tx = v.destX == null ? v.x : v.destX;
       var ty = v.destY == null ? v.y : v.destY;
-      if (walkStep(a, tx, ty, dt)) {
+      if (walkAlong(a, tx, ty, dt)) {
         /* 일터에 닿았다 — 노동 연출로 넘어간다 */
         if (a.phase === 'travel' && CARRY_JOBS[v.job] && v.targetId && S.nodeById(v.targetId)) {
           a.phase = 'work'; a.swingT = 0; a.lastHit = 0;

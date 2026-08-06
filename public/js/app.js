@@ -313,7 +313,10 @@
     GM.structure.refreshOpen();      /* ★ §13-A-1 — 조건 행은 늘 지금 값이다 */
     var sel = S.S.selection;
     if (sel && (sel.residents.length || sel.nodeId || sel.structureId || sel.siteId || sel.fenceId)) {
-      GM.residents.renderPanel();
+      /* ★ Sprint 1 — 닫혀 있는 패널은 다시 열지 않는다(structure.refreshOpen 과 같은 빗장).
+         새로 고침은 「열려 있는 것」의 값을 지금 값으로 맞추는 일이지, 닫은 창을 여는 일이 아니다. */
+      var ctx = U.qs('#context-panel');
+      if (ctx && !ctx.hidden) GM.residents.renderPanel();
     }
     GM.devpanel.render();
   }

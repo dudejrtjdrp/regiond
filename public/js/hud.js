@@ -632,7 +632,13 @@
     var head = U.el('div', 'ctx-head');
     if (o.icon) head.appendChild(GM.icons.img(o.icon, 30));
     head.appendChild(U.el('span', 'ctx-title', o.title || ''));
-    var x = U.btn('✕', 'btn-sm btn-ghost ctx-close', hideContext);
+    /* ★ Sprint 1 — ✕ 는 **선택까지** 물린다. DOM 만 숨기면 selection 이 남아,
+       다음 state 푸시(행동마다 온다)의 refreshAll → renderPanel 이 패널을 도로 열었다 —
+       「닫았는데 계속 다시 켜진다」의 정체. Esc·다른 닫기 단추들은 이미 이렇게 한다. */
+    var x = U.btn('✕', 'btn-sm btn-ghost ctx-close', function () {
+      S.clearSelection();
+      hideContext();
+    });
     x.setAttribute('aria-label', '닫기');
     head.appendChild(x);
     p.appendChild(head);

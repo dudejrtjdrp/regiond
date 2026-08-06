@@ -9,13 +9,17 @@
   var lastClickAt = 0, lastClickId = null;
 
   /* ══════════ 선택 ══════════ */
-  function residentAt(wx, wy, radius) {
-    var r = radius === undefined ? 0.75 : radius;
+  /* ★ Sprint 1 — 판정은 **그려진 몸**으로 한다. 옛 판정은 발끝 중심 반경 0.75 원이었는데
+     스프라이트는 발끝에서 0.8칸 위까지 그려져, 머리·어깨를 누르면 빗나가 뒤의 건물이 잡혔다
+     (「주민을 고르려는데 건물이 열린다」의 절반 — 나머지 절반은 건물의 ±1칸 여유, input.js).
+     사각형은 world.drawResidents 가 그리는 자와 같다: x ±0.36, y −0.8 ~ +0.12 (+여유 약간). */
+  function residentAt(wx, wy) {
     var best = null, bd = 1e9;
     S.residents().forEach(function (v) {
       var a = GM.world.unitPos(v.id) || v;
-      var d = Math.hypot(a.x - wx, a.y - wy);
-      if (d < r && d < bd) { bd = d; best = v; }
+      if (wx < a.x - 0.42 || wx > a.x + 0.42 || wy < a.y - 0.88 || wy > a.y + 0.2) return;
+      var d = Math.hypot(a.x - wx, (a.y - 0.34) - wy);   // 몸통 중심에서 잰다 — 겹치면 가까운 몸
+      if (d < bd) { bd = d; best = v; }
     });
     return best;
   }

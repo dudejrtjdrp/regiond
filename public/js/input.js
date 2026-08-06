@@ -207,6 +207,12 @@
     /* ★ GDD3 §12-5 — 좌클릭은 **선택·상호작용 전용**이다. 절대 걷지 않는다.
        (옛 규칙에서는 빈 땅 좌클릭이 곧 이동이라, 무언가 고르려다 자꾸 걸어갔다.) */
     var w = GM.camera.screenToWorld(d.x, d.y);
+
+    /* ★ Sprint 1 — 통합 픽킹. 옛 사슬은 대상마다 좌표계(월드/칸)·여유·동순위 규칙이 제각각이라
+         · 건물·공사장의 ±1칸 관용 판정이 주민(반경 0.75)·울타리(맨 끝 순서)를 상시 가로챘다
+         · 울타리는 forEach 마지막 매치가 이겨 곁의 딴 조각이 열렸다
+       이제 **정확 판정**을 우선순위대로 지나고 — 유닛 > 울타리(점-선분 거리) > 발밑 사각형 >
+       자원 > 얼굴 사각형 — 한 칸 여유는 전부 빗나갔을 때 가장 가까운 것 하나만 받는다. */
     if (GM.residents.selectAt(w.x, w.y, d.additive)) return;
 
     /* ★ §17-11 — 동료(봇)를 누르면 상호작용 패널이 열린다(지시·이름·모양새).
@@ -214,6 +220,9 @@
     /* ★ §17-19(D-5) — 이제 먼저 말을 건다(대화창). 수치판은 「무엇을 하는지 본다」를 고를 때 열린다. */
     var crew = crewAt(w.x, w.y);
     if (crew) { GM.crewpanel.greet(crew.id); GM.sfx.play('tap'); return; }
+
+    var f = fenceAt(w.x, w.y);
+    if (f) { GM.structure.openFence(f.id); GM.sfx.play('tap'); return; }
 
     var b = structureAt(t.x, t.y);
     if (b) { GM.structure.open(b.id); GM.sfx.play('tap'); return; }
@@ -224,13 +233,19 @@
     var n = S.nodeAt(t.x, t.y);
     if (n && S.fogAt(t.x, t.y) >= 1) { GM.structure.openNode(n.id); GM.sfx.play('tap'); return; }
 
-    var f = fenceAt(t.x, t.y);
-    if (f) { GM.structure.openFence(f.id); GM.sfx.play('tap'); return; }
-
     /* ★ §16-20 — 키 큰 건물의 「얼굴」을 눌러도 잡힌다. 발밑(풋프린트)이 다 빗나갔을 때,
        그려진 스프라이트 사각형으로 한 번 더 잰다(앞에 선 건물이 이긴다). */
     var sb = structureAtSprite(w.x, w.y);
     if (sb) { GM.structure.open(sb.id); GM.sfx.play('tap'); return; }
+
+    /* 한 칸 여유(옛 감각) — 정확 판정이 전부 빗나갔을 때만, 가장 가까운 것 하나 */
+    var nm = nearMissAt(t.x, t.y);
+    if (nm) {
+      if (nm.kind === 'site') GM.structure.openSite(nm.obj.id);
+      else GM.structure.open(nm.obj.id);
+      GM.sfx.play('tap');
+      return;
+    }
 
     /* 빈 땅 좌클릭 = 선택 해제 (이동 아님) */
     S.clearSelection();
@@ -247,10 +262,18 @@
     if (S.S.placing) { S.setPlacing(null); GM.build.close(); return; }
     var ids = S.S.selection.residents || [];
     if (ids.length) { GM.residents.command(t.x, t.y); return; }
-    GM.avatar.moveTo(t.x, t.y);
-    GM.world.ping(t.x, t.y, '#8dfa8d');
-    GM.sfx.play('tap');
-    followUntil = Date.now() + 6000;
+    /* ★ Sprint 1 — ① moveTo 가 길찾기를 하고 실제 목적지(물이면 곁의 뭍)를 돌려준다.
+       마커 링은 그 실제 자리에 찍는다 — 링과 도착점이 어긋나지 않는다.
+       ② 예전엔 여기서 followUntil 을 6초 걸어, 멀리 화면을 옮겨 두고 우클릭하면 900ms 뒤
+       카메라가 **내 몸 자리로 홱 돌아갔다**(「클릭하면 내 자리로 와버린다」의 정체).
+       이제 카메라는 그대로 두고, 걷는 몸이 화면 밖으로 나가려 할 때만 따라간다(step). */
+    var goal = GM.avatar.moveTo(t.x, t.y);
+    if (goal) {
+      GM.world.ping(goal.x, goal.y, '#8dfa8d');
+      GM.sfx.play('tap');
+    } else {
+      GM.world.ping(t.x, t.y, '#bc4749');   // 갈 수 없는 자리 — 붉은 링으로만 답한다
+    }
   }
 
   function onWheel(e) {
@@ -296,38 +319,63 @@
   }
 
   /* ★ §12-1 — 클릭 판정도 풋프린트 사각형 기준. 4×4 본부는 어느 귀퉁이를 눌러도 잡힌다.
-     사각형 안이면 무조건, 아니면 한 칸 여유(옛 감각)까지 받아 준다. */
+     ★ Sprint 1 — 여기는 이제 **정확 판정만** 한다. 옛 「한 칸 여유」는 nearMissAt 으로 옮겼다:
+       여유 판정이 사슬 중간에 있으면 건물이 사실상 ±1.5칸을 먹어, 곁에 선 주민·울타리를
+       상시 가로챘다. 여유는 아무것도 안 잡혔을 때의 관용이지 우선권이 아니다. */
   function structureAt(x, y) {
     var list = S.structures();
-    var near = null;
     for (var i = 0; i < list.length; i++) {
       var b = list[i];
       if (b.x == null) continue;
-      var r = S.rectOfThing(b);
-      if (S.cellIn(r, x, y)) return b;
-      if (!near && S.rectGap(r, { x0: x, y0: y, x1: x, y1: y }) <= 1) near = b;
+      if (S.cellIn(S.rectOfThing(b), x, y)) return b;
     }
-    return near;
+    return null;
   }
   function siteAt(x, y) {
     var list = S.sites();
-    var near = null;
     for (var i = 0; i < list.length; i++) {
       var c = list[i];
       if (c.x == null) continue;
-      var r = S.rectOfThing(c);
-      if (S.cellIn(r, x, y)) return c;
-      if (!near && S.rectGap(r, { x0: x, y0: y, x1: x, y1: y }) <= 1) near = c;
+      if (S.cellIn(S.rectOfThing(c), x, y)) return c;
     }
-    return near;
+    return null;
   }
-  function fenceAt(x, y) {
-    var out = null;
+  /** 한 칸 여유의 관용 판정 — 건물·공사장을 한데 모아 [틈새 → 중심 거리] 순으로 가장 가까운 것 하나.
+      (옛 코드는 배열 첫 매치가 이겨, 겹치면 아무 건물이나 열렸다) */
+  function nearMissAt(x, y) {
+    var best = null, bg = 2, bd = 1e9;
+    function consider(list, kind) {
+      for (var i = 0; i < list.length; i++) {
+        var o = list[i];
+        if (o.x == null) continue;
+        var gap = S.rectGap(S.rectOfThing(o), { x0: x, y0: y, x1: x, y1: y });
+        if (gap > 1) continue;
+        var c = S.centerOfThing(o);
+        var d = Math.hypot(c.x - x, c.y - y);
+        if (gap < bg || (gap === bg && d < bd)) { bg = gap; bd = d; best = { kind: kind, obj: o }; }
+      }
+    }
+    consider(S.structures(), 'structure');
+    consider(S.sites(), 'site');
+    return best;
+  }
+  /** 점-선분 거리 */
+  function segDist(px, py, x1, y1, x2, y2) {
+    var vx = x2 - x1, vy = y2 - y1;
+    var l2 = vx * vx + vy * vy;
+    var t = l2 ? Math.max(0, Math.min(1, ((px - x1) * vx + (py - y1) * vy) / l2)) : 0;
+    return Math.hypot(px - (x1 + vx * t), py - (y1 + vy * t));
+  }
+  /* ★ Sprint 1 — 울타리는 **선분**이다. 옛 판정은 중점 ±0.75 칸 상자라 조각의 양 끝이 비고,
+     forEach 마지막 매치가 이겨 곁의 딴 조각이 열렸다. 이제 월드 좌표의 점-선분 거리로
+     가장 가까운 조각을 고른다 — 보이는 그 울타리가 눌린다. */
+  function fenceAt(wx, wy) {
+    var best = null, bd = 0.55;
     S.fences().forEach(function (f) {
-      var mx = (f.x1 + f.x2) / 2, my = (f.y1 + f.y2) / 2;
-      if (Math.abs(mx - x) <= 0.75 && Math.abs(my - y) <= 0.75) out = f;
+      var d = segDist(wx, wy, f.x1, f.y1, f.x2, f.y2);
+      if (d < bd) { bd = d; best = f; }
     });
-    return out;
+    return best;
   }
 
   /* ══════════ 자판 ══════════ */
@@ -451,8 +499,17 @@
     if (lord) {
       var moving = keys.up || keys.down || keys.left || keys.right;
       if (moving) followUntil = Date.now() + 5000;
+      /* ★ Sprint 1 — 우클릭 이동 중에는 몸이 **화면 밖으로 나가려 할 때만** 따라간다.
+         목적지를 보고 있는 눈을 카메라가 빼앗지 않는다. */
+      if (GM.avatar.destPos() && !lordInView(lord)) followUntil = Date.now() + 1200;
       if (Date.now() < followUntil && Date.now() - manualPanAt > 900) GM.camera.moveTo(lord.x, lord.y);
     }
+  }
+
+  /** 몸이 화면 안(가장자리 2칸 여유)에 있는가 */
+  function lordInView(p) {
+    var v = GM.camera.visible();
+    return p.x >= v.x0 + 2 && p.x <= v.x1 - 2 && p.y >= v.y0 + 2 && p.y <= v.y1 - 2;
   }
 
   GM.input = { init: init, keys: keys, step: step, centerTown: centerTown, centerLord: centerLord,

@@ -5,6 +5,8 @@
 import { townOf, territoryRadius, dist, nodeById, markDepleted } from './world.js';
 // ★ GDD3 §13-D-5 — 철로. 위를 걷는 걸음이 두 배가 된다.
 import { onRail, railCfg } from './research.js';
+// ★ Sprint 1 — 주민도 이제 물을 돌아간다. 통행·경로의 정본은 path.js 하나다.
+import { walkableFor, nearestWalkable, advanceAlong } from './path.js';
 
 export const vCfg = (data) => data.world.villagers;
 export const labCfg = (data) => data.world.laborDerivation;
@@ -226,8 +228,16 @@ export function quota(mix, units, data) {
 function place(world, nation, unit, target, job, data) {
   unit.job = job;
   unit.targetId = target ? target.id : null;
-  unit.destX = target ? target.x : unit.x;
-  unit.destY = target ? target.y : unit.y;
+  /* ★ Sprint 1 — 일자리가 물 위(낚시터 등)면 곁의 뭍에 선다. 물 칸을 목적지로 받으면
+     주민이 물 한복판에 서고, 화면의 걷기 연출도 그리로 걸어 들어간다. */
+  let dx = target ? target.x : unit.x;
+  let dy = target ? target.y : unit.y;
+  if (target && !walkableFor(world, nation, data, dx, dy)) {
+    const near = nearestWalkable(world, nation, data, dx, dy, 4);
+    if (near) { dx = near.x; dy = near.y; }
+  }
+  unit.destX = dx;
+  unit.destY = dy;
   if (target && target.kind === 'node') markHarvestCycle(target.node, data, world.tick);
   return unit;
 }
@@ -437,12 +447,15 @@ export function stepVillagers(world, nation, data, tick) {
        판정은 **지금 서 있는 칸**으로 한다: 길을 따라 걸으면 매 걸음이 빠르고,
        길에서 벗어나면 그 순간 도로 느려진다. 길을 '따라' 깔아야 값어치가 나는 규칙이다. */
     const speed = railed && onRail(nation, u.x, u.y) ? base * railFast : base;
-    const dx = (u.destX ?? u.x) - u.x;
-    const dy = (u.destY ?? u.y) - u.y;
-    const d = Math.hypot(dx, dy);
-    if (d <= speed) { u.x = u.destX ?? u.x; u.y = u.destY ?? u.y; continue; }
-    u.x = Math.round(u.x + (dx / d) * speed);
-    u.y = Math.round(u.y + (dy / d) * speed);
+    const tx = u.destX ?? u.x;
+    const ty = u.destY ?? u.y;
+    if (u.x === tx && u.y === ty) continue;
+    /* ★ Sprint 1 — 직선 보간이 호수를 그대로 질렀다(주민만 통행 판정이 없었다 — 짐승은
+       §17-4 에서 이미 고친 똑같은 결함이다). 이제 A* 폴리라인을 따라 speed 만큼 간다.
+       물가에 막혀 못 가는 자리면 「갈 수 있는 데까지」 간다(best-effort). */
+    const next = advanceAlong(world, nation, data, u.x, u.y, tx, ty, speed);
+    u.x = next.x;
+    u.y = next.y;
   }
   return nation.villagers;
 }

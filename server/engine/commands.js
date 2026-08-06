@@ -622,6 +622,15 @@ function runCommand(world, nationId, cmd, data, rng) {
         return err('BAD_POSITION', '지도 밖입니다.');
       }
       const who = cmd.avatarId ?? cmd.playerName ?? 'lord';
+      /* ★ Sprint 1 — 쓰러져 있는 동안에는 자리 보고를 받지 않는다.
+         부활은 서버가 아바타를 모닥불로 옮기는데(ecology §14-6), 위치는 클라 권위라
+         클라가 0.9초 안에 죽은 자리 좌표를 다시 보고해 그 이동을 덮어썼다 —
+         「카메라만 정착지로 가고 몸은 죽은 자리에서 일어난다」의 서버 쪽 절반이다.
+         (남은 절반은 down.js 가 부활 좌표로 몸을 옮기는 것 — 멀티에서도 치팅 이동을 막는 빗장) */
+      const plDown = nation.players?.[who];
+      if (plDown && (plDown.downUntil || 0) > 0) {
+        return err('DOWNED', '쓰러져 있는 동안에는 걸을 수 없습니다.');
+      }
       const avatars = (nation.avatars ||= {});
       const prev = avatars[who] ?? null;
       const look = normalizeAppearance(cmd.appearance, data, prev?.appearance ?? memberAppearance(nation, who, data));

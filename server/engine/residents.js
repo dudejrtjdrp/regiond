@@ -21,6 +21,8 @@ import {
 } from './traits.js';
 // ★ §17-15 — 역할 개성. 농정관은 주민 채집을, 국방대신은 민병의 칼끝을 벼린다.
 import { rolePerk } from './npc.js';
+// ★ Sprint 1 — 새 사람이 호수 한복판에서 태어나지 않게. 통행 정본은 path.js 다.
+import { nearestWalkable } from './path.js';
 
 export const residentCfg = (data) => data.balance.residents;
 export const arrivalCfg = (data) => data.balance.residents.arrival;
@@ -156,10 +158,14 @@ export function spawnResident(world, nation, data, rng) {
   const town = townOf(world, nation.id);
   const angle = rng.float(0, Math.PI * 2);
   const r = territoryRadius(nation, data) + 3;
-  const from = {
+  let from = {
     x: Math.max(0, Math.min(data.world.size - 1, Math.round((town?.x ?? 0) + Math.cos(angle) * r))),
     y: Math.max(0, Math.min(data.world.size - 1, Math.round((town?.y ?? 0) + Math.sin(angle) * r))),
   };
+  /* ★ Sprint 1 — 뽑힌 자리가 물이면 곁의 뭍에서 걸어 들어온다. 물 위 스폰은
+     「주민이 물 위를 걷는다」의 세 갈래 중 하나였다(스폰·목적지·걸음). */
+  from = nearestWalkable(world, nation, data, from.x, from.y, 24)
+    ?? (town ? { x: town.x, y: town.y } : from);
   const resident = {
     id: `r${nation.nextResidentId++}`,
     name: pickName(rng, data),

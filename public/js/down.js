@@ -59,6 +59,9 @@
     if (p.avatarId && S.S.avatarId && p.avatarId !== S.S.avatarId) return false;
     total = Math.max(1, Number(p.downSeconds) || (S.combatCfg().downSeconds || 10));
     until = Date.now() + total * 1000;
+    /* ★ Sprint 1 — 쓰러진 즉시 몸을 잠근다. 서버의 down 표(S.downed)는 다음 state 푸시까지
+       늦어, 그 틈에 걷고 자리 보고(lordMove)까지 나가 부활 좌표를 덮었다. */
+    if (GM.avatar && GM.avatar.setDowned) GM.avatar.setDowned(true);
     var parts = build(total, p.by);
     GM.sfx.play('bad');
     GM.fx.flash('#7d1c1c', 0.45, 0.7);
@@ -71,7 +74,11 @@
          넉넉히 2초를 더 기다린 뒤 걷는다: 정상 흐름에서는 그 전에 playerRevived 가 온다. */
       if (left <= 0) {
         clearInterval(timer); timer = null;
-        setTimeout(function () { if (veil) remove(); }, 2000);
+        setTimeout(function () {
+          if (veil) remove();
+          /* 안전장치로 걷힐 때도 빗장은 반드시 푼다 — 잠긴 채 남으면 영영 못 걷는다 */
+          if (GM.avatar && GM.avatar.setDowned) GM.avatar.setDowned(false);
+        }, 2000);
       }
     }, 100);
     if (!explained()) {
@@ -111,6 +118,12 @@
     if (p.avatarId && S.S.avatarId && p.avatarId !== S.S.avatarId) return false;
     remove();
     GM.sfx.play('unlock');
+    /* ★ Sprint 1 — 카메라만 옮기던 것이 「죽은 자리에서 일어난다」의 정체다.
+       위치는 클라 권위(§12-11)라 서버가 아바타를 모닥불로 옮겨도 클라 몸은 그대로였고,
+       0.9초 안의 lordMove 가 그 서버 좌표마저 되덮었다. 이제 **몸부터** 부활 좌표로 옮기고
+       (setPos 가 즉시 보고까지 한다), 빗장을 푼 뒤, 카메라가 따라간다. */
+    if (GM.avatar && GM.avatar.setDowned) GM.avatar.setDowned(false);
+    if (p.x != null && GM.avatar && GM.avatar.setPos) GM.avatar.setPos(p.x, p.y);
     GM.camera.moveTo(p.x, p.y);
     GM.fx.ring(p.x, p.y, '#b9cdff', 0.2, 2.2, 0.7);
     U.banner({ icon: 'heart', kind: 'good', title: '다시 일어섰다',
