@@ -50,29 +50,24 @@
     setBattleBar(p);
   }
 
-  /* ★ §16-3 — 적·민병도 짐승과 같은 규칙으로 걷는다: 서브틱 스냅샷을 띠(최근 다섯 장)로 들고,
+  /* ★ §16-3 — 적·민병도 짐승과 같은 규칙으로 걷는다: 서브틱 스냅샷을 띠로 들고,
      간격의 1.4배 뒤를 등속으로 지난다. 옛 지수 감쇠(`+= d*0.22`/프레임)는 새 좌표가 온 순간
-     빨랐다 이내 느려지는 톱니라, 적들이 뚝뚝 끊겨 보이던 바로 그 원인이었다. */
+     빨랐다 이내 느려지는 톱니라, 적들이 뚝뚝 끊겨 보이던 바로 그 원인이었다.
+     ★ §19-B — 그 규칙을 여기 따로 베껴 두지 않는다: 짐승·사람과 **같은 한 채**(GM.interp)를 탄다.
+     세 벌이 따로 있으면 한 곳을 고쳐도 나머지 둘에 같은 결함이 남는다. */
+  var BATTLE_SNAP = 10;                  // 이만큼 벌어지면 걸어간 것으로 볼 수 없다(들판보다 좁다 — 전장은 붙어 있다)
+
+  function dials() { return GM.interp.dials(S.worldCfg() && S.worldCfg().render); }
+
   function pushSnapshot(p) {
     if (!p) return;
-    var now = bclock;
+    var d = dials();
     var seen = {};
     var put = function (id, x, y) {
       seen[id] = 1;
       var a = interp[id];
-      if (!a) { interp[id] = { x: x, y: y, gapMs: null, buf: [{ x: x, y: y, t: now }] }; return; }
-      var last = a.buf[a.buf.length - 1];
-      if (last && last.x === x && last.y === y) return;
-      var gap = last ? now - last.t : 0;
-      if (gap > 0.5) {
-        a.gaps = a.gaps || [];
-        a.gaps.push(Math.min(gap, 3000));
-        if (a.gaps.length > 3) a.gaps.shift();
-        a.gapMs = Math.max.apply(null, a.gaps);   // 최근 세 장의 최대 — 박자가 바뀌면 한 장 만에 따라잡는다
-      }
-      if (last && Math.hypot(x - last.x, y - last.y) > 10) { a.buf = [{ x: x, y: y, t: now }]; a.x = x; a.y = y; return; }
-      a.buf.push({ x: x, y: y, t: now });
-      if (a.buf.length > 5) a.buf.shift();
+      if (!a) { interp[id] = GM.interp.create(x, y, bclock, null); return; }
+      GM.interp.push(a, x, y, bclock, BATTLE_SNAP, d, d.battleGapMs);
     };
     var i;
     for (i = 0; i < (p.enemies || []).length; i++) put(p.enemies[i].id, p.enemies[i].x, p.enemies[i].y);
@@ -83,34 +78,8 @@
   function unitPos(id, fx, fy) {
     var a = interp[id];
     if (!a) return { x: fx, y: fy };
-    var g = a.gapMs || 320;
-    /* 지연폭은 미끄러뜨린다 — 간격 EMA 를 새로 배울 때마다 툭 바뀌면 그 프레임에 한 발 건너뛴다(§16-3) */
-    var target = Math.min(1200, Math.max(90, g * 1.4 + 50));
-    if (a.delay == null) a.delay = target;
-    else {
-      var el = a.dClock == null ? 0 : bclock - a.dClock;
-      var diff = target - a.delay;
-      var maxStep = diff > 0 ? Math.max(2, el * 0.45) : Math.max(0.5, el * 0.06);
-      a.delay += Math.max(-maxStep, Math.min(maxStep, diff));
-    }
-    a.dClock = bclock;
-    var render = bclock - a.delay;
-    var b = a.buf;
-    var pos = null;
-    if (!b.length) pos = { x: a.x, y: a.y };
-    else if (render <= b[0].t) pos = { x: b[0].x, y: b[0].y };
-    else {
-      for (var i = b.length - 1; i >= 0; i--) {
-        if (b[i].t <= render) {
-          var p = b[i], q = b[i + 1];
-          if (!q) { pos = { x: p.x, y: p.y }; break; }
-          var k = Math.max(0, Math.min(1, (render - p.t) / Math.max(1, q.t - p.t)));
-          pos = { x: p.x + (q.x - p.x) * k, y: p.y + (q.y - p.y) * k };
-          break;
-        }
-      }
-      if (!pos) pos = { x: b[0].x, y: b[0].y };
-    }
+    var d = dials();
+    var pos = GM.interp.sample(a, bclock, d, d.battleGapMs);
     a.x = pos.x; a.y = pos.y;
     return a;
   }
@@ -194,8 +163,12 @@
     }
   }
 
-  function step(dt) {
-    bclock += dt * 1000;
+  /** ★ §19-B — 전투 시계도 **자르지 않은 프레임 간격**으로 흐른다(world.js tickAnim 이 넘겨 준다).
+      dt 는 0.05초로 잘려 있어 무거운 프레임이 이어지면 시계가 벽시계보다 뒤처지고,
+      그 차이만큼 적이 띠 앞머리에 얼어붙었다가 한 장 밀려날 때 통째로 건너뛴다. */
+  function step(dt, rawMs) {
+    var d = dials();
+    bclock += Math.max(0, Math.min(typeof rawMs === 'number' ? rawMs : dt * 1000, d.clockMaxStepMs));
     for (var i = shots.length - 1; i >= 0; i--) {
       shots[i].t += dt;
       if (shots[i].t > shots[i].dur) shots.splice(i, 1);

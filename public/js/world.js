@@ -725,84 +725,48 @@
      옛 규칙(prev·next 두 점 + 고정 지연 1000ms)은 지연폭이 스냅샷 간격과 **정확히 같을 때만** 등속이다.
      간격이 흔들리면(서버 setInterval·네트워크·프레임 처짐) 그 차이만큼 매 주기 얼어붙었다 움직이는
      미세 끊김이 남고, 시계가 벽시계보다 늦게 가면(무거운 프레임의 dt 캡) 1초에 한 번 순간이동이 됐다.
-     이제 놈마다 ① 최근 좌표 넉 장을 띠로 들고 ② 간격을 EMA 로 재서 ③ 그 1.4배 + 여유만큼 뒤를
-     그린다. 그리는 시각을 품는 두 장 사이를 등속으로 지나므로, 간격이 40% 흔들려도 걸음은 고르다.
-     외삽은 여전히 없다 — 띠의 끝을 넘어서는 그 자리에 선다. */
-  var wildClock = 0;                     // 애니메이션 시계(ms) — rAF 가 없어도 도는 자체 시계
-  var GAP_DEFAULT = 600;                 // 아직 간격을 못 잰 놈의 기본값(서버 0.5초 스텝 + 여유)
-  var BUF_KEEP = 5;                      // 띠에 남기는 스냅샷 수
 
-  function bufDelay(a) {
-    var g = (a && a.gapMs) || GAP_DEFAULT;
-    return Math.min(2400, Math.max(160, g * 1.4 + 80));
+     ★ §19-B — 그 띠를 public/js/interp.js 한 채로 모은다. 같은 규칙을 짐승·사람·웨이브 적이
+     **세 벌** 들고 있었고, 그래서 결함도 셋 다에 똑같이 있었다(고치면 세 군데를 고쳐야 했다).
+     수치는 코드가 아니라 data/world.json render.interp 가 쥔다. */
+  var wild = {};
+  var WILD_SNAP = 12;
+
+  function dials() { return GM.interp.dials(S.worldCfg() && S.worldCfg().render); }
+
+  /* ★ §19-B — 연출 시계(ms)는 **벽시계로 흐른다**. 옛 시계는 프레임 dt(0.05초로 잘린 값)를 쌓아
+     만들어, 무거운 프레임이 이어지면 벽시계보다 뒤처졌다: 좌표는 제 시각에 오는데 그리는 시각만
+     늦어 띠 앞머리에 얼어붙고, 한 장 밀려날 때마다 통째로 건너뛰었다(멈췄다 튀는 반복).
+     한 프레임의 걸음은 clockMaxStepMs 로 자른다 — 탭이 멈췄다 돌아온 뒤 몇 분을 한 번에 밀면
+     띠를 통째로 지나쳐 그것이 곧 순간이동이다. */
+  var wildClock = 0;
+  var wallMark = null;                  // 마지막 프레임의 벽시계 — 프레임 **사이**의 흐름을 잰다
+
+  function advanceClock(rawMs) {
+    var step = typeof rawMs === 'number' ? rawMs : 16;
+    wildClock += Math.max(0, Math.min(step, dials().clockMaxStepMs));
+    wallMark = nowMs();
+    return wildClock;
   }
 
-  /** 그릴 시각 = 시계 − 지연폭. ★ 지연폭은 **한 번에 움직이지 않는다** — 간격을 새로 배울 때마다
-      지연폭이 툭 바뀌면 그 순간 화면이 한 발 건너뛴다(실측: 프레임 이동량 스파이크 → 흩어짐 64%).
-      늘어날 때는 빠르게(버퍼가 마르기 전에), 줄어들 때는 천천히 미끄러뜨린다. */
-  function bufRender(a, clock) {
-    var target = bufDelay(a);
-    if (a.delay == null) a.delay = target;
-    else {
-      var el = a.dClock == null ? 0 : clock - a.dClock;
-      var diff = target - a.delay;
-      var maxStep = diff > 0 ? Math.max(2, el * 0.45) : Math.max(0.5, el * 0.06);
-      a.delay += Math.max(-maxStep, Math.min(maxStep, diff));
-    }
-    a.dClock = clock;
-    return clock - a.delay;
-  }
-
-  /** 띠에 좌표 한 장을 얹는다 — 간격을 재고, 걸어서 못 갈 거리는 스냅한다.
-      ★ 간격은 EMA 가 아니라 **최근 세 장의 최대값**이다. 스트림의 박자가 바뀌면(탭이 멈췄다 돌아옴,
-      무거운 프레임 구간) 오래된 박자의 기억이 지연폭을 그르치는데, 최대값은 한 장 만에 따라잡는다. */
-  function bufPush(a, x, y, now, snapDist) {
-    var last = a.buf[a.buf.length - 1];
-    if (last && now <= last.t) now = last.t + 1;   // 미래 스탬프(하차 연출) 뒤에 와도 차례를 지킨다
-    if (last) {
-      if (last.x === x && last.y === y && now - last.t < 1) return;
-      var gap = now - last.t;
-      if (gap > 0.5) {
-        a.gaps = a.gaps || [];
-        a.gaps.push(Math.min(gap, 3000));
-        if (a.gaps.length > 3) a.gaps.shift();
-        a.gapMs = Math.max.apply(null, a.gaps);
-      }
-      if (Math.hypot(x - last.x, y - last.y) > snapDist) {
-        /* 걸어서는 못 갈 거리 — 같은 놈이 걸어간 것으로 볼 수 없다. 그때만 스냅한다. */
-        a.buf = [{ x: x, y: y, t: now }];
-        a.x = x; a.y = y;
-        return;
-      }
-    }
-    a.buf.push({ x: x, y: y, t: now });
-    if (a.buf.length > BUF_KEEP) a.buf.shift();
-  }
-
-  /** 띠에서 그릴 자리를 읽는다 — render 시각을 품는 두 장 사이의 등속점. 외삽하지 않는다. */
-  function bufAt(a, render) {
-    var b = a.buf;
-    if (!b.length) return { x: a.x, y: a.y };
-    if (render <= b[0].t) return { x: b[0].x, y: b[0].y };
-    for (var i = b.length - 1; i >= 0; i--) {
-      if (b[i].t <= render) {
-        var p = b[i], q = b[i + 1];
-        if (!q) return { x: p.x, y: p.y };                  // 띠의 끝 — 멈춰 기다린다
-        var k = Math.max(0, Math.min(1, (render - p.t) / Math.max(1, q.t - p.t)));
-        return { x: p.x + (q.x - p.x) * k, y: p.y + (q.y - p.y) * k };
-      }
-    }
-    return { x: b[0].x, y: b[0].y };
+  /** ★ §19-B — **받은 그 순간**의 연출 시계. 좌표는 프레임 사이(소켓 콜백)에 닿으므로 프레임 시각으로
+      찍으면, 무거운 프레임 하나에 몰려 든 두세 장이 한 점에 겹친다 — 겹친 점은 차례를 지키려 1ms 씩
+      밀려 그 자리를 곧바로 지나가 버린다. 그 건너뜀이 곧 순간이동이고, 프레임이 제일 무거운 때가
+      바로 「게임 시작 직후 · 새 사람이 들어온 직후」다. */
+  function netNow() {
+    if (wallMark == null) return wildClock;
+    return wildClock + Math.max(0, Math.min(nowMs() - wallMark, dials().clockMaxStepMs));
   }
 
   function newWild(c, now) {
-    return { x: c.x, y: c.y, dir: 1, face: 0, frame: 0, ft: 0, hurt: 0, gapMs: null,
-             buf: [{ x: c.x, y: c.y, t: now }] };
+    var a = GM.interp.create(c.x, c.y, now, null);
+    a.dir = 1; a.face = 0; a.frame = 0; a.ft = 0; a.hurt = 0;
+    return a;
   }
 
   /** 새 좌표 묶음이 왔다 — 각자의 띠에 한 장씩 얹는다 */
   function pushWildSnapshot(list) {
-    var now = wildClock;
+    var now = netNow();
     var src = list || [];
     /* ★ Sprint 3 — 살아 있는 놈의 표를 **먼저** 세운다. 옛 셈은 화면이 든 놈마다
        새 묶음을 처음부터 훑어(n×n) 짐승이 늘수록 좌표 한 묶음 받는 값이 제곱으로 컸다. */
@@ -812,7 +776,7 @@
       alive[c.id] = 1;
       var a = wild[c.id];
       if (!a) { wild[c.id] = newWild(c, now); continue; }
-      bufPush(a, c.x, c.y, now, WILD_SNAP);
+      GM.interp.push(a, c.x, c.y, now, WILD_SNAP, dials(), dials().wildGapMs);
     }
     for (var k in wild) {
       if (!Object.prototype.hasOwnProperty.call(wild, k)) continue;
@@ -820,8 +784,8 @@
     }
   }
 
-  function stepWild(dt) {
-    wildClock += dt * 1000;
+  function stepWild(dt, rawMs) {
+    advanceClock(typeof rawMs === 'number' ? rawMs : dt * 1000);
     var list = S.creatureList();
     var seen = {};
     for (var i = 0; i < list.length; i++) {
@@ -829,7 +793,7 @@
       seen[c.id] = true;
       var a = wild[c.id];
       if (!a) { wild[c.id] = newWild(c, wildClock); continue; }
-      var pos = bufAt(a, bufRender(a, wildClock));
+      var pos = GM.interp.sample(a, wildClock, dials(), dials().wildGapMs);
       var mx = pos.x - a.x, my = pos.y - a.y;
       a.x = pos.x; a.y = pos.y;
       var moved = Math.hypot(mx, my);
@@ -871,11 +835,37 @@
       if (v.id === mine) continue;
       var t0 = wildClock + 500 + k * 550;
       var walkMs = Math.max(400, Math.hypot(v.x - x, v.y - y) / 3.2 * 1000);
-      mates[v.id] = {
-        x: x, y: y, dir: 0, frame: 0, ft: 0, gapMs: 900, delay: 200,
-        buf: [{ x: x, y: y, t: t0 }, { x: v.x, y: v.y, t: t0 + walkMs }]
-      };
+      var a = GM.interp.create(x, y, t0, walkMs);
+      a.buf.push({ x: v.x, y: v.y, t: t0 + walkMs });
+      a.dir = 0; a.frame = 0; a.ft = 0; a.delay = 200;
+      mates[v.id] = a;
       k += 1;
+    }
+  }
+
+  function newMate(v, now) {
+    var a = GM.interp.create(v.x, v.y, now == null ? wildClock : now, null);
+    a.dir = 0; a.frame = 0; a.ft = 0;
+    return a;
+  }
+
+  /** ★ §19-B — 아바타 자리 묶음이 왔다. 짐승과 같이 **받은 그 순간** 각자의 띠에 얹는다.
+      「왜」 프레임에서 훑지 않나 — 무거운 프레임(시작 직후·남이 들어온 직후) 하나에 여러 장이 몰려
+      들면, 프레임에서 훑는 눈에는 마지막 한 장만 남아 그 사이의 걸음이 통째로 건너뛴다.
+      ★ 자리가 그대로인 이는 얹지 않는다 — 이 방송은 **남이 걸을 때마다** 오므로, 서 있는 이의 띠에
+      같은 점을 쌓으면 박자를 방송 간격(그의 진짜 박자보다 훨씬 짧다)으로 잘못 배워 띠가 마른다. */
+  function pushMates(list) {
+    var now = netNow();
+    var mine = S.S.avatarId;
+    var src = list || [];
+    for (var i = 0; i < src.length; i++) {
+      var v = src[i];
+      if (!v || v.id === mine) continue;            // 내 몸은 avatar.js 가 쥔다
+      var a = mates[v.id];
+      if (!a) { mates[v.id] = newMate(v, now); continue; }
+      var last = a.buf[a.buf.length - 1];
+      if (last && last.x === v.x && last.y === v.y) continue;
+      GM.interp.push(a, v.x, v.y, now, MATE_SNAP, dials(), dials().mateGapMs);
     }
   }
 
@@ -891,15 +881,9 @@
       if (boarding) { seen[v.id] = true; continue; }
       seen[v.id] = true;
       var a = mates[v.id];
-      if (!a) {
-        mates[v.id] = { x: v.x, y: v.y, dir: 0, frame: 0, ft: 0, gapMs: null,
-                        buf: [{ x: v.x, y: v.y, t: wildClock }] };
-        continue;
-      }
-      /* 새 좌표가 왔으면(값이 바뀌었으면) 띠에 얹는다 — 짐승과 같은 §16-3 규칙 */
-      var last = a.buf[a.buf.length - 1];
-      if (!last || last.x !== v.x || last.y !== v.y) bufPush(a, v.x, v.y, wildClock, MATE_SNAP);
-      var pos = bufAt(a, bufRender(a, wildClock));
+      /* 띠에 얹는 일은 pushMates(받은 그 순간)가 한다 — 여기서는 그릴 자리만 읽는다 */
+      if (!a) { mates[v.id] = newMate(v, wildClock); continue; }
+      var pos = GM.interp.sample(a, wildClock, dials(), dials().mateGapMs);
       var mx = pos.x - a.x, my = pos.y - a.y;
       a.x = pos.x; a.y = pos.y;
       if (Math.hypot(mx, my) > 0.0015) {
@@ -2410,11 +2394,13 @@
     GM.camera.update(dt);
     if (!frozen) {
       stepUnits(dt);
-      stepWild(dt);
+      /* ★ §19-B — 보간 시계에는 **자르지 않은 프레임 간격(raw)** 을 준다. dt 는 0.05초로 잘려 있어
+         무거운 프레임이 이어지면 시계가 벽시계보다 뒤처지고, 그 차이가 곧 끊김·순간이동이 된다. */
+      stepWild(dt, raw);
       stepMates(dt);        // ★ §15-C — 동료와 동료들의 걸음(1초 좌표 사이를 등속으로)
       if (GM.avatar) GM.avatar.step(dt);
       if (GM.swing) GM.swing.step(dt);
-      if (GM.combat && GM.combat.step) GM.combat.step(dt);
+      if (GM.combat && GM.combat.step) GM.combat.step(dt, raw);
       if (GM.opening && GM.opening.step) GM.opening.step(dt);
       if (territoryAnim) {
         territoryAnim.t += dt;
@@ -2527,8 +2513,11 @@
     turretKillFloat: turretKillFloat,
     /* ★ GDD3 §14-3 — 서버 좌표 묶음이 올 때마다 지연 버퍼를 한 칸 민다 */
     pushWild: pushWildSnapshot,
+    /* ★ §19-B — 함께 있는 사람·동료의 자리도 같은 문으로 든다(받은 그 순간에 띠를 민다) */
+    pushMates: pushMates,
     /* 하니스·스모크 전용 — jsdom 에는 rAF 시계가 없어 걸음을 손으로 돌린다 */
     stepWildForTest: stepWild,
+    stepMatesForTest: stepMates,
     label: label, ringAt: ringAt, verbFor: verbFor,
     frameStats: frameStats, resetStats: resetStats,
     size: function () { return { w: W, h: H }; },

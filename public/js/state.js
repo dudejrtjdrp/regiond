@@ -377,7 +377,10 @@
     /* ★ §12-6 — 상단은 무역이 열린 뒤에야 목록에 실린다. 열리기 전에는 늘 빈 배열이 온다. */
     if (d.caravans) m.caravans = d.caravans;
     if (d.camps) m.camps = d.camps;
-    if (d.avatars) S.avatars = d.avatars;
+    /* ★ §19-B — 아바타 자리는 이 문으로도 온다(일 틱의 worldDiff). 그때도 **받았다고 알린다** —
+       화면의 지연 버퍼는 받은 시각을 기준으로 걸음을 잇는데, 조용히 값만 갈아 두면 그 한 장이
+       버퍼에 안 실려 다음 방송까지 얼어붙었다가 통째로 건너뛴다(짐승의 creatures 와 같은 규칙). */
+    if (d.avatars) { S.avatars = d.avatars; emit('avatars', S.avatars); }
     if (d.structures && d.structures.length) { m.structures = d.structures; bumpStructures(); }
     if (d.fences && d.fences.length) m.fences = d.fences;
     m.tick = d.tick;

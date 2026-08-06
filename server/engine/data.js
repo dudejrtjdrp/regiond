@@ -241,7 +241,15 @@ export function publicWorld(d = loadGameData()) {
     },
     camps: { leadDays: w.camps.leadDays, scoutRadius: w.camps.scoutRadius },
     combatScene: { phases: [...w.combatScene.phases], phaseNames: { ...w.combatScene.phaseNames } },
-    avatar: { interactRadius: w.avatar.interactRadius, dayNightCycle: w.avatar.dayNightCycle },
+    avatar: {
+      interactRadius: w.avatar.interactRadius, dayNightCycle: w.avatar.dayNightCycle,
+      // ★ §19-B — 내 걸음을 서버에 알리는 최소 간격. 이 값이 곧 남의 화면에서 내가 움직이는 박자다.
+      moveReportMs: w.avatar.moveReportMs ?? 220,
+    },
+    /* ★ §19-B — 화면만 보는 다이얼 묶음(보간 버퍼·타격감·대화창·프레임 예산)을 규격에 싣는다.
+       서버는 이 값을 한 번도 읽지 않는다. 여기 빠져 있던 탓에 화면은 늘 코드 안의 예비값으로 돌았고
+       data/world.json render 는 **죽은 다이얼**이었다 — 보간 수치를 자료가 쥐려면 먼저 이 문이 있어야 한다. */
+    render: w.render ? structuredClone(w.render) : null,
     roleTiming: { unlockAfterEmotionDay: w.roleTiming.unlockAfterEmotionDay, defaultVacant: w.roleTiming.defaultVacant },
     appearance: publicAppearance(d),
     chat: publicChat(d),

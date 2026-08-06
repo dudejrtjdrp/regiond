@@ -153,6 +153,10 @@
     /* ★ GDD3 §14-3 — 들의 것들의 새 좌표. 화면은 이 값으로 튀지 않고 **한 스텝 뒤에서 등속으로** 지난다. */
     S.on('creatures', function (list) { if (inGame) GM.world.pushWild(list); });
 
+    /* ★ §19-B — 함께 있는 사람·동료의 새 좌표도 같다. **받은 그 순간**에 지연 버퍼를 밀어야
+       무거운 프레임(시작 직후·남이 들어온 직후)에도 걸음이 뭉쳐 튀지 않는다. */
+    S.on('avatars', function (list) { if (inGame) GM.world.pushMates(list); });
+
     /* ★ GDD3 §15-A — 터렛이 쏜 발과 잡은 것.
        사격은 궤적으로, 처치는 **쓰러진 자리의 수치**로 보여 준다(§15-A-2 — 국고는 서버가 이미 채웠다). */
     S.on('turretShots', function (list) { if (inGame) GM.combat.addGuardShots(list); });

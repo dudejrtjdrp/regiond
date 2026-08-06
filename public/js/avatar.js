@@ -234,6 +234,15 @@
     S.revealAround(rx, ry, S.visionRadius());
   }
 
+  /** ★ §19-B — 자리 보고의 최소 간격(ms). 같은 칸이면 어차피 보내지 않으므로(정수 칸 스로틀)
+      이 값은 「한 칸을 걷는 데 드는 시간」이면 족하다 — 그보다 길면 **남의 화면에서 내가
+      건너뛴다**: 초당 4.6칸 걷는 사람을 0.9초에 한 번 알리면 네 칸씩 순간이동으로 중계되고,
+      지나온 칸의 안개도 함께 건너뛴다(revealAvatar 가 보고받은 칸에만 도장을 찍는다). */
+  function reportEveryMs() {
+    var w = S.worldCfg();
+    return (w && w.avatar && w.avatar.moveReportMs) || 220;
+  }
+
   /** 저빈도 위치 보고 — 걸음마다 보내지 않는다 */
   function report(force) {
     /* ★ Sprint 1 — 쓰러져 있는 동안에는 보고하지 않는다. 부활 좌표(모닥불)를
@@ -244,7 +253,7 @@
     if (GM.opening && GM.opening.busy && GM.opening.busy() && !GM.opening.dropped()) return;
     var now = Date.now();
     var rx = Math.round(me.x), ry = Math.round(me.y);
-    if (!force && (now - lastReport < 900 || (rx === lastX && ry === lastY))) return;
+    if (!force && (now - lastReport < reportEveryMs() || (rx === lastX && ry === lastY))) return;
     lastReport = now; lastX = rx; lastY = ry;
     /* ★ GDD3 §13-B-4·5 — 발걸음이 여는 것 둘. 서버가 ack 로 알려 준다:
        ① 은닉 유적을 찾았다 ② 사나운 땅(링2)에 처음 발을 들였다.

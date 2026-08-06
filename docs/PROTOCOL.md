@@ -453,6 +453,25 @@ TrailView { id, key, kind:'chain'|'micro', x, y, name, art, verb, ready }
 
 ---
 
+## 0-N. v3.3 안 델타 — **위치 보간 다이얼** (§19-B · QA1차 B02-1)
+
+**판번호를 올리지 않는다.** 이벤트도 페이로드도 그대로다 — `/api/config` 의 `world` 에 **화면만 보는 값 둘**이
+늘었을 뿐이다. 옛 클라는 이 필드를 안 읽으므로 그대로 돌고, 새 클라는 값이 안 오면 제 예비값으로 돈다.
+
+「몹·플레이어가 뚝뚝 끊기며 이동하거나 텔레포트한다」는 **서버 틱의 문제가 아니다.** 서버는 지금 박자를
+그대로 지키고(생태계 1초 · 걸음 보고), 화면이 그 사이를 잇는 규칙만 고쳤다 — 월드 시뮬·난수는 한 눈금도
+건드리지 않는다(결정론 불가침).
+
+| 자리 | 필드 | 뜻 |
+|---|---|---|
+| `config.world.render` | 통째 | ★ 화면 전용 다이얼 묶음(`interp`·`hit`·`dialogue`·`structureSprite`·`perf`). 서버는 한 번도 읽지 않는다. 전에는 규격에 실리지 않아 `data/world.json` 의 `render` 가 **죽은 다이얼**이었다 |
+| `config.world.render.interp` | 보간 버퍼 | 남이 쥔 좌표(짐승·동료·다른 사람·웨이브 적)를 화면이 잇는 규칙. 지연폭 = `간격 × leadFactor + leadPadMs` 를 `minDelayMs`~`maxDelayMs` 로 자른 값. 그만큼 **뒤를** 그리므로 다음 좌표가 이미 손에 있는 구간만 지난다(외삽 없음) |
+| `config.world.avatar.moveReportMs` | 정수(ms) | `lordMove` 로 제 자리를 알리는 최소 간격. 이 값이 곧 **남의 화면에서 내가 움직이는 박자**다 — 한 칸을 걷는 시간(≈217ms)보다 길면 정수 칸 보고가 칸을 건너뛴다 |
+
+> `moveReportMs` 는 클라의 송신 스로틀일 뿐이다. `lordMove` 의 페이로드·판정·ack 는 하나도 안 바뀌었다.
+
+---
+
 ## 0-T. v3.2 안 델타 — **플레이테스트 3차** (GDD3 §14)
 
 **판번호를 올리지 않는다.** 더하기만 했다 — 땅도 세이브도 그대로다(`world.schema` **5** 유지).
@@ -1013,7 +1032,11 @@ socket.emit('actionSwing', { nodeId: 'n42' }, (res) => {
 
   "world": { "size": 256, "territory": { "baseRadius": 6 },
              "fences": { "maxSegments": 400, "maxPointsPerRequest": 64, "maxSegmentSpan": 40,
-                         "blockedTerrain": ["water"], "requiresTerritory": true } },
+                         "blockedTerrain": ["water"], "requiresTerritory": true },
+             // ★ §19-B — 화면만 보는 값 둘(§0-N). 서버는 읽지 않는다
+             "avatar": { "interactRadius": 3, "dayNightCycle": true, "moveReportMs": 220 },
+             "render": { "interp": { "wildGapMs": 600, "mateGapMs": 1000, "leadFactor": 1.4,
+                                     "minDelayMs": 160, "maxDelayMs": 2400, "idleGapMs": 1800 } } },
 
   "tactics": { "options": [{ "key": "siege", "name": "농성", "desc": "…" }], "default": { "tactic": "siege" } },
 
