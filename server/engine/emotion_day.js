@@ -4,6 +4,7 @@
 // ★ WORLD.md 재해석: 타일 공개가 아니라 「영토 안 지하 자원(철광맥·유막)이 안개 걷히듯 드러나는」 연출이다.
 // ★ WORLD.md §9: 감정의 날 직후 '관제 선포' — 여기서 비로소 역할을 고를 수 있게 된다.
 import { townOf, territoryRadius, dist, terrainNameAt } from './world.js';
+import { createRng } from './rng.js';
 
 /**
  * 감정할 수 있는 상태인가 — **감정소가 서 있고 아직 감정하지 않았다**.
@@ -114,16 +115,52 @@ export function openMandate(world, nation, data) {
   }];
 }
 
-function assignTags(data, rng) {
-  const cfg = data.balance.emotionDay;
-  const strengths = Object.entries(data.tags).filter(([, v]) => v.kind === 'strength').map(([k]) => k);
-  const weaknesses = Object.entries(data.tags).filter(([, v]) => v.kind === 'weakness').map(([k]) => k);
-  const count = rng.int(cfg.tagCountMin, cfg.tagCountMax);
-  const picked = new Set();
-  picked.add(rng.pick(strengths));
-  picked.add(rng.pick(weaknesses));
-  while (picked.size < count) picked.add(rng.pick(strengths));
-  return [...picked];
+/** 한 갈래(강점·약점·양날)의 태그 열쇠만 골라 낸다. */
+function tagKeysOfKind(data, kind) {
+  return Object.entries(data.tags).filter(([, v]) => v.kind === kind).map(([k]) => k);
+}
+
+/**
+ * 후보에서 겹치지 않게 뽑아 picked 를 target 길이까지 채운다.
+ * ★ 「왜」 헛돌이 방패(guard)가 있는가 — 후보가 이미 다 뽑힌 상태에서 while 이 돌면 서버가 멈춘다.
+ *   후보가 마르면 짧은 채로 돌려주고, 뒤에 오는 채움이 나머지를 메우게 둔다.
+ */
+function drawInto(picked, pool, target, rng) {
+  let guard = 0;
+  while (picked.length < target && guard < 200) {
+    guard += 1;
+    const key = rng.pick(pool);
+    if (picked.includes(key)) continue;
+    picked.push(key);
+  }
+}
+
+/**
+ * ★ §17-18b — 땅의 됨됨이 추첨. 구성 규칙은 balance.emotionDay.playerTags 가 쥔다
+ *   (count 종 · 강점 최소 minStrength · 약점 최대 maxWeakness · 중복 없음).
+ * ★ 「왜」 약점을 '반드시 하나'에서 '최대 하나'로 풀었나 — 옛 규칙은 어느 시드로 시작해도
+ *   시작 땅이 늘 절름발이였다. 이제 약점 없는 순한 땅도, 약점을 안은 땅도 나온다.
+ *   양날(mixed) 태그는 강점도 약점도 아니어서 추첨에서 빠진다(요새지는 아직 AI 국가의 몫).
+ */
+export function assignTags(data, rng) {
+  const dial = data.balance.emotionDay.playerTags;
+  const strengths = tagKeysOfKind(data, 'strength');
+  const picked = [];
+  drawInto(picked, strengths, dial.minStrength, rng);
+  drawInto(picked, tagKeysOfKind(data, 'weakness'), picked.length + rng.int(0, dial.maxWeakness), rng);
+  drawInto(picked, strengths, dial.count, rng);
+  return picked.slice(0, dial.count);
+}
+
+/**
+ * ★ §17-18b — 세계 시드만으로 굴리는 시작 태그 추첨(월드 생성 시점에 한 번).
+ * ★ 「왜」 전용 난수를 따로 파는가 — 월드 생성 난수를 여기서 축내면 같은 시드의 지형·군락이
+ *   통째로 밀린다. 시드에서 갈라져 나온 별도 흐름이라 결정론(같은 시드 = 같은 태그)은 그대로고,
+ *   실시간 로직이 월드 난수를 건드리지 않는다는 원칙에도 걸리지 않는다.
+ */
+export function rollPlayerTags(seed, data) {
+  const dial = data.balance.emotionDay.playerTags;
+  return assignTags(data, createRng(((seed >>> 0) ^ dial.seedSalt) >>> 0));
 }
 
 /**

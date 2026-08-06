@@ -11,6 +11,8 @@ import { tierRadius, settlementTier } from './tiers.js';
 import { completeStructure, syncLegacyBuildings, anchorFromCell } from './structures.js';
 // ★ GDD3 §13-D-1 — 옛 세이브의 주민에게 능력치를 채워 넣을 때 쓴다
 import { rollStats, statRng } from './traits.js';
+// ★ §17-18b — 시작 태그 추첨(고정 배열 폐기). 결정론은 세계 시드가 쥔다.
+import { rollPlayerTags } from './emotion_day.js';
 
 function emptyResources(data, overrides = null) {
   const start = data.balance.startingResources || {};
@@ -155,7 +157,10 @@ export function createNation(id, name, opts, data, rng) {
 export function createWorld({ gameId, seed = 42, data, playerName = '플레이어', assignments, vacant, difficulty } = {}) {
   const rng = createRng(seed);
   const difficultyKey = normalizeDifficulty(difficulty, data);
-  const pendingTags = ['fertile', 'holy'];
+  // ★ §17-18b — 시작 태그를 시드로 뽑는다. 옛날에는 ['fertile','holy'] 로 못 박혀 있어
+  //   너덜겅·삭은맥 같은 태그가 실전에 한 번도 나오지 않았다. 추첨은 월드 생성 난수를 축내지 않는
+  //   전용 흐름을 쓴다(emotion_day.rollPlayerTags 주석 참고) — 같은 시드는 언제나 같은 땅이다.
+  const pendingTags = rollPlayerTags(seed, data);
 
   const world = {
     gameId: gameId ?? `g_${seed}_${Date.now().toString(36)}`,

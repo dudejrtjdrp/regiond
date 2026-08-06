@@ -424,6 +424,13 @@
     "tier": 3,
     "tagCountMin": 2,
     "tagCountMax": 4,
+    "playerTags": {
+      "_note": "★ §17-18b — 플레이어 시작 태그 추첨 다이얼. 옛날에는 state.js 가 ['fertile','holy'] 로 못 박아 두어 새 태그가 실전에 한 번도 나오지 않았다. 이제 세계 시드에서 갈라져 나온 전용 난수로 뽑는다 — 같은 시드는 언제나 같은 땅이다. count 종을 뽑되 강점은 최소 minStrength, 약점은 최대 maxWeakness, 같은 태그는 두 번 나오지 않는다. seedSalt 는 시드를 비트로 비틀어 다른 추첨 흐름과 겹치지 않게 하는 소금값이다(바꾸면 모든 시드의 태그가 바뀐다).",
+      "count": 2,
+      "minStrength": 1,
+      "maxWeakness": 1,
+      "seedSalt": 2749813
+    },
     "cutscene": {
       "_note": "★ §17-18 — 컷신 뒷장. 앞의 다섯 장(땅이 갈라지는 연출) 뒤에 **배정받은 태그마다 한 장씩** 그 땅의 성정(data/tags.json flavor)을 읽어 주고, 마지막 한 장으로 닫는다. 프레임 수 = 5 + 태그 수 + 1.",
       "flavorColor": "#c9b8e0",
