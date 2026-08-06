@@ -132,17 +132,21 @@
     U.px(ctx, x + s * 0.5, groundY - 3, s, s * 3, c);
   }
 
-  /* ★ §17-18 — 태그마다의 한 줄 이야기. 컷신이 흘려보낸 문장을 여기서 다시 읽을 수 있게 한다.
-     (서버가 tagStories 를 안 실어 보내는 옛 흐름이면 아무것도 그리지 않는다 — 화면이 비어도 안전하다) */
-  function appendStories(body, stories) {
-    if (!stories.length) return;
-    var wrap = U.el('div', 'tag-stories');
-    stories.forEach(function (s) {
-      if (!s || !s.flavor) return;
-      var row = U.el('p', 'hint', s.name + ' — ' + s.flavor);
-      wrap.appendChild(row);
-    });
-    if (wrap.childNodes.length) body.appendChild(wrap);
+  /* ★ §17-18 — 태그마다의 한 줄 이야기. 컷신이 흘려보낸 문장을 다시 읽게 하는 몫이다.
+     ★ §17-19(D-5) — 그 자리를 모달의 인용문에서 **대화창**으로 옮겼다.
+     「왜」 옮겼나 — 이야기는 표가 아니라 말이다. 모달 구석의 작은 회색 글줄로는 아무도 두 번 읽지 않는다.
+     이제 [땅을 둘러본다] 를 누르는 순간, 드러난 자리로 시선이 옮겨 가는 그 위에서
+     땅이 제 성정을 한 줄씩 읊는다 — 반짝임을 보면서 듣는다.
+     (서버가 tagStories 를 안 실어 보내는 옛 흐름이면 아무 말도 하지 않는다 — 조용해도 안전하다) */
+  function storyLines(stories) {
+    return (stories || []).filter(function (s) { return s && s.flavor; })
+                          .map(function (s) { return s.name + ' — ' + s.flavor; });
+  }
+
+  function tellStories(payload) {
+    var lines = storyLines(payload && payload.tagStories);
+    if (!lines.length || !GM.dialogue) return;
+    GM.dialogue.open({ speaker: '이 땅', portraitKey: 'icon:gem', lines: lines });
   }
 
   /* ── 컷신 끝 → 땅의 내력 공개 → 드러난 자원 반짝임 → 관제 선포는 mandate.js 가 받는다 ── */
@@ -160,7 +164,6 @@
     });
     body.appendChild(tg);
     if (payload && payload.tagLine) body.appendChild(U.el('p', null, payload.tagLine));
-    appendStories(body, (payload && payload.tagStories) || []);
 
     var revealed = (payload && payload.revealedNodes) || [];
     if (revealed.length || (payload && payload.nodesRevealed)) {
@@ -198,6 +201,8 @@
         });
         GM.sfx.play('unlock');
       }
+      /* ★ §17-19(D-5) — 반짝임 위에서 땅이 제 성정을 읊는다 */
+      tellStories(payload);
       if (onEnd) onEnd();
       /* 관제 선포가 이미 도착해 있으면 바로 연다 */
       if (S.S.mandate) setTimeout(function () { GM.mandate.open(S.S.mandate); }, 900);

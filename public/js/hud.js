@@ -623,6 +623,9 @@
   function showContext(o) {
     var p = U.qs('#context-panel');
     if (!p) return;
+    /* ★ §17-19 — 배치대도 하단 가운데로 내려왔다. 둘이 겹치지 않게 여는 쪽이 상대를 접는다.
+       다만 자리를 놓는 중이면 배치대를 지킨다(놓다 말고 패널이 닫히면 손이 끊긴다). */
+    if (!S.S.placing && GM.build && GM.build.close) GM.build.close();
     U.clear(p);
     p.hidden = false;
 
@@ -675,6 +678,41 @@
   /* ★ §17-7 — 잠자기 표 상태(화면 쪽 기억) */
   var sleep = { on: false, slept: 0, need: 1 };
 
+  /* ★ §17-19 — 맞은 순간의 반응을 내는 자리. 수치는 전부 data/world.json render.hit 이 쥔다. */
+  var lastHurtAt = 0;
+  var lastHp = null;
+
+  /**
+   * ★ §17-19 — 내가 맞으면 화면이 한 번 흔들리고 붉게 번지고, 깎인 수가 몸에서 떠오른다.
+   * 「왜」 한 곳으로 모았나 — 같은 매가 두 길로 온다(전투 사건 playerHit · 체력 감시 watchHp).
+   *   두 길이 각자 흔들면 한 대에 화면이 두 번 요동친다. mergeMs 안의 두 번째는 조용히 삼킨다.
+   */
+  function hurt(amount) {
+    var c = S.hitFx();
+    var at = Date.now();
+    if (at - lastHurtAt < c.mergeMs) return;
+    lastHurtAt = at;
+    GM.fx.hitStop(c.hitStopMs);
+    GM.fx.shakeScreen(c.shake, c.shakeSeconds);
+    GM.fx.flash(c.flashColor, c.flashAlpha, c.flashSeconds);
+    var me = GM.avatar && GM.avatar.pos && GM.avatar.pos();
+    if (!me || !(amount > 0)) return;
+    GM.fx.floatText(me.x, me.y - 1.2, '-' + U.fmt(amount, 0), c.textColor, c.textSize);
+  }
+
+  /**
+   * ★ §17-19 — 체력이 줄어든 순간을 잡는다. 사건이 붙지 않는 매(들짐승·굶주림)도 몸으로 느껴져야 한다.
+   *   잔 눈금(minDamage 아래)은 넘기고, 쓰러진 뒤는 다운 화면(down.js)에 맡긴다.
+   */
+  function watchHp(p) {
+    var hp = Math.max(0, p.hp || 0);
+    var prev = lastHp;
+    lastHp = hp;
+    if (prev == null || p.down) return;
+    if (prev - hp < S.hitFx().minDamage) return;
+    hurt(prev - hp);
+  }
+
   function bar(cls, ratio, text, tip, title) {
     var b = U.el('div', 'me-bar ' + cls);
     var fill = U.el('i');
@@ -694,6 +732,7 @@
     host.hidden = false;
     U.clear(host);
     host.classList.toggle('down', !!p.down);
+    watchHp(p);                              // ★ §17-19 — 체력이 깎인 순간을 여기서 잡는다
 
     var face = U.el('div', 'me-face');
     var mine = (S.S.avatars || []).filter(function (a) { return a.id === S.S.avatarId; })[0];
@@ -818,6 +857,7 @@
 
   function reset() {
     lastRes = {}; flashes = []; lastStructures = null; lastLevel = null;
+    lastHp = null; lastHurtAt = 0;           // ★ §17-19 — 판이 바뀌면 옛 체력 기억도 버린다
     var me = U.qs('#me-panel'); if (me) { me.hidden = true; U.clear(me); }
     var cab = U.qs('#cabinet'); if (cab) cab.removeAttribute('data-sig');
     var bar = U.qs('#toolbar'); if (bar) bar.removeAttribute('data-sig');
@@ -945,6 +985,8 @@
     renderResBar: renderResBar, renderNotices: renderNotices, renderCabinet: renderCabinet,
     renderToolbar: renderToolbar, showContext: showContext, hideContext: hideContext,
     renderMe: renderMe,
+    /* ★ §17-19 — 내가 맞았을 때의 반응(전투 사건도 이 문으로 들어온다) */
+    hurt: hurt,
     flash: flash, brief: brief, openHelp: openHelp, paintSound: paintSound,
     chipPoint: chipPoint, absorb: absorb
   };

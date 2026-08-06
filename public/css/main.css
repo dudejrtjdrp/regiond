@@ -862,14 +862,22 @@ button[data-tip],.res-chip[data-tip],.minister[data-tip]{cursor:pointer}
 .tool-btn.locked{filter:grayscale(.8) brightness(.9)}
 .tool-btn.ready{border-color:var(--gold-deep); box-shadow:inset 0 0 0 1px #fff8e2, 0 4px 0 #7a4d16, 0 0 0 3px rgba(232,163,61,.35)}
 
-/* 배치대 (상단 가운데) */
-.place-bar{position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:18;
+/* 배치대 (하단 가운데) — ★ §17-19
+   「왜」 위에서 아래로 내렸나 — 짓는 손이 화면 아래에 모이게 하기 위해서다(스타크래프트식).
+   위에 뜨던 시절에는 목록은 화면 꼭대기에, 놓을 자리는 화면 한복판에 있어 눈이 위아래로 계속 뛰었다.
+   ★ 하단은 이미 붐빈다 — 각료 바(왼쪽 아래)·조작 단추 줄(그 위)·나의 상태 판과 잠자기 단추(가운데 아래).
+   §17-3 에서 한 번 고친 겹침이라 같은 수법을 그대로 쓴다: 배치대는 **한 층 위**에 서고,
+   같은 자리를 쓰는 선택 패널과는 build.js·hud.js 가 서로 닫아 주어 한 번에 하나만 뜬다. */
+.place-bar{position:absolute; bottom:136px; left:50%; transform:translateX(-50%); z-index:18;
   width:min(720px, calc(100% - 600px)); max-height:44%; overflow:auto; padding:9px 12px;
   background:
     repeating-linear-gradient(0deg, rgba(120,90,50,.05) 0 2px, transparent 2px 5px),
     linear-gradient(180deg,var(--paper-lit) 0 7px, var(--paper) 7px 100%);
   border:5px solid var(--wood); color:var(--ink);
-  box-shadow:inset 0 0 0 2px rgba(255,255,255,.55), 0 6px 0 var(--wood-deep), 0 12px 24px rgba(0,0,0,.5)}
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.55), 0 6px 0 var(--wood-deep), 0 12px 24px rgba(0,0,0,.5);
+  animation:placeIn .18s steps(3)}
+/* 아래에서 밀려 올라온다 — 선택 패널(ctxIn)과 같은 결 */
+@keyframes placeIn{from{transform:translateX(-50%) translateY(16px);opacity:0}to{transform:translateX(-50%);opacity:1}}
 .pb-head{display:flex; align-items:center; gap:10px; margin-bottom:7px}
 .pb-title{font-size:16px; color:var(--wood-dark); flex:1 1 auto}
 .pb-cap{font-size:12.5px; color:var(--gold-deep)}
@@ -996,7 +1004,8 @@ button[data-tip],.res-chip[data-tip],.minister[data-tip]{cursor:pointer}
 .ctx-panel{width:min(560px, calc(100% - 620px))}
 
 @media (max-width:1500px){
-  .place-bar{width:min(660px, calc(100% - 40px))}
+  /* ★ §17-19 — 조작 단추 줄이 한 층 내려오면(bottom:88) 배치대도 그만큼 내려선다 */
+  .place-bar{width:min(660px, calc(100% - 40px)); bottom:132px}
   .ctx-panel{width:min(600px, calc(100% - 48px)); bottom:150px; max-height:34%}
   .toolbar{bottom:88px}
   .social-panel{max-height:36%; bottom:190px}
@@ -1519,6 +1528,14 @@ body.cutscene .toasts{bottom:74px}
 @media (max-width:1160px){
   .me-panel{bottom:96px}
 }
+/* ★ §17-19 — 나의 상태 판이 각료 바 위층으로 올라가면 배치대는 그보다 한 층 더 위에 선다.
+   (두 규칙의 차례가 뒤바뀌면 좁은 화면에서 배치대가 체력판을 덮는다 — 그래서 §17-3 블록 바로 뒤다) */
+@media (max-width:1160px){
+  .place-bar{bottom:188px; max-height:38%}
+}
+@media (max-width:720px){
+  .place-bar{bottom:172px; max-height:34%; width:calc(100% - 16px)}
+}
 
 
 /* ★ §16-16 — 다가오는 것들(좌상단 스택) */
@@ -1528,3 +1545,51 @@ body.cutscene .toasts{bottom:74px}
 .upcoming .up-head{font-size:10.5px; color:var(--ink-dim); letter-spacing:.4px; margin-bottom:3px}
 .upcoming .up-row{display:flex; align-items:center; gap:5px; font-size:12px; color:var(--ink2); line-height:1.5}
 .upcoming .up-row img{image-rendering:pixelated; flex:0 0 auto}
+
+/* ══════════ ★ §17-19(D-5) 대화창 — 정본 스펙 docs/탐험기획.md §18-6 ══════════
+   「왜」 아래에서만 말하나 — 모달은 지도를 통째로 덮어 대화하는 동안 세상이 멎고,
+   토스트는 2초 뒤 사라져 놓치면 그만이다. 대화창은 아래 한 자락만 쓰고 지도를 열어 둔다.
+   ★ 자리 다툼: 대화 중에는 하단 HUD(각료 바·조작 줄·배치대·체력판)를 흐려 뒤로 물린다
+     (body.dialogue). 숨기지 않고 흐리는 이유는, 무엇이 잠깐 물러났는지 보여야 돌아올 자리를 알기 때문이다.
+   z-index 60 — 지도·HUD 위, 쓰러짐 화면(70)·모달(800)·컷신(950) 아래다. */
+.dlg{
+  position:fixed; left:50%; transform:translateX(-50%); bottom:12px; z-index:60;
+  width:min(720px,92vw); padding:14px 16px 16px; cursor:pointer;
+  background:
+    repeating-linear-gradient(0deg, rgba(120,90,50,.05) 0 2px, transparent 2px 5px),
+    linear-gradient(180deg,var(--paper-lit) 0 7px, var(--paper) 7px 100%);
+  border:3px solid var(--wood-dark); border-radius:6px; color:var(--ink);
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.5), 0 2px 0 var(--wood-deep), 0 10px 22px rgba(0,0,0,.45);
+  animation:dlgIn .16s steps(3)}
+@keyframes dlgIn{from{transform:translateX(-50%) translateY(14px);opacity:0}to{transform:translateX(-50%);opacity:1}}
+/* 이름표 — 판 좌상단에 겹쳐 붙는 작은 나무 패. 왼쪽 아래로 꼬리 한 조각. */
+.dlg-name{position:absolute; top:-13px; left:16px; padding:2px 12px; font-size:13px;
+  background:var(--wood); color:var(--paper-lit); border:2px solid var(--wood-deep);
+  box-shadow:2px 2px 0 rgba(0,0,0,.3)}
+.dlg-name::after{content:''; position:absolute; left:4px; bottom:-6px; width:6px; height:6px;
+  background:var(--wood); border-left:2px solid var(--wood-deep); border-bottom:2px solid var(--wood-deep)}
+.dlg-body{display:flex; gap:13px; align-items:flex-start}
+/* 초상 — atlas 절차 도트를 키운 것이라 반드시 pixelated (부드럽게 늘리면 도트가 죽는다) */
+.dlg-portrait{flex:0 0 auto; width:88px; height:88px; overflow:hidden;
+  background:var(--paper-dim); border:3px solid var(--wood);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.5)}
+.dlg-portrait img{display:block; width:100%; height:100%; image-rendering:pixelated}
+.dlg-text{flex:1 1 auto; min-width:0; min-height:88px; display:flex; flex-direction:column}
+.dlg-line{margin:2px 0 0; font-size:15px; line-height:1.65; white-space:pre-wrap; word-break:keep-all}
+.dlg-choices{display:flex; gap:8px; flex-wrap:wrap; margin-top:auto; padding-top:10px; justify-content:flex-end}
+/* 다음이 있다는 표 — 줄이 다 찍힌 뒤에만 깜박인다 */
+.dlg-next{position:absolute; right:13px; bottom:9px; font-size:15px; color:var(--gold); opacity:0}
+.dlg.typed .dlg-next{animation:dlgNext .8s steps(2) infinite}
+@keyframes dlgNext{0%,49%{opacity:.15; transform:translateY(0)}50%,100%{opacity:1; transform:translateY(2px)}}
+/* 대화 중에는 하단 HUD 가 뒤로 물러난다 (D-1 하단 배치대와 자리를 다투지 않게) */
+body.dialogue .cabinet,
+body.dialogue .toolbar,
+body.dialogue .place-bar,
+body.dialogue .ctx-panel,
+body.dialogue .me-panel{opacity:.16; pointer-events:none; transition:opacity .18s}
+@media (max-width:720px){
+  .dlg{padding:12px 12px 14px}
+  .dlg-portrait{width:72px; height:72px}
+  .dlg-text{min-height:72px}
+  .dlg-line{font-size:14px}
+}

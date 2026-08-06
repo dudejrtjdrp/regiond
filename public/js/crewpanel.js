@@ -163,5 +163,39 @@
     });
   }
 
-  GM.crewpanel = { open: open };
+  /* ★ §17-19(D-5) — 동료를 누르면 먼저 **한마디**가 오고, 수치판은 그다음이다.
+     「왜」 창을 하나 더 끼우나 — 여태 동료를 누르면 곧장 기력 막대와 단추가 떴다.
+     그건 사람이 아니라 장비를 여는 손맛이다. 지금 하는 일에 맞춰 한마디를 건네면
+     같은 정보라도 「함께 일하는 사람」이 된다. 말은 화면의 몫이라 서버는 한 줄도 바뀌지 않는다. */
+  var HELLO = {
+    idle:  ['오늘은 무슨 일을 할까요.', '부르셨습니까. 손이 남습니다.'],
+    node:  ['보시다시피 캐는 중입니다. 곧 한 짐 채웁니다.', '이 자리는 아직 남았습니다.'],
+    site:  ['짓고 있습니다. 손이 하나 더 붙으면 빨라집니다.', '기둥은 세웠으니 지붕만 얹으면 됩니다.'],
+    haul:  ['나르는 중입니다. 곳간까지 금방입니다.'],
+    rest:  ['잠깐 숨을 돌립니다. 곧 다시 나갑니다.'],
+    hold:  ['말씀하신 자리를 지키고 있습니다.'],
+    move:  ['가는 중입니다. 도착하면 그 자리를 지키겠습니다.'],
+    enemy: ['지금은 붙는 중입니다! 뒤를 봐 주십시오.'],
+    creature: ['짐승이 붙었습니다. 조심하십시오.'],
+    down:  ['…조금만, 조금만 쉬면 일어납니다.']
+  };
+
+  /** 그 사람의 지금에 맞는 한마디 — 같은 사람은 늘 같은 말투다(이름으로 고른다) */
+  function helloLine(c) {
+    var pool = HELLO[c.state] || HELLO.idle;
+    return c.name + ': ' + pool[U.hash(c.name) % pool.length];
+  }
+
+  function greet(id) {
+    var c = crewOf(id);
+    if (!c) { U.toast('그 동료를 찾지 못했습니다.', 'warn'); return null; }
+    if (!GM.dialogue) return open(id);
+    return GM.dialogue.open({
+      speaker: c.name, portraitKey: 'crew:' + id, lines: [helloLine(c)],
+      choices: [{ label: '무엇을 하는지 본다', act: function () { open(id); } },
+                { label: '그냥 지나친다' }]
+    });
+  }
+
+  GM.crewpanel = { open: open, greet: greet };
 })(window);

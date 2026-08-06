@@ -65,8 +65,26 @@
         U.toast(res.name + '의 문이 열렸습니다 — 이제 그곳의 값이 보입니다.', 'good', 4200);
         GM.sfx.play('unlock');
       }
-      open(res);
+      greet(res);
     });
+  }
+
+  /* ★ §17-19(D-5) — 문 앞에서 인사 한마디를 먼저 나누고, 첩(帖)은 그다음에 편다.
+     「왜」 표를 곧장 안 펴나 — 여태 남의 나라에 걸어 들어가는 일이 시세표 한 장으로 끝났다.
+     한 줄이라도 사람의 말이 앞에 서면 「찾아갔다」가 되고, 표는 그 뒤의 용건이 된다.
+     대화창이 없는 자리(구경 모드 등)에서는 옛길 그대로 첩부터 편다. */
+  function greet(brief) {
+    if (!GM.dialogue) return open(brief);
+    return GM.dialogue.open({
+      speaker: brief.name, portraitKey: 'icon:ship', lines: [greetLine(brief)],
+      choices: [{ label: '첩을 펼친다', act: function () { open(brief); } },
+                { label: '오늘은 물러난다' }]
+    });
+  }
+
+  function greetLine(brief) {
+    if (brief.first) return '먼 길을 오셨습니다. 우리 문을 여니, 값도 함께 열어 드리지요.';
+    return '또 오셨군요. 오늘의 값은 그대로입니다 — 보시겠습니까.';
   }
 
   /* ══════════ 방문 화면 ══════════ */
@@ -139,5 +157,5 @@
 
   function invalidate() { memo.t = 0; memo.val = null; }
 
-  GM.diplomacy = { nearTown: nearTown, visit: visit, open: open, invalidate: invalidate };
+  GM.diplomacy = { nearTown: nearTown, visit: visit, greet: greet, open: open, invalidate: invalidate };
 })(window);

@@ -211,8 +211,9 @@
 
     /* ★ §17-11 — 동료(봇)를 누르면 상호작용 패널이 열린다(지시·이름·모양새).
        건물보다 먼저 잰다 — 동료는 걸어 다니는 몸이라 건물 발밑을 지날 때가 많다. */
+    /* ★ §17-19(D-5) — 이제 먼저 말을 건다(대화창). 수치판은 「무엇을 하는지 본다」를 고를 때 열린다. */
     var crew = crewAt(w.x, w.y);
-    if (crew) { GM.crewpanel.open(crew.id); GM.sfx.play('tap'); return; }
+    if (crew) { GM.crewpanel.greet(crew.id); GM.sfx.play('tap'); return; }
 
     var b = structureAt(t.x, t.y);
     if (b) { GM.structure.open(b.id); GM.sfx.play('tap'); return; }
@@ -259,20 +260,20 @@
     manualPanAt = Date.now();
   }
 
-  /** ★ §16-20 — 그려진 스프라이트 사각형(월드 좌표) 판정. drawStructures 와 같은 식이다. */
+  /**
+   * ★ §16-20 — 그려진 스프라이트 사각형(월드 좌표) 판정.
+   * ★ §17-19 — 사각형 식을 여기서 다시 세지 않는다. 그림과 똑같은 자를 쓰지 않으면
+   *   스프라이트를 키우는 순간 「보이는데 눌러지지 않는 건물」이 생긴다(GM.world.structureRect).
+   */
   function structureAtSprite(wx, wy) {
     var list = S.structures();
     var best = null, bestBase = -1e9;
     for (var i = 0; i < list.length; i++) {
       var b = list[i];
       if (b.x == null) continue;
-      var f = S.footprintOfThing(b);
-      var c = S.centerOfThing(b);
-      var w2 = f.w + 0.7, h2 = f.h + 0.7;
-      var baseY = c.y + (f.h - 1) / 2 + 0.55;
-      var x0 = c.x - w2 / 2 + 0.1, y0 = baseY - h2;
-      if (wx >= x0 && wx <= x0 + w2 && wy >= y0 && wy <= baseY && baseY > bestBase) {
-        best = b; bestBase = baseY;
+      var r = GM.world.structureRect(b);
+      if (wx >= r.x && wx <= r.x + r.w && wy >= r.y && wy <= r.baseY && r.baseY > bestBase) {
+        best = b; bestBase = r.baseY;
       }
     }
     return best;
@@ -454,5 +455,7 @@
     }
   }
 
-  GM.input = { init: init, keys: keys, step: step, centerTown: centerTown, centerLord: centerLord };
+  GM.input = { init: init, keys: keys, step: step, centerTown: centerTown, centerLord: centerLord,
+    /* ★ §17-19 — 회귀 전용 문. 그려진 사각형과 클릭 판정이 정말 한 자로 재는지 밖에서 확인한다. */
+    structureAtSprite: structureAtSprite };
 })(window);

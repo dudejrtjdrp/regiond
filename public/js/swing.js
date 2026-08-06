@@ -220,6 +220,18 @@
   }
 
   /* ══════════ 명중 ══════════ */
+  /**
+   * ★ §17-19 — 맞은 놈이 하얗게 번쩍한다.
+   * 「왜」 화면을 흔들지 않고 그 자리만 터뜨리나 — 내가 때릴 때마다 화면이 크게 요동치면
+   *   손맛이 아니라 멀미가 된다. 흔들림은 **내가 맞을 때**의 몫으로 아껴 둔다(hud.hurt).
+   *   수치는 data/world.json render.hit 이 쥔다 — 세기를 고치려면 그 표만 만지면 된다.
+   */
+  function targetFlash(t) {
+    var c = S.hitFx();
+    GM.fx.ring(t.x, t.y - 0.3, c.targetFlashColor, 0.1, c.targetRingTo, c.targetRingSeconds, c.targetRingWidth);
+    GM.fx.sparkle(t.x, t.y - 0.3, c.targetSparkles, c.targetFlashColor);
+  }
+
   function impact(mine, ack) {
     var t = mine.target;
     var me = GM.avatar.pos();
@@ -228,6 +240,8 @@
 
     GM.fx.swingArc(me.x, me.y, ang, t.kind === 'enemy' ? '#ffe9a8' : '#fff6dc', 1.0);
     if (t.kind === 'enemy') GM.fx.slash(t.x, t.y, ang, '#ffd06a');
+    /* ★ §17-19 — 산 것을 때리면 그 자리가 하얗게 번쩍한다(나무·바위는 부스러기로 충분하다) */
+    if (t.kind === 'enemy' || t.kind === 'wild') targetFlash(t);
 
     /* 명중 프레임 정지 — 한 박자 */
     GM.fx.hitStop(t.kind === 'enemy' ? 70 : 48);

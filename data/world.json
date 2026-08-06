@@ -1175,5 +1175,39 @@
     "ring1Span": 22,
     "warnRing": 2,
     "warnText": "여기서부터는 사나운 것들의 땅입니다."
+  },
+  "render": {
+    "_note": "★ §17-19 표현·타격감 — 화면만 보는 다이얼이다(서버는 이 값을 한 번도 읽지 않는다). 규칙이 아니라 보기의 문제라 밝기 슬라이더와 같은 자리에 둔다. 여기 값이 바뀌어도 판정은 한 눈금도 달라지지 않는다.",
+    "structureSprite": {
+      "_note": "건물 스프라이트 사각형의 정본 수치. 그림(world.drawStructures)과 클릭 판정(input.structureAtSprite)이 이 하나를 같이 쓴다 — 따로 두면 키우는 순간 「눌러도 안 잡히는 건물」이 된다. scale 은 발밑(밑변)과 가로 한가운데를 붙박아 둔 채 위로·옆으로만 키운다. pad·baseDrop·shiftX 는 §12-1 부터 쓰던 옛 값 그대로다.",
+      "scale": 1.18,
+      "pad": 0.7,
+      "baseDrop": 0.55,
+      "shiftX": 0.1
+    },
+    "hit": {
+      "_note": "맞았을 때의 반응. 내 몸이 상하면 화면이 흔들리고 붉게 번지고 깎인 수가 뜬다. mergeMs 는 같은 매질이 전투 사건과 체력 감시로 두 번 들어올 때 한 번으로 합치는 창이고, minDamage 아래의 잔 상처(허기 따위)는 조용히 넘긴다. 적·짐승이 맞을 때는 그 자리에 흰 테와 불티만 튄다 — 화면 전체를 흔들면 때리는 맛이 아니라 멀미가 된다.",
+      "shake": 4.2,
+      "shakeSeconds": 0.26,
+      "flashColor": "#7d1c1c",
+      "flashAlpha": 0.26,
+      "flashSeconds": 0.4,
+      "hitStopMs": 60,
+      "textColor": "#ff9d99",
+      "textSize": 15,
+      "mergeMs": 700,
+      "minDamage": 0.5,
+      "targetFlashColor": "#ffffff",
+      "targetRingTo": 0.9,
+      "targetRingSeconds": 0.22,
+      "targetRingWidth": 3,
+      "targetSparkles": 4
+    },
+    "dialogue": {
+      "_note": "★ §17-19(D-5) 대화창(탐험기획 §18-6). typeMs 는 한 글자가 찍히는 시간이다 — 낮추면 말이 빨라지고, 0 이면 한 번에 다 뜬다. portraitSize 는 절차 도트 초상을 몇 픽셀로 키워 놓을지(스펙 72~96)이고, maxChoices 는 숫자키 1~4 와 짝이라 4를 넘기면 누를 수 없는 선택지가 생긴다. 판의 폭·여백·깜박임 같은 순수 치수는 CSS(.dlg)가 쥔다.",
+      "typeMs": 18,
+      "portraitSize": 88,
+      "maxChoices": 4
+    }
   }
 }

@@ -789,6 +789,32 @@
     return structSort.list;
   }
 
+  /* ★ §17-19 — 건물 스프라이트 다이얼(data/world.json render.structureSprite).
+     자료가 없는 옛 세이브·모의 상태에서도 그림이 멎지 않게 옛 수치를 그대로 예비로 든다. */
+  var SPRITE_FALLBACK = { scale: 1.18, pad: 0.7, baseDrop: 0.55, shiftX: 0.1 };
+  function spriteCfg() {
+    var w = S.worldCfg();
+    return (w && w.render && w.render.structureSprite) || SPRITE_FALLBACK;
+  }
+
+  /**
+   * ★ §17-19 — 건물이 그려지는 사각형(월드 좌표)의 **하나뿐인 정본**.
+   * 「왜」 한 곳으로 모았나 — 그림(drawStructures)과 「얼굴을 눌러도 잡힌다」 판정(§16-20
+   *   input.structureAtSprite)이 같은 식을 각자 베껴 쓰고 있었다. 스프라이트를 키우는 순간
+   *   둘이 어긋나 눌러도 안 잡히는 건물이 생긴다. 이제 키우는 일도 여기 한 줄(scale)이 한다.
+   * 밑변(baseY)과 가로 한가운데는 붙박이다 — 커져도 건물은 제자리에 선 채 위로 자란다.
+   * @param {object} b 건물 · @param {number} grow 준공 튀어오름 같은 덤 배율
+   */
+  function structureRect(b, grow) {
+    var f = S.footprintOfThing(b);
+    var c = S.centerOfThing(b);
+    var cfg = spriteCfg();
+    var g = (cfg.scale || 1) * (grow || 1);
+    var w = (f.w + cfg.pad) * g, h = (f.h + cfg.pad) * g;
+    var baseY = c.y + (f.h - 1) / 2 + cfg.baseDrop;
+    return { x: c.x + cfg.shiftX - w / 2, y: baseY - h, w: w, h: h, baseY: baseY };
+  }
+
   function drawStructures() {
     var cam = GM.camera.cam, t = cam.tile;
     var m = S.S.map;
@@ -832,9 +858,10 @@
         if (age > 0.75) delete doneBounce[b.id];
         else scale = 1 + Math.sin(Math.min(1, age / 0.75) * Math.PI) * 0.22 * (1 - age / 0.75);
       }
-      var w = t * (f.w + 0.7) * scale, h = t * (f.h + 0.7) * scale;
-      var baseY = c.y + (f.h - 1) / 2 + 0.55;
-      var p = GM.camera.worldToScreen(c.x - (f.w + 0.7) / 2 + 0.1, baseY - (f.h + 0.7));
+      /* ★ §17-19 — 사각형은 structureRect 한 곳에서만 잰다(클릭 판정도 같은 것을 쓴다) */
+      var r = structureRect(b, scale);
+      var w = t * r.w, h = t * r.h;
+      var p = GM.camera.worldToScreen(r.x, r.y);
       /* 본부 둘레의 광장 — 티어에 비례해 넓어진다 (§12-2) */
       if (b.hq) drawPlaza(c, t);
       /* 그림자 */
@@ -2114,6 +2141,8 @@
     /* ★ §16-12 — 동료·다른 사람의 화면 자리(보간) — 스윙 팝을 그 사람 곁에 띄울 때 쓴다 */
     matePos: function (id) { return mates[id] || null; },
     nearestWild: nearestWild, wildPos: wildPos, markWildHurt: markWildHurt,
+    /* ★ §17-19 — 건물 스프라이트 사각형의 정본. input.js 의 클릭 판정이 이것을 그대로 쓴다. */
+    structureRect: structureRect,
     /* ★ GDD3 §14-1 — 주민 작업 사이클의 수치 표시 */
     creditFloat: creditFloat,
     /* ★ GDD3 §15-A-2 — 터렛이 잡은 자리에 뜨는 수치 */

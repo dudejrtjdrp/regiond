@@ -254,6 +254,21 @@
     var ly = cl(y0 + Math.round(h * 0.62));
     P(cl(x0 - 1), ly, 2, 3, '#a8701f');
     P(cl(x0 - 1), ly, 2, 2, '#f6e6a8');
+
+    if (t < 4) return;
+    goldTrim(P, cl, x0, y0, x1, w, h);
+  }
+
+  /**
+   * ★ §17-19 — 마지막 단(4단) 장식. 금테를 두르고 마루 끝에 금장을 하나 얹는다.
+   * 「왜」 따로 두나 — 다 키운 건물이 3단과 똑같이 생기면 개축한 보람이 화면에 남지 않는다.
+   *   (건물 스프라이트는 4단에서 멈춘다 — 5·6단 자료를 가진 건물도 그림은 여기까지다.)
+   */
+  function goldTrim(P, cl, x0, y0, x1, w, h) {
+    P(x0, cl(y0 - 1), w, 1, '#f6cf7a');
+    P(cl(x0 - 1), y0, 1, h, '#e8a33d');
+    P(cl(x1), y0, 1, h, '#e8a33d');
+    P(cl(x0 + Math.round(w / 2) - 1), cl(y0 - 3), 2, 3, '#f6cf7a');
   }
 
   function building(key, tier, opts) {

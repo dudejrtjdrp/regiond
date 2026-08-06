@@ -15,6 +15,9 @@
   /* ══════════ 경고 ══════════ */
   function onIncoming(p) {
     if (!p) return;
+    /* ★ §17-19(D-5) — 경보가 울리면 대화창은 스스로 접힌다.
+       무리가 몰려오는데 아래에서 한가한 이야기가 이어지면 그 순간의 무게가 통째로 새어 나간다. */
+    if (GM.dialogue) GM.dialogue.close();
     var meta = S.enemyMeta(p.type);
     GM.sfx.play('alarm');
     GM.fx.flash('#7d1c1c', 0.3, 0.5);
@@ -31,6 +34,7 @@
     seenEvents = 0;
     shots = [];
     interp = {};
+    if (GM.dialogue) GM.dialogue.close();      /* ★ §17-19(D-5) — 싸움이 붙으면 말은 끊긴다 */
     var core = p && p.core;
     if (core) GM.camera.moveTo(core.x, core.y);
     GM.sfx.play('alarm');
@@ -166,10 +170,9 @@
       GM.sfx.play('bad');
       U.toast('울타리가 뚫렸습니다 — 안쪽을 지키세요.', 'bad', 4200);
     } else if (e.kind === 'playerHit') {
-      GM.fx.shakeScreen(3.5, 0.2);
+      /* ★ §17-19 — 흔들림·붉은 섬광·깎인 수는 hud.hurt 한 곳이 낸다(체력 감시와 겹쳐 두 번 흔들리지 않게) */
       GM.sfx.play('hurt');
-      var me = GM.avatar.pos();
-      if (me) GM.fx.floatText(me.x, me.y - 1.2, '-' + U.fmt(e.amount || 0, 0), '#ff9d99', 13);
+      GM.hud.hurt(e.amount || 0);
     } else if (e.kind === 'playerDown') {
       /* ★ GDD3 §14-6 — 전투 중에 쓰러져도 같은 화면이 뜬다(카운트다운 · 첫 다운 설명 카드). */
       if (!e.targetId || e.targetId === S.S.avatarId) {

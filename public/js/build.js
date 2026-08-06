@@ -198,6 +198,8 @@
     if (open_ && cat === want) { close(); return; }
     open_ = true;
     cat = want;
+    /* ★ §17-19 — 배치대가 하단 가운데로 내려왔다. 그 자리는 하나뿐이라 선택 패널은 물러난다. */
+    if (GM.hud && GM.hud.hideContext) GM.hud.hideContext();
     render();
     GM.sfx.play('page');
   }

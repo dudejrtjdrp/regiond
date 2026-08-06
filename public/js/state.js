@@ -1197,6 +1197,25 @@
     return (w && w.fences) || { maxSegments: 400, maxPointsPerRequest: 64, maxSegmentSpan: 40,
                                 blockedTerrain: ['water'], requiresTerritory: true };
   }
+  /* ★ §17-19 — 타격감 다이얼(data/world.json render.hit). 서버는 이 값을 한 번도 읽지 않는다.
+     자료가 닿지 않는 자리(구경 모드·옛 세이브)에서도 손맛이 사라지지 않게 옛 수치를 예비로 든다. */
+  var HIT_FALLBACK = {
+    shake: 4.2, shakeSeconds: 0.26, flashColor: '#7d1c1c', flashAlpha: 0.26, flashSeconds: 0.4,
+    hitStopMs: 60, textColor: '#ff9d99', textSize: 15, mergeMs: 700, minDamage: 0.5,
+    targetFlashColor: '#ffffff', targetRingTo: 0.9, targetRingSeconds: 0.22,
+    targetRingWidth: 3, targetSparkles: 4,
+  };
+  function hitFx() {
+    var w = worldCfg();
+    return (w && w.render && w.render.hit) || HIT_FALLBACK;
+  }
+  /* ★ §17-19(D-5) — 대화창 다이얼(data/world.json render.dialogue · 탐험기획 §18-6).
+     말이 찍히는 속도까지 자료가 쥔다 — 「너무 느리다」는 말이 나오면 코드가 아니라 이 표를 만진다. */
+  var DIALOGUE_FALLBACK = { typeMs: 18, portraitSize: 88, maxChoices: 4 };
+  function dialogueCfg() {
+    var w = worldCfg();
+    return (w && w.render && w.render.dialogue) || DIALOGUE_FALLBACK;
+  }
   function buildingDef(key) {
     var b = buildingsCfg();
     var d = b && b.defs && b.defs[key];
@@ -1404,7 +1423,7 @@
     wordFor: wordFor,
 
     cfg: cfg, worldCfg: worldCfg, tiersCfg: tiersCfg, skillsCfg: skillsCfg, wavesCfg: wavesCfg,
-    buildingsCfg: buildingsCfg, fenceCfg: fenceCfg,
+    buildingsCfg: buildingsCfg, fenceCfg: fenceCfg, hitFx: hitFx, dialogueCfg: dialogueCfg,
     buildingDef: buildingDef, buildingName: buildingName, buildingTier: buildingTier,
     turretSpecOf: turretSpecOf,
     categoryName: categoryName,
