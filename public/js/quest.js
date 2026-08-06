@@ -224,7 +224,9 @@
     wood: { types: ['forest'], text: '목재가 필요해요 — 나무는 짙은 초록 숲에 있습니다' },
     stone: { types: ['rock'], text: '석재가 필요해요 — 바위는 회색 언덕에 있습니다' },
     grain: { types: ['water', 'field', 'fertile'], text: '식량이 필요해요 — 물가에서 고기를 건지거나 여문 밭을 거두세요' },
-    ironOre: { types: ['iron'], text: '철광석이 필요해요 — 광맥은 바위 지대 깊은 곳에 있습니다' }
+    ironOre: { types: ['iron'], text: '철광석이 필요해요 — 광맥은 바위 지대 깊은 곳에 있습니다' },
+    /* ★ §17-5 이후 고기도 목표 자원이다(3장 「곡물 20 또는 고기 7」) — 그 갈래로 가는 사람에게도 길을 짚어 준다 */
+    meat: { types: ['water'], text: '고기가 필요해요 — 물가에서 건지거나 들짐승을 사냥하세요' }
   };
 
   /**
@@ -271,8 +273,11 @@
 
   /** 지금 목표가 요구하는 것 중 가장 모자란 자원 */
   function missingResource() {
-    var g = S.goal();
-    if (g && g.condition && g.condition.type === 'resource') return g.condition.resource;
+    /* ★ §17-E-1 — 목표 조건은 갈래(any·all)일 수 있다. 예전에는 `type === 'resource'` 인 잎 하나만
+       봤기 때문에, 3장 「곡물 20 또는 고기 7」에서는 해결 말풍선이 통째로 침묵했다.
+       이제 상태가 내주는 잎 목록(goalNeeds — 서버와 같은 자로 가까운 순)에서 **아는 자원**을 고른다. */
+    var needs = S.goalNeeds ? S.goalNeeds() : [];
+    for (var i = 0; i < needs.length; i++) if (SOURCE[needs[i].resource]) return needs[i].resource;
     var n = S.nation();
     if (!n) return null;
     var pl = S.S.placing;

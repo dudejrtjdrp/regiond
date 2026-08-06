@@ -900,14 +900,75 @@
     var have = Math.min(r.need, r.have);
     return { have: have, need: r.need, ratio: r.need > 0 ? Math.min(1, have / r.need) : 1, done: have >= r.need };
   }
+  /* ── ★ §17-E-1 — 목표 조건은 잎 하나가 아닐 수 있다 ──────────
+     실측한 버그: 3장 첫 칸을 「곡물 20 **또는** 고기 7」(condition.type = 'any')로 바꾼 뒤로
+     자원 팝의 「(오두막까지 8)」이 통째로 사라졌다. 이 함수가 type !== 'resource' 면
+     곧장 null 을 냈기 때문이다 — 조건이 두꺼워졌는데 안내만 옛 모양에 박혀 있었다.
+     그래서 any·all 안쪽 잎까지 내려가 이 자원을 요구하는 잎을 찾는다. */
+
+  /** 조건 나무의 잎 전부 — any·all 은 갈래일 뿐 잎이 아니다 */
+  function leavesOf(cond) {
+    if (!cond) return [];
+    if (cond.type !== 'any' && cond.type !== 'all') return [cond];
+    var out = [];
+    var of = cond.of || [];
+    for (var i = 0; i < of.length; i++) out = out.concat(leavesOf(of[i]));
+    return out;
+  }
+  /** 잎 하나의 잔여 — 지금 장부로 다시 잰다. 화면이 못 재는 잎(웨이브·깃발 따위)은 null. */
+  function leafGap(c) {
+    var need = Number(c.amount || c.count || 0);
+    var r = reqLive({
+      key: 'leaf', kind: c.type, resource: c.resource, building: c.building,
+      need: need, have: null, dec: 0,
+    });
+    if (r.have == null) return null;
+    return Math.max(0, need - r.have);
+  }
+  /** ★ any 는 「아무거나 하나」다 — 한 갈래라도 이미 찼으면 안내를 붙일 까닭이 없다 */
+  function anyBranchDone(cond, leaves) {
+    if (!cond || cond.type !== 'any') return false;
+    for (var i = 0; i < leaves.length; i++) if (leafGap(leaves[i]) === 0) return true;
+    return false;
+  }
+  function ratioOf(gap, need) {
+    if (!(need > 0)) return 1;
+    return 1 - gap / need;
+  }
+  /**
+   * 지금 목표가 요구하는 자원 잎 전부 — **가까운 순**(진행 비율이 높은 순).
+   * ★ 가까움의 자는 서버 progression.measure 의 `any` 와 같다 — 남은 양이 아니라 **찬 비율**이다.
+   *   「곡물 12/20 · 고기 0/7」이면 곡물이 가깝다(남은 양은 곡물 8 > 고기 7 이지만).
+   *   두 벌의 자를 쓰면 화면과 서버가 서로 다른 갈래를 가리키게 된다.
+   */
+  function goalNeeds() {
+    var g = goal();
+    if (!g || !g.condition) return [];
+    var p = goalProgress();
+    if (p && p.done) return [];
+    var leaves = leavesOf(g.condition);
+    if (anyBranchDone(g.condition, leaves)) return [];
+    var out = [];
+    for (var i = 0; i < leaves.length; i++) out = out.concat(gapRow(leaves[i]));
+    return out.sort(function (a, b) { return b.ratio - a.ratio; });
+  }
+  /** 자원 잎 한 장의 잔여 한 줄 (자원 잎이 아니거나 못 재면 빈 배열) */
+  function gapRow(c) {
+    if (c.type !== 'resource' || !c.resource) return [];
+    var gap = leafGap(c);
+    if (gap == null || gap <= 0) return [];
+    var need = Number(c.amount || 0);
+    return [{ resource: c.resource, remaining: gap, need: need, ratio: ratioOf(gap, need) }];
+  }
   /** 이 자원이 지금 목표가 요구하는 것인가 — 자원 팝에 「(천막까지 6)」을 붙이는 근거 */
   function goalRemaining(resource) {
     var g = goal();
-    if (!g || !g.condition || g.condition.type !== 'resource') return null;
-    if (g.condition.resource !== resource) return null;
-    var p = goalProgress();
-    if (!p || p.done) return null;
-    return { remaining: Math.max(0, p.need - p.have), title: g.title, need: p.need, short: g.short || null };
+    var rows = goalNeeds();
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].resource !== resource) continue;
+      return { remaining: rows[i].remaining, title: g.title, need: rows[i].need, short: g.short || null };
+    }
+    return null;
   }
   /** 목표가 가리키는 대상 후보 (월드 좌표 또는 화면 단추) */
   function goalTargets() {
@@ -1396,6 +1457,7 @@
     tier: tier, tierNo: tierNo, unlocked: unlocked, uiOn: uiOn, featOn: featOn, buildingOn: buildingOn,
     reqLive: reqLive, reqList: reqList, reqReady: reqReady,
     chapter: chapter, goal: goal, goalProgress: goalProgress, goalRemaining: goalRemaining,
+    goalNeeds: goalNeeds,
     goalTargets: goalTargets, cmdOn: cmdOn,
     you: you, player: player, swingInfo: swingInfo, skillOf: skillOf, swingTarget: swingTarget,
     swingRange: swingRange, combatCfg: combatCfg, downed: downed,

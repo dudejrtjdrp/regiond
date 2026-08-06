@@ -10,7 +10,51 @@
 
   var SIZE = 96;
   var CODES = ['grass', 'forest', 'rock', 'water', 'fertile'];
+  var TERRAIN_NAMES = { grass: '풀밭', forest: '숲', rock: '바위 노두', water: '물', fertile: '기름진 땅' };
   var DAY_SECONDS = 45;            // 구경 모드는 하루가 짧다
+
+  /* ★ §17-18b — 땅의 성정도 **시드가 뽑는다**. 구경 모드가 늘 비옥지·성지만 보여 주면
+     새 태그가 붙은 화면(감정의 날 컷신·나라 패널)은 눈으로 한 번도 못 본 채 넘어간다.
+     이름·flavor 는 data/tags.json 을 줄여 옮긴 것이고, 정본은 언제나 그 파일이다. */
+  var TAGS = [
+    { key: 'fertile',    name: '비옥지', kind: 'strength', flavor: '괭이를 얕게만 넣어도 흙이 먼저 부풀어 오른다.' },
+    { key: 'greatwood',  name: '대삼림', kind: 'strength', flavor: '도끼 소리가 잦아들기도 전에 다음 나무가 그늘을 내준다.' },
+    { key: 'ironvein',   name: '철광맥', kind: 'strength', flavor: '바위를 두드리면 종소리가 난다.' },
+    { key: 'oilfield',   name: '유전',   kind: 'strength', flavor: '웅덩이마다 무지개가 뜬다 — 마시지 말라는 말을 젖 뗄 무렵부터 듣는다.' },
+    { key: 'fortress',   name: '요새지', kind: 'mixed',    flavor: '능선이 저절로 성벽을 그렸다. 지키기는 수월하고 짓기는 고되다.' },
+    { key: 'holy',       name: '성지',   kind: 'strength', flavor: '새벽이면 누가 시키지 않아도 사람들이 언덕을 향해 선다.' },
+    { key: 'quarry',     name: '너덜겅', kind: 'strength', flavor: '산이 제 뼈를 밖에 내놓은 땅 — 돌은 캐는 것이 아니라 줍는 것이다.' },
+    { key: 'barren',     name: '척박지', kind: 'weakness', flavor: '흙을 쥐면 손가락 사이로 죄다 빠져나간다.' },
+    { key: 'rottenvein', name: '삭은맥', kind: 'weakness', flavor: '곡괭이 끝에 걸리는 것은 늘 부스러지는 붉은 흙이다.' }
+  ];
+  function tagDef(key) {
+    for (var i = 0; i < TAGS.length; i++) if (TAGS[i].key === key) return TAGS[i];
+    return { key: key, name: key, kind: 'strength', flavor: '' };
+  }
+  function tagNamesOf(keys) {
+    return (keys || []).map(function (k) { return tagDef(k).name; });
+  }
+  /** 태그 표를 config 모양으로 (state.tagName 이 이 표로 이름을 푼다) */
+  function tagConfig() {
+    var out = {};
+    TAGS.forEach(function (t) { out[t.key] = { key: t.key, name: t.name, kind: t.kind, flavor: t.flavor }; });
+    return out;
+  }
+  /**
+   * 강점 하나 + (0~1)약점, 모자라면 강점으로 채워 둘. 서버 assignTags 를 줄여 흉내 낸 것이다
+   * — 같은 씨앗이면 언제나 같은 땅이라는 계약만 지키면 구경 모드로는 충분하다.
+   */
+  function drawTags(rng) {
+    var strong = TAGS.filter(function (t) { return t.kind !== 'weakness'; });
+    var weak = TAGS.filter(function (t) { return t.kind === 'weakness'; });
+    var picked = [strong[(rng() * strong.length) | 0].key];
+    if (rng() < 0.5) picked.push(weak[(rng() * weak.length) | 0].key);
+    for (var i = 0; picked.length < 2 && i < strong.length * 4; i++) {
+      var k = strong[(rng() * strong.length) | 0].key;
+      if (picked.indexOf(k) < 0) picked.push(k);
+    }
+    return picked;
+  }
 
   /* ── 최소 설정표 (서버 config 를 못 받았을 때의 폴백) ── */
   var TIERS = [
@@ -233,8 +277,14 @@
       chronicle: [], nameIdx: 0,
       /* ★ 진행 감독 — 국가 단위 장 상태 */
       progress: { chapter: 1, step: 0, cleared: [], flags: {} },
-      swingsBySkill: {}
+      swingsBySkill: {},
+      /* ★ §17-18b — 태그는 월드가 설 때 시드로 뽑아 두고, 감정하기 전까지는 아무도 모른다 */
+      tags: []
     };
+    /* ★ 월드 난수를 축내지 않는다 — 시드에서 갈라져 나온 별도 흐름으로 뽑는다(서버 rollPlayerTags 와 같은 규율).
+       여기서 rng 를 쓰면 같은 씨앗의 지형·군락이 통째로 밀린다. */
+    W.tags = drawTags(mulberry(((opts.seed || 4242) ^ 2749813) >>> 0));
+    cfg.tags = tagConfig();
     ['farm', 'lumber', 'mining', 'build', 'combat'].forEach(function (k) { W.skills[k] = { level: 1, xp: 0 }; });
 
     genTerrain(W, rng);
@@ -247,6 +297,42 @@
       }
     }
     function nid(p) { return p + (W.nextId++); }
+
+    /** 감정을 마쳤는가 — 마치기 전에는 태그가 없는 것과 같다 */
+    function appraisedTags() {
+      if (!W.progress.flags.appraised) return [];
+      return W.tags.slice();
+    }
+
+    /** 영토 안 지형을 세어 「풀밭 120 · 숲 40」 한 줄로 (서버 terrainLine 과 같은 결) */
+    function terrainLine() {
+      var count = {};
+      for (var y = W.cy - W.radius; y <= W.cy + W.radius; y++) {
+        for (var x = W.cx - W.radius; x <= W.cx + W.radius; x++) {
+          if (Math.hypot(x - W.cx, y - W.cy) > W.radius) continue;
+          var k = CODES[W.terrain[y * SIZE + x]] || 'grass';
+          count[k] = (count[k] || 0) + 1;
+        }
+      }
+      return Object.keys(count).sort(function (a, b) { return count[b] - count[a]; }).slice(0, 4)
+        .map(function (k) { return (TERRAIN_NAMES[k] || k) + ' ' + count[k]; }).join(' · ');
+    }
+    /** ★ §17-18 — 컷신 프레임은 5 + 태그 수 + 1. 태그가 셋이면 판도 한 장 길어진다. */
+    function mockCutscene() {
+      var flavor = W.tags.map(function (k) {
+        var d = tagDef(k);
+        if (!d.flavor) return { text: d.name, color: '#c9b8e0' };
+        return { text: d.name + ' — ' + d.flavor, color: '#c9b8e0' };
+      });
+      var head = [
+        { text: '세 밤을 갈아온 땅이 흔들린다.', color: '#1b1b28' },
+        { text: '균열 사이로 빛이 새어 나온다.', color: '#3a2f4f' },
+        { text: terrainLine(), color: '#6b5b95' },
+        { text: tagNamesOf(W.tags).join(' · '), color: '#e8c07d' },
+        { text: '이제 각자의 자리가 정해진다.', color: '#f4efe6' }
+      ];
+      return head.concat(flavor, [{ text: '땅이 제 됨됨이를 다 말했다 — 이제 우리가 대답할 차례다.', color: '#f4efe6' }]);
+    }
 
     /* ── 지형·노드 ── */
     function genTerrain(w, r) {
@@ -596,7 +682,9 @@
           swing: { rangeTiles: 3, targets: swingTargets() }
         },
         nation: {
-          id: 'player', name: (opts.playerName || '그대') + '의 정착지', isPlayer: true, tags: [], tagNames: [],
+          /* ★ §17-18b — 감정 전에는 땅의 성정을 아무도 모른다. 감정한 뒤에야 시드가 뽑아 둔 태그가 드러난다. */
+          id: 'player', name: (opts.playerName || '그대') + '의 정착지', isPlayer: true,
+          tags: appraisedTags(), tagNames: tagNamesOf(appraisedTags()),
           town: { x: W.cx, y: W.cy }, territory: { radius: W.radius, cx: W.cx, cy: W.cy },
           residents: W.residents.map(function (r) {
             /* ★ §13-A-3 — 구경 모드도 하루 산출을 실어 준다. 없으면 짐이 안 쌓여 나르지 않는다. */
@@ -1140,19 +1228,19 @@
             }
             W.progress.flags.appraised = true;
             evaluateProgress();
-            if (ack) ack({ ok: true, appraised: true, tagNames: ['비옥한 땅', '성스러운 터'] });
-            /* ★ §17-18 — 컷신은 「5장 + 태그마다 한 장 + 마무리 한 장」이다. 맞춤본도 같은 결로 낸다. */
-            fire('emotionDay', { tags: ['비옥지', '성지'], tagKeys: ['fertile', 'holy'], tagLine: '비옥지 · 성지',
+            if (ack) ack({ ok: true, appraised: true, tags: W.tags, tagNames: tagNamesOf(W.tags) });
+            /* ★ §17-18 — 컷신은 「앞의 다섯 장 + 태그마다 한 장 + 마무리 한 장」이다.
+               ★ §17-18b — 그 태그도 이제 고정이 아니라 시드가 뽑은 것이다(W.tags). */
+            fire('emotionDay', { tags: tagNamesOf(W.tags), tagKeys: W.tags.slice(),
+                                 tagLine: tagNamesOf(W.tags).join(' · '),
                                  revealedNodes: [], nodesRevealed: 0,
-                                 tagStories: [{ key: 'fertile', name: '비옥지', flavor: '흙이 먼저 부풀어 오르는 땅이다.' },
-                                              { key: 'holy', name: '성지', flavor: '새벽이면 사람들이 언덕을 향해 선다.' }],
-                                 cutscene: [{ text: '땅이 흔들린다.', color: '#1b1b28' },
-                                            { text: '균열 사이로 빛이 샌다.', color: '#3a2f4f' },
-                                            { text: '비옥지 · 성지', color: '#e8c07d' },
-                                            { text: '비옥지 — 흙이 먼저 부풀어 오르는 땅이다.', color: '#c9b8e0' },
-                                            { text: '성지 — 새벽이면 사람들이 언덕을 향해 선다.', color: '#c9b8e0' },
-                                            { text: '땅이 제 됨됨이를 다 말했다.', color: '#f4efe6' }],
-                                 worldTags: [] });
+                                 tagStories: W.tags.map(function (k) {
+                                   var d = tagDef(k);
+                                   return { key: d.key, name: d.name, flavor: d.flavor };
+                                 }),
+                                 cutscene: mockCutscene(),
+                                 worldTags: [{ id: 'player', name: (opts.playerName || '그대') + '의 정착지',
+                                               tags: tagNamesOf(W.tags) }] });
             fire('state', stateView());
             break;
           }

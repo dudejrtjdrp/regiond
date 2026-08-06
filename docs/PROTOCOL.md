@@ -297,6 +297,81 @@ event: { kind: "biome_found", nationId, data: {위와 같음} }
 
 ---
 
+## 0-P. v3.3 안 델타 — **손과 잠과 동료** (§17-7 · §17-9 · §17-11)
+
+**판번호를 올리지 않는다.** 더하기만 했다 — 땅도 세이브도 그대로다(`world.schema` **6** 유지).
+옛 세이브에 없는 `nation.sleepVotes` · `structure.hand` · `structure.handTickBy` · `companion.mem.order` 는
+처음 쓰이는 순간 빈 표에서 시작한다(없으면 「아무도 안 잤다 · 아무도 안 거들었다 · 지시 없음」과 같다).
+
+이 절은 **뒤늦은 기록**이다. 아래 네 명령은 배치5(§17)에서 이미 서버에 서 있었는데 이 문서에만 없었다.
+그래서 여기 적는 것은 설계가 아니라 **실제 구현**이다 — `server/engine/commands.js` · `server/index.js` 가 정본이고
+이 표는 그것을 옮겨 적은 것이다.
+
+### 0-P-1. 신설 — 명령 (C→S)
+
+| 명령 | 페이로드 | 여는 장 | 서버가 지키는 것 |
+|---|---|---|---|
+| `sleepVote` | `{on?: boolean}` | (장 제한 없음) | ★ §17-7 — **신원 명령**. 내 아바타의 표 하나. `on:false` 면 표를 걷는다. 봇(동료)은 세지 않는다 — 사람 아바타 전원이 잠들어야 하루가 넘어간다 |
+| `handWork` | `{structureId}` | (장 제한 없음) | ★ §17-9 — **신원 명령**. 그 건물에 `buildings.json handWork` 가 있어야 하고, 내 아바타가 `balance.handWork.reachTiles`(3.2) + 발자국 절반 안에 서 있어야 한다. 비용·산출·쿨다운은 전부 자료가 정한다(매직넘버 없음) |
+| `commandCompanion` | `{companionId, order: {kind:'move', x, y} \| null}` | (장 제한 없음) | ★ §17-11 — 신원 명령이 **아니다**(내 아바타가 아니라 동료를 겨눈다). `order:null` 은 지시를 걷는 것. `kind` 는 지금 `'move'` 하나뿐이고 좌표는 지도 안이어야 한다 |
+| `customizeCompanion` | `{companionId, name?, appearance?}` | (장 제한 없음) | ★ §17-11 — 이름은 1~`world.appearance.nameMaxLength` 자. 외형은 `setAppearance` 와 **같은 규격**이며 범위를 벗어난 칸만 지금 모습으로 되돌린다(전체 거부 금지). 둘 다 없으면 `NOTHING_TO_CHANGE` |
+
+### 0-P-2. `sleepVote` — 하루를 넘기는 유일한 사람 손
+
+ack:
+
+```
+{ ok, slept, need, advanceDay }
+```
+
+- `slept` / `need` — 잠든 사람 수 / 사람 아바타 수(동료 봇 제외). 화면은 「잠듦 2/3」을 이 두 값으로 쓴다.
+- `advanceDay` — **이 표로 하루가 넘어갔는가.** `true` 면 서버가 그 자리에서 `advance()` 를 한 번 돌리고
+  **일 틱 시계를 새로 감는다**(`stop()` → `start()`). 그래야 다음 하루가 넘긴 순간부터 온전히 흐른다.
+  넘어간 뒤 표는 비워진다 — 다음 날은 다시 처음부터 잠들어야 한다.
+- 오류: `NO_NATION`(사람의 나라가 아니다) · `BATTLE_LIVE`(싸움 중에는 못 잔다) · `NO_AVATAR`.
+- **뷰 필드가 없다.** 잠든 표는 상태에 실리지 않고 ack 로만 온다 — 화면이 제 단추 모양을 ack 로 고쳐 그린다.
+  (여럿이 붙어 있을 때 남의 표가 실시간으로 보이지는 않는다. 다음 상태 방송이 아니라 **다음 내 표**에서 맞춰진다.)
+
+### 0-P-3. `handWork` — 건물 곁에서 직접 거드는 손
+
+ack:
+
+```
+{ ok, structureId, key, label, gained{자원:실적립}, healed, gold, buildPoints,
+  morale, xp, x, y, resources{…} }
+```
+
+- `gained` 는 **창고 상한을 지난 뒤의 실제 적립량**이다(`deposit`). 곳간이 찼으면 0 이 실린다 — 화면은 이 값으로 팝을 띄운다.
+- `x`·`y` 는 건물 **중심**(발자국을 감안한 자리). 이펙트를 여기 띄우라는 뜻이다.
+- `label` 은 자료가 쥔 그 건물의 손일 이름(「손수 제련한다」 따위).
+- `morale` 은 사기가 오른 명령일 때만 숫자, 아니면 `null`. `xp` 는 `{skill, ...}` 또는 `null`.
+- 쿨다운은 **두 자** 중 하나다: `cooldownSeconds`(실시간, 사람마다 따로 — `structure.hand[누구]`)
+  또는 `cooldownDays`(하루 한 번 — `structure.handTickBy[누구]`, 성소의 기도가 이것). 둘 다 **사람별**이다.
+- 오류: `NO_STRUCTURE` · `RUINED` · `INACTIVE`(옮기는 중) · `NO_HANDWORK`(거들 손일이 없는 건물) ·
+  `NO_AVATAR` · `OUT_OF_RANGE` · `COOLDOWN`(실시간 쿨다운이면 `{waitMs}` 를 함께 준다) · `NO_RESOURCES`.
+- `StructureView.handWork` — 그 건물에 손일이 있으면 정의를 그대로 실어 준다(없으면 `null`).
+  화면은 이것을 보고 건물 곁 단추와 비용 툴팁을 그린다. **비용·산출을 화면이 짓지 않는다.**
+
+### 0-P-4. `commandCompanion` · `customizeCompanion` — 동료
+
+ack:
+
+```
+commandCompanion   { ok, companionId, order }        // order 는 {kind:'move',x,y} 또는 null
+customizeCompanion { ok, companionId, name, appearance }
+```
+
+- 지시는 동료 두뇌(`companions.decide`)의 **어떤 갈래보다 먼저** 선다. 지시를 받은 동료는 하던 일을 그 자리에서 물리고
+  (`mem.target=null`·`mem.think=0`) 찍힌 자리로 걸어가 대기한다. `order:null` 이면 다음 걸음에 제 일감을 다시 고른다.
+- 꾸미기는 **세 장부에 같은 값을 적는다** — 동료 명단 · 아바타 · 명부(`members`), 그리고 각료 카드의 이름표까지.
+  명부와 머리 위 이름표가 갈리면 같은 사람이 둘로 보인다.
+- 서버는 `customizeCompanion` 이 성공하면 방 전체에 **`avatars` 를 그 자리에서 흘린다**(`setAppearance` 와 같은 규율).
+  다음 상태 방송을 기다리면 이름표가 잠깐 옛 사람으로 남는다.
+- 오류: `NO_COMPANION` · `COMPANION_AWAY`(자리를 비운 동료) · `BAD_ORDER`(모르는 지시) ·
+  `BAD_POSITION`(지도 밖) · `BAD_NAME` · `NOTHING_TO_CHANGE`.
+
+---
+
 ## 0-T. v3.2 안 델타 — **플레이테스트 3차** (GDD3 §14)
 
 **판번호를 올리지 않는다.** 더하기만 했다 — 땅도 세이브도 그대로다(`world.schema` **5** 유지).
@@ -1053,6 +1128,10 @@ ack / `joined` 이벤트 payload:
 | `setBattlePlan {tactic}` | 티어 2 | ★ 서지 3구간 배분은 폐기 |
 | `setAppearance {appearance}` / `chat {text}` | — | |
 | `visitNation {nationId}` | — | ★ §17-16 이웃 나라 찾아가기(§0-R-1). 도읍 중심 `towns.visitRadius` 안 · 신원 명령 |
+| `sleepVote {on?}` | — | ★ §17-7 다같이 잠자기(§0-P-2). 사람 아바타 전원이 잠들면 하루가 곧장 넘어간다 · 싸움 중 불가 · 신원 명령 |
+| `handWork {structureId}` | — | ★ §17-9 건물 손일(§0-P-3). `buildings.json handWork` 가 비용·산출·쿨다운을 쥔다 · 거리·쿨다운은 사람별 · 신원 명령 |
+| `commandCompanion {companionId, order}` | — | ★ §17-11 동료 지시(§0-P-4). `order:{kind:'move',x,y}` 또는 `null`(해제) |
+| `customizeCompanion {companionId, name?, appearance?}` | — | ★ §17-11 동료 꾸미기(§0-P-4). 성공 시 방 전체에 `avatars` 재방송 |
 
 ---
 
@@ -1280,9 +1359,13 @@ ack / `joined` 이벤트 payload:
   "effects": [{ "label": "곡물 산출", "value": "+30%" }],
   "nextTier": { "tier": 3, "name": "곡창", "cost": { "wood": 300, "stone": 180 }, "gold": 0, "buildPoints": 36,
                 "effects": [{ "label": "곡물 산출", "value": "+50%" }] },
-  "adjacency": 0.04 }
+  "adjacency": 0.04,
+  "handWork": { "label": "손수 제련한다", "desc": "…", "cost": { "ironOre": 4 }, "yield": { "steel": 2 },
+                "cooldownSeconds": 4 } }
 ```
 `adjacency` 는 건축가 재임 시에만 숫자, 아니면 `null`.
+★ §17-9 `handWork` — 그 건물에 손일이 있으면 `buildings.json` 의 정의를 그대로 싣고, 없으면 `null`.
+화면은 이것만 보고 건물 곁 단추·비용 툴팁을 그린다(비용·산출을 화면이 짓지 않는다). 명령은 §0-P-3.
 
 #### FenceView
 ```jsonc
