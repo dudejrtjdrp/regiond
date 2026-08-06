@@ -41,6 +41,8 @@ export function runEmotionDay(world, data, rng) {
       tagLine: tagNames.join(' · '),
       revealedNodes: revealed.map((n) => ({ id: n.id, type: n.type, x: n.x, y: n.y })),
       nodesRevealed: revealed.length,
+      // ★ §17-18 — 컷신이 지나가고 난 뒤에도 태그마다의 이야기를 곱씹을 수 있게 따로 실어 보낸다
+      tagStories: player.tags.map((t) => tagStory(t, data)),
       cutscene: buildCutscene(world, player, data),
       worldTags: Object.values(world.nations).map((n) => ({
         id: n.id, name: n.name, tags: n.tags.map((t) => data.tags[t]?.name ?? t),
@@ -50,6 +52,12 @@ export function runEmotionDay(world, data, rng) {
 
   events.push(...openMandate(world, player, data));
   return events;
+}
+
+/** 태그 하나의 이름과 한 줄 이야기. 옛 세이브에 flavor 없는 태그가 있어도 빈 줄로 버틴다. */
+function tagStory(key, data) {
+  const def = data.tags[key] || {};
+  return { key, name: def.name ?? key, flavor: def.flavor ?? '' };
 }
 
 /** 영토 안 지하 자원(철광맥·유막)을 드러낸다 */
@@ -118,31 +126,73 @@ function assignTags(data, rng) {
   return [...picked];
 }
 
-function buildCutscene(world, nation, data) {
-  const town = townOf(world, nation.id);
-  const r = territoryRadius(nation, data);
-  const counts = {};
-  if (town) {
-    for (let y = Math.max(0, Math.floor(town.y - r)); y <= Math.min(world.map.size - 1, Math.ceil(town.y + r)); y += 1) {
-      for (let x = Math.max(0, Math.floor(town.x - r)); x <= Math.min(world.map.size - 1, Math.ceil(town.x + r)); x += 1) {
-        if (dist(x, y, town.x, town.y) > r) continue;
-        const name = terrainNameAt(world.map, x, y, data);
-        if (!name) continue;
-        counts[name] = (counts[name] || 0) + 1;
-      }
-    }
-  }
+/**
+ * ★ §17-18 — 컷신을 이야기답게 두껍게 한다.
+ *   피드백 「감정의 날에 감정되는 요소가 너무 적다」에 대한 답이다. 앞의 다섯 장은 예전 그대로
+ *   '땅이 갈라지는' 연출이고, 그 뒤에 **배정받은 태그마다 한 장씩** 그 땅의 성정을 읽어 준 뒤
+ *   마지막 한 장으로 닫는다. 그래서 프레임 수는 5 + 태그 수 + 1 로 태그에 따라 달라진다.
+ *   (클라 cutscene.js 는 프레임 수를 세지 않고 길이에 맞춰 재생 시간을 늘린다 — 하드코딩 없음.)
+ */
+export function buildCutscene(world, nation, data) {
+  return [
+    { text: '세 밤을 갈아온 땅이 흔들린다.', color: '#1b1b28' },
+    { text: '균열 사이로 빛이 새어 나온다.', color: '#3a2f4f' },
+    { text: terrainLine(world, nation, data), color: '#6b5b95' },
+    { text: nation.tags.map((t) => data.tags[t]?.name ?? t).join(' · '), color: '#e8c07d' },
+    { text: '이제 각자의 자리가 정해진다.', color: '#f4efe6' },
+    ...flavorFrames(nation, data),
+    closingFrame(data),
+  ];
+}
+
+/**
+ * 태그 한 장 = 「이름 — 한 줄 이야기」. 문구는 전부 data/tags.json 의 flavor 가 쥔다.
+ * flavor 가 없는 옛 태그가 섞여 들어와도 이름만으로 한 장을 낸다(연출이 끊기면 안 되므로).
+ */
+function flavorFrames(nation, data) {
+  const color = data.balance.emotionDay.cutscene.flavorColor;
+  return (nation.tags || []).map((key) => {
+    const def = data.tags[key] || {};
+    const name = def.name ?? key;
+    if (!def.flavor) return { text: name, color };
+    return { text: `${name} — ${def.flavor}`, color };
+  });
+}
+
+/** 마무리 한 줄 — 태그를 다 읽고 나서 이야기를 닫는다 */
+function closingFrame(data) {
+  const c = data.balance.emotionDay.cutscene.closing;
+  return { text: c.text, color: c.color };
+}
+
+/** 영토 안 지형을 세어 「풀밭 120 · 숲 40 …」 한 줄로 만든다(많은 순 넷) */
+function terrainLine(world, nation, data) {
   const names = data.world.terrain.names;
-  const terrainLine = Object.entries(counts)
+  return Object.entries(terrainCounts(world, nation, data))
     .sort((a, b) => b[1] - a[1])
     .slice(0, 4)
     .map(([k, v]) => `${names[k] ?? k} ${v}`)
     .join(' · ');
-  return [
-    { text: '세 밤을 갈아온 땅이 흔들린다.', color: '#1b1b28' },
-    { text: '균열 사이로 빛이 새어 나온다.', color: '#3a2f4f' },
-    { text: terrainLine, color: '#6b5b95' },
-    { text: nation.tags.map((t) => data.tags[t]?.name ?? t).join(' · '), color: '#e8c07d' },
-    { text: '이제 각자의 자리가 정해진다.', color: '#f4efe6' },
-  ];
+}
+
+/** 도읍 반경 안 지형 칸 수. 도읍이 없으면(테스트용 빈 월드) 빈 셈이다. */
+function terrainCounts(world, nation, data) {
+  const town = townOf(world, nation.id);
+  const counts = {};
+  if (!town) return counts;
+  const r = territoryRadius(nation, data);
+  const hi = world.map.size - 1;
+  for (let y = Math.max(0, Math.floor(town.y - r)); y <= Math.min(hi, Math.ceil(town.y + r)); y += 1) {
+    for (let x = Math.max(0, Math.floor(town.x - r)); x <= Math.min(hi, Math.ceil(town.x + r)); x += 1) {
+      countTile(world, data, counts, { town, r, x, y });
+    }
+  }
+  return counts;
+}
+
+function countTile(world, data, counts, { town, r, x, y }) {
+  if (dist(x, y, town.x, town.y) > r) return;
+  const name = terrainNameAt(world.map, x, y, data);
+  if (!name) return;
+  counts[name] = (counts[name] || 0) + 1;
 }

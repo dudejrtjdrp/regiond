@@ -132,6 +132,19 @@
     U.px(ctx, x + s * 0.5, groundY - 3, s, s * 3, c);
   }
 
+  /* ★ §17-18 — 태그마다의 한 줄 이야기. 컷신이 흘려보낸 문장을 여기서 다시 읽을 수 있게 한다.
+     (서버가 tagStories 를 안 실어 보내는 옛 흐름이면 아무것도 그리지 않는다 — 화면이 비어도 안전하다) */
+  function appendStories(body, stories) {
+    if (!stories.length) return;
+    var wrap = U.el('div', 'tag-stories');
+    stories.forEach(function (s) {
+      if (!s || !s.flavor) return;
+      var row = U.el('p', 'hint', s.name + ' — ' + s.flavor);
+      wrap.appendChild(row);
+    });
+    if (wrap.childNodes.length) body.appendChild(wrap);
+  }
+
   /* ── 컷신 끝 → 땅의 내력 공개 → 드러난 자원 반짝임 → 관제 선포는 mandate.js 가 받는다 ── */
   function showTags(payload, onEnd) {
     var body = U.el('div');
@@ -147,6 +160,7 @@
     });
     body.appendChild(tg);
     if (payload && payload.tagLine) body.appendChild(U.el('p', null, payload.tagLine));
+    appendStories(body, (payload && payload.tagStories) || []);
 
     var revealed = (payload && payload.revealedNodes) || [];
     if (revealed.length || (payload && payload.nodesRevealed)) {

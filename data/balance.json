@@ -423,7 +423,15 @@
     "_note": "★ v3.1(GDD3 §11-4) — 감정의 날은 시간도 티어도 열지 않는다. **감정소(측량소)를 세우고 [땅을 감정한다]를 누를 때**(commands.appraiseLand)만 열린다. 아래 tier 는 더 이상 조건이 아니고 옛 기록으로만 남긴다. 하는 일: 태그 확정 + 영토 안 지하 자원 공개 + 관제 선포(역할 선택 개방).",
     "tier": 3,
     "tagCountMin": 2,
-    "tagCountMax": 4
+    "tagCountMax": 4,
+    "cutscene": {
+      "_note": "★ §17-18 — 컷신 뒷장. 앞의 다섯 장(땅이 갈라지는 연출) 뒤에 **배정받은 태그마다 한 장씩** 그 땅의 성정(data/tags.json flavor)을 읽어 주고, 마지막 한 장으로 닫는다. 프레임 수 = 5 + 태그 수 + 1.",
+      "flavorColor": "#c9b8e0",
+      "closing": {
+        "text": "땅이 제 됨됨이를 다 말했다 — 이제 우리가 대답할 차례다.",
+        "color": "#f4efe6"
+      }
+    }
   },
   "career": {
     "reassignSkillLossRatio": 0.5,

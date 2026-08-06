@@ -1,9 +1,20 @@
 {
-  "fertile":   { "name": "비옥지",  "kind": "strength", "effects": { "output": { "grain": 0.4 } } },
-  "greatwood": { "name": "대삼림",  "kind": "strength", "effects": { "gather": { "wood": 0.5 } } },
-  "ironvein":  { "name": "철광맥",  "kind": "strength", "effects": { "output": { "ironOre": 0.5 } } },
-  "oilfield":  { "name": "유전",    "kind": "strength", "effects": { "unlock": ["oil"] } },
-  "fortress":  { "name": "요새지",  "kind": "mixed",    "effects": { "defenseTotal": 0.15, "buildCost": 0.5 } },
-  "holy":      { "name": "성지",    "kind": "strength", "effects": { "populationGrowth": 0.15 } },
-  "barren":    { "name": "척박지",  "kind": "weakness", "effects": { "output": { "grain": -0.35 } } }
+  "fertile":   { "name": "비옥지",  "kind": "strength", "effects": { "output": { "grain": 0.4 } },
+                 "flavor": "괭이를 얕게만 넣어도 흙이 먼저 부풀어 오른다. 이 땅 사람들은 굶주림을 남의 나라 이야기로 듣고 자란다." },
+  "greatwood": { "name": "대삼림",  "kind": "strength", "effects": { "gather": { "wood": 0.5 } },
+                 "flavor": "도끼 소리가 잦아들기도 전에 다음 나무가 그늘을 내준다. 베어 낸 자리를 숲이 먼저 메운다." },
+  "ironvein":  { "name": "철광맥",  "kind": "strength", "effects": { "output": { "ironOre": 0.5 } },
+                 "flavor": "바위를 두드리면 종소리가 난다. 이 땅에서는 아이들도 붉은 돌과 그냥 돌을 눈으로 가른다." },
+  "oilfield":  { "name": "유전",    "kind": "strength", "effects": { "unlock": ["oil"] },
+                 "flavor": "웅덩이마다 무지개가 뜬다. 마시지 말라는 말을 젖 뗄 무렵부터 듣는 땅이다." },
+  "fortress":  { "name": "요새지",  "kind": "mixed",    "effects": { "defenseTotal": 0.15, "buildCost": 0.5 },
+                 "flavor": "능선이 저절로 성벽을 그렸다. 지키기는 수월하고 짓기는 고되어, 이곳 걸음은 늘 느리고 단단하다." },
+  "holy":      { "name": "성지",    "kind": "strength", "effects": { "populationGrowth": 0.15 },
+                 "flavor": "새벽이면 누가 시키지 않아도 사람들이 언덕을 향해 선다. 이 땅에서는 아이 울음도 노래처럼 들린다." },
+  "barren":    { "name": "척박지",  "kind": "weakness", "effects": { "output": { "grain": -0.35 } },
+                 "flavor": "흙을 쥐면 손가락 사이로 죄다 빠져나간다. 여기 사람들은 씨를 뿌리는 대신 셈을 배웠다." },
+  "quarry":    { "name": "너덜겅",  "kind": "strength", "effects": { "gather": { "stone": 0.45 } },
+                 "flavor": "산이 제 뼈를 밖에 내놓은 땅. 여기서는 돌을 캔다 하지 않고 주워 담는다고 한다." },
+  "rottenvein":{ "name": "삭은맥",  "kind": "weakness", "effects": { "output": { "ironOre": -0.3 }, "gather": { "stone": -0.15 } },
+                 "flavor": "곡괭이 끝에 걸리는 것은 늘 부스러지는 붉은 흙이다. 이 땅의 쇠는 태어나기도 전에 늙어 버렸다." }
 }

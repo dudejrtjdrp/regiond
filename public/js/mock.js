@@ -1141,11 +1141,17 @@
             W.progress.flags.appraised = true;
             evaluateProgress();
             if (ack) ack({ ok: true, appraised: true, tagNames: ['비옥한 땅', '성스러운 터'] });
-            fire('emotionDay', { tags: ['비옥한 땅', '성스러운 터'], tagLine: '비옥한 땅 · 성스러운 터',
+            /* ★ §17-18 — 컷신은 「5장 + 태그마다 한 장 + 마무리 한 장」이다. 맞춤본도 같은 결로 낸다. */
+            fire('emotionDay', { tags: ['비옥지', '성지'], tagKeys: ['fertile', 'holy'], tagLine: '비옥지 · 성지',
                                  revealedNodes: [], nodesRevealed: 0,
+                                 tagStories: [{ key: 'fertile', name: '비옥지', flavor: '흙이 먼저 부풀어 오르는 땅이다.' },
+                                              { key: 'holy', name: '성지', flavor: '새벽이면 사람들이 언덕을 향해 선다.' }],
                                  cutscene: [{ text: '땅이 흔들린다.', color: '#1b1b28' },
                                             { text: '균열 사이로 빛이 샌다.', color: '#3a2f4f' },
-                                            { text: '비옥한 땅 · 성스러운 터', color: '#e8c07d' }],
+                                            { text: '비옥지 · 성지', color: '#e8c07d' },
+                                            { text: '비옥지 — 흙이 먼저 부풀어 오르는 땅이다.', color: '#c9b8e0' },
+                                            { text: '성지 — 새벽이면 사람들이 언덕을 향해 선다.', color: '#c9b8e0' },
+                                            { text: '땅이 제 됨됨이를 다 말했다.', color: '#f4efe6' }],
                                  worldTags: [] });
             fire('state', stateView());
             break;

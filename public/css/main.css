@@ -988,6 +988,9 @@ button[data-tip],.res-chip[data-tip],.minister[data-tip]{cursor:pointer}
 .talk-row select{width:auto; min-width:96px; padding:5px 24px 5px 8px; border-width:2px}
 .talk-row input{width:84px; padding:5px 8px; border-width:2px}
 .reveal-strip{display:flex; gap:5px; flex-wrap:wrap; margin:6px 0}
+/* ★ §17-18 — 감정의 날 태그별 한 줄 이야기. 왼쪽 금줄로 '인용문'처럼 읽히게 한다 */
+.tag-stories{margin:8px 0 4px; border-left:3px solid var(--gold-deep); padding-left:10px}
+.tag-stories p{margin:4px 0; line-height:1.5}
 
 /* 선택 패널 폭 — 좌우 패널과 겹치지 않게 */
 .ctx-panel{width:min(560px, calc(100% - 620px))}
