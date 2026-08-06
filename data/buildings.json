@@ -70,6 +70,7 @@
     "maxTier": 2,
     "multi": true,
     "desc": "밤이슬은 막아 준다. 한 사람이 눕는다.",
+    "_costNote": "★ Sprint 4 — 주거 비용은 규모의 경제다(유저 결정): 침상이 많을수록 침상당 값이 싸져야 큰 집을 짓고 싶어진다. 옛 곡선은 정반대(침상당 10→57.5 단조 증가)였다. 기준: 천막 T1 = 목재 10(「나무 한 그루 = 천막 한 채」 계약, fishing.test 가 지킨다). 2침상 누적 18 = 1침상의 1.8배(<2배), 오두막 4침상 누적 70 = 급 기준(침상당 20)의 3.5배.",
     "tiers": [
       {
         "cost": {
@@ -82,10 +83,10 @@
       },
       {
         "cost": {
-          "wood": 25,
-          "stone": 5
+          "wood": 7,
+          "stone": 1
         },
-        "buildPoints": 6,
+        "buildPoints": 5,
         "residents": 2,
         "hp": 60,
         "attractiveness": 0.02
@@ -104,11 +105,12 @@
     "maxTier": 3,
     "multi": true,
     "desc": "굴뚝이 있는 첫 집. 두 사람이 산다.",
+    "_costNote": "★ Sprint 4 — 침상당 누적 비용이 내려간다: T1 두 침상 40(침상당 20, 급 기준) → T2 세 침상 누적 58(19.3) → T3 네 침상 누적 70(17.5 — 기준의 3.5배로 4인 건물, 유저 결정 그대로). 개축이 신축보다 싼 것이 규모의 경제의 얼굴이다.",
     "tiers": [
       {
         "cost": {
-          "wood": 45,
-          "stone": 10
+          "wood": 32,
+          "stone": 8
         },
         "buildPoints": 8,
         "residents": 2,
@@ -117,20 +119,20 @@
       },
       {
         "cost": {
-          "wood": 90,
-          "stone": 30
+          "wood": 14,
+          "stone": 4
         },
-        "buildPoints": 15,
+        "buildPoints": 6,
         "residents": 3,
         "hp": 140,
         "attractiveness": 0.05
       },
       {
         "cost": {
-          "wood": 160,
-          "stone": 70
+          "wood": 9,
+          "stone": 3
         },
-        "buildPoints": 24,
+        "buildPoints": 5,
         "residents": 4,
         "hp": 200,
         "attractiveness": 0.07
@@ -149,35 +151,36 @@
     "maxTier": 3,
     "multi": true,
     "desc": "네 사람이 사는 제대로 된 집.",
+    "_costNote": "★ Sprint 4 — 침상당 누적: T1 다섯 침상 150(30 — 높은 급의 기준) → T2 여덟 침상 누적 240(30) → T3 열두 침상 누적 340(28.3). 오두막(17.5)보다 침상당 비싸지만 칸당 침상(2.0 vs 1.0)과 매력도가 값을 한다 — 값이냐 땅이냐의 선택지.",
     "tiers": [
       {
         "cost": {
-          "wood": 120,
-          "stone": 60
+          "wood": 100,
+          "stone": 50
         },
-        "buildPoints": 20,
+        "buildPoints": 18,
         "residents": 5,
         "hp": 180,
         "attractiveness": 0.06
       },
       {
         "cost": {
-          "wood": 200,
-          "stone": 120,
-          "steel": 10
+          "wood": 55,
+          "stone": 30,
+          "steel": 5
         },
-        "buildPoints": 32,
+        "buildPoints": 14,
         "residents": 8,
         "hp": 260,
         "attractiveness": 0.09
       },
       {
         "cost": {
-          "wood": 320,
-          "stone": 200,
-          "steel": 40
+          "wood": 60,
+          "stone": 32,
+          "steel": 8
         },
-        "buildPoints": 46,
+        "buildPoints": 16,
         "residents": 12,
         "hp": 360,
         "attractiveness": 0.12
@@ -197,36 +200,37 @@
     "multi": true,
     "requiresRole": "build",
     "desc": "여섯 사람과 그 살림이 들어간다. ★ §17-15 — 이런 대공사는 건축가가 자리에 있어야 도면이 나온다.",
+    "_costNote": "★ Sprint 4 — 침상당 누적: T1 열 침상 300(30) → T2 열여섯 침상 누적 430(26.9) → T3 스물넷 침상 누적 600(25). 가장 큰 집이 침상당 가장 싸다 — 「수량이 많이 들수록 지어야겠다」(유저 결정)의 끝단.",
     "tiers": [
       {
         "cost": {
-          "wood": 260,
-          "stone": 160,
-          "steel": 30
+          "wood": 190,
+          "stone": 90,
+          "steel": 20
         },
-        "buildPoints": 36,
+        "buildPoints": 30,
         "residents": 10,
         "hp": 300,
         "attractiveness": 0.1
       },
       {
         "cost": {
-          "wood": 400,
-          "stone": 260,
-          "steel": 80
+          "wood": 80,
+          "stone": 40,
+          "steel": 10
         },
-        "buildPoints": 52,
+        "buildPoints": 20,
         "residents": 16,
         "hp": 420,
         "attractiveness": 0.14
       },
       {
         "cost": {
-          "wood": 600,
-          "stone": 400,
-          "steel": 160
+          "wood": 100,
+          "stone": 50,
+          "steel": 20
         },
-        "buildPoints": 72,
+        "buildPoints": 26,
         "residents": 24,
         "hp": 560,
         "attractiveness": 0.18

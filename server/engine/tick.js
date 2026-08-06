@@ -48,7 +48,7 @@ import { startBattle, runBattle } from './battle.js';
 // ★ GDD3 §13-A-5 — 산출도 곳간 상한을 넘기지 못한다(서버 권위)
 import { deposit } from './storage.js';
 // ★ GDD3 §13-D-5 — 기술 트리. 값은 착수할 때 치르고, 날은 여기서 흐른다.
-import { stepResearch, productionBonus } from './research.js';
+import { stepResearch, productionBonus, gatherResearchBonus } from './research.js';
 // ★ GDD3 §13-B·C — 은닉 유적 발견 · 상시 생태계 · 사냥꾼 오두막
 import { revealConcealed } from './world.js';
 import { stepEcologyDay, huntYield, cullForHunters } from './ecology.js';
@@ -455,16 +455,18 @@ export function produceNation(world, nation, data, hooks) {
     out.nodeContribution = contrib;
 
     const soil = 1 - (nation.soilFatigue || 0);
+    /* ★ Sprint 4 — 연구 채집 보정(농정술·석공술). 티어 0~2 의 residentYield(형편 배수)와
+       **같은 함수**(gatherResearchBonus)를 곱한다 — 두 층이 다른 답을 내면 3티어 진입 순간 튄다. */
     out.grain = cobbDouglas(A.grain, L('farm'), K('farm'), a, b)
       * departmentMultiplier(world, nation, 'farm', 'grain', data, hooks, buffs) * soil
-      * (1 + (contrib.grain || 0));
+      * (1 + (contrib.grain || 0)) * (1 + gatherResearchBonus(nation, data, 'grain'));
 
     const gatherBuff = 1 + buffs.gather;
     const gs = nation.gatherScale || { wood: 1, stone: 1 };
     out.wood = pop * p.gatherPerCapita.wood * tagFactor(nation, 'wood', data, 'gather') * gatherBuff
-      * (gs.wood ?? 1) * (1 + (contrib.wood || 0));
+      * (gs.wood ?? 1) * (1 + (contrib.wood || 0)) * (1 + gatherResearchBonus(nation, data, 'wood'));
     out.stone = pop * p.gatherPerCapita.stone * tagFactor(nation, 'stone', data, 'gather') * gatherBuff
-      * (gs.stone ?? 1) * (1 + (contrib.stone || 0));
+      * (gs.stone ?? 1) * (1 + (contrib.stone || 0)) * (1 + gatherResearchBonus(nation, data, 'stone'));
 
     const factoryStaffed = Boolean(nation.roles?.factory?.holder);
     out.ironOre = (factoryStaffed

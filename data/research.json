@@ -1,6 +1,7 @@
 {
   "_note": "★ GDD3 §13-D-5 — 기술 트리. 본부 [연구] 탭에서 하나씩 붙든다. 여는 문은 셋: ① 정착지 티어 ② 선행 연구 ③ 값(골드+자원). 값은 착수할 때 한 번에 치르고, 그날부터 days 게임일이 지나야 끝난다 — 한 번에 하나만 붙든다. 잠긴 연구도 **목록에서 사라지지 않는다**: 조건 가시화 원칙(§12-3)대로 빨강으로 무엇이 얼마나 모자란지 적어 둔다. 티어 문턱은 tiers.json 의 인구 조건과 맞물린다(4=읍 25명 · 5=도시 45명 · 6=왕도 70명).",
-  "order": ["coal_mining", "steam_engine", "railway", "refining", "bridgeworks", "landfill"],
+  "order": ["coal_mining", "steam_engine", "railway", "refining", "bridgeworks", "landfill", "agronomy", "masonry", "city_planning", "internal_combustion"],
+  "_orderNote": "★ Sprint 4 — 외길 2줄이던 트리에 갈래를 넣었다: 농정술·석공술은 선행 없는 **병렬 선택지**(산업이냐 살림이냐), 도시 계획은 「기술이 땅을 넓힌다」(territoryBonus — 6티어 이후 영토 성장이 완만해진 몫을 기술이 잇는다), 내연기관은 7티어+ 엔드리스의 첫 목표다. order 는 자동 플레이의 우선순위이기도 하다(playtest15c 계약) — 새 갈래는 산업 사슬 뒤에 둔다.",
   "defs": {
     "coal_mining": {
       "name": "석탄 채굴",
@@ -70,6 +71,54 @@
       "gold": 400,
       "cost": { "stone": 160, "steel": 20 },
       "unlocks": { "features": ["landfill"], "commands": ["placeFill", "removeFill"] }
+    },
+    "agronomy": {
+      "name": "농정술",
+      "line": "밭을 갈아엎는 차례에도 학문이 있다.",
+      "desc": "주민의 곡물 채집이 15% 는다.",
+      "requiresTier": 4,
+      "requires": [],
+      "days": 2,
+      "gold": 250,
+      "cost": { "wood": 80, "grain": 60 },
+      "effects": { "gatherBonus": { "grain": 0.15 } },
+      "unlocks": {}
+    },
+    "masonry": {
+      "name": "석공술",
+      "line": "돌결을 읽으면 정 한 번에 두 조각이 난다.",
+      "desc": "주민의 석재 채집이 15% 는다.",
+      "requiresTier": 4,
+      "requires": [],
+      "days": 2,
+      "gold": 250,
+      "cost": { "wood": 60, "stone": 100 },
+      "effects": { "gatherBonus": { "stone": 0.15 } },
+      "unlocks": {}
+    },
+    "city_planning": {
+      "name": "도시 계획",
+      "line": "길과 구획을 먼저 그리면 땅이 넓어진다.",
+      "desc": "영토 반경이 4 넓어진다. 6티어부터 영토는 기술이 넓힌다.",
+      "requiresTier": 6,
+      "requires": ["steam_engine"],
+      "days": 3,
+      "gold": 900,
+      "cost": { "stone": 200, "steel": 60 },
+      "effects": { "territoryBonus": 4 },
+      "unlocks": {}
+    },
+    "internal_combustion": {
+      "name": "내연기관",
+      "line": "검은 물이 스스로 타며 바퀴를 민다.",
+      "desc": "생산 갈래 건물이 내는 몫이 20% 더 는다. 끝없는 시대의 첫 걸음이다.",
+      "requiresTier": 7,
+      "requires": ["refining"],
+      "days": 4,
+      "gold": 1500,
+      "cost": { "steel": 200, "oil": 120 },
+      "effects": { "productionBonus": 0.2 },
+      "unlocks": {}
     }
   },
   "rails": {

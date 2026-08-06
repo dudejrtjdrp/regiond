@@ -120,7 +120,7 @@ test('§12-2 승격 — 일 틱은 티어를 올리지 않는다 (버튼만)', (
   const r = applyCommand(w, 'player', { type: 'promoteSettlement' }, data, rng);
   assert.equal(r.ok, true, JSON.stringify(r.error));
   assert.equal(w.nations.player.tier, 1);
-  assert.equal(territoryRadius(w.nations.player, data), 13);   // ★ §17-8
+  assert.equal(territoryRadius(w.nations.player, data), 12);   // ★ Sprint 4 — 초반은 조금(+3)
 });
 
 // ────────────────────────────────────────────────────────────────

@@ -38,12 +38,25 @@ export function researchFeature(nation, feature, data) {
   return false;
 }
 
-/** 끝난 연구가 주는 산출 보정 — 지금은 증기기관의 생산 건물 +15% 하나다 */
+/** 끝난 연구가 주는 산출 보정 — 증기기관 +15% · ★ Sprint 4 내연기관 +20% (합산) */
 export function productionBonus(nation, data) {
   let bonus = 0;
   for (const key of RESEARCH_KEYS(data)) {
     if (!researchDone(nation, key)) continue;
     bonus += researchDef(key, data)?.effects?.productionBonus ?? 0;
+  }
+  return round3(bonus);
+}
+
+/** ★ Sprint 4 — 끝난 연구가 주는 **채집** 보정(자원별 합산). 농정술(곡물)·석공술(석재)이 쓴다.
+    productionBonus 와 같은 결(effects 합산)이고, 주민 채집(티어 0~2 residentYield 의 형편 배수)과
+    3티어+ 매크로 채집(tick.produceNation) **양쪽에** 같은 값이 붙는다 — 두 층이 다른 답을 내면
+    3티어 진입 순간 산출이 튄다(§13-A-3 「같은 값은 같은 함수」 원칙). */
+export function gatherResearchBonus(nation, data, resource) {
+  let bonus = 0;
+  for (const key of RESEARCH_KEYS(data)) {
+    if (!researchDone(nation, key)) continue;
+    bonus += researchDef(key, data)?.effects?.gatherBonus?.[resource] ?? 0;
   }
   return round3(bonus);
 }

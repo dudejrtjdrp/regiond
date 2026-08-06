@@ -216,7 +216,7 @@ test('E2E — 개척 시작에서 첫 웨이브까지 (v3 전체 루프)', async
     assert.equal(promote.ok, true, JSON.stringify(promote.error));
     const tierUp = await tierUpP;
     assert.equal(tierUp.tier, 1);
-    assert.equal(tierUp.radius, 13, '영토가 9 → 13 으로 넓어진다');   // ★ §17-8
+    assert.equal(tierUp.radius, 12, '영토가 9 → 12 로 넓어진다');   // ★ Sprint 4 곡선
     // ★ §12-2 — 본부가 정착지를 따라 자란다
     const hqView = socket.latest.state.nation.structures.find((s) => s.hq);
     assert.ok(hqView, '본부가 뷰에 실린다');

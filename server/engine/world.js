@@ -603,15 +603,31 @@ export function nodeById(world, id) {
  *   티어가 있으면 언제나 티어 표에서 다시 계산한다 — 둘이 어긋나 생기는 버그를 원천 차단한다.
  *   (tiers.js 를 임포트하면 순환이 되므로 표를 여기서 직접 읽는다)
  */
+/** ★ Sprint 4 — 「기술이 땅을 넓힌다」(도시 계획 territoryBonus). research.js 를 임포트하면
+    순환이 되므로(research → world) 끝난 연구 장부(nation.research.done)를 여기서 직접 읽는다 —
+    tiers 표를 직접 읽는 위의 각주와 같은 이유·같은 방식이다. */
+function researchTerritoryBonus(nation, data) {
+  const done = nation?.research?.done;
+  if (!done) return 0;
+  let sum = 0;
+  for (const key of Object.keys(done)) {
+    sum += data?.research?.defs?.[key]?.effects?.territoryBonus ?? 0;
+  }
+  return sum;
+}
+
 export function territoryRadius(nation, data) {
   const tier = nation?.tier;
   const levels = data?.tiers?.levels;
   if (tier != null && Array.isArray(levels)) {
+    const bonus = researchTerritoryBonus(nation, data);
     const found = levels.find((l) => l.tier === tier);
-    if (found) return found.radius;
+    if (found) return found.radius + bonus;
     const last = levels[levels.length - 1];
-    if (tier > last.tier) return last.radius + (data.tiers.endless?.radiusPerTier ?? 4) * (tier - last.tier);
-    return levels[0].radius;
+    if (tier > last.tier) {
+      return last.radius + (data.tiers.endless?.radiusPerTier ?? 4) * (tier - last.tier) + bonus;
+    }
+    return levels[0].radius + bonus;
   }
   return nation?.territory?.radius ?? data.world.territory.baseRadius;
 }

@@ -37,7 +37,9 @@ test('티어 0 — 마차에서 내린 자리: 주민 0, 모닥불 하나, 반�
 });
 
 test('티어 표 — 조건·반경이 GDD3 §1 표와 일치한다', () => {
-  const expect = [[0, 9], [1, 13], [2, 17], [3, 22], [4, 27], [5, 33], [6, 38]];  // ★ §17-8
+  /* ★ Sprint 4 — 영토 곡선 재설계(유저 결정): 초반 조금(+3,+5) → 중반 극적(+7,+9,+12) →
+     6티어부터 완만(+4, 엔드리스 +3) + 기술(도시 계획 territoryBonus)이 잇는다. */
+  const expect = [[0, 9], [1, 12], [2, 17], [3, 24], [4, 33], [5, 45], [6, 49]];
   for (const [tier, radius] of expect) {
     assert.equal(tierDef(tier, data).radius, radius, `T${tier} 반경 ${radius}`);
   }
@@ -50,7 +52,7 @@ test('티어 표 — 조건·반경이 GDD3 §1 표와 일치한다', () => {
   assert.equal(tierDef(6, data).requires.population, 70);
 });
 
-test('엔드리스 — 표 밖의 티어도 규칙으로 이어진다(인구 문턱 +30, 반경 +4)', () => {
+test('엔드리스 — 표 밖의 티어도 규칙으로 이어진다(인구 문턱 +30, 반경 +radiusPerTier)', () => {
   const e = data.tiers.endless;
   const t7 = tierDef(7, data);
   const t8 = tierDef(8, data);
@@ -74,7 +76,7 @@ test('티어업 — 조건이 차면 영토가 넓어진다 (개척령 폐지)',
   const leveled = evaluateTier(w, n, data);
   assert.equal(leveled.length, 1);
   assert.equal(leveled[0].tier, 1);
-  assert.equal(territoryRadius(n, data), 13, '반경이 9 → 13 으로 넓어진다');
+  assert.equal(territoryRadius(n, data), 12, '반경이 9 → 12 로 넓어진다 (Sprint 4 곡선)');
   assert.equal(leveled[0].fromRadius, 9);
 
   // 개척령 명령은 더 이상 없다
@@ -91,7 +93,7 @@ test('티어업 — 조건이 여러 단계 차 있으면 (사람 손이 닿지 
   const leveled = evaluateTier(w, n, data);
   assert.ok(leveled.length >= 3, `한 번에 ${leveled.length}단계`);
   assert.equal(settlementTier(n), 3);
-  assert.equal(territoryRadius(n, data), 22);
+  assert.equal(territoryRadius(n, data), 24);
 });
 
 test('해금 — ★ v3.1: 티어가 아니라 장(chapter)이 정본이다', () => {
@@ -182,7 +184,7 @@ test('★ §12-2 승격 — 조건이 모자라면 튕기고, 차면 한 단계�
   const a = applyCommand(w, 'player', { type: 'promoteSettlement' }, data, rng);
   assert.equal(a.ok, true);
   assert.equal(settlementTier(n), 1);
-  assert.equal(territoryRadius(n, data), 13);
+  assert.equal(territoryRadius(n, data), 12);   // ★ Sprint 4 곡선
 
   const b = applyCommand(w, 'player', { type: 'promoteSettlement' }, data, rng);
   assert.equal(b.ok, true);

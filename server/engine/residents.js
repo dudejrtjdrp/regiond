@@ -25,6 +25,8 @@ import {
 import { rolePerk } from './npc.js';
 // ★ Sprint 1 — 새 사람이 호수 한복판에서 태어나지 않게. 통행 정본은 path.js 다.
 import { nearestWalkable } from './path.js';
+// ★ Sprint 4 — 연구 채집 보정(농정술·석공술). 형편 배수에 함께 얹는다.
+import { gatherResearchBonus } from './research.js';
 
 export const residentCfg = (data) => data.balance.residents;
 export const arrivalCfg = (data) => data.balance.residents.arrival;
@@ -362,8 +364,11 @@ export function settlementGatherFactor(nation, data, resource = null) {
   const ratio = clamp((morale0 - (m.default ?? 1)) / Math.max(0.001, (m.max ?? 1.25) - (m.default ?? 1)), -1, 1);
   const morale = 1 + ratio * (cfg.moraleWeight ?? 0.12);
   const building = resource ? 1 + gatherBonus(nation, resource, data) : 1;
+  /* ★ Sprint 4 — 연구 채집 보정(농정술·석공술). 3티어+ 매크로(tick.produceNation)와
+     같은 함수의 같은 값이 붙는다 — 두 층이 다른 답을 내면 티어 진입 순간 산출이 튄다. */
+  const research = resource ? 1 + gatherResearchBonus(nation, data, resource) : 1;
   /* ★ §17-15 — 농정관 개성. 자리가 채워져 있으면 주민의 손이 10% 더 거둔다(공석이면 1). */
-  return round3(tier * morale * building * rolePerk(nation, 'farm', 'residentGatherMultiplier', data));
+  return round3(tier * morale * building * research * rolePerk(nation, 'farm', 'residentGatherMultiplier', data));
 }
 
 export function residentYield(u, node, data, outdoor = false, nation = null) {

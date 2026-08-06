@@ -106,18 +106,18 @@
       "crowdingPerResident": 0.1
     },
     "gather": {
-      "_note": "티어 0~2 — 부처가 아직 안 돌 때 주민 1명이 노드 하나에 붙어 하루에 내는 산출(레이트 기준). rich 노드는 배로 난다. 이 값은 '플레이어 스윙만으로는 못 미치는 자리'를 메우도록 잡혀 있다. ★ §16-8: 마을의 형편 배수 — tierBonusPerLevel(티어당), moraleWeight(사기 ±폭). 건물 채집 보너스(gatherBonus)는 주민에게도 같이 붙는다.",
+      "_note": "티어 0~2 — 부처가 아직 안 돌 때 주민 1명이 노드 하나에 붙어 하루에 내는 산출(레이트 기준). rich 노드는 배로 난다. ★ Sprint 4(2026-08-07) — 약 ×2.8 상향. 근거: ① 유저 피드백 「주민 채집이 너무 적다 — 플레이어보단 적게, 지금보단 훨씬 높게」. 상향 전 주민은 현실적 플레이어 하루치(90스윙 환산)의 1/122 였고, 상향 후 ~1/43 이다. ② 3티어부터는 매크로 공식(gatherPerCapita — 기준 배치에서 벌목공 1인당 13.5/일)이 대신 돌므로, 옛 값(3.2)은 3티어 진입 순간 생산이 4배로 점프하는 절벽이기도 했다 — 새 값(9)×형편 배수(~1.2)가 그 밑에 정확히 이어져 절벽이 사라진다. 매크로 계수는 건드리지 않는다. 웨이브 난이도는 정착지 재산에 자동 연동(waves.settlementScale)되어 일부 자기보정되며, 최종은 시뮬 체크포인트 4/4 로 재검증했다. ★ §16-8: 마을의 형편 배수 — tierBonusPerLevel(티어당), moraleWeight(사기 ±폭). 건물 채집 보너스(gatherBonus)는 주민에게도 같이 붙는다.",
       "perResidentPerDay": {
-        "grain": 2.4,
-        "wood": 3.2,
-        "stone": 1.7,
-        "ironOre": 0.9,
-        "coal": 1.1,
-        "oil": 0.45
+        "grain": 6,
+        "wood": 9,
+        "stone": 5,
+        "ironOre": 2.5,
+        "coal": 3,
+        "oil": 1.2
       },
       "richMultiplier": 1.6,
       "idleGrainPerDay": 0.25,
-      "buildPointsPerResidentPerDay": 1.2,
+      "buildPointsPerResidentPerDay": 3,
       "tierBonusPerLevel": 0.06,
       "moraleWeight": 0.12
     },
