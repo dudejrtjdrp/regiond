@@ -26,6 +26,8 @@ import { normalizeMembers as membersView, normalizeAppearance } from './social.j
 // ★ GDD3 §15-C — 동료 봇(= 각료). 이름표 색·맡은 자리·자동 플레이 상태가 여기서 나간다.
 import { companionViews, companionById, autoPlayView } from './companions.js';
 import { fogSnapshot, fogChunksSince, isExplored, exploredRatio, encodeChunk } from './fog.js';
+// ★ §18-D2 — 앞마당의 흔적. 안개가 유일한 문이다(가 본 적 없는 자리의 흔적은 **필드째** 빠진다).
+import { trailViews } from './trails.js';
 import {
   structureView, siteView, adjacencyDetail, isRuined, buildingKeys, maxTier, structureDef, footprint,
   effectSummary,
@@ -542,6 +544,13 @@ function townXY(world, nation) {
   return t ? [t.x, t.y] : [-999, -999];
 }
 
+/**
+ * ★ §18-D2 — 앞마당의 흔적. 노드와 달리 스냅샷도 변경분도 **통째로** 나른다.
+ * 링0 안에 많아야 예닐곱이라 「무엇이 바뀌었나」를 가려내는 값이 목록 자체보다 비싸고,
+ * 소진된 흔적이 목록에서 빠지는 것 하나로 화면의 지움까지 끝난다(removedNodes 같은 장부가 없어도 된다).
+ */
+const trailsFor = (world, nation, data) => trailViews(world, nation, data, isExplored);
+
 /** ★ §12-6 — 무역이 열리기 전에는 캐러밴이 아예 없다(생성도 렌더도 서버가 막는다) */
 function caravansFor(nation, map, data) {
   return featureUnlocked(nation, 'trade', data) ? (map?.caravans || []) : [];
@@ -564,6 +573,8 @@ export function buildWorldSnapshot(world, nationId, data) {
       .map((n) => nodeView(world, nation, n, data)),
     // ★ GDD3 §13-B-1 — 자원 군락. 숲 군락·딸기 들·바위 지대·강가 어장이 '지역'으로 읽히게 한다.
     clusters: clusterViews(world, nation),
+    // ★ §18-D2 — 앞마당의 흔적(가 본 자리의 것만)
+    trails: trailsFor(world, nation, data),
     // ★ GDD3 §13-B-5 — 스폰 링 경계(본부 기준). 화면이 서버와 같은 식으로 링2 경고를 잰다.
     rings: ringRadii(nation, data),
     towns: (map.towns || []).map((t) => ({
@@ -620,6 +631,8 @@ export function buildWorldDiff(world, nationId, data, sinceTick = -1, opts = {})
       .filter((r) => r.tick > sinceTick || r.tick === world.tick)
       .map((r) => r.id),
     clusters: clusterViews(world, nation),
+    // ★ §18-D2 — 앞마당의 흔적. 조사로 소진된 것은 이 목록에서 사라지는 것으로 화면에서도 지워진다.
+    trails: trailsFor(world, nation, data),
     rings: ringRadii(nation, data),
     // ★ GDD3 §13-C — 들에 사는 것들. 위치의 정본은 서버이고 화면은 그 사이를 보간한다.
     //   ★ Sprint 3 — 짐승 목록은 누가 보든 같다. 한 방송 안에서는 한 번만 빚는다.
@@ -674,6 +687,9 @@ export function buildRevealDiff(world, nationId, data, chunks) {
     fog: chunks.map(([cx, cy]) => encodeChunk(fog, cx, cy)),
     nodes,
     clusters: clusterViews(world, nation),
+    /* ★ §18-D2 — 흔적을 여기에도 싣는 까닭: 사슬을 한 번 조사하면 **그 순간** 다음 흔적 둘레의
+       안개가 열린다. 이 즉시분에 흔적이 안 실리면 새 발자국은 다음 일 틱(최대 10분)까지 안 보인다. */
+    trails: trailsFor(world, nation, data),
     towns: (world.map?.towns || [])
       .filter((t) => keys.has(`${Math.floor(t.x / fog.chunk)},${Math.floor(t.y / fog.chunk)}`))
       .map((t) => ({

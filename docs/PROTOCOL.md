@@ -372,6 +372,82 @@ customizeCompanion { ok, companionId, name, appearance }
 
 ---
 
+## 0-O. v3.3 안 델타 — **링0 앞마당의 흔적** (§18-2 · §18-3 · §18-5 / 배치 D-2)
+
+**판번호를 올리지 않는다.** 더하기만 했다 — 땅도 세이브도 그대로다(`world.schema` **6** 유지).
+옛 세이브에 없는 `world.map.trails` 는 빈 목록으로 읽힌다(흔적이 없는 판 = 예전 그대로의 앞마당).
+설계 정본은 `docs/탐험기획.md` §18, 수치·문구의 정본은 `data/trails.json`, 규칙의 정본은 `server/engine/trails.js` 다.
+
+**왜 넣었나** — 첫 사흘의 앞마당이 비어 있었다. 마차에서 내리면 나무와 돌뿐이라 걸어 나갈 이유가
+「아직 안 가 본 곳」밖에 없었다. 흔적은 호기심에 **방향**을 준다: 발자국 하나가 다음 발자국을 부르고,
+그 끝에 이야기가 있다. 링0(본영 12타일) 안에 짧은 사슬 1개 + 미시 발견 4~6개를 **보장** 생성한다.
+
+### 0-O-1. 신설 — 명령 (C→S)
+
+| 명령 | 페이로드 | 여는 장 | 서버가 지키는 것 |
+|---|---|---|---|
+| `investigateTrail` | `{trailId, choice?}` | (장 제한 없음) | ★ §18-D2 — **신원 명령**. 내 아바타가 `trails.json reachTiles`(3.2) 안에 서 있어야 한다. `choice` 없이 부르면 1차(펼치기), 있으면 2차(확정)다. 보상·문구·굴림 무게는 전부 자료가 정한다(매직넘버 없음) |
+
+ack:
+
+```
+{ ok, trailId, key, kind, name, done, ready,
+  dialogue: { speaker, portraitKey, lines[], choices[{key,label}] },
+  pending?, gained{자원:실적립}, morale, healed, node }
+```
+
+- `dialogue` 는 **대화창(§0-S-7 계열 · 탐험기획 §18-6)이 그대로 읽는 한 벌**이다.
+  `GM.dialogue.open({speaker, portraitKey, lines, choices})` 에 그대로 넘어간다 — **화면은 문구를 짓지 않는다.**
+- `pending:true` — 1차에서 선택지를 편 상태. 이때 흔적은 **소진되지 않는다**(`done:false`).
+  화면은 선택지를 그리고, 고른 값을 `choice` 에 실어 **같은 명령을 한 번 더** 보낸다.
+- `gained` 는 창고 상한을 지난 뒤의 실제 적립량(`deposit`). `healed` 는 **두레박을 내린 그 사람**의 회복량이다.
+- `node` — 결말이 땅에 남긴 자원 자리(`{id, type}`) 또는 `null`. 딸기 군락 결말이 이 길로 온다.
+- 오류: `NO_TRAIL`(없거나 소진됐거나 아직 덮여 있다) · `NO_AVATAR` · `OUT_OF_RANGE` ·
+  `COOLDOWN`(하루 한 번짜리를 오늘 이미 썼다) · `NO_CHOICE`(살피기 전에 선택부터 보냈다) ·
+  `BAD_CHOICE` · `NO_RESOURCES`(선택의 값을 못 치른다).
+
+### 0-O-2. 신설 — 뷰 필드 `trails[]`
+
+`world` 스냅샷 · `worldDiff` · **즉시 공개분(reveal diff)** 셋 모두에 실린다.
+
+```
+TrailView { id, key, kind:'chain'|'micro', x, y, name, art, verb, ready }
+```
+
+- **부재 원칙** — 안 보이는 것은 마스킹이 아니라 **목록에서 빠진다**. 빠지는 조건 셋:
+  ① 아직 안 가 본 자리(`fog < 1`) ② 조사로 소진된 흔적 ③ **아직 덮여 있는 사슬 단계**(`hidden`).
+  ③ 이 ①보다 먼저 선다 — 안개가 열려 있어도 앞 단계를 조사하기 전에는 다음 발자국이 없다.
+- **누적이 아니라 교체다.** 노드처럼 `removedNodes` 같은 장부를 두지 않는다. 링0 안에 많아야 예닐곱이라
+  변경분을 가려내는 값이 목록 자체보다 비싸고, 목록에서 빠지는 것 하나가 곧 「화면에서 지워라」다.
+- `verb`·`name`·`art` 는 자료가 쥔 값을 그대로 옮긴 것이다. 화면의 말머리 상자는 `verb` 를 그대로 쓴다.
+- `ready:false` — 하루 한 번짜리를 오늘 이미 썼다(옛 우물). **사라지지 않고 흐리게 남는다** — 내일 다시 온다.
+
+### 0-O-3. 조사가 여는 것은 **안개뿐이다** (§18-3 마커 금지)
+
+사슬 한 단계를 조사하면 서버는 ⓐ 다음 단계의 `hidden` 을 벗기고 ⓑ **그 둘레의 안개만** 연다
+(`steps[].revealRadius`). 그리고 **ack 에는 그 자리를 싣지 않는다** — `server/index.js` 가
+`res.revealed`(청크 목록)를 즉시분 `worldDiff` 로 흘려보낸 뒤 ack 에서 지운다.
+
+이것이 계약인 까닭: 좌표가 ack 에 실리면 화면이 화살표를 그릴 수 있게 된다. 그 순간 이 시스템은
+「따라가는 놀이」가 아니라 「지시받은 심부름」이 된다. **발견의 저작권은 플레이어에게 있다.**
+
+### 0-O-4. 흔적은 **월드 난수를 축내지 않는다** (§0-W-4 · §0-V-5 와 같은 규율)
+
+- 배치: 월드 생성 끝머리에 `statRng('<씨앗>:trails:ring0')` 로 자리를 정한다(`generateWorldMap`).
+  **월드 난수(`createRng`)를 한 톨도 쓰지 않는다** — 여기서 한 칸이라도 밀면 웨이브 구성·사건·이름이
+  통째로 어긋나 「같은 씨앗 같은 판」이 깨진다.
+- 결말 굴림: `statRng('<씨앗>:trail:<흔적 id>')` 의 가중 굴림. 실시간 명령이라 더더욱 세계 난수를 못 쓴다
+  (§13-C 에서 이미 겪은 사고 — `actions.openCache` 와 같은 까닭).
+- 그래서 「같은 지도의 같은 사슬은 언제 따라가도 같은 끝을 낸다」가 공짜로 따라온다.
+- 2단계 선택의 상태는 서버가 `trail.pending` 한 글자만 쥔다. 대화의 나머지 상태는 화면 몫이다.
+
+### 0-O-5. 신설 — 규격 (`/api/config`)
+
+`world.trails.reachTiles` — 흔적에 손이 닿는 거리. 화면의 말머리 상자와 E 판정이 **서버와 같은 자**로 재게 하려는 것뿐이다.
+**무엇이 어디 있는지·무슨 보상이 나오는지는 여기 없다**(정보 비대칭 — 사슬의 다음 발자국은 안개가 열려야만 온다).
+
+---
+
 ## 0-T. v3.2 안 델타 — **플레이테스트 3차** (GDD3 §14)
 
 **판번호를 올리지 않는다.** 더하기만 했다 — 땅도 세이브도 그대로다(`world.schema` **5** 유지).
@@ -1128,6 +1204,7 @@ ack / `joined` 이벤트 payload:
 | `setBattlePlan {tactic}` | 티어 2 | ★ 서지 3구간 배분은 폐기 |
 | `setAppearance {appearance}` / `chat {text}` | — | |
 | `visitNation {nationId}` | — | ★ §17-16 이웃 나라 찾아가기(§0-R-1). 도읍 중심 `towns.visitRadius` 안 · 신원 명령 |
+| `investigateTrail {trailId, choice?}` | — | ★ §18-D2 앞마당의 흔적 조사(§0-O-1). `trails.json reachTiles` 안 · 신원 명령 · `choice` 없이 1차, 있으면 2차 |
 | `sleepVote {on?}` | — | ★ §17-7 다같이 잠자기(§0-P-2). 사람 아바타 전원이 잠들면 하루가 곧장 넘어간다 · 싸움 중 불가 · 신원 명령 |
 | `handWork {structureId}` | — | ★ §17-9 건물 손일(§0-P-3). `buildings.json handWork` 가 비용·산출·쿨다운을 쥔다 · 거리·쿨다운은 사람별 · 신원 명령 |
 | `commandCompanion {companionId, order}` | — | ★ §17-11 동료 지시(§0-P-4). `order:{kind:'move',x,y}` 또는 `null`(해제) |

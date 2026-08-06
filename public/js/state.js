@@ -307,6 +307,9 @@
       nodes: nodes, nodeArr: null, nodesDirty: true,
       /* ★ GDD3 §13-B-1 — 자원 군락. 바닥 질감을 지역마다 달리 칠하는 근거다. */
       clusters: w.clusters || [],
+      /* ★ §18-D2 — 앞마당의 흔적. 서버가 늘 **온전한 목록**을 보내므로 통째로 갈아 끼운다
+         (조사로 소진된 흔적이 목록에서 빠지는 것 하나로 화면에서도 사라진다). */
+      trails: w.trails || [],
       /* ★ GDD3 §13-B-5 — 위험 띠 경계(본부 기준 반지름 둘) */
       rings: w.rings || null,
       /* ★ GDD3 §13-C — 들에 사는 것들. 서버가 좌표의 주인이고 화면은 그 사이를 보간한다. */
@@ -367,6 +370,9 @@
       m.clusters = merged;
     }
     if (d.rings) m.rings = d.rings;
+    /* ★ §18-D2 — 흔적은 누적이 아니라 **교체**다. 안개 밖으로 나갔거나 소진된 흔적은
+       서버 목록에서 빠져 오고, 그 빠짐이 곧 「지워라」다(removedNodes 같은 장부가 따로 없다). */
+    if (d.trails) m.trails = d.trails;
     if (d.creatures) applyCreatures(d.creatures);
     /* ★ §12-6 — 상단은 무역이 열린 뒤에야 목록에 실린다. 열리기 전에는 늘 빈 배열이 온다. */
     if (d.caravans) m.caravans = d.caravans;
@@ -585,6 +591,19 @@
     return out;
   }
   function nodeById(id) { return (S.map && S.map.nodes[id]) || null; }
+
+  /** ★ §18-D2 — 앞마당의 흔적 목록(서버가 보낸 그대로). 안개 밖의 것은 애초에 오지 않는다. */
+  function trailList() { return (S.map && S.map.trails) || []; }
+
+  /** 손이 닿는 흔적 하나 — 가장 가까운 것. 오늘 못 쓰는 것(ready:false)도 말은 걸린다. */
+  function trailNear(x, y, reach) {
+    var list = trailList(), best = null, bd = 1e9;
+    for (var i = 0; i < list.length; i++) {
+      var d = Math.hypot(list[i].x - x, list[i].y - y);
+      if (d <= reach && d < bd) { bd = d; best = list[i]; }
+    }
+    return best;
+  }
 
   /** ★ §17-12 — 노드를 화면 장부에서 지운다(걷어내기 ack · worldDiff.removedNodes 가 부른다) */
   function dropNode(id) {
@@ -1516,6 +1535,8 @@
     mapSize: mapSize, terrainAt: terrainAt, terrainKey: terrainKey, terrainMeta: terrainMeta,
     fogAt: fogAt, nodeList: nodeList, nodeById: nodeById, nodeAt: nodeAt, nodeMeta: nodeMeta,
     applyCreatures: applyCreatures, creatureList: creatureList, clusterList: clusterList,
+    /* ★ §18-D2 — 앞마당의 흔적 */
+    trailList: trailList, trailNear: trailNear,
     ringOfPoint: ringOfPoint, codex: codex, regrowCfg: regrowCfg, ringsCfg: ringsCfg,
     workReach: workReach, inWorkRange: inWorkRange,
     myTown: myTown, territory: territory, inTerritory: inTerritory,

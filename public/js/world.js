@@ -659,6 +659,32 @@
     }
   }
 
+  /* ══════════ ★ §18-D2 앞마당의 흔적 ══════════
+     자원 자리보다 **작게, 낮게** 그린다(0.72칸). 흔적은 지형에 얹힌 자국이지 지형이 아니다 —
+     발자국이 나무만 하면 앞마당이 흔적 밭으로 보인다.
+     ★ 마커·화살표는 여기에 없다. 아직 안 조사한 흔적이라고 화살표가 서지 않고, 사슬의 다음
+     발자국도 안개가 열린 자리에 **그냥 놓여** 있을 뿐이다(§18-3). 눈으로 찾는 것이 이 시스템이다. */
+  var TRAIL_SCALE = 0.72;
+
+  function drawTrails() {
+    var list = S.trailList();
+    if (!list.length) return;
+    var t = GM.camera.cam.tile;
+    var s = Math.ceil(t * TRAIL_SCALE);
+    for (var i = 0; i < list.length; i++) drawTrail(list[i], t, s);
+  }
+
+  function drawTrail(tr, t, s) {
+    if (!GM.camera.onScreen(tr.x, tr.y, t)) return;
+    if (S.fogAt(tr.x, tr.y) < 1) return;
+    var px = GM.camera.worldToScreenX(tr.x - 0.5) + (t - s) / 2;
+    var py = GM.camera.worldToScreenY(tr.y - 0.5) + (t - s) / 2;
+    /* 오늘 못 쓰는 것(우물을 이미 길었다)은 흐리게 — 없어진 척하지 않는다. 내일 다시 온다. */
+    if (!tr.ready) ctx.globalAlpha = 0.5;
+    try { ctx.drawImage(GM.atlas.trail(tr.art, !tr.ready), Math.round(px), Math.round(py), s, s); } catch (e) {}
+    ctx.globalAlpha = 1;
+  }
+
   /** 그루터기 위 작은 시계 — 며칠 뒤에 되살아나는지 (§13-B-3) */
   function drawRegrowClock(n, p, t) {
     if (n.respawnAt == null || t < 22) return;
@@ -2188,6 +2214,10 @@
     /* ★ §17-16 — 이웃 도읍 앞에 서 있으면 「찾아간다」가 먼저다(손보다 발이 앞선 자리다) */
     var tw = GM.diplomacy && GM.diplomacy.nearTown();
     if (tw) { promptBox('E — ' + tw.name + ' 찾아가기', tw.x, tw.y, true); return; }
+    /* ★ §18-D2 — 흔적 곁이면 「살핀다」. 동사는 자료가 쥔다(verb) — 화면이 문구를 짓지 않는다.
+       input.js startInteract 와 **같은 차례**로 고른다: 말머리와 E 가 갈리면 손이 헛나간다. */
+    var tr = GM.trails && GM.trails.near();
+    if (tr) { promptBox(tr.verb, tr.x, tr.y, tr.ready); return; }
     if (!GM.swing || !GM.swing.target) return;
     var t = GM.swing.target();
     if (!t) return;
@@ -2337,6 +2367,7 @@
     drawBridges();                       /* ★ §17-13 — 다리는 그 위에 걸린다 */
     drawRails();                         /* ★ §13-D-5 — 바닥에 깔린 것이 먼저다 */
     drawNodes();
+    drawTrails();                        /* ★ §18-D2 — 흔적은 자원 자리 위, 울타리 아래 */
     drawFences();
     drawStructures();
     drawCamps();

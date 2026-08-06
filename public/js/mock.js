@@ -783,6 +783,10 @@
         towns: [{ nationId: 'player', name: '우리 정착지', x: W.cx, y: W.cy, isPlayer: true,
                   radius: W.radius, preset: [], known: true }],
         caravans: [],
+        /* ★ §18-D2 — 흔적은 혼자놀기 판에서는 **없다**(빈 목록). 그래도 열쇠말은 둔다:
+           화면이 `map.trails` 를 늘 배열로 받게 해 그리기·E 판정이 조용히 비켜 가게 하려는 것이다.
+           흔적 자체의 흉내는 잼 뒤의 일이다(서버 사슬 상태를 통째로 옮겨 와야 한다). */
+        trails: [],
         fog: { size: SIZE, chunk: 16, chunks: fogChunks() },
         territory: { cx: W.cx, cy: W.cy, radius: W.radius },
         structures: W.structures.map(structureView),

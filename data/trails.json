@@ -1,0 +1,189 @@
+{
+  "_note": "★ §18-3 단서 사슬 · §18-5 미시 발견. D-2 는 링0(본영 앞마당) 최소판만 담는다 — chains 1개 + micro 5종. 링1~3 의 원형 16종은 잼후 확장 자리다. 배치 수치·보상 수치·한국어 문구는 전부 이 파일이 쥔다(코드에 매직넘버 금지).",
+  "_schema": "★ §18-3 의 steps[].clue 는 여기서 step.key 가 맡는다(그 값이 곧 흔적 종류: tracks|feather|hollow…). text 는 lines 배열이다 — 대화창(§18-6)이 한 줄씩 찍으므로 처음부터 여러 줄을 받는다.",
+  "reachTiles": 3.2,
+  "_reachNote": "흔적에 손이 닿는 거리(타일). 건물 손일(balance.handWork.reachTiles)과 같은 자로 잰다 — 같은 E 한 손잡이가 여는 것들이 서로 다른 팔 길이를 가지면 안 된다.",
+  "ring0": {
+    "_note": "§18-1 링0 = 본영 0~12타일. chainCount·microCount 는 **보장** 생성 수량이고, minGap 은 발견물끼리의 최소 간격(타일), minTownGap 은 본영 한복판(모닥불 4×4)을 비켜 두는 여백이다. placeTries 는 한 자리를 고르는 헛손질 한도 — 못 찾으면 그 하나는 포기하고 다음으로 간다(월드 생성이 멎지 않게).",
+    "radius": 12,
+    "chainCount": 1,
+    "microCount": [4, 6],
+    "minGap": 3,
+    "minTownGap": 4,
+    "placeTries": 300
+  },
+  "dialogue": {
+    "_note": "§18-6 대화창의 말머리. 흔적은 사람이 아니라 **세계**가 건네는 말이라 이름을 「탐험」으로 두고, 초상은 정찰 눈(절차 도트)을 쓴다 — 그림 파일 0장 원칙.",
+    "speaker": "탐험",
+    "portraitKey": "icon:eye"
+  },
+  "chains": [
+    {
+      "id": "first_tracks",
+      "name": "첫 발자국",
+      "ring": 0,
+      "_note": "1~2일차용 짧은 사슬. 발자국 → 깃털과 핏방울 → 끝. 마커는 없다 — 조사할 때마다 다음 흔적 둘레의 안개만 열린다(§18-3 규칙).",
+      "steps": [
+        {
+          "key": "tracks",
+          "name": "낯선 발자국",
+          "art": "tracks",
+          "verb": "E — 발자국을 살핀다",
+          "revealRadius": 8,
+          "nextDistance": [5, 8],
+          "lines": [
+            "젖은 풀밭에 발자국이 찍혀 있다. 사람 것도, 늑대 것도 아니다.",
+            "자국은 아직 마르지 않았다. 멀리 가지 못했을 것이다."
+          ]
+        },
+        {
+          "key": "feather",
+          "name": "깃털과 핏방울",
+          "art": "feather",
+          "verb": "E — 깃털을 주워 본다",
+          "revealRadius": 8,
+          "nextDistance": [5, 8],
+          "lines": [
+            "깃털 한 줌과 마른 핏방울. 여기서 무언가 다투었다.",
+            "자국은 덤불 쪽으로 이어진다."
+          ]
+        },
+        {
+          "key": "hollow",
+          "name": "덤불 속 빈터",
+          "art": "hollow",
+          "verb": "E — 덤불을 헤친다",
+          "final": true,
+          "lines": ["덤불을 헤치자 작은 빈터가 나온다."]
+        }
+      ],
+      "endings": [
+        {
+          "key": "berry_grove",
+          "weight": 55,
+          "lines": [
+            "새들이 오르내리던 자리였다. 은빛이 도는 딸기 덤불이 통째로 남아 있다.",
+            "쫓던 것은 놓쳤지만, 오늘 저녁거리는 얻었다."
+          ],
+          "reward": {
+            "spawnNode": { "type": "berry", "rich": true },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "첫 발자국의 끝",
+              "text": "발자국을 따라간 자리에 딸기 군락이 있었다."
+            }
+          }
+        },
+        {
+          "key": "hurt_dog",
+          "weight": 45,
+          "lines": [
+            "다친 들개 한 마리가 숨을 몰아쉬며 이쪽을 본다.",
+            "도망칠 힘도 없어 보인다."
+          ],
+          "choices": [
+            {
+              "key": "care",
+              "label": "곡물을 나눠 준다",
+              "cost": { "grain": 3 },
+              "lines": ["개는 곡물을 다 먹고는 절뚝이며 숲으로 사라졌다. 뒤를 한 번 돌아보았다."],
+              "reward": {
+                "morale": 0.06,
+                "chronicle": {
+                  "kind": "discovery",
+                  "title": "다친 들개",
+                  "text": "발자국의 끝에서 다친 들개를 돌봐 주었다."
+                }
+              }
+            },
+            {
+              "key": "leave",
+              "label": "그냥 지나친다",
+              "lines": ["들개를 두고 돌아섰다. 발자국의 임자는 끝내 알 수 없었다."],
+              "reward": {
+                "chronicle": {
+                  "kind": "discovery",
+                  "title": "다친 들개",
+                  "text": "발자국의 끝에서 만난 들개를 두고 돌아섰다."
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "micro": [
+    {
+      "key": "stone_pile",
+      "name": "이상한 돌무더기",
+      "art": "stones",
+      "weight": 20,
+      "verb": "E — 돌무더기를 치운다",
+      "lines": [
+        "누가 일부러 쌓아 둔 돌무더기다. 치우자 마른 자루 하나가 나온다.",
+        "누군가 이곳을 지나며 씨앗을 묻어 두었다."
+      ],
+      "reward": {
+        "resources": { "grain": 6 },
+        "chronicle": { "kind": "discovery", "title": "돌무더기 아래", "text": "앞마당의 돌무더기 아래에서 곡물 씨앗 자루를 찾았다." }
+      }
+    },
+    {
+      "key": "bird_nest",
+      "name": "새 둥지",
+      "art": "nest",
+      "weight": 20,
+      "verb": "E — 둥지를 들여다본다",
+      "lines": ["낮은 가지에 둥지가 하나. 알이 한 알 남아 있다."],
+      "choices": [
+        {
+          "key": "take",
+          "label": "알을 가져간다",
+          "lines": ["알을 챙겼다. 창고는 늘었고, 사람들은 아무 말도 하지 않았다."],
+          "reward": { "resources": { "grain": 4 }, "morale": -0.03 }
+        },
+        {
+          "key": "leave",
+          "label": "그대로 둔다",
+          "lines": ["알을 그대로 두고 돌아섰다. 별일은 없었다. 다만 기분이 조금 나아졌다."],
+          "reward": { "morale": 0.02 }
+        }
+      ]
+    },
+    {
+      "key": "old_well",
+      "name": "옛 우물",
+      "art": "well",
+      "weight": 15,
+      "verb": "E — 두레박을 내린다",
+      "_note": "소진되지 않는 재방문 발견물(§18-4 재방문 설계). reuseDays 1 = 하루 한 번만.",
+      "reuseDays": 1,
+      "lines": ["이끼 낀 옛 우물. 두레박을 내리자 아직 물이 차갑다."],
+      "reward": { "heal": 25 }
+    },
+    {
+      "key": "mossy_statue",
+      "name": "이끼 낀 석상",
+      "art": "statue",
+      "weight": 15,
+      "verb": "E — 석상을 살핀다",
+      "lines": [
+        "이끼에 덮인 돌사람. 얼굴은 닳아 없어졌고 발치의 글자만 남았다.",
+        "「여기까지 왔으면 돌아가도 좋다.」"
+      ],
+      "reward": {
+        "chronicle": { "kind": "discovery", "title": "이끼 낀 석상", "text": "앞마당의 석상 발치에서 옛 글귀를 읽었다 — 「여기까지 왔으면 돌아가도 좋다.」" }
+      }
+    },
+    {
+      "key": "vista_rock",
+      "name": "전망 바위",
+      "art": "vista",
+      "weight": 12,
+      "verb": "E — 바위에 올라선다",
+      "lines": ["바위에 올라서니 우리 땅이 한눈에 들어온다. 아직 작지만, 우리 것이다."],
+      "reward": { "morale": 0.02, "revealRadius": 10 }
+    }
+  ]
+}

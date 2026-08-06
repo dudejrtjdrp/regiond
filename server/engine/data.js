@@ -49,6 +49,8 @@ export function loadGameData({ reload = false } = {}) {
     research: readJson('research.json'),
     // ★ GDD3 §15-C — 동료 봇(= 각료). 정원·이름·활동량 다이얼·자리별 선호 행동
     companions: readJson('companions.json'),
+    // ★ §18-D2 — 링0 앞마당의 흔적(단서 사슬 · 미시 발견). 배치·보상·문구를 전부 이 파일이 쥔다.
+    trails: readJson('trails.json'),
   };
   data.artifactsByKey = Object.fromEntries(data.artifacts.list.map((a) => [a.key, a]));
   cache = data;
@@ -191,6 +193,11 @@ export function publicWorld(d = loadGameData()) {
     } : null,
     // ★ §17-16 — 이웃 도읍 찾아가기 반경. 화면이 「E — 찾아가기」를 서버와 **같은 자**로 잰다.
     towns: { visitRadius: w.towns.visitRadius ?? 6 },
+    /* ★ §18-D2 — 흔적에 손이 닿는 거리. 같은 까닭이다: 화면의 말머리 상자와 서버의 판정이
+       다른 자를 쓰면 「E 가 떴는데 너무 멀다고 한다」가 된다.
+       ★ 정보 비대칭 — 여기 나가는 것은 **팔 길이 하나**뿐이다. 무엇이 어디 있는지, 무슨 보상이
+       나오는지는 자료가 쥐고 서버가 판정한다(사슬의 다음 발자국은 안개가 열려야만 온다). */
+    trails: { reachTiles: d.trails?.reachTiles ?? d.balance.handWork?.reachTiles ?? 3 },
     // ★ GDD3 §12-8 — 화면도 같은 식으로 시야를 잰다(기본 + 티어 × visionPerTier)
     fog: {
       chunk: w.fog.chunk,

@@ -50,7 +50,9 @@
     /* ★ §17-9 — 건물 손일(직접 상호작용) */
     'handWork',
     /* ★ §17-16 — 이웃 나라 찾아가기(도읍 앞에 서면 그 나라의 시세가 열린다) */
-    'visitNation'
+    'visitNation',
+    /* ★ §18-D2 — 앞마당의 흔적 조사(1차 = 살핀다 · 2차 = choice 확정, 같은 명령이다) */
+    'investigateTrail'
   ];
 
   var socket = null;

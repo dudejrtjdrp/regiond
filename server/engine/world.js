@@ -3,6 +3,8 @@
 import { createRng } from './rng.js';
 // ★ Sprint 3 — 노드 공간 색인(파생 캐시). 저장되지 않고 world.map 에 매달려 산다.
 import { nodeById as nodeByIdCached, nodesNear, nodeOrderIndex } from './spatial.js';
+// ★ §18-D2 — 링0 앞마당의 흔적. 자원 노드와 같은 자리에서(월드 생성 끝머리) 한 번에 심는다.
+import { generateTrails } from './trails.js';
 
 export const worldCfg = (data) => data.world;
 export const terrainCodes = (data) => data.world.terrain.codes;
@@ -539,6 +541,10 @@ export function generateWorldMap(seed, data, opts = {}) {
   // ★ §13-B-1 — 군락 목록. 클라가 이 원들을 보고 바닥 질감을 달리 칠한다(지역이 '지역'으로 읽히게).
   map.clusters = clusters;
   map.caravans = buildCaravans(towns, cfg);
+  /* ★ §18-D2 — 앞마당의 흔적. 마차에서 내린 첫 사흘이 「나무와 돌뿐」이 되지 않게, 본영 12타일 안에
+     짧은 사슬 하나와 미시 발견 넷~여섯을 **보장** 생성한다. 자리는 씨앗에서 짓되 **월드 난수(rng)는
+     한 톨도 쓰지 않는다** — 여기서 한 칸이라도 밀면 웨이브 구성·사건·이름이 통째로 어긋난다. */
+  map.trails = generateTrails(map, data, seed);
   return map;
 }
 

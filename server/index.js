@@ -553,6 +553,8 @@ const CLIENT_COMMANDS = [
   'handWork',
   // ★ §17-16 — 이웃 나라 찾아가기(도읍 앞에 서면 그 나라를 만난 것으로 적는다)
   'visitNation',
+  // ★ §18-D2 — 앞마당의 흔적 조사(발자국 사슬 · 돌무더기 · 둥지 · 우물 · 석상)
+  'investigateTrail',
 ];
 
 /** ★ 신원(누구의 아바타인가)은 서버 세션이 정한다 — 클라가 보낸 avatarId·playerName 은 신뢰하지 않는다. */
@@ -570,6 +572,8 @@ const IDENTITY_COMMANDS = new Set([
   'handWork',
   // ★ §17-16 — 찾아가는 것은 **내 발**이다. 남의 아바타가 선 자리로 방문을 청할 수 없다.
   'visitNation',
+  // ★ §18-D2 — 흔적에 손을 대는 것도 내 손이다(거리·우물물의 회복이 사람마다 따로다)
+  'investigateTrail',
 ]);
 
 /** ★ 실시간 명령 — 처리 후 곧바로 결과를 돌려주고, 전투 중이면 스냅샷도 함께 흘린다 */
@@ -849,6 +853,14 @@ io.on('connection', (socket) => {
       const res = rt.apply(s.nationId, { ...payload, ...(identity || {}), type, payload });
       if (!res.ok) { s.role = prevRole; return fail(res.error); }
       const out = ackPayload(res);
+      /* ★ §18-D2 — 흔적 조사가 연 안개는 그 자리에서 흐른다(일 틱을 기다리면 새 발자국이 최대 10분
+         뒤에 나타난다). 그리고 ack 에서는 그 자리 목록을 **지운다** — 화면이 다음 흔적의 좌표를
+         알아서는 안 된다(§18-3 마커 금지). 열린 것은 안개뿐이고, 찾는 것은 플레이어의 눈이다. */
+      if (type === 'investigateTrail') {
+        const reveal = buildRevealDiff(rt.world, s.nationId, data, res.revealed || []);
+        if (reveal) io.to(s.gameId).emit('worldDiff', reveal);
+        delete out.revealed;
+      }
       if (type === 'pickRole' || type === 'delegate') {
         const mine = refreshRoles(rt, s.nationId, { actorSocketId: socket.id, takenFrom: res.takenFrom ?? null });
         out.role = mine;

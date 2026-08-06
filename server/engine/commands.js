@@ -54,6 +54,8 @@ import { runEmotionDay } from './emotion_day.js';
 // ★ GDD3 §15-C — 동료 봇(= 각료)과 자동 플레이 · ★ §17-11 — 동료 지시·꾸미기
 import { setAutoPlay, bindCompanionRoles, syncCompanionSeats, autoPlayView, companionById } from './companions.js';
 import { record as chronicle } from './chronicle.js';
+// ★ §18-D2 — 링0 앞마당의 흔적 조사(E 한 손잡이가 여는 세 번째 것)
+import { investigateTrail } from './trails.js';
 
 const err = (code, message) => ({ ok: false, error: { code, message } });
 const ok = (data = {}) => ({ ok: true, ...data });
@@ -612,6 +614,11 @@ function runCommand(world, nationId, cmd, data, rng) {
     // ── ★ §17-16 이웃 나라 찾아가기 — 세 나라가 지도 위에 실제로 서 있게 한다 ──────
     //   교역 상대가 이름만 있는 목록이 아니라 걸어가 볼 수 있는 자리가 된다.
     case 'visitNation': return visitNation(world, nation, cmd, data);
+
+    // ── ★ §18-D2 흔적 조사 — 앞마당의 발자국·돌무더기·우물에 손을 댄다 ──────────
+    //   퀘스트를 주는 사람은 없다. 흔적이 다음 흔적을 부르고, 조사가 여는 것은 **안개**뿐이다.
+    //   선택지가 있는 흔적은 같은 명령을 두 번 받는다(1차 = 선택지 펴기 · 2차 = choice 확정).
+    case 'investigateTrail': return investigateTrail(world, nation, cmd, data);
 
     // ── 군주 아바타 (연출·안개용) ────────────────────────────────
     case 'lordMove': {

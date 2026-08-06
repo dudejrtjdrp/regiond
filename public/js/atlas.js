@@ -146,6 +146,87 @@
     });
   }
 
+  /* ══════════ ★ §18-D2 앞마당의 흔적 ══════════
+     자원 자리보다 **작고 낮게** 그린다 — 흔적은 지형에 얹힌 것이지 지형을 대신하는 것이 아니다.
+     그림 파일은 여기서도 0장이다: 발자국 넷, 돌 세 덩이, 잔가지 둥지, 우물의 두레박, 이끼 낀 돌사람.
+     art 를 모르는 흔적(자료가 앞서 나간 판)은 물음표 대신 **작은 표식 하나**로 나온다 — 안 보이는 것보다 낫다. */
+  function trail(art, dim) {
+    var faded = dim ? 1 : 0;
+    return cached('tr:' + art + ':' + faded, 16, 16, function (P) {
+      var ink = faded ? '#6b6458' : '#3f3a30';
+      if (art === 'tracks') return tracksArt(P, ink);
+      if (art === 'feather') return featherArt(P, ink, faded);
+      if (art === 'hollow') return hollowArt(P, faded);
+      if (art === 'stones') return stonesArt(P, faded);
+      if (art === 'nest') return nestArt(P, faded);
+      if (art === 'well') return wellArt(P, faded);
+      if (art === 'statue') return statueArt(P, faded);
+      if (art === 'vista') return vistaArt(P, faded);
+      P(6, 7, 4, 4, ink); P(7, 8, 2, 2, faded ? '#8f8878' : '#d8c98f');
+    });
+  }
+
+  /* 발자국 넷 — 앞발 둘이 크고 뒷발 둘이 작다. 왼쪽 위로 걸어간 자국이다. */
+  function tracksArt(P, ink) {
+    P(3, 11, 2, 2, ink); P(6, 12, 2, 2, ink);
+    P(5, 7, 2, 2, ink);  P(8, 8, 2, 2, ink);
+    P(8, 3, 2, 2, ink);  P(11, 4, 2, 2, ink);
+  }
+  /* 깃털 한 줌과 마른 핏방울 — 다툰 자리 */
+  function featherArt(P, ink, faded) {
+    P(4, 4, 1, 8, faded ? '#9a9284' : '#e6dcc4');
+    P(3, 5, 3, 4, faded ? '#8a8274' : '#cfc4a8');
+    P(9, 6, 1, 6, faded ? '#9a9284' : '#e6dcc4');
+    P(8, 7, 3, 3, faded ? '#8a8274' : '#cfc4a8');
+    P(11, 12, 2, 2, faded ? '#7a5048' : '#a33a34'); P(6, 13, 1, 1, ink);
+  }
+  /* 덤불 속 빈터 — 잎이 갈라진 자리에 맨땅 한 뼘 */
+  function hollowArt(P, faded) {
+    P(1, 5, 5, 8, faded ? '#3f5238' : '#3f6130');
+    P(10, 5, 5, 8, faded ? '#3f5238' : '#3f6130');
+    P(6, 8, 4, 5, faded ? '#6a5f4c' : '#8a7550');
+    P(6, 8, 4, 1, faded ? '#7d7460' : '#a68f64');
+  }
+  /* 이상한 돌무더기 — 누가 일부러 세 덩이를 쌓았다 */
+  function stonesArt(P, faded) {
+    var a = faded ? '#8a8880' : '#9aa0a8', b = faded ? '#6e6c66' : '#7e848c';
+    P(3, 10, 10, 4, b); P(3, 10, 10, 1, a);
+    P(5, 7, 6, 3, b);   P(5, 7, 6, 1, a);
+    P(7, 5, 3, 2, b);   P(7, 5, 3, 1, a);
+  }
+  /* 새 둥지 — 낮은 가지 위 잔가지 그릇에 알 하나 */
+  function nestArt(P, faded) {
+    P(2, 12, 12, 2, faded ? '#5a4a34' : '#6b5230');
+    P(3, 8, 10, 5, faded ? '#6a5a40' : '#8a6a40');
+    P(4, 9, 8, 3, faded ? '#4e4230' : '#5c4526');
+    P(6, 9, 4, 3, faded ? '#c8c2b0' : '#efe6cf'); P(6, 9, 4, 1, '#fffaf0');
+  }
+  /* 옛 우물 — 이끼 낀 돌테와 두레박 줄 */
+  function wellArt(P, faded) {
+    P(3, 8, 10, 6, faded ? '#7a7870' : '#8a9098');
+    P(3, 8, 10, 1, faded ? '#95948c' : '#b4bac2');
+    P(5, 9, 6, 4, faded ? '#2a3038' : '#1e2a38');
+    P(4, 11, 2, 1, '#4e7040'); P(11, 9, 2, 1, '#4e7040');
+    P(2, 2, 1, 7, faded ? '#5a4a34' : '#6b5230'); P(13, 2, 1, 7, faded ? '#5a4a34' : '#6b5230');
+    P(2, 2, 12, 1, faded ? '#5a4a34' : '#6b5230'); P(7, 3, 1, 4, '#c8bda0');
+  }
+  /* 이끼 낀 석상 — 얼굴은 닳아 없어졌고 발치의 글자만 남았다 */
+  function statueArt(P, faded) {
+    P(5, 3, 6, 10, faded ? '#8e8c84' : '#a9a390');
+    P(5, 3, 6, 1, faded ? '#a6a49c' : '#cfc9b4');
+    P(6, 5, 4, 2, faded ? '#6e6c64' : '#7d786a');
+    P(5, 8, 6, 1, '#4e7040'); P(9, 10, 2, 2, '#4e7040');
+    P(3, 13, 10, 2, faded ? '#6e6c64' : '#8d8878');
+  }
+  /* 전망 바위 — 올라설 수 있게 층이 진 큰 돌 */
+  function vistaArt(P, faded) {
+    P(1, 9, 14, 5, faded ? '#6e6c66' : '#7e848c');
+    P(1, 9, 14, 1, faded ? '#8a8880' : '#a4aab2');
+    P(4, 5, 8, 5, faded ? '#7a7870' : '#8a9098');
+    P(4, 5, 8, 1, faded ? '#95948c' : '#b4bac2');
+    P(6, 3, 3, 2, faded ? '#95948c' : '#c8d0da');
+  }
+
   /** ★ 벤 자리에 남는 그루터기 */
   function stump(type) {
     return cached('stump:' + type, 16, 16, function (P) {
@@ -990,7 +1071,7 @@
   function clear() { CACHE = {}; }
 
   GM.atlas = {
-    terrain: terrain, node: node, stump: stump, building: building, site: site, fence: fence,
+    terrain: terrain, node: node, stump: stump, trail: trail, building: building, site: site, fence: fence,
     town: town, hall: hall, wagon: wagon, caravan: caravan, camp: camp, folk: folk,
     avatar: avatar, avatarPortrait: avatarPortrait, avatarImg: avatarImg,
     enemy: enemy, wild: wild, variantAt: variantAt, hash01: h2, clear: clear,

@@ -439,11 +439,14 @@
     }
   }
 
-  /** ★ §17-16 — E 한 손잡이. 이웃 도읍 앞이면 찾아가고, 아니면 여느 때처럼 휘두른다.
-      (문 앞에서 허공을 도끼질하지 않게 — 화면의 말머리 상자도 같은 순서로 고른다) */
+  /** ★ §17-16 · §18-D2 — E 한 손잡이. 도읍 앞이면 찾아가고, 흔적 곁이면 살피고, 아니면 휘두른다.
+      (문 앞이나 발자국 위에서 허공을 도끼질하지 않게 — 화면의 말머리 상자도 같은 순서로 고른다.
+       흔적을 도읍보다 뒤에 두는 까닭: 도읍 앞은 오직 한 자리뿐이고, 흔적은 어디에나 있다.) */
   function startInteract() {
     var tw = GM.diplomacy && GM.diplomacy.nearTown();
     if (tw) { GM.diplomacy.visit(tw); return; }
+    var tr = GM.trails && GM.trails.near();
+    if (tr) { GM.trails.investigate(tr); return; }
     GM.swing.startHold();
   }
 
