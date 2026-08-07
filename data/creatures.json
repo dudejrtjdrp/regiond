@@ -500,7 +500,21 @@
   "ranch": {
     "_note": "★ GDD3 §14-4 — 목장. 영토는 짐승에게 닫혀 있지만(진입 금지·밀어냄), 목장이 서면 그 둘레 radius 안쪽만은 **온순한 짐승**(kind:animal)에게 열린다. 포식자는 목장이 있어도 못 든다. 산출은 buildings.json ranch 의 flatOutput 이 정본이다 — 여기 있는 것은 '문이 열리는 범위'뿐이다.",
     "building": "ranch",
-    "radius": 6
+    "radius": 6,
+    "tame": {
+      "_note": "★ §19-F1(F08-4) 「키우기」 — 잡는 대신 데려온다(사냥과 병존). 들에서 만난 온순한 짐승(kind:animal) 곁 rangeTiles 안에서 부르면 그 자리에서 가장 가까운 우리로 옮겨 앉는다. capacityPerTier 는 목장 한 채가 받는 머릿수(티어별)이고, perHeadPerDay 는 머릿수당 하루 산출이다 — 목장 건물 자체의 flatOutput 과 따로 얹힌다. 값의 근거: 사냥꾼 오두막의 일꾼 하나(hunting.perWorkerPerDay meat 0.45)보다 조금 낮게 잡았다. 데려오는 데 드는 것은 자재가 아니라 발품이라, 후하면 식량 곡선이 통째로 흔들린다.",
+      "rangeTiles": 3,
+      "capacityPerTier": [
+        3,
+        5,
+        8
+      ],
+      "perHeadPerDay": {
+        "meat": 0.3,
+        "hide": 0.09,
+        "wool": 0.07
+      }
+    }
   },
   "turretGuard": {
     "_note": "★ GDD3 §15-A-1·2·3 — 터렛 상시 사격. P0 실측: 터렛 판정이 battle.js 에만 있어 웨이브가 아닌 시간에는 코드상 한 대도 쏘지 않았다(900초 관측, 깎은 체력 0.00). 여기 값은 생태계 1초 루프가 쓰는 다이얼이다. skipDuringBattle 은 웨이브 중 이중 계산을 막는다 — 그 시각의 터렛은 stepBattle 이 굴린다. dropMultiplier 는 경제 유입을 조절하는 손잡이다(사람이 직접 벤 사냥보다 낮게 잡는다 — 자동으로 얻는 것이 손으로 얻는 것보다 후하면 사냥할 까닭이 없어진다).",

@@ -186,6 +186,39 @@
       "jitterDays": 2
     }
   },
+  "rush": {
+    "_note": "★ §19-E(F04-4) 침공 앞당기기 — QA 1차 「적이 올 때까지 할 일 없이 기다린다」의 답. conditions 는 chapters.json 의 조건 문법 그대로다(progression.measure 가 잰다) — 조건 행의 계측기를 둘로 나누지 않기 위해서다(§13-A-1). 다 채우면 화면에 [적을 불러들인다]가 열리고, 누르면 도착일이 daysAhead 일 뒤로 당겨진다. 밸런스: 앞당김은 **플레이어의 선택**이고 시뮬 봇은 쓰지 않는다 — 체크포인트 곡선은 그대로다. 앞당기면 준비할 날이 줄어드는 만큼 위험도 본인 몫이다(적 파워는 그대로).",
+    "enabled": true,
+    "daysAhead": 1,
+    "conditions": [
+      {
+        "label": "울타리 여덟 조각이나 화살탑 하나",
+        "type": "any",
+        "of": [
+          {
+            "type": "fenceSegments",
+            "count": 8
+          },
+          {
+            "type": "structure",
+            "building": "arrow_tower",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "label": "주민 넷 — 울타리 앞에 설 손",
+        "type": "population",
+        "count": 4
+      },
+      {
+        "label": "곡물 40 — 농성할 먹을 것",
+        "type": "resource",
+        "resource": "grain",
+        "amount": 40
+      }
+    ]
+  },
   "battle": {
     "_note": "실시뮬 다이얼. subtickSeconds 는 서브틱 길이(결정론 — 실시간 여부와 무관하게 같은 입력이면 같은 결과), maxSeconds 는 한 웨이브의 최대 길이다. 적은 접근하며 울타리·터렛·민병과 붙고, 마을 한복판에 닿으면 건물을 부수며 초당 lootRatioPerSecond 만큼 곳간을 헤집는다. ★ 이기려면 한 놈도 남기지 않고 쫓아내야 한다 — 시간이 다 되면 남은 적이 챙긴 것을 들고 물러간다(전멸도 게임오버도 없다). ★ §19-F2(F07-3) — rangeTiles 는 붙지 않고 때리는 사거리이고(없으면 meleeRangeTiles), detonate 는 울타리·건물에 닿는 순간 제 몸을 터뜨리는 배수다(그 한 방 뒤 스스로 사라진다).",
     "subtickSeconds": 0.25,
@@ -213,7 +246,17 @@
     "rewardGoldPerPower": 0.35,
     "timelineMaxEvents": 900,
     "lootRatioPerSecond": 0.0003,
-    "structureDamageFloor": 0.25
+    "structureDamageFloor": 0.25,
+    "breach": {
+      "_note": "★ §19-F1(F05-3) 부수며 진입. 적은 이제 석벽을 넘은 뒤 **길목에 선 건물**을 만나면 저울질한다: 뚫는 데 드는 시간×제 걸음(=칸으로 환산한 값)이 detourTiles 보다 싸면 부수고, 비싸면 돌아간다(체력 비례 가중치 — 튼튼한 건물일수록 돌아간다). openHpRatio 아래로 밀리면 「뚫렸다」고 보고 더 두드리지 않는다 — 건물이 통째로 사라지지 않는 §6 패배 관대는 그대로다(structureDamageFloor 가 여전히 바닥이다). corridorTiles 는 건물 몸집에 더하는 옆폭이고, scanBudget·rescanTiles 는 프레임 예산이다: 한 서브틱에 길목을 새로 찾아보는 적 수와, 그만큼 걸어야 다시 찾는 거리.",
+      "damageScale": 8,
+      "openHpRatio": 0.6,
+      "detourTiles": 4,
+      "corridorTiles": 0.5,
+      "scanBudget": 6,
+      "rescanTiles": 1.5,
+      "maxSecondsPerStructure": 4
+    }
   },
   "simulation": {
     "_note": "시뮬 봇(server/sim/policy.js)이 웨이브를 준비하는 다이얼. botPlayerDps 는 '플레이어가 검을 들고 참여한 평균치' 근사다 — GDD3 §10 의 '봇은 플레이어 행동 근사 포함' 요구를 만족한다.",

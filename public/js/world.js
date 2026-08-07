@@ -2200,12 +2200,27 @@
   function verbFor(t) {
     if (!t) return null;
     if (t.kind === 'enemy') return VERB.enemy;
-    if (t.kind === 'wild') return 'E — ' + (t.obj && t.obj.name ? t.obj.name : '짐승') + ' 사냥';
+    /* ★ §19-F1(F08-4) — 목장이 서 있고 온순한 짐승이면 「키우기」가 한 줄 더 붙는다(사냥과 병존). */
+    if (t.kind === 'wild') {
+      var nm = (t.obj && t.obj.name) ? t.obj.name : '짐승';
+      return 'E — ' + nm + ' 사냥' + (tameable(t.obj) ? '   ·   Q — 키우기' : '');
+    }
     if (t.kind === 'site') {
       var name = t.obj && t.obj.name ? t.obj.name : '공사';
       return 'E — ' + name + ' 짓기';
     }
     return VERB[t.nodeType] || 'E — 일하기';
+  }
+
+  /** ★ §19-F1(F08-4) — 데려올 수 있는가. 판정은 서버가 다시 한다(여기는 말머리를 걸 뿐이다). */
+  function tameable(c) {
+    if (!c || c.tamed || c.kind !== 'animal') return false;
+    var list = S.structures() || [];
+    for (var i = 0; i < list.length; i++) {
+      var b = list[i];
+      if (b.key === 'ranch' && !b.ruined && !b.inactive) return true;
+    }
+    return false;
   }
 
   /** ① 근처 대상 상호작용 라벨 — 손이 닿는 것 하나에만 붙는다 */

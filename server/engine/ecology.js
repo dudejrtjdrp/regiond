@@ -358,6 +358,143 @@ function pushOutOfTerritory(world, nation, data, c, step) {
   return true;
 }
 
+// ────────────────────────────────────────────────────────────────
+// ★ §19-F1(F08-4) 목장 개편 — 잡지 않고 데려온다
+// ────────────────────────────────────────────────────────────────
+export const tameCfg = (data) => ranchCfg(data).tame ?? null;
+
+/** 이 나라가 기르고 있는 것들 */
+export function livestock(nation) {
+  return (nation.wild?.creatures || []).filter((c) => c.tamed);
+}
+
+/** 다 지어진 목장이 받을 수 있는 머릿수 — 티어마다 늘어난다(data 정본) */
+export function ranchCapacity(nation, data) {
+  const per = tameCfg(data)?.capacityPerTier || [];
+  return activeRanches(nation, data)
+    .reduce((n, s) => n + (per[Math.max(0, (s.tier || 1) - 1)] ?? 0), 0);
+}
+
+/** 우리 한복판 — 목장 실체의 중심 칸 */
+function ranchSpot(s, data) {
+  const fp = data.buildings?.[s.key]?.footprint ?? [1, 1];
+  return { x: s.x + (fp[0] - 1) / 2, y: s.y + (fp[1] - 1) / 2 };
+}
+
+/** 이 가축이 매인 우리(없어졌으면 살아 있는 아무 우리) */
+function homeRanch(nation, c, data) {
+  const list = activeRanches(nation, data);
+  return list.find((s) => s.id === c.tamed) ?? list[0] ?? null;
+}
+
+/** ★ 기르는 짐승은 우리를 벗어나지 않는다 — 밖으로 뽑힌 목적지를 우리 안으로 죈다 */
+function tetherToRanch(nation, data, c, tx, ty) {
+  const home = homeRanch(nation, c, data);
+  if (!home) return { x: tx, y: ty };
+  const p = ranchSpot(home, data);
+  const r = Math.max(1, (ranchCfg(data).radius ?? 6) - 1);
+  const d = dist(p.x, p.y, tx, ty);
+  if (d <= r) return { x: tx, y: ty };
+  const k = r / Math.max(0.001, d);
+  return { x: Math.round(p.x + (tx - p.x) * k), y: Math.round(p.y + (ty - p.y) * k) };
+}
+
+/** 배회 목적지 한 자리 — 기르는 것은 우리 안으로, 들의 것은 옛 규칙(영토 밖·제 띠) 그대로 */
+function wanderSpot(world, nation, data, c, tx, ty) {
+  if (c.tamed) return tetherToRanch(nation, data, c, tx, ty);
+  /* ★ §14-4 — 목적지를 뽑은 **그 자리에서** 영토 밖으로 밀어낸다(난수를 더 쓰지 않는다) */
+  const want = keepTargetOutside(world, nation, data, c, tx, ty);
+  /* ★ §16-1 — 그 목적지를 다시 제 띠 안으로 죈다. 쫓다가·밀리다가 띠를 벗어난 놈은
+     다음 목적지부터 제 땅으로 돌아간다 — 사나운 것이 정착지 곁을 맴돌지 않는다. */
+  return keepTargetInBand(world, nation, data, c, want.x, want.y);
+}
+
+/** 하루치 가축 산출 — 머릿수 × data 의 정액. 목장 건물의 flatOutput 과는 따로 얹힌다. */
+export function livestockOutputs(nation, data) {
+  const per = tameCfg(data)?.perHeadPerDay || null;
+  const heads = per ? livestock(nation).length : 0;
+  const out = {};
+  if (!heads) return out;
+  for (const [res, v] of Object.entries(per)) out[res] = round2(v * heads);
+  return out;
+}
+
+/**
+ * tameCreature {targetId} — 잡는 대신 데려온다(사냥과 병존, 서버 권위).
+ * 「왜」 — 목장은 짐승이 「들어와도 되는 자리」만 열었을 뿐, 유저가 할 일이 없었다.
+ * 이제 들에서 만난 온순한 짐승 곁에서 부르면 그 자리에서 우리로 옮겨 앉는다.
+ */
+export function tameCreature(world, nation, cmd, data) {
+  const cfg = tameCfg(data);
+  if (!cfg) return err('NO_FEATURE', '아직 기를 수 없습니다.');
+  const ranches = activeRanches(nation, data);
+  if (!ranches.length) return err('NO_RANCH', '다 지어진 목장이 없습니다.');
+  const gate = tameTarget(world, nation, cmd, data, cfg);
+  if (!gate.ok) return gate;
+  if (livestock(nation).length >= ranchCapacity(nation, data)) {
+    return err('RANCH_FULL', '우리가 찼습니다 — 목장을 늘리십시오.');
+  }
+  return moveIntoRanch(world, nation, data, gate.target, nearestRanch(ranches, gate.target, data));
+}
+
+/** 데려올 짐승 고르기 — 사거리·종류를 서버가 판정한다(huntSwing 과 같은 잣대) */
+function tameTarget(world, nation, cmd, data, cfg) {
+  const avatarId = cmd.avatarId ?? cmd.playerName ?? 'lord';
+  const av = nation.avatars?.[avatarId];
+  const from = av ? { x: av.x, y: av.y } : (townOf(world, nation.id) ?? { x: 0, y: 0 });
+  const id = cmd.targetId ?? cmd.payload?.targetId ?? null;
+  const target = id ? creatureById(nation, id) : nearestTameable(nation, data, from);
+  if (!target) return err('NO_TARGET', '닿는 곳에 기를 짐승이 없습니다.');
+  if (target.tamed) return err('ALREADY_TAMED', '이미 기르는 짐승입니다.');
+  if (creatureDefs(data)[target.sp]?.kind !== 'animal') return err('WILD_BEAST', '사나운 것은 기를 수 없습니다.');
+  const range = cfg.rangeTiles ?? 3;
+  if (dist(target.x, target.y, from.x, from.y) > range) return err('OUT_OF_RANGE', '더 가까이 가야 합니다.');
+  return { ok: true, target };
+}
+
+/** 곁의 온순한 짐승 중 가장 가까운 것 */
+function nearestTameable(nation, data, from) {
+  let best = null;
+  let bd = Infinity;
+  for (const c of nation.wild?.creatures || []) {
+    if (c.tamed || creatureDefs(data)[c.sp]?.kind !== 'animal') continue;
+    const d = dist(c.x, c.y, from.x, from.y);
+    if (d < bd) { bd = d; best = c; }
+  }
+  return best;
+}
+
+function nearestRanch(ranches, c, data) {
+  let best = ranches[0];
+  let bd = Infinity;
+  for (const s of ranches) {
+    const p = ranchSpot(s, data);
+    const d = dist(p.x, p.y, c.x, c.y);
+    if (d < bd) { bd = d; best = s; }
+  }
+  return best;
+}
+
+/** 우리로 옮겨 앉힌다 — 자리도 목적지도 그 자리에서 우리 안으로 옮긴다(난수 없음) */
+function moveIntoRanch(world, nation, data, c, ranch) {
+  const p = ranchSpot(ranch, data);
+  c.tamed = ranch.id;
+  c.state = 'wander';
+  c.provoked = 0;
+  c.retarget = 0;
+  c.x = round2(p.x);
+  c.y = round2(p.y);
+  c.tx = c.x;
+  c.ty = c.y;
+  if (!c.seen) { c.seen = true; recordEncounter(nation, c.sp, world.tick); }
+  const def = creatureDefs(data)[c.sp];
+  return {
+    ok: true, tamed: true, targetId: c.id, species: c.sp, speciesName: def.name,
+    ranchId: ranch.id, x: c.x, y: c.y,
+    heads: livestock(nation).length, capacity: ranchCapacity(nation, data),
+  };
+}
+
 /**
  * 목적지가 영토 안이면 **경계 밖으로 밀어낸 자리**를 대신 준다.
  *
@@ -564,7 +701,8 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
       (hostile && near.d <= (def.aggroRadius || 0))
       || (c.provoked > 0 && near.d <= (cfg.chaseGiveUpTiles ?? 18))
     );
-    const wantsFlee = near && !hostile && !sanctuary && near.d <= (def.fleeRadius || 0);
+    /* ★ §19-F1(F08-4) — 기르는 것은 사람을 피하지 않는다. 우리 안에서 사람이 다가와도 그대로 있는다. */
+    const wantsFlee = near && !hostile && !sanctuary && !c.tamed && near.d <= (def.fleeRadius || 0);
 
     if (wantsChase) {
       c.state = 'chase';
@@ -588,13 +726,9 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
         c.retarget = cfg.wanderRetargetSeconds ?? 6;
         const a = r.float(0, Math.PI * 2);
         const rad = r.float(1, cfg.wanderRadius ?? 7);
-        /* ★ §14-4 — 목적지를 뽑은 **그 자리에서** 영토 밖으로 밀어낸다(난수를 더 쓰지 않는다) */
-        const want = keepTargetOutside(world, nation, data, c,
+        const home = wanderSpot(world, nation, data, c,
           clamp(Math.round(c.x + Math.cos(a) * rad), 1, size - 2),
           clamp(Math.round(c.y + Math.sin(a) * rad), 1, size - 2));
-        /* ★ §16-1 — 그 목적지를 다시 제 띠 안으로 죈다. 쫓다가·밀리다가 띠를 벗어난 놈은
-           다음 목적지부터 제 땅으로 돌아간다 — 사나운 것이 정착지 곁을 맴돌지 않는다. */
-        const home = keepTargetInBand(world, nation, data, c, want.x, want.y);
         c.tx = home.x;
         c.ty = home.y;
       }
@@ -917,7 +1051,9 @@ export function cullForHunters(world, nation, data) {
   if (!roll) return null;
   const w = ensureWild(nation);
   const town = townOf(world, nation.id);
-  const prey = w.creatures.find((c) => creatureDefs(data)[c.sp]?.kind === 'animal'
+  /* ★ §19-F1(F08-4) — 기르는 짐승은 솎아 내지 않는다. 목장은 도읍 곁이라 옛 줄은 우리 안의
+     가축부터 집어 갔다 — 데려다 놓은 것이 다음 날 사라지면 「키우기」가 뜻을 잃는다. */
+  const prey = w.creatures.find((c) => creatureDefs(data)[c.sp]?.kind === 'animal' && !c.tamed
     && town && dist(c.x, c.y, town.x, town.y) <= (cfg.nearbyRadius ?? 22));
   if (!prey) return null;
   removeCreature(nation, prey, data, world.tick);
@@ -944,6 +1080,8 @@ export function creatureViews(world, nation, data) {
     out.push({
       id: c.id, sp: c.sp, name: def?.name ?? c.sp, kind: def?.kind ?? 'animal',
       x: c.x, y: c.y, hp: round2(c.hp), maxHp: c.maxHp, ring: c.ring, state: c.state,
+      /* ★ §19-F1(F08-4) — 기르는 것인가. 화면은 이 한 칸으로 「사냥」과 「키우기」를 가른다. */
+      tamed: c.tamed ? true : undefined,
     });
   }
   return out;

@@ -506,6 +506,19 @@
   }
 
   /**
+   * ★ §19-E(F04-9) — 방장이 돌린 하루 길이를 그대로 받아 적는다.
+   *   화면의 해·달·주민 사이클이 전부 config.time 을 보고 도므로, 여기 한 곳만 고치면 전부 따라온다.
+   */
+  function applyTimeScale(p) {
+    var c = S.config;
+    if (!p || !c || !c.time || p.tickRealSeconds == null) return false;
+    c.time.tickRealSeconds = p.tickRealSeconds;
+    c.time.dayRealSeconds = p.tickRealSeconds;
+    emit('change', S);
+    return true;
+  }
+
+  /**
    * ★ §19-C — 아바타 목록은 hp·maxHp 를 함께 나른다(view.avatarViews). 그중 **내 것**을
    * 좌하단 체력 바로 옮긴다. 「왜」 — 정착지에서 차오르는 체력(ecology 의 쉼)은 초마다 서버에서
    * 오르지만, 판(state) 방송은 일 틱에 한 번이라 화면은 「회복이 안 된다」로 보였다.
@@ -1540,6 +1553,7 @@
     applyWorld: applyWorld, applyWorldDiff: applyWorldDiff, decodeRleInto: decodeRleInto,
     revealAround: revealAround, visionRadius: visionRadius, applyAck: applyAck,
     applyLiveResources: applyLiveResources, syncMyVitals: syncMyVitals,
+    applyTimeScale: applyTimeScale,
 
     nation: nation, ap: ap,
     tier: tier, tierNo: tierNo, unlocked: unlocked, uiOn: uiOn, featOn: featOn, buildingOn: buildingOn,

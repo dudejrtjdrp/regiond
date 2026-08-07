@@ -319,12 +319,17 @@
     smithy:      { wall: '#9c8878', roof: '#5c4438', shape: 'shed',  mark: 'anvil' },
     mine_shaft:  { wall: '#8a8478', roof: '#4a4038', shape: 'mine',  mark: null },
     mill:        { wall: '#dcc9a0', roof: '#8a5e33', shape: 'mill',  mark: null },
+    /* ★ §19-F1(F08-4) — 목장은 집이 아니다. 낮은 울타리로 두른 우리와 짚가리·여물통이다. */
+    ranch:       { wall: '#c9a86e', roof: '#8a5e33', shape: 'ranch', mark: null },
     /* 군사 */
     watchpost:   { wall: '#a3703f', roof: '#6b4526', shape: 'tower', mark: 'eye' },
     arrow_tower: { wall: '#a3703f', roof: '#8a5e33', shape: 'tower', mark: 'arrow' },
     barracks:    { wall: '#c07a78', roof: '#7d2a2c', shape: 'gable', mark: 'sword' },
     ballista:    { wall: '#8b9fb0', roof: '#6b4526', shape: 'engine', mark: 'bolt' },
     cannon:      { wall: '#5e646c', roof: '#3b4148', shape: 'engine', mark: 'barrel' },
+    /* ★ §19-F1(F08-3) — 서리탑·화염탑. 새 모양을 빚지 않고 있는 뼈대(tower·engine)에 색과 표식만 얹는다 */
+    frost_tower: { wall: '#a9c6d8', roof: '#5d84a6', shape: 'tower', mark: 'frost' },
+    flame_tower: { wall: '#b06a44', roof: '#7d2a2c', shape: 'engine', mark: 'flame' },
     /* 발전 */
     campfire:    { wall: '#6b4526', roof: '#e08541', shape: 'fire',  mark: null },
     trading_post: { wall: '#cdb283', roof: '#8a5e33', shape: 'gable', mark: 'ship' },
@@ -563,6 +568,25 @@
           P(4, 0, 4, 2, '#e8a33d');
           break;
         }
+        case 'ranch': {
+          /* 바닥 — 밟아 다져진 흙 마당 */
+          P(1, 6, 22, 16, '#8a7449'); P(1, 6, 22, 1, '#9c8556');
+          P(4, 10, 6, 4, '#7a6540'); P(14, 15, 6, 3, '#7a6540');
+          /* 울타리 — 기둥과 가로대 두 줄(사방을 두른다) */
+          for (var rp = 0; rp < 6; rp++) {
+            P(1 + rp * 4, 4, 2, 5, '#8a5e33');
+            P(1 + rp * 4, 19, 2, 5, '#8a5e33');
+          }
+          P(0, 4, 2, 20, '#8a5e33'); P(22, 4, 2, 20, '#8a5e33');
+          P(1, 5, 22, 1, wall); P(1, 7, 22, 1, U.shade(wall, -0.15));
+          P(1, 21, 22, 1, wall); P(1, 23, 22, 1, U.shade(wall, -0.15));
+          P(1, 5, 1, 19, wall); P(22, 5, 1, 19, U.shade(wall, -0.15));
+          /* 우리 한켠의 헛간 지붕과 짚가리·여물통 — 티어가 오르면 짚가리가 자란다 */
+          P(14, 4, 9, 6, roof); P(14, 4, 9, 1, U.shade(roof, 0.3));
+          P(15, 8 - grow, 7, 3 + grow, '#e8c96a'); P(15, 8 - grow, 7, 1, '#f6e6a8');
+          P(3, 16, 6, 3, '#6b4526'); P(3, 16, 6, 1, '#8a5e33');
+          break shapeAndMark;
+        }
         case 'garden': {
           P(2, 16, 20, 6, '#7a5c30'); P(2, 16, 20, 1, '#8a6a3a');
           for (var g = 0; g < 5; g++) {
@@ -611,6 +635,9 @@
         case 'sword':    P(11, 1, 2, 7, '#c6d6e2'); P(9, 7, 6, 2, '#a8701f'); break;
         case 'bolt':     P(10, 5, 4, 3, '#e8a33d'); break;
         case 'barrel':   P(20, 8, 4, 4, '#2b3138'); break;
+        /* ★ §19-F1(F08-3) — 서리 결정(여섯 갈래)과 솟는 불꽃 */
+        case 'frost':    P(11, 1, 2, 8, '#dff1fb'); P(8, 4, 8, 2, '#dff1fb'); P(9, 2, 2, 2, '#9fd4ee'); P(13, 6, 2, 2, '#9fd4ee'); break;
+        case 'flame':    P(10, 1, 4, 5, '#e08541'); P(11, 0, 2, 3, '#f6cf7a'); P(9, 4, 6, 2, '#d96a2c'); break;
         case 'ship':     P(4, 3, 6, 5, '#f4e4bc'); P(3, 8, 9, 2, '#8a5e33'); break;
         case 'awning':   P(2, 2, 20, 2, '#bc4749'); break;
         case 'holy':     P(11, 0, 2, 5, '#f6e6a8'); P(9, 1, 6, 2, '#f6e6a8'); break;

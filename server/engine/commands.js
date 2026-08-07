@@ -15,6 +15,8 @@ import {
   validateAppearance, normalizeAppearance, pushChat, memberAppearance, upsertMember, normalizeMembers,
 } from './social.js';
 import { normalizeBattlePlan } from './tactics.js';
+// ★ §19-E(F04-4) — 침공 앞당기기. 준비를 끝낸 사람이 제 손으로 그날을 당긴다.
+import { rushWave, canRushWave, nextWaveSpec, ensureCamps, campEventView, daysUntilWave } from './waves.js';
 import { adviceCommand } from './advisor.js';
 import {
   assignByAlloc, assignByMix, commandVillagers as placeVillagers, deriveLabor, mixFromAlloc,
@@ -37,7 +39,7 @@ import { dist } from './world.js';
 import { revealAvatar } from './fog.js';
 import { combatSwing } from './battle.js';
 // ★ GDD3 §13-C-8 — 웨이브 밖의 검. 들에 사는 것들을 벤다.
-import { huntSwing } from './ecology.js';
+import { huntSwing, tameCreature } from './ecology.js';
 // ★ §19-F2(F07-4) — 굴 앞의 경고. 용의 자리는 서버만 안다.
 import { dragonWarning } from './dragon.js';
 import { settlementTier, promoteSettlement, nextTierStatus, tierDef } from './tiers.js';
@@ -224,6 +226,13 @@ function runCommand(world, nationId, cmd, data, rng) {
       const res = (nation.battle && !nation.battle.over)
         ? combatSwing(world, nation, cmd, data, now)
         : huntSwing(world, nation, cmd, data, now);
+      return res.ok ? ok(res) : res;
+    }
+
+    /* ★ §19-F1(F08-4) — 잡는 대신 데려온다. 사냥(combatSwing)과 나란히 선 별개의 손짓이라
+       명령도 따로 둔다: 같은 짐승 앞에서 유저가 무엇을 고를지가 갈리기 때문이다. */
+    case 'tameCreature': {
+      const res = tameCreature(world, nation, cmd, data);
       return res.ok ? ok(res) : res;
     }
 
@@ -904,6 +913,20 @@ function runCommand(world, nationId, cmd, data, rng) {
       if (norm.error) return { ok: false, error: norm.error };
       nation.battlePlan = { tactic: norm.plan.tactic, setTick: world.tick };
       return ok({ battlePlan: nation.battlePlan });
+    }
+
+    /* ── ★ §19-E(F04-4) 침공 앞당기기 ────────────────────────────
+       준비 조건(data/waves.json rush.conditions)을 다 채웠을 때만 열린다. 서버가 다시 재고
+       당긴다 — 화면이 보낸 「준비됐다」는 믿지 않는다. 캠프도 그 자리에서 세워 예고가 보이게 한다. */
+    case 'rushWave': {
+      if (!canRushWave(world, nation, data)) return err('NOT_READY', '아직 적을 부를 준비가 되지 않았습니다.');
+      const at = rushWave(world, nation, data);
+      const spec = nextWaveSpec(world, nation, data);
+      const events = ensureCamps(world, nation, data)
+        .map((c) => ({ kind: 'camp_spotted', nationId: nation.id, data: campEventView(c, data) }));
+      events.push({ kind: 'wave_rushed', nationId: nation.id,
+        data: { index: spec.index, number: spec.index + 1, name: spec.name, daysUntil: daysUntilWave(world, nation) } });
+      return ok({ arrivalTick: at, daysUntil: daysUntilWave(world, nation), events });
     }
 
     case 'setAutoAssist': {
