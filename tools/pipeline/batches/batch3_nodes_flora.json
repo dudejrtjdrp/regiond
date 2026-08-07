@@ -17,7 +17,7 @@
       "subcategory": "node",
       "size": "96x96",
       "candidates": 4,
-      "desc": "a low round berry bush, dense small oval leaves massed in clusters with gaps showing the thin woody stems inside, bunches of ripe red berries hanging near the outer leaf tips, two fallen berries and a few dry twigs on the ground, base flush with the bottom edge"
+      "desc": "one single low round berry bush, one connected dome of dense small oval leaves with gaps showing the thin woody stems inside, bunches of ripe red berries hanging near the outer leaf tips, two fallen berries and a few dry twigs on the ground, one bush only, not several bushes, base flush with the bottom edge"
     },
     {
       "id": "mineral/iron_node",
@@ -134,7 +134,7 @@
       "subcategory": "biome",
       "size": "128x192",
       "candidates": 4,
-      "desc": "a slender twilight valley tree, smooth dark bark banded with a few pale rings, an airy crown of small violet and dusty blue leaf clusters riding fine upswept branches, a scatter of faintly luminous pale petals near the branch tips, fallen violet leaves ringing the roots, trunk base flush with the bottom edge"
+      "desc": "one single slender twilight valley tree with one trunk, smooth dark bark banded with a few pale rings, one airy crown of small violet and dusty blue leaf clusters riding fine upswept branches, a scatter of faintly luminous pale petals near the branch tips, fallen violet leaves ringing the roots, one tree only, not a row of trees, not multiple drawings, trunk base flush with the bottom edge"
     },
     {
       "id": "plant/reed",
@@ -143,7 +143,7 @@
       "subcategory": "prop",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a small clump of marsh reeds, tall narrow blades fanning upward from a wet muddy base, two brown seed spikes standing above the rest, one blade bent halfway down, thin pale stems visible near the ground, base flush with the bottom edge"
+      "desc": "one single clump of marsh reeds growing from one wet muddy spot, tall narrow blades fanning upward together from the same base, two brown seed spikes standing above the rest, one blade bent halfway down, one connected tuft only, not several separate plants, not a set of variations, base flush with the bottom edge"
     },
     {
       "id": "plant/bush_small",
@@ -152,7 +152,7 @@
       "subcategory": "prop",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a small round shrub, compact rounded leaf clusters with gaps showing the dark inner twigs, two bare lower branches poking out at the side, a thin litter of fallen leaves at the foot, base flush with the bottom edge"
+      "desc": "one single small round shrub, one compact dome of rounded leaf clusters with gaps showing the dark inner twigs, two bare lower branches poking out at the side, a thin litter of fallen leaves at the foot, one bush only, not several bushes, not a set of variations, base flush with the bottom edge"
     },
     {
       "id": "plant/flower_patch",
@@ -161,7 +161,7 @@
       "subcategory": "prop",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a low patch of wildflowers, a spray of small white and yellow blooms with two violet ones on slender stems above a tuft of narrow leaves, a pair of unopened buds leaning outward, base flush with the bottom edge"
+      "desc": "one single tuft of wildflowers growing from one spot of soil, small white and yellow blooms with two violet ones on slender stems rising together from the same leaf tuft, a pair of unopened buds leaning outward, one connected clump only, not scattered separate flowers, not a set of variations, base flush with the bottom edge"
     },
     {
       "id": "mineral/pebbles",
@@ -188,7 +188,7 @@
       "subcategory": "crop",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a mature barley plant ready for harvest, an upright bundle of golden stalks with heavy bearded seed heads bowing at the tips, narrow dry leaves sheathing the stems, a small ridge of tilled soil at the foot, base flush with the bottom edge"
+      "desc": "one single mature barley plant ready for harvest, one upright bundle of golden stalks growing from the same root, heavy bearded seed heads bowing at the tips, narrow dry leaves sheathing the stems, a small ridge of tilled soil at the foot, one plant only, not a row of plants, base flush with the bottom edge"
     },
     {
       "id": "plant/crop_vegetable",
@@ -197,7 +197,7 @@
       "subcategory": "crop",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a full grown vegetable plant, a rosette of broad crinkled green leaves with pale ribs opening from a short stalk, one round root shoulder pushing up out of the tilled soil, two nibbled holes in the outer leaves, base flush with the bottom edge"
+      "desc": "one single full grown vegetable plant, one rosette of broad crinkled green leaves with pale ribs opening from a short stalk, one round root shoulder pushing up out of the tilled soil, two nibbled holes in the outer leaves, one plant only, not a row of plants, not a set of variations, base flush with the bottom edge"
     }
   ]
 }
