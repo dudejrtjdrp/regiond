@@ -401,6 +401,130 @@ def _pct(v: float) -> str:
     return f"{v * 100:.2f}%"
 
 
+# ------------------------------------------------------- 프레임 일관성 (애니 전용)
+
+# 「왜」 museum.js는 프레임을 서로 비교하지 않는다(정지 이미지 1장만 분석). 이 검사는
+#      파이프라인 전용 확장이며, 절대 FAIL을 내지 않는다 — 박물관 판정과 어긋나도
+#      게이트를 막지 않기 위해서다. 판정 등급은 WARNING까지만.
+CONSISTENCY = {
+    "identityIouMin": 0.45,   # 캐릭터: 연속 프레임 실루엣 IoU가 이보다 낮으면 정체성 흔들림
+    "motionIouMax": 0.92,     # 캐릭터: 너무 같으면 움직임이 안 읽힌다
+    "effectIouMax": 0.80,     # §7 이펙트는 프레임마다 실루엣 30%+ 변화가 규칙
+    "colorDriftMax": 0.18,    # 색 분포 L1 거리 평균 상한
+    "sizeDriftMax": 0.15,     # 콘텐츠 높이 표준편차 / 평균
+    # 「왜」 불꽃은 프레임마다 커졌다 작아지는 게 정상이다. 크기 편차 기준을 따로 헐겁게 둔다.
+    "effectSizeDriftMax": 0.45,
+}
+
+# 이펙트성 카테고리는 '변화가 클수록 좋다'로 기준을 뒤집는다.
+VOLATILE_CATEGORIES = ("effect",)
+
+
+def _mask(img: Image.Image) -> list[bool]:
+    return [p[3] >= THRESHOLDS["opaqueAlpha"] for p in pp.pixels(img)]
+
+
+def silhouette_iou(a: Image.Image, b: Image.Image) -> float:
+    """두 프레임 실루엣의 교집합/합집합. 1.0이면 완전히 같은 모양."""
+    ma, mb = _mask(a), _mask(b)
+    inter = sum(1 for x, y in zip(ma, mb) if x and y)
+    union = sum(1 for x, y in zip(ma, mb) if x or y)
+    if union == 0:
+        return 1.0
+    return inter / union
+
+
+def color_drift(a: Image.Image, b: Image.Image) -> float:
+    """색 분포(정규화 히스토그램) L1 거리의 절반 — 0이면 완전히 같은 색 구성."""
+    ha, hb = _color_hist(a), _color_hist(b)
+    keys = set(ha) | set(hb)
+    return sum(abs(ha.get(k, 0.0) - hb.get(k, 0.0)) for k in keys) / 2
+
+
+def _color_hist(img: Image.Image) -> dict:
+    counts = Counter(p[:3] for p in pp.pixels(img) if p[3] >= THRESHOLDS["opaqueAlpha"])
+    total = sum(counts.values())
+    if total == 0:
+        return {}
+    return {c: n / total for c, n in counts.items()}
+
+
+def _content_heights(frames: list[Image.Image]) -> list[int]:
+    boxes = [f.getchannel("A").getbbox() for f in frames]
+    return [(b[3] - b[1]) if b else 0 for b in boxes]
+
+
+def check_frame_consistency(frames: list[Image.Image], category: str,
+                            limits: dict | None = None) -> dict:
+    """연속 프레임의 실루엣 IoU·색 분포·크기 편차를 재 애니메이션 품질을 보고한다."""
+    if len(frames) < 2:
+        return _result(SKIP, "비교할 프레임이 2장 미만입니다.", None)
+    ious = [silhouette_iou(frames[i], frames[i + 1]) for i in range(len(frames) - 1)]
+    drifts = [color_drift(frames[i], frames[i + 1]) for i in range(len(frames) - 1)]
+    stats = _consistency_stats(ious, drifts, frames)
+    return _consistency_verdict(stats, category, {**CONSISTENCY, **(limits or {})})
+
+
+def _consistency_stats(ious: list[float], drifts: list[float], frames: list) -> dict:
+    heights = _content_heights(frames)
+    return {"iouMin": min(ious), "iouMean": _mean(ious), "iouMax": max(ious),
+            "colorDrift": _mean(drifts), "sizeDrift": _rel_stdev(heights),
+            "frames": len(frames)}
+
+
+def _rel_stdev(values: list[int]) -> float:
+    avg = _mean(values)
+    if avg <= 0:
+        return 0.0
+    var = sum((v - avg) ** 2 for v in values) / len(values)
+    return (var ** 0.5) / avg
+
+
+def _consistency_verdict(s: dict, category: str, lim: dict) -> dict:
+    problems = _consistency_problems(s, category, lim)
+    detail = (f"IoU 최소 {s['iouMin']:.2f}/평균 {s['iouMean']:.2f}/최대 {s['iouMax']:.2f} · "
+              f"색편차 {s['colorDrift']:.2f} · 크기편차 {s['sizeDrift']:.2f} · {s['frames']}프레임")
+    if problems:
+        return _result(WARNING, detail + " — " + " / ".join(problems), s)
+    return _result(PASS, detail, s)
+
+
+def _consistency_problems(s: dict, category: str, lim: dict) -> list[str]:
+    if category in VOLATILE_CATEGORIES:
+        return _volatile_problems(s, lim)
+    return _identity_problems(s, lim)
+
+
+def _identity_problems(s: dict, lim: dict) -> list[str]:
+    """캐릭터·동물: 너무 달라도(정체성 붕괴) 너무 같아도(움직임 없음) 문제다."""
+    out = []
+    if s["iouMin"] < lim["identityIouMin"]:
+        out.append(f"프레임 간 실루엣이 과하게 변합니다(IoU {s['iouMin']:.2f})")
+    if s["iouMean"] > lim["motionIouMax"]:
+        out.append(f"프레임 차이가 거의 없습니다(IoU {s['iouMean']:.2f}) — denoise를 올리세요")
+    out.extend(_shared_problems(s, lim))
+    return out
+
+
+def _volatile_problems(s: dict, lim: dict) -> list[str]:
+    """§7 이펙트: 프레임마다 실루엣 30% 이상 변해야 한다. 크기 변화는 허용 범위가 넓다."""
+    out = []
+    if s["iouMean"] > lim["effectIouMax"]:
+        out.append(f"이펙트 실루엣 변화가 부족합니다(IoU {s['iouMean']:.2f}, §7은 30%+ 변화)")
+    loose = {**lim, "sizeDriftMax": lim.get("effectSizeDriftMax", lim["sizeDriftMax"])}
+    out.extend(_shared_problems(s, loose))
+    return out
+
+
+def _shared_problems(s: dict, lim: dict) -> list[str]:
+    out = []
+    if s["colorDrift"] > lim["colorDriftMax"]:
+        out.append(f"프레임 간 색 구성이 흔들립니다({s['colorDrift']:.2f})")
+    if s["sizeDrift"] > lim["sizeDriftMax"]:
+        out.append(f"프레임마다 크기가 튑니다({s['sizeDrift']:.2f})")
+    return out
+
+
 # ---------------------------------------------------------------- 종합
 
 CHECK_ORDER = ("palette", "translucent", "resolution", "pixelGrid",

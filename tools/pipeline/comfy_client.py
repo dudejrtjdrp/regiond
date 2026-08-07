@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import time
 import uuid
+from pathlib import Path
 from urllib.parse import urlencode, urlparse
 
 import requests
@@ -69,6 +70,23 @@ class ComfyClient:
             return list(spec)
         except (requests.RequestException, KeyError, IndexError, TypeError):
             return []
+
+    # ------------------------------------------------------------ 입력 업로드
+
+    def upload_image(self, path, subfolder: str = "toji") -> str:
+        """img2img 앵커용 PNG를 ComfyUI input 폴더에 올리고 LoadImage가 쓸 이름을 돌려준다.
+
+        「왜」 서버가 같은 이름이 있으면 파일명을 바꿔 저장한다. 응답의 실제 이름을 써야 한다.
+        """
+        files = {"image": (Path(path).name, Path(path).read_bytes(), "image/png")}
+        data = {"overwrite": "true", "subfolder": subfolder, "type": "input"}
+        try:
+            res = requests.post(f"{self.base}/upload/image", files=files, data=data,
+                                timeout=self.connect_timeout * 6)
+            res.raise_for_status()
+        except requests.RequestException as err:
+            raise ComfyError(f"앵커 이미지를 ComfyUI에 올리지 못했습니다 ({path})\n원인: {err}") from err
+        return _uploaded_name(res.json())
 
     # ------------------------------------------------------------ 큐잉/대기
 
@@ -167,6 +185,17 @@ class ComfyClient:
 
 
 # ------------------------------------------------------------------ 순수 함수
+
+def _uploaded_name(body: dict) -> str:
+    """LoadImage의 image 입력은 'subfolder/filename' 형태를 받는다."""
+    name = body.get("name") or body.get("filename")
+    sub = body.get("subfolder") or ""
+    if not name:
+        raise ComfyError(f"업로드 응답에 파일명이 없습니다: {body}")
+    if sub:
+        return f"{sub}/{name}"
+    return name
+
 
 def _ws_url(base: str, client_id: str) -> str:
     parsed = urlparse(base)

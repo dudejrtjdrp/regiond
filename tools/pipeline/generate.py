@@ -20,6 +20,7 @@ from pathlib import Path
 
 # 「왜」 의존성 미설치가 첫 실행에서 가장 흔한 실패라, traceback 대신 해결 명령을 바로 보여준다.
 try:
+    import animslice
     import postprocess as pp
     import qa
     import register
@@ -288,6 +289,354 @@ def make_sheet(args, root: Path) -> dict | None:
     return spritesheet.pack(folder, out_png, pp.parse_size(args.size))
 
 
+# ================================================================== 애니메이션 트랙
+#
+# 「왜」 세 전략을 두는 이유(조사 결론):
+#   anchor    승인된 base.png에서 출발하는 img2img. 프레임마다 같은 그림에서 시작하므로
+#             캐릭터 정체성이 가장 잘 버틴다. 프레임당 1024px을 온전히 쓴다. 기본값.
+#   variation 시드만 바꾼 txt2img. 불꽃·마법처럼 §7이 "프레임마다 실루엣 30%+ 변화"를
+#             요구하는 대상은 오히려 닮으면 안 되므로 이쪽이 맞다.
+#   sheet     한 장에 프레임 열을 그리고 내용 인식으로 자른다. 프레임당 해상도가 낮아
+#             하이비트 밀도가 안 나오므로 기본값이 아니다(외부 시트 취입·실험용).
+
+ANIM_STRATEGIES = ("anchor", "variation", "sheet")
+
+# 프레임별 포즈/위상 지시문. 모자라면 순환시켜 채운다.
+ANIM_PHASES: dict[str, list[str]] = {
+    "idle": ["standing still, weight centered, chest neutral",
+             "breathing in, chest slightly raised, shoulders up 1px",
+             "standing still, weight centered",
+             "breathing out, chest lowered, shoulders down 1px"],
+    "walk": ["contact pose, left leg forward, right arm forward",
+             "down pose, weight on left leg, body lowered",
+             "passing pose, legs together, body raised",
+             "up pose, right leg pushing off, body highest",
+             "contact pose, right leg forward, left arm forward",
+             "down pose, weight on right leg, body lowered",
+             "passing pose, legs together, body raised",
+             "up pose, left leg pushing off, body highest"],
+    "run": ["full stride, front leg extended far forward, torso leaning ahead",
+            "landing, front foot planted, body compressed low",
+            "push off, rear leg extended back, body rising",
+            "airborne, both feet off the ground, knees tucked"],
+    "attack": ["wind up, weapon pulled back behind the shoulder",
+               "anticipation, body coiled, weapon at the highest point",
+               "impact frame, weapon swung across the front, motion smear",
+               "follow through, weapon low across the body",
+               "recovery, returning toward the neutral stance"],
+    "gather": ["reaching down toward the ground with both arms",
+               "bent over, hands at the ground, tool swinging down",
+               "pulling up, arms drawn toward the chest",
+               "returning upright, holding the gathered item"],
+    "craft": ["raising a tool above the work surface",
+              "striking down onto the work surface, sparks",
+              "tool resting on the work surface",
+              "lifting the tool, inspecting the work"],
+    "hit": ["struck, head snapped back, body recoiling",
+            "staggering backward, arms flung out",
+            "recovering, body returning upright"],
+    "death": ["struck fatally, body arching backward",
+              "knees buckling, body sinking",
+              "falling sideways, arms loose",
+              "collapsed on the ground, limbs sprawled"],
+    "flicker": ["flame tall and narrow, tip curling left",
+                "flame short and wide, embers rising",
+                "flame tall and leaning right, bright core",
+                "flame mid height, sparks flying off the tip"],
+    "burn": ["fire low and spreading wide across the base",
+             "fire surging upward in a tall column",
+             "fire splitting into two tongues, embers scattering",
+             "fire collapsing inward, thick ember glow",
+             "fire flaring bright at the core, sparks off the top",
+             "fire leaning sideways, trailing smoke wisps"],
+    "sway": ["leaves leaning left, stems bent",
+             "leaves upright, stems straight",
+             "leaves leaning right, stems bent",
+             "leaves upright, slight overshoot"],
+    "cast": ["magic energy gathering into a small dense core",
+             "energy expanding into a bright ring",
+             "energy bursting outward with radiating spokes",
+             "energy dispersing into scattered motes"],
+    "impact": ["sharp bright flash at the center point",
+               "shockwave ring expanding outward",
+               "debris and sparks flying outward",
+               "residual glow fading, sparse motes"],
+}
+
+DEFAULT_PHASES = ["phase one of the loop", "phase two of the loop",
+                  "phase three of the loop", "phase four of the loop"]
+
+
+def anim_config(cfg: dict) -> dict:
+    """「왜」 이전에 sampler 값이 config를 무시하고 드리프트한 적이 있다. 전부 cfg.get으로 읽는다."""
+    return cfg.get("anim") or {}
+
+
+def resolve_strategy(args, cfg: dict) -> str:
+    table = anim_config(cfg).get("strategyByCategory") or {}
+    return args.anim_strategy or table.get(args.category, "anchor")
+
+
+def resolve_frame_count(args, cfg: dict) -> int:
+    """§9 표 → 카테고리 오버라이드 → CLI 순으로 프레임 수를 정한다."""
+    if args.anim_frames:
+        return args.anim_frames
+    per_category = (anim_config(cfg).get("frames") or {}).get(args.category)
+    if per_category:
+        return int(per_category)
+    return _bible_frames(args.anim, args.category)
+
+
+def _bible_frames(anim: str, category: str) -> int:
+    table = qa.ANIM_FRAMES_MONSTER if category == "monster" else qa.ANIM_FRAMES_CHAR
+    entry = spritesheet.ANIM_TABLE.get(anim)
+    if anim in table:
+        return table[anim]
+    if entry:
+        return entry["count"]
+    return 4
+
+
+def resolve_denoise(args, cfg: dict) -> float:
+    conf = anim_config(cfg)
+    table = conf.get("denoise") or {}
+    fallback = conf.get("defaultDenoise", 0.55)
+    return _pick(args.anim_denoise, table.get(args.anim, fallback))
+
+
+def resolve_anim_workflow(args, cfg: dict, strategy: str) -> str:
+    table = anim_config(cfg).get("workflowByStrategy") or {}
+    return args.workflow or table.get(strategy, f"anim_{strategy}")
+
+
+def resolve_fps(args, cfg: dict) -> int:
+    if args.anim_fps:
+        return args.anim_fps
+    return (anim_config(cfg).get("fps") or {}).get(args.anim) or spritesheet._fps_of(args.anim)
+
+
+def frame_prompts(base_prompt: str, anim: str, count: int) -> list[str]:
+    """기본 프롬프트에 프레임별 위상 지시문을 덧붙인다."""
+    phases = ANIM_PHASES.get(anim) or DEFAULT_PHASES
+    return [f"{base_prompt}, animation frame {i + 1} of {count}: {phases[i % len(phases)]}"
+            for i in range(count)]
+
+
+def sheet_prompt(base_prompt: str, anim: str, count: int) -> str:
+    """sheet 전략용 — 한 장에 프레임 열을 그리게 지시한다."""
+    return (f"{base_prompt}, a horizontal sprite sheet strip of exactly {count} evenly spaced "
+            f"{anim} animation frames in a single row, same character in every frame, "
+            "clear empty magenta gaps between frames, all frames the same size")
+
+
+# ------------------------------------------------------------------ 애니 생성 실행
+
+def _anchor_path(args, root: Path) -> Path:
+    base = root / "public/assets" / args.id / "base.png"
+    if not base.exists():
+        raise SystemExit(
+            f"앵커로 쓸 정지 컷이 없습니다: {base}\n"
+            f"먼저 정지 에셋을 만드세요 — python tools/pipeline/generate.py --id {args.id} "
+            f'--name "{args.name}" --desc "..." --category {args.category}\n'
+            "또는 --anim-strategy variation 으로 정지 컷 없이 생성하세요.")
+    return base
+
+
+def run_anim_generation(client, cfg: dict, args, prompts: list[str],
+                        strategy: str, denoise: float, out_dir: Path, root: Path) -> list[Path]:
+    """전략에 따라 프레임 원본을 뽑는다. 반환은 저장된 PNG 경로 목록."""
+    workflow_name = resolve_anim_workflow(args, cfg, strategy)
+    anchor = _upload_anchor(client, args, root, strategy)
+    if strategy == "sheet":
+        return _generate_sheet(client, cfg, args, prompts, workflow_name, out_dir)
+    return _generate_per_frame(client, cfg, args, prompts, workflow_name, denoise, anchor, out_dir)
+
+
+def _upload_anchor(client, args, root: Path, strategy: str) -> str | None:
+    if strategy != "anchor":
+        return None
+    return client.upload_image(_anchor_path(args, root))
+
+
+def _generate_per_frame(client, cfg, args, prompts, workflow_name, denoise, anchor, out_dir) -> list[Path]:
+    saved: list[Path] = []
+    for index, text in enumerate(prompts):
+        seed = _frame_seed(args, index)
+        workflow = _anim_workflow(workflow_name, cfg, text, seed, denoise, anchor)
+        print(f"  [{index + 1}/{len(prompts)}] 프레임 큐잉 (seed={seed}, denoise={denoise}) ...", flush=True)
+        saved.extend(_run_one(client, workflow, out_dir, index))
+    return saved
+
+
+def _generate_sheet(client, cfg, args, prompts, workflow_name, out_dir) -> list[Path]:
+    seed = _frame_seed(args, 0)
+    workflow = _anim_workflow(workflow_name, cfg, prompts[0], seed, 1.0, None)
+    print(f"  [1/1] 시트 1장 큐잉 (seed={seed}) — 내용 인식 슬라이싱으로 자릅니다 ...", flush=True)
+    return _run_one(client, workflow, out_dir, 0)
+
+
+def _frame_seed(args, index: int) -> int:
+    """「왜」 anchor는 시드를 고정해야 프레임 간 색·질감이 안 흔들린다. variation은 흔들려야 한다."""
+    if args.seed is not None:
+        return args.seed + index
+    return random.randint(0, 2**31 - 1)
+
+
+def _anim_workflow(name: str, cfg: dict, prompt: str, seed: int,
+                   denoise: float, anchor: str | None) -> dict:
+    workflow = apply_settings(load_workflow(name), cfg, prompt, seed)
+    _apply_denoise(workflow, denoise)
+    _apply_anchor(workflow, anchor)
+    return workflow
+
+
+def _apply_denoise(workflow: dict, denoise: float) -> None:
+    find_node(workflow, "SAMPLER")["inputs"]["denoise"] = denoise
+
+
+def _apply_anchor(workflow: dict, anchor: str | None) -> None:
+    if anchor is None:
+        return
+    find_node(workflow, "ANCHOR")["inputs"]["image"] = anchor
+
+
+# ------------------------------------------------------------------ 애니 후처리·등록
+
+def refine_anim_frames(raws: list[Path], spec: dict, cfg: dict, args, strategy: str, count: int):
+    """원본 프레임(또는 시트)을 공통 배율·공통 캔버스로 정렬한다."""
+    opts = _postprocess_options(cfg, args)
+    if strategy == "sheet":
+        return animslice.frames_from_sheet(raws[0], spec, count, {**opts, "align": "row"})
+    return animslice.frames_from_images(raws, spec, opts)
+
+
+def merge_into_sheet(frames, args, root: Path, fps: int) -> tuple[dict, list[str]]:
+    """기존 sheet.png에 이 애니 행을 추가/교체한다(다른 행은 보존)."""
+    asset_dir = root / "public/assets" / args.id
+    out_png = asset_dir / "sheet.png"
+    existing = _existing_frames_meta(asset_dir)
+    meta = spritesheet.merge_anim(out_png, existing, args.anim, frames, fps)
+    return (meta, [str(out_png)])
+
+
+def _existing_frames_meta(asset_dir: Path) -> dict | None:
+    meta_path = asset_dir / "meta.json"
+    if not meta_path.exists():
+        return None
+    return json.loads(meta_path.read_text(encoding="utf-8")).get("frames")
+
+
+def _existing_meta(asset_dir: Path) -> dict:
+    meta_path = asset_dir / "meta.json"
+    if not meta_path.exists():
+        return {}
+    return json.loads(meta_path.read_text(encoding="utf-8"))
+
+
+def build_anim_info(args, root: Path, sheet_meta: dict, still_report: dict, consistency: dict) -> dict:
+    """기존 meta.json을 뼈대로 삼아 frames만 갈아끼운다(정지 컷 정보를 잃지 않는다)."""
+    old = _existing_meta(root / "public/assets" / args.id)
+    checks = dict(still_report["checks"])
+    checks["frameConsistency"] = consistency["status"]
+    return {
+        "id": args.id, "name": args.name or old.get("name") or args.id,
+        "category": args.category, "subcategory": args.subcategory or old.get("subcategory"),
+        "grade": args.grade or old.get("grade"), "size": still_report["canvas"],
+        "pixelSize": still_report["pixelSize"], "frames": sheet_meta,
+        "paletteUsed": still_report["paletteUsed"],
+        "tags": args.tags.split(",") if args.tags else (old.get("tags") or []),
+        "qa": {"result": qa.worst([still_report["result"], consistency["status"]]),
+               "checks": checks, "notes": _anim_notes(args, consistency)},
+    }
+
+
+def _anim_notes(args, consistency: dict) -> str:
+    parts = [n for n in (args.notes, consistency["detail"]) if n]
+    return " / ".join(parts)
+
+
+def _run_anim(args, cfg: dict, root: Path, spec: dict, prompt: str) -> int:
+    strategy = resolve_strategy(args, cfg)
+    count = resolve_frame_count(args, cfg)
+    denoise = resolve_denoise(args, cfg)
+    fps = resolve_fps(args, cfg)
+    prompts = _anim_prompts(prompt, args, count, strategy)
+    _print_anim_plan(args, strategy, count, denoise, fps, prompts)
+    if args.dry_run:
+        return 0
+    return _anim_pipeline(args, cfg, root, spec, prompts, strategy, count, denoise, fps)
+
+
+def _anim_prompts(prompt: str, args, count: int, strategy: str) -> list[str]:
+    if strategy == "sheet":
+        return [sheet_prompt(prompt, args.anim, count)]
+    return frame_prompts(prompt, args.anim, count)
+
+
+def _print_anim_plan(args, strategy, count, denoise, fps, prompts) -> None:
+    print(f"# {args.id} — 애니메이션 '{args.anim}' ({strategy} 전략, {count}프레임, {fps}fps)")
+    if strategy == "anchor":
+        print(f"앵커: public/assets/{args.id}/base.png · denoise {denoise}")
+    for index, text in enumerate(prompts):
+        print(f"[{index + 1}] {text}\n")
+
+
+def _anim_pipeline(args, cfg, root, spec, prompts, strategy, count, denoise, fps) -> int:
+    out_dir = root / cfg.get("outDir", "tools/pipeline/out") / args.id / f"anim_{args.anim}"
+    try:
+        return _anim_steps(args, cfg, root, spec, prompts, strategy, count, denoise, fps, out_dir)
+    except ComfyError as err:
+        print(f"\n{err}", file=sys.stderr)
+        return 1
+    except ValueError as err:
+        print(f"\n애니메이션 처리 실패: {err}", file=sys.stderr)
+        return 1
+
+
+def _anim_steps(args, cfg, root, spec, prompts, strategy, count, denoise, fps, out_dir) -> int:
+    client = _connect(cfg)
+    raws = run_anim_generation(client, cfg, args, prompts, strategy, denoise, out_dir, root)
+    client.close()
+    frames = refine_anim_frames(raws, spec, cfg, args, strategy, count)
+    print(f"  · 프레임 {len(frames)}장 정렬 완료 (캔버스 {frames[0].size[0]}x{frames[0].size[1]})")
+    consistency = _consistency(frames, args, cfg)
+    sheet_meta, written = _finish_anim(args, root, frames, fps, consistency)
+    _cleanup(args, out_dir)
+    return _report_anim(args, written, frames, consistency, sheet_meta)
+
+
+def _finish_anim(args, root: Path, frames, fps: int, consistency: dict) -> tuple[dict, list[str]]:
+    """시트를 병합하고(항상) manifest를 갱신한다(--no-register가 아니면)."""
+    sheet_meta, written = merge_into_sheet(frames, args, root, fps)
+    if args.no_register:
+        return (sheet_meta, written)
+    still = qa.run_checks(root / "public/assets" / args.id / "base.png", args.category,
+                          args.subcategory, root=root)
+    result = register.register(root, build_anim_info(args, root, sheet_meta, still, consistency))
+    return (sheet_meta, written + result["written"])
+
+
+def _consistency(frames, args, cfg: dict) -> dict:
+    limits = anim_config(cfg).get("consistency") or {}
+    return qa.check_frame_consistency(frames, args.category, limits)
+
+
+def _rows_text(meta: dict) -> str:
+    anims = meta.get("anims") or {}
+    return ", ".join(f"{n}(row {a['row']}, {a['count']}f, {a['fps']}fps)" for n, a in anims.items())
+
+
+def _report_anim(args, written: list[str], frames, consistency: dict, meta: dict) -> int:
+    print(f"\n## 애니메이션 '{args.anim}' 완료 — {len(frames)}프레임")
+    print(f"  - 프레임 일관성: {consistency['status']} — {consistency['detail']}")
+    print(f"  - 시트 행 구성: {_rows_text(meta)}")
+    print("\n## 변경 파일")
+    for path in written:
+        print(f"  {path}")
+    print("\ngit은 건드리지 않았습니다 — 스테이징 여부는 직접 결정하세요.")
+    return 0
+
+
 # ------------------------------------------------------------------ CLI
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -324,14 +673,32 @@ def _add_option_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--no-register", action="store_true", help="manifest.json을 건드리지 않는다")
     p.add_argument("--keep-candidates", action="store_true", help="out/ 후보 파일을 지우지 않는다")
     p.add_argument("--dry-run", action="store_true", help="프롬프트만 출력하고 생성하지 않는다")
+    _add_anim_args(p)
+
+
+def _add_anim_args(p: argparse.ArgumentParser) -> None:
+    """「왜」 --anim이 붙으면 정지 생성은 아예 건너뛴다. 기존 계약을 건드리지 않기 위함."""
+    names = ", ".join(spritesheet.ANIM_TABLE)
+    p.add_argument("--anim", help=f"애니메이션 트랙으로 전환. 이름: {names}")
+    p.add_argument("--anim-frames", type=int, help="프레임 수 (생략 시 §9 표/카테고리 기본값)")
+    p.add_argument("--anim-strategy", choices=ANIM_STRATEGIES, help="anchor(기본)|variation|sheet")
+    p.add_argument("--anim-denoise", type=float, help="anchor 전략의 변형 강도 0.0~1.0")
+    p.add_argument("--anim-fps", type=int, help="재생 fps (생략 시 §9 표)")
 
 
 def _fill_defaults(args, cfg: dict) -> None:
     """CLI로 안 준 값은 config.json 기본값으로 채운다."""
     args.candidates = _pick(args.candidates, cfg.get("candidates", 4))
-    args.workflow = args.workflow or cfg.get("workflowByCategory", {}).get(args.category, "character")
     args.quantize_strength = _pick(args.quantize_strength, cfg.get("quantizeStrength", 0.5))
     args.downscale_filter = args.downscale_filter or cfg.get("downscaleFilter", "nearest")
+    _fill_workflow(args, cfg)
+
+
+def _fill_workflow(args, cfg: dict) -> None:
+    """「왜」 애니 트랙은 전략별 워크플로우를 따로 고른다. 정지용 기본값으로 덮으면 안 된다."""
+    if args.anim:
+        return
+    args.workflow = args.workflow or cfg.get("workflowByCategory", {}).get(args.category, "character")
 
 
 def _pick(value, fallback):
@@ -348,6 +715,16 @@ def _validate(args, parser) -> None:
         print(f"  ! 경고: --id가 '{args.category}/...' 로 시작하지 않습니다 (지금: {args.id}) — 아트바이블 §10 명명 규칙 확인")
     if args.candidates < 1:
         parser.error("--candidates는 1 이상이어야 합니다.")
+    _validate_anim(args, parser)
+
+
+def _validate_anim(args, parser) -> None:
+    if not args.anim:
+        return
+    if args.anim_frames is not None and args.anim_frames < 2:
+        parser.error("--anim-frames는 2 이상이어야 합니다(1장이면 애니메이션이 아닙니다).")
+    if args.anim not in spritesheet.ANIM_TABLE:
+        print(f"  ! 경고: '{args.anim}'는 아트바이블 §9 표에 없는 이름입니다 — 시트 맨 뒷행에 붙습니다.")
 
 
 def _connect(cfg: dict) -> ComfyClient:
@@ -375,6 +752,8 @@ def main(argv: list[str] | None = None) -> int:
     root = pp.project_root(cfg.get("projectRoot"))
     spec = pp.category_spec(args.category, pp.parse_size(args.size))
     prompt = build_prompt(args.desc, args.category, args.grade, pp.palette_hexes(root))
+    if args.anim:
+        return _run_anim(args, cfg, root, spec, prompt)
     return _run(args, cfg, root, spec, prompt)
 
 

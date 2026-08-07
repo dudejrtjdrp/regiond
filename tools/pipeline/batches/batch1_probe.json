@@ -1,0 +1,67 @@
+{
+  "note": "배치 1 — 스타일 프로브 8종. 재질 전 계열(피부·천·모피·목재·초가·식생·석재·지형·금속)을 커버한다. 전부 PASS 후 배치 2 진행. 계획 정본: docs/에셋_교체_배치계획.md",
+  "assets": [
+    {
+      "id": "player/hero_base",
+      "name": "기준 영웅",
+      "category": "player",
+      "subcategory": "male",
+      "candidates": 6,
+      "desc": "full body of a young village leader and pioneer, hanbok-inspired practical tunic in muted green with brown trousers and leather boots, rolled-up sleeves, short dark hair, determined friendly face, small hatchet hanging at the belt, standing idle facing the viewer, arms relaxed at sides, feet planted on the bottom edge, heroic but humble proportions around seven heads tall"
+    },
+    {
+      "id": "monster/wolf",
+      "name": "늑대",
+      "category": "monster",
+      "subcategory": "normal",
+      "candidates": 6,
+      "desc": "full body of a lean gray wolf in side view walking stance, hackles slightly raised, bared teeth, hungry amber eyes, matted fur in cool gray tones with darker back and lighter belly, bushy tail low, all four paws on the bottom edge, wild and threatening but not cartoonish"
+    },
+    {
+      "id": "building/hut",
+      "name": "움집",
+      "category": "building",
+      "size": "128x176",
+      "candidates": 6,
+      "desc": "small korean settler hut seen from a top-down three-quarter view, thatched straw roof with visible bundled texture, rough timber walls with exposed log frame, single wooden door centered at the front, tiny shuttered window, stone foundation base, modest and hand-built feeling, building base flush with the bottom edge"
+    },
+    {
+      "id": "tree/oak_large",
+      "name": "큰 참나무",
+      "category": "tree",
+      "size": "128x192",
+      "candidates": 6,
+      "desc": "a single large oak tree from a top-down three-quarter view, thick gnarled trunk with bark texture and one knot, wide leafy canopy built from clustered leaf masses in layered greens, a few branch tips poking out of the silhouette, small root flare at the base, trunk base flush with the bottom edge"
+    },
+    {
+      "id": "mineral/rock_node",
+      "name": "바위 노드",
+      "category": "mineral",
+      "size": "96x96",
+      "candidates": 6,
+      "desc": "a cluster of three large angular boulders for mining, big faceted planes of gray stone with chipped edges and small cracks, a few pebbles scattered at the base, subtle moss patch on the shaded side, sturdy and weighty, base flush with the bottom edge"
+    },
+    {
+      "id": "tileset/grass",
+      "name": "풀 지형 타일",
+      "category": "tileset",
+      "candidates": 6,
+      "desc": "seamless top-down grassland ground tile, short dense meadow grass rendered as soft clustered tufts, two or three tiny daisies and a few darker grass patches for variation, edge-to-edge texture that tiles in every direction, no border, no objects, mid-tone leaf green dominant"
+    },
+    {
+      "id": "weapon/iron_sword_common",
+      "name": "철검",
+      "category": "weapon",
+      "grade": "common",
+      "candidates": 6,
+      "desc": "a sturdy iron longsword displayed diagonally, straight double-edged blade with one bright specular line along the edge, plain steel crossguard, grip wrapped in worn brown leather strips, small round pommel, honest workhorse weapon with no ornament"
+    },
+    {
+      "id": "material/wood_log",
+      "name": "통나무",
+      "category": "material",
+      "candidates": 6,
+      "desc": "two stacked freshly cut wooden logs, pale ring pattern on the cut ends, rough brown bark with a few chips, one short branch stub, simple readable inventory item silhouette"
+    }
+  ]
+}

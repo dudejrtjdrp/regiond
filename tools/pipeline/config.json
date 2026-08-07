@@ -2,36 +2,105 @@
   "_note": "갈래말래 에셋 파이프라인 설정. 모델 파일명은 docs/에셋파이프라인_설치.md의 배치 경로와 반드시 일치해야 한다.",
   "comfyUrl": "http://127.0.0.1:8188",
   "projectRoot": "../..",
-
   "checkpoint": "sd_xl_base_1.0.safetensors",
   "vae": "sdxl_vae.safetensors",
   "loras": [
-    { "name": "pixel-art-xl.safetensors", "strength": 1.0, "note": "nerijs/pixel-art-xl — 주력 픽셀아트 LoRA (SDXL 1.0 전용)" }
+    {
+      "name": "pixel-art-xl.safetensors",
+      "strength": 1.0,
+      "note": "nerijs/pixel-art-xl — 주력 픽셀아트 LoRA (SDXL 1.0 전용)"
+    }
   ],
-
   "negative": "photo, photorealistic, 3d render, blurry, jpeg artifacts, antialiasing, soft edges, gradient background, drop shadow on background, text, watermark, signature, ui frame, border, multiple views, extra limbs, mutated hands, low contrast, washed out, neon, fluorescent colors, isometric grid, chibi cartoon outline, black outline, thick black border, dithering noise, checkerboard background, white background, transparent checkerboard",
-
   "_samplerNote": "steps·cfg·sampler·scheduler의 정본은 workflows/*.json의 카테고리별 값이다(character 32/7.0, prop 30/6.5, icon 26/6.5, tile 30/5.5 — 전부 dpmpp_2m+karras). 전역으로 강제하고 싶을 때만 이 파일에 steps·cfg·sampler·scheduler 키를 추가하면 모든 워크플로우를 덮어쓴다. keyColor #FF00FF는 프롬프트와 postprocess.py에 고정된 상수라 설정으로 바꿀 수 없다.",
-
   "candidates": 4,
   "quantizeStrength": 0.5,
   "downscaleFilter": "nearest",
   "keyTolerance": 110,
   "haloTolerance": 190,
-
   "timeoutSeconds": 900,
   "outDir": "tools/pipeline/out",
-
   "workflowByCategory": {
-    "player": "character", "npc": "character", "monster": "character",
-    "animal": "character", "portrait": "character",
-    "tree": "prop", "building": "prop", "furniture": "prop",
-    "mineral": "prop", "plant": "prop", "effect": "prop",
+    "player": "character",
+    "npc": "character",
+    "monster": "character",
+    "animal": "character",
+    "portrait": "character",
+    "tree": "prop",
+    "building": "prop",
+    "furniture": "prop",
+    "mineral": "prop",
+    "plant": "prop",
+    "effect": "prop",
     "tileset": "tile",
-    "weapon": "icon", "armor": "icon", "food": "icon",
-    "consumable": "icon", "material": "icon", "ui": "icon"
+    "weapon": "icon",
+    "armor": "icon",
+    "food": "icon",
+    "consumable": "icon",
+    "material": "icon",
+    "ui": "icon"
   },
-
+  "_animNote": "애니메이션 트랙 설정. 전부 generate.py의 anim_config()/resolve_*()가 cfg.get으로 실제로 읽는다. frames를 비우면 아트바이블 §9 표(캐릭터/몬스터)를 따른다.",
+  "anim": {
+    "strategyByCategory": {
+      "player": "anchor",
+      "npc": "anchor",
+      "monster": "anchor",
+      "animal": "anchor",
+      "portrait": "anchor",
+      "tree": "anchor",
+      "plant": "anchor",
+      "building": "anchor",
+      "mineral": "anchor",
+      "weapon": "anchor",
+      "armor": "anchor",
+      "food": "anchor",
+      "consumable": "anchor",
+      "material": "anchor",
+      "ui": "anchor",
+      "tileset": "anchor",
+      "furniture": "variation",
+      "effect": "variation"
+    },
+    "frames": {
+      "effect": 6,
+      "furniture": 4,
+      "plant": 4,
+      "tree": 4,
+      "ui": 4,
+      "tileset": 4
+    },
+    "denoise": {
+      "idle": 0.42,
+      "walk": 0.58,
+      "run": 0.62,
+      "attack": 0.62,
+      "gather": 0.58,
+      "craft": 0.55,
+      "hit": 0.5,
+      "death": 0.66,
+      "flicker": 0.72,
+      "burn": 0.75,
+      "sway": 0.45,
+      "cast": 0.72,
+      "impact": 0.72
+    },
+    "defaultDenoise": 0.55,
+    "fps": {},
+    "workflowByStrategy": {
+      "anchor": "anim_anchor",
+      "variation": "anim_variation",
+      "sheet": "anim_sheet"
+    },
+    "consistency": {
+      "identityIouMin": 0.45,
+      "motionIouMax": 0.92,
+      "effectIouMax": 0.8,
+      "colorDriftMax": 0.18,
+      "sizeDriftMax": 0.15,
+      "effectSizeDriftMax": 0.45
+    }
+  },
   "sources": {
     "comfyApi": "https://docs.comfy.org/development/comfyui-server/api-examples",
     "pixelArtXl": "https://huggingface.co/nerijs/pixel-art-xl",
