@@ -142,7 +142,8 @@
           "shrine",
           "barracks",
           "manor",
-          "fountain"
+          "fountain",
+          "library"
         ],
         "features": [
           "orders",
@@ -169,7 +170,9 @@
       "unlocks": {
         "buildings": [
           "consulate",
-          "monument"
+          "monument",
+          "workshop",
+          "station"
         ],
         "features": [
           "highTierUpgrade",
@@ -193,7 +196,9 @@
         "population": 70
       },
       "unlocks": {
-        "buildings": [],
+        "buildings": [
+          "academy"
+        ],
         "features": [
           "prestige"
         ],

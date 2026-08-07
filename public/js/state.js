@@ -96,6 +96,8 @@
     { key: 'production', name: '생산', hint: '곳간과 살림을 불린다' },
     { key: 'military',   name: '군사', hint: '울타리 앞을 지킨다' },
     { key: 'civic',      name: '발전', hint: '정착지를 키운다' },
+    /* ★ §19-F4(F09-1) — 궁리에도 자리가 필요하다 */
+    { key: 'research',   name: '연구', hint: '궁리가 빨라진다' },
     { key: 'decor',      name: '장식', hint: '보기 좋은 것이 사람을 부른다' }
   ];
 
@@ -865,6 +867,25 @@
     for (var i = 0; i < (r.list || []).length; i++) if (r.list[i].key === key) return r.list[i];
     return null;
   }
+  /* ★ §19-F4(F09-2) — 기차. 자리는 서버가 쥐므로 화면은 **받은 목록**만 읽는다.
+     실시간 채널('trains')이 오면 그것이 최신이고, 없으면 판(nation.trains)이 예비다. */
+  function trains() {
+    var n = nation();
+    var base = (n && n.trains) || [];
+    if (!base.length) return base;            // 판이 비었으면 실시간 목록도 낡은 것이다
+    return (S.trainList && S.trainList.length) ? S.trainList : base;
+  }
+  function trainInfo() { var n = nation(); return (n && n.trainSummary) || null; }
+  /** 내가 지금 탄 기차 — 없으면 null (탄 동안에는 걷지도, 자리를 보고하지도 않는다) */
+  function myTrain() {
+    var me = S.avatarId;
+    var l = trains();
+    for (var i = 0; i < l.length; i++) {
+      if ((l[i].riders || []).indexOf(me) >= 0) return l[i];
+    }
+    return null;
+  }
+  function riding() { return Boolean(myTrain()); }
   function rails() { var n = nation(); return (n && n.rails) || []; }
   function railInfo() { var n = nation(); return (n && n.railSummary) || null; }
   function railCfg() { var c = cfg(); return (c && c.research && c.research.rails) || null; }
@@ -1625,6 +1646,8 @@
     equipCfg: equipCfg, equipment: equipment,
     research: research, researchOf: researchOf,
     rails: rails, railInfo: railInfo, railCfg: railCfg, onRail: onRail,
+    /* ★ §19-F4(F09-2) — 기차 */
+    trains: trains, trainInfo: trainInfo, myTrain: myTrain, riding: riding,
     /* ★ §17-13 — 다리·매립 · ★ §17-12 — 걷어내기 */
     bridges: bridges, bridgeInfo: bridgeInfo, bridgeCfg: bridgeCfg, onBridge: onBridge,
     fills: fills, fillInfo: fillInfo, fillCfg: fillCfg, onFill: onFill,

@@ -337,6 +337,11 @@
     shrine:      { wall: '#c3b0de', roof: '#6f5aa8', shape: 'gable', mark: 'holy' },
     consulate:   { wall: '#9db6d8', roof: '#3a5580', shape: 'gable', mark: 'flag' },
     monument:    { wall: '#dcd6c4', roof: '#b0a894', shape: 'obelisk', mark: null },
+    /* ★ §19-F4(F09-1·2) — 연구소 셋과 정거장. 새 뼈대를 빚지 않고 있는 모양에 색·표식만 얹는다 */
+    library:     { wall: '#d8c8a4', roof: '#7d5a8a', shape: 'gable', mark: 'book' },
+    workshop:    { wall: '#9c8878', roof: '#4a5058', shape: 'shed',  mark: 'gear' },
+    academy:     { wall: '#e2dcc6', roof: '#5d84a6', shape: 'gable', mark: 'quill' },
+    station:     { wall: '#c9b394', roof: '#5e646c', shape: 'stall', mark: 'rail' },
     /* 장식 */
     lamp:        { wall: '#6b4526', roof: '#e8a33d', shape: 'lamp',  mark: null },
     banner:      { wall: '#6b4526', roof: '#bc4749', shape: 'banner', mark: null },
@@ -643,6 +648,11 @@
         case 'holy':     P(11, 0, 2, 5, '#f6e6a8'); P(9, 1, 6, 2, '#f6e6a8'); break;
         case 'flag':     P(4, 0, 2, 8, '#6b4526'); P(6, 1, 6, 4, '#4a6fa5'); break;
         case 'flap':     P(3, 3, 4, 3, '#bc4749'); break;
+        /* ★ §19-F4 — 책(서고) · 톱니(공방) · 붓(대학당) · 레일(정거장) */
+        case 'book':     P(8, 2, 8, 6, '#f4e4bc'); P(11, 2, 2, 6, '#8a5e33'); break;
+        case 'gear':     P(10, 2, 4, 4, '#c6d6e2'); P(8, 3, 8, 2, '#c6d6e2'); P(11, 0, 2, 8, '#9aa4ae'); break;
+        case 'quill':    P(13, 0, 2, 7, '#f6e6a8'); P(11, 6, 4, 2, '#8a5e33'); P(8, 9, 8, 1, '#c6d6e2'); break;
+        case 'rail':     P(2, 12, 20, 1, '#9aa4ae'); P(2, 15, 20, 1, '#9aa4ae'); for (var rq = 0; rq < 5; rq++) P(3 + rq * 4, 12, 1, 4, '#6b4526'); break;
         default: break;
       }
       }

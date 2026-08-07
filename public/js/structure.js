@@ -127,6 +127,25 @@
   }
 
   /* ══════════ ★ §13-D-5 — 연구 갈래 ══════════ */
+  /** ★ §19-F4(F09-1) — 연구소가 갈래마다 얹어 준 걸음 한 줄. 값은 서버(research.labs)가 쥔다. */
+  function labsRow(body, r) {
+    var labs = r && r.labs;
+    if (!labs || !(labs.fields || []).length) return;
+    var on = labs.fields.filter(function (f) { return f.bonus > 0; });
+    if (!on.length) return;
+    var text = on.map(function (f) { return f.name + ' +' + Math.round(f.bonus * 100) + '%'; }).join(' · ');
+    var row = U.el('p', 'rs-line', '연구소가 하루를 늘립니다 — ' + text);
+    row.setAttribute('data-research-labs', '1');
+    body.appendChild(row);
+  }
+
+  /** 「며칠인가」 — 연구소가 서 있으면 실제로 걸리는 날을 적는다(정본 days 는 그대로다) */
+  function researchDaysText(x) {
+    var step = x.step || 1;
+    if (step <= 1.0001) return x.days + '일';
+    return Math.ceil(x.days / step) + '일 (본래 ' + x.days + '일)';
+  }
+
   function researchBody(b) {
     var r = S.research();
     var body = U.el('div', 'settle');
@@ -142,6 +161,7 @@
       }
       hasteRow(body, r, b);
     }
+    labsRow(body, r);
     var list = U.el('div', 'rs-list');
     (r.list || []).forEach(function (x) {
       var row = U.el('div', 'rs-item' + (x.done ? ' done' : '') + (x.active ? ' active' : '') + (x.ready ? ' ready' : ''));
@@ -151,7 +171,7 @@
       head.appendChild(U.el('b', null, x.name));
       if (x.done) head.appendChild(U.el('span', 'rs-tag ok', '끝남'));
       else if (x.active) head.appendChild(U.el('span', 'rs-tag', '진행 중'));
-      else head.appendChild(U.el('span', 'rs-tag', x.days + '일'));
+      else head.appendChild(U.el('span', 'rs-tag', researchDaysText(x)));
       row.appendChild(head);
       row.appendChild(U.el('p', 'rs-d', x.desc || ''));
       if (!x.done) {

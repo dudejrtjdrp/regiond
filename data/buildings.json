@@ -51,7 +51,16 @@
         "shrine",
         "consulate",
         "monument",
-        "claim_flag"
+        "claim_flag",
+        "station"
+      ]
+    },
+    "research": {
+      "name": "연구",
+      "order": [
+        "library",
+        "workshop",
+        "academy"
       ]
     },
     "decor": {
@@ -2096,6 +2105,129 @@
       1
     ]
   },
+  "library": {
+    "name": "서고",
+    "purpose": "살림 갈래의 궁리가 빨라진다. 농정술·석공술·가교·매립·도시 계획.",
+    "category": "research",
+    "requiresTier": 4,
+    "maxTier": 2,
+    "multi": true,
+    "desc": "책과 도면을 쌓아 두는 곳. 살림 갈래(land) 연구의 하루 걸음이 늘어난다.",
+    "_note": "★ §19-F4(F09-1) — 연구소는 무엇을 열지 않는다. 여는 문(티어·선행·값)은 research.json 이 그대로 쥐고, 이 건물은 오직 **하루의 걸음**만 늘린다. 그래야 옛 세이브의 연구 진행이 한 칸도 어긋나지 않는다.",
+    "workSlots": 2,
+    "job": "trade",
+    "tiers": [
+      {
+        "cost": { "wood": 160, "stone": 90 },
+        "buildPoints": 24,
+        "researchSpeed": { "land": 0.25 },
+        "attractiveness": 0.04,
+        "hp": 170
+      },
+      {
+        "cost": { "wood": 260, "stone": 160, "steel": 30 },
+        "buildPoints": 38,
+        "researchSpeed": { "land": 0.4 },
+        "attractiveness": 0.07,
+        "hp": 240
+      }
+    ],
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  "workshop": {
+    "name": "공방",
+    "purpose": "기관 갈래의 궁리가 빨라진다. 석탄·증기기관·철로·정유·내연기관.",
+    "category": "research",
+    "requiresTier": 5,
+    "maxTier": 2,
+    "multi": true,
+    "desc": "쇠를 두드리며 시험하는 곳. 기관 갈래(machine) 연구의 하루 걸음이 늘어난다.",
+    "workSlots": 2,
+    "job": "factory",
+    "tiers": [
+      {
+        "cost": { "wood": 180, "stone": 120, "steel": 40 },
+        "buildPoints": 30,
+        "researchSpeed": { "machine": 0.25 },
+        "attractiveness": 0.03,
+        "hp": 200
+      },
+      {
+        "cost": { "wood": 280, "stone": 200, "steel": 110 },
+        "buildPoints": 46,
+        "researchSpeed": { "machine": 0.4 },
+        "attractiveness": 0.05,
+        "hp": 280
+      }
+    ],
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  "academy": {
+    "name": "대학당",
+    "purpose": "모든 갈래의 궁리가 조금씩 빨라지고, 하루를 사는 값이 싸진다.",
+    "category": "research",
+    "requiresTier": 6,
+    "maxTier": 2,
+    "multi": false,
+    "desc": "온 갈래의 학인이 모이는 큰 집. 분야를 가리지 않고 하루 걸음이 늘고, 연구를 앞당기는 금화가 준다.",
+    "_note": "★ §19-F4(F09-1) — 정본 기획의 「동시 진행 1→2」는 이번에 넣지 않았다: nation.research.active 가 한 칸뿐이라 둘로 늘리면 세이브 모양과 명령 규약이 함께 바뀐다(호환 절대 유지). 대신 같은 값어치를 전 분야 가속 + 가속 할인으로 준다 — 후속 과제로 남긴다.",
+    "workSlots": 4,
+    "job": "trade",
+    "tiers": [
+      {
+        "cost": { "wood": 420, "stone": 320, "steel": 120 },
+        "buildPoints": 54,
+        "researchSpeed": { "all": 0.2 },
+        "researchHasteDiscount": 0.2,
+        "attractiveness": 0.1,
+        "moraleBonus": 0.03,
+        "hp": 320
+      },
+      {
+        "cost": { "wood": 640, "stone": 500, "steel": 260 },
+        "buildPoints": 74,
+        "researchSpeed": { "all": 0.35 },
+        "researchHasteDiscount": 0.35,
+        "attractiveness": 0.15,
+        "moraleBonus": 0.05,
+        "hp": 430
+      }
+    ],
+    "footprint": [
+      4,
+      4
+    ]
+  },
+  "station": {
+    "name": "정거장",
+    "purpose": "기차가 선다. 두 채를 세우면 그 사이를 오가는 기차 한 대가 생긴다.",
+    "category": "civic",
+    "requiresTier": 5,
+    "requiresResearch": "railway",
+    "maxTier": 1,
+    "multi": true,
+    "desc": "차양과 승강대. 철로를 배운 뒤에만 세운다. 두 채 이상 서면 기차가 정거장 사이를 왕복하고, 곁에서 [E]로 탄다.",
+    "_note": "★ §19-F4(F09-2) — 기차의 자리. 화물은 이번에 싣지 않는다(사람만 탄다).",
+    "tiers": [
+      {
+        "cost": { "wood": 120, "stone": 80, "steel": 60 },
+        "buildPoints": 22,
+        "vision": 7,
+        "attractiveness": 0.03,
+        "hp": 190
+      }
+    ],
+    "footprint": [
+      2,
+      2
+    ]
+  },
   "tools": {
     "name": "대장간 도구",
     "_note": "★ 유지 항목 — 국가 단위 도구 티어(괭이·곡괭이·무기). 개인 스킬의 도구(data/skills.json tools)와는 별개다: 이쪽은 매크로 산출 보정(buildingFactor)과 민병 무장에 들어가는 골드 소비처이고, 저쪽은 아바타 스윙 배수다. 대장간(smithy)이 값을 깎아 준다. 정착지 티어 3(대장간 해금)부터 살 수 있다.",
@@ -2182,6 +2314,8 @@
       "toolDiscount": 1,
       "tariffReduction": 1,
       "gatherBonus": 2,
+    "researchSpeed": 2,
+    "researchHasteDiscount": 1,
       "foodValueBonus": 1,
       "attractiveness": 4,
       "moraleBonus": 2,

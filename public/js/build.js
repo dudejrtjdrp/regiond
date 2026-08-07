@@ -229,7 +229,9 @@
 
   var CAT_TITLE = {
     housing: '사람이 살 자리', production: '살림을 불릴 것',
-    military: '울타리 앞을 지킬 것', civic: '정착지를 키울 것', decor: '보기 좋은 것'
+    military: '울타리 앞을 지킬 것', civic: '정착지를 키울 것',
+    /* ★ §19-F4(F09-1) */
+    research: '궁리를 앞당길 것', decor: '보기 좋은 것'
   };
 
   function render() {

@@ -9,6 +9,9 @@
 import { townOf, addNode, ringRadii, terrainNameAt, dist, cheb } from './world.js';
 import { settlementTier } from './tiers.js';
 import { round2, round3, clamp } from './economy.js';
+/* ★ §19-F4(F09-1) — 연구소가 늘려 주는 하루 걸음. structures.js 와 서로를 부르지만(순환)
+   둘 다 모듈이 다 세워진 **뒤에** 함수 안에서만 부른다 — ESM 의 살아 있는 바인딩이라 안전하다. */
+import { researchSpeedBonus, researchHasteDiscount } from './structures.js';
 
 export const researchCfg = (data) => data.research;
 export const railCfg = (data) => data.research.rails;
@@ -62,6 +65,29 @@ export function gatherResearchBonus(nation, data, resource) {
 }
 
 // ────────────────────────────────────────────────────────────────
+// ★ §19-F4(F09-1) 연구소 — 여는 문은 그대로, 하루의 걸음만 늘린다
+// ────────────────────────────────────────────────────────────────
+export const labsCfg = (data) => researchCfg(data).labs ?? null;
+
+/** 이 연구가 속한 갈래(land·machine). 안 적힌 옛 자료는 갈래가 없다 — 가속도 없다. */
+export const researchField = (key, data) => researchDef(key, data)?.field ?? null;
+
+/** 하루가 깎는 날수 = 1 + 연구소 배수. 연구소가 없으면 정확히 1 이다(옛 세이브 불변). */
+export function researchStep(nation, key, data) {
+  return round3(1 + researchSpeedBonus(nation, researchField(key, data), data));
+}
+
+/** 화면이 읽는 칸 — 갈래마다 지금 몇 할이 붙어 있는가 */
+export function labsView(nation, data) {
+  const cfg = labsCfg(data);
+  if (!cfg) return null;
+  const fields = Object.entries(cfg.fields || {}).map(([key, f]) => ({
+    key, name: f.name, bonus: researchSpeedBonus(nation, key, data),
+  }));
+  return { fields, maxBonus: cfg.maxBonus ?? 1, hasteDiscount: researchHasteDiscount(nation, data) };
+}
+
+// ────────────────────────────────────────────────────────────────
 // 조건
 // ────────────────────────────────────────────────────────────────
 /**
@@ -103,6 +129,8 @@ export function researchStatus(nation, key, data) {
   const busy = Boolean(r.active) && !active;
   return {
     key, name: def.name, desc: def.desc, line: def.line ?? null,
+    // ★ §19-F4(F09-1) — 갈래와 지금 붙은 걸음. 화면이 「하루에 1.4일」을 그대로 적는다.
+    field: def.field ?? null, step: researchStep(nation, key, data),
     days: def.days, gold: def.gold || 0, cost: { ...(def.cost || {}) },
     requires: [...(def.requires || [])], requiresTier: def.requiresTier ?? null,
     unlocks: structuredClone(def.unlocks || {}),
@@ -126,6 +154,8 @@ export function researchView(nation, data) {
     active: r.active ? { ...r.active } : null,
     // ★ §19-F3(F07-5) — 붙들고 있는 궁리를 금화로 앞당길 수 있는가. 화면이 이 칸만 보고 단추를 그린다.
     haste: hasteView(nation, data),
+    // ★ §19-F4(F09-1) — 연구소가 갈래마다 얹어 준 걸음
+    labs: labsView(nation, data),
     productionBonus: productionBonus(nation, data),
     railsOpen: researchFeature(nation, 'rails', data),
     doneCount: list.filter((x) => x.done).length,
@@ -139,12 +169,14 @@ export function researchView(nation, data) {
 // ────────────────────────────────────────────────────────────────
 export const hasteCfg = (data) => researchCfg(data).haste ?? null;
 
-/** 하루를 당기는 값 = 그 연구가 들었던 금화의 goldRatio 배(최소 goldMin) */
-export function hasteCost(key, data) {
+/** 하루를 당기는 값 = 그 연구가 들었던 금화의 goldRatio 배(최소 goldMin).
+    ★ §19-F4 — 대학당이 서 있으면 그 몫만큼 깎인다(nation 을 안 주면 예전 값 그대로). */
+export function hasteCost(key, data, nation = null) {
   const h = hasteCfg(data);
   if (!h) return 0;
   const def = researchDef(key, data);
-  return Math.max(h.goldMin ?? 0, Math.round((def?.gold ?? 0) * (h.goldRatio ?? 0)));
+  const base = Math.max(h.goldMin ?? 0, Math.round((def?.gold ?? 0) * (h.goldRatio ?? 0)));
+  return Math.round(base * (1 - (nation ? researchHasteDiscount(nation, data) : 0)));
 }
 
 /** 화면이 읽는 칸 — 지금 당길 수 있는가, 얼마인가 */
@@ -152,7 +184,7 @@ export function hasteView(nation, data) {
   const h = hasteCfg(data);
   const active = ensureResearch(nation).active;
   if (!h || !active) return null;
-  const gold = hasteCost(active.key, data);
+  const gold = hasteCost(active.key, data, nation);
   const room = active.remainingDays > (h.minRemainingDays ?? 1);
   return { key: active.key, gold, days: h.maxDaysPerUse ?? 1, ready: room && nation.gold >= gold, room };
 }
@@ -177,7 +209,7 @@ export function hastenResearch(world, nation, data) {
   const active = ensureResearch(nation).active;
   if (!h) return err('NO_HASTE', '연구를 앞당기는 길이 없습니다.');
   if (!active) return err('NO_RESEARCH', '붙들고 있는 연구가 없습니다.');
-  const gold = hasteCost(active.key, data);
+  const gold = hasteCost(active.key, data, nation);
   if (nation.gold < gold) return err('NO_GOLD', `금화가 모자랍니다 — ${gold} 이 듭니다.`);
   const cut = applyResearchDays(nation, h.maxDaysPerUse ?? 1, data);
   if (!cut) return err('ALMOST_DONE', '내일이면 끝납니다 — 더 당길 자리가 없습니다.');
@@ -222,7 +254,8 @@ export function startResearch(world, nation, cmd, data) {
 export function stepResearch(world, nation, data, rng) {
   const r = ensureResearch(nation);
   if (!r.active) return [];
-  r.active.remainingDays = round2(r.active.remainingDays - 1);
+  /* ★ §19-F4(F09-1) — 하루가 깎는 날수. 연구소가 없으면 1 이라 옛 판과 한 칸도 다르지 않다. */
+  r.active.remainingDays = round2(r.active.remainingDays - researchStep(nation, r.active.key, data));
   if (r.active.remainingDays > 0) return [];
   const key = r.active.key;
   const def = researchDef(key, data);

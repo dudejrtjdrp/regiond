@@ -7,7 +7,7 @@ import { buildingCost } from './build_cost.js';
 import { settlementTier } from './tiers.js';
 import { round2, round3 } from './economy.js';
 // ★ §17-13 — 매립한 물 칸은 뭍으로 쳐 준다(매립의 핵심 보상: 그 위에 지을 수 있다)
-import { onFill } from './research.js';
+import { onFill, researchDone } from './research.js';
 
 export const placeCfg = (data) => data.world.buildingPlacement;
 export const effectRules = (data) => data.buildings.effectRules;
@@ -268,6 +268,22 @@ export function goldPerDay(nation, data) {
   return effectValue(nation, 'goldPerDay', data);
 }
 
+/* ★ §19-F4(F09-1) — 연구소가 늘려 주는 하루의 걸음.
+   「왜」 여기 두는가 — 값을 합산하고 상한에 누르는 셈(effectValue)은 이미 이 파일에 하나뿐이다.
+   research.js 가 제 손으로 nation.structures 를 다시 훑으면 파손 감쇠(damageScale)·이전 중
+   정지(inactive)·효과 상한(effectCap)이 두 벌이 되어 언젠가 갈린다. */
+export function researchSpeedBonus(nation, field, data) {
+  const all = effectValue(nation, 'researchSpeed.all', data);
+  const own = field ? effectValue(nation, `researchSpeed.${field}`, data) : 0;
+  const cap = data.research?.labs?.maxBonus ?? 1;
+  return round3(Math.min(cap, all + own));
+}
+
+/** 대학당이 깎아 주는 「하루를 사는 값」의 몫 (0~0.9) */
+export function researchHasteDiscount(nation, data) {
+  return Math.min(0.9, effectValue(nation, 'researchHasteDiscount', data));
+}
+
 export function militiaSlots(nation, data) {
   return Math.floor(effectValue(nation, 'militiaSlots', data));
 }
@@ -472,6 +488,12 @@ export function startBuild(world, nation, cmd, data, hooks = {}) {
   //   AI 3국은 사슬이 없으므로 티어 기준을 그대로 쓴다.
   if (!nation.isPlayer && settlementTier(nation) < (def.requiresTier ?? 0)) {
     return err('TIER_LOCKED', `정착지 티어 ${def.requiresTier} 부터 지을 수 있습니다.`);
+  }
+  /* ★ §19-F4(F09-2) — 궁리가 먼저인 건물. 정거장은 철로를 배우기 전에는 세울 수 없다.
+     티어·장(章)과 달리 이 문은 **연구 장부**가 연다 — 사람이든 AI 3국이든 같은 잣대다. */
+  if (def.requiresResearch && !researchDone(nation, def.requiresResearch)) {
+    const rname = data.research.defs?.[def.requiresResearch]?.name ?? def.requiresResearch;
+    return err('RESEARCH_REQUIRED', `${rname} 연구를 끝내야 지을 수 있습니다.`);
   }
   /* ★ §17-15 — 건축가 전용 건물. 저택·노포·화포 같은 대형 구조물은 그 자리(requiresRole)가
      채워져 있어야 착공된다 — 사람이든 동료 봇이든 자리를 지키고 있으면 된다. */
@@ -990,6 +1012,12 @@ export function siteView(nation, c, data) {
 }
 
 /** 사람이 읽을 수 있는 효과 요약 — 정보 패널이 이걸 그대로 쓴다 */
+/** 연구 분야의 이름 — all 은 「모든 갈래」 (★ §19-F4) */
+export function labFieldName(field, data) {
+  if (field === 'all') return '모든 갈래';
+  return data.research?.labs?.fields?.[field]?.name ?? field;
+}
+
 export function effectSummary(key, tier, data) {
   const spec = tierSpec(key, tier, data);
   if (!spec) return [];
@@ -1005,6 +1033,11 @@ export function effectSummary(key, tier, data) {
   for (const [r, v] of Object.entries(spec.output || {})) push(`${data.resources.meta[r]?.name ?? r} 산출`, `+${Math.round(v * 100)}%`);
   for (const [r, v] of Object.entries(spec.gatherBonus || {})) push(`${data.resources.meta[r]?.name ?? r} 채집`, `+${Math.round(v * 100)}%`);
   for (const [r, v] of Object.entries(spec.flatOutput || {})) push(`${data.resources.meta[r]?.name ?? r}`, `+${v}/일`);
+  /* ★ §19-F4(F09-1) — 연구소의 값어치는 「하루가 얼마나 큰 걸음이 되는가」다 */
+  for (const [f, v] of Object.entries(spec.researchSpeed || {})) {
+    push(`${labFieldName(f, data)} 연구`, `+${Math.round(v * 100)}%/일`);
+  }
+  if (spec.researchHasteDiscount) push('연구 가속 값', `−${Math.round(spec.researchHasteDiscount * 100)}%`);
   if (spec.storageMultiplier) push('창고 배수', `×${spec.storageMultiplier}`);
   if (spec.populationCap) push('인구 상한', `${spec.populationCap}`);
   if (spec.turret) push('화력', `${spec.turret.dps} DPS · 사거리 ${spec.turret.range}${turretExtra(spec.turret)}`);
@@ -1040,6 +1073,8 @@ export function publicBuildings(data) {
       purpose: def.purpose ?? null,
       desc: def.desc ?? null,
       requiresTier: def.requiresTier ?? 0,
+      // ★ §19-F4(F09-2) — 「무슨 연구가 먼저인가」. 고스트·건설 카드가 같은 문구를 쓴다.
+      requiresResearch: def.requiresResearch ?? null,
       maxTier: maxTier(key, data),
       multi: def.multi !== false,
       piece: Boolean(def.piece),
