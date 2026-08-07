@@ -379,6 +379,7 @@
       storage: 'storage', smelter: 'fuel', smithy: 'anvil', mine_shaft: 'ore', mill: 'grain',
       fence: 'fence', gate: 'gate', watchpost: 'eye', arrow_tower: 'arrowTower',
       barracks: 'barracks', ballista: 'ballista', cannon: 'cannon',
+      frost_tower: 'frostTower', flame_tower: 'flameTower',
       trading_post: 'ship', market: 'coin', shrine: 'shrine', consulate: 'consulate', monument: 'tier',
       lamp: 'fuel', banner: 'flag', garden: 'sprout', fountain: 'morale'
     };

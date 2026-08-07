@@ -135,6 +135,8 @@
       "unlocks": {
         "buildings": [
           "ranch",
+          "frost_tower",
+          "flame_tower",
           "mill",
           "market",
           "shrine",

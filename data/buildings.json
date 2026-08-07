@@ -36,7 +36,9 @@
         "arrow_tower",
         "barracks",
         "ballista",
-        "cannon"
+        "cannon",
+        "frost_tower",
+        "flame_tower"
       ]
     },
     "civic": {
@@ -1372,6 +1374,160 @@
     "footprint": [
       2,
       3
+    ]
+  },
+  "frost_tower": {
+    "spriteScale": 1.18,
+    "name": "서리탑",
+    "purpose": "닿은 적을 얼려 걸음을 늦춘다. 화력은 약하되 다른 터렛이 쏠 시간을 번다.",
+    "category": "military",
+    "requiresTier": 4,
+    "maxTier": 3,
+    "multi": true,
+    "desc": "피해보다 시간을 번다. 빠른 무리를 붙잡아 두는 데 쓴다. ★ §19-F1 — 감속은 겹쳐도 가장 센 것 하나만 듣는다.",
+    "counters": [
+      "wolf",
+      "dragon",
+      "pirate"
+    ],
+    "tiers": [
+      {
+        "cost": {
+          "wood": 110,
+          "stone": 90,
+          "steel": 15
+        },
+        "buildPoints": 18,
+        "turret": {
+          "dps": 5,
+          "range": 9,
+          "slow": {
+            "factor": 0.6,
+            "seconds": 2
+          }
+        },
+        "hp": 130,
+        "name": "얼음 첨탑"
+      },
+      {
+        "cost": {
+          "wood": 180,
+          "stone": 150,
+          "steel": 45
+        },
+        "buildPoints": 28,
+        "turret": {
+          "dps": 8,
+          "range": 10,
+          "slow": {
+            "factor": 0.5,
+            "seconds": 2.5
+          }
+        },
+        "hp": 190,
+        "name": "서리탑"
+      },
+      {
+        "cost": {
+          "wood": 280,
+          "stone": 230,
+          "steel": 110
+        },
+        "gold": 120,
+        "buildPoints": 40,
+        "turret": {
+          "dps": 12,
+          "range": 11,
+          "slow": {
+            "factor": 0.42,
+            "seconds": 3
+          }
+        },
+        "hp": 270,
+        "name": "한파탑"
+      }
+    ],
+    "footprint": [
+      1,
+      1
+    ]
+  },
+  "flame_tower": {
+    "name": "화염탑",
+    "purpose": "기름을 태워 둘레를 지진다. 한 놈이 아니라 붙어 오는 무리를 한꺼번에 태운다.",
+    "category": "military",
+    "requiresTier": 4,
+    "maxTier": 3,
+    "multi": true,
+    "requiresRole": "build",
+    "desc": "사거리가 짧은 대신 겨눈 자리 둘레까지 태운다. 무리 지어 오는 것에 잘 듣는다. ★ §17-15 — 건축가만 이 물건을 설계할 수 있다.",
+    "counters": [
+      "bandit",
+      "bandit_scout",
+      "viking",
+      "wolf"
+    ],
+    "tiers": [
+      {
+        "cost": {
+          "stone": 130,
+          "wood": 90,
+          "oil": 40
+        },
+        "buildPoints": 22,
+        "turret": {
+          "dps": 7,
+          "range": 6,
+          "splash": {
+            "radius": 2.2,
+            "ratio": 0.5
+          }
+        },
+        "hp": 150,
+        "name": "화덕 화로"
+      },
+      {
+        "cost": {
+          "stone": 210,
+          "steel": 50,
+          "oil": 90
+        },
+        "gold": 110,
+        "buildPoints": 32,
+        "turret": {
+          "dps": 11,
+          "range": 7,
+          "splash": {
+            "radius": 2.6,
+            "ratio": 0.6
+          }
+        },
+        "hp": 220,
+        "name": "화염탑"
+      },
+      {
+        "cost": {
+          "stone": 320,
+          "steel": 130,
+          "oil": 180
+        },
+        "gold": 220,
+        "buildPoints": 44,
+        "turret": {
+          "dps": 16,
+          "range": 8,
+          "splash": {
+            "radius": 3.0,
+            "ratio": 0.7
+          }
+        },
+        "hp": 300,
+        "name": "겁화탑"
+      }
+    ],
+    "footprint": [
+      2,
+      2
     ]
   },
   "campfire": {

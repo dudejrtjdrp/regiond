@@ -303,6 +303,10 @@ export function turretList(nation, data) {
       range: spec.turret.range,
       counters: data.buildings[s.key]?.counters || [],
       hp: s.hp, maxHp: s.maxHp,
+      /* ★ §19-F1(F08-3) — 화살탑 말고도 쏘는 것이 생겼다. 「무엇을 더 하는가」는 전부 data 가 쥔다:
+         slow 는 걸음을 늦추고 splash 는 겨눈 자리 둘레까지 태운다. 없으면 옛 화살탑 그대로다. */
+      slow: spec.turret.slow ?? null,
+      splash: spec.turret.splash ?? null,
     });
   }
   return out;
@@ -793,6 +797,16 @@ export function damageStructure(s, amount) {
   return s.hp;
 }
 
+/** ★ §19-F1(F08-3) — 터렛의 「덤」 한 줄. 없으면 빈 글자라 옛 화살탑 설명이 그대로다. */
+export function turretExtra(turret) {
+  const out = [];
+  const s = turret?.slow;
+  const p = turret?.splash;
+  if (s) out.push(`걸음 ${Math.round((1 - s.factor) * 100)}% 감속 ${s.seconds}초`);
+  if (p) out.push(`둘레 ${p.radius}칸에 ${Math.round(p.ratio * 100)}%`);
+  return out.length ? ` · ${out.join(' · ')}` : '';
+}
+
 /** ★ §19-F1(F05-3) — 이 건물은 아직 길을 막는가. openRatio 아래로 밀리면 뚫린 것으로 친다. */
 export function isBreached(s, openRatio) {
   return (s.hp ?? 0) <= (s.maxHp || 0) * openRatio + 0.001;
@@ -983,7 +997,7 @@ export function effectSummary(key, tier, data) {
   for (const [r, v] of Object.entries(spec.flatOutput || {})) push(`${data.resources.meta[r]?.name ?? r}`, `+${v}/일`);
   if (spec.storageMultiplier) push('창고 배수', `×${spec.storageMultiplier}`);
   if (spec.populationCap) push('인구 상한', `${spec.populationCap}`);
-  if (spec.turret) push('화력', `${spec.turret.dps} DPS · 사거리 ${spec.turret.range}`);
+  if (spec.turret) push('화력', `${spec.turret.dps} DPS · 사거리 ${spec.turret.range}${turretExtra(spec.turret)}`);
   if (spec.permanentDefense) push('상비 방어', `+${spec.permanentDefense}`);
   if (spec.militiaSlots) push('민병 정원', `+${spec.militiaSlots}`);
   if (spec.militiaBonus) push('민병 강화', `+${Math.round(spec.militiaBonus * 100)}%`);

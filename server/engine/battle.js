@@ -178,6 +178,25 @@ export function startBattle(world, nation, data, opts = {}) {
 // ────────────────────────────────────────────────────────────────
 const alive = (list) => list.filter((x) => x.alive);
 
+/**
+ * ★ §19-F1(F08-3) 서리 — 걸음이 factor 배로 준다.
+ * 겹쳐도 **가장 센 것 하나만** 듣는다(여러 탑이 곱해지면 적이 그 자리에 못 박힌다).
+ */
+function chill(e, slow) {
+  e.chillFactor = Math.min(e.chillFactor ?? 1, slow.factor);
+  e.chill = Math.max(e.chill ?? 0, slow.seconds);
+}
+
+/** ★ §19-F1(F08-3) 불길 — 겨눈 자리 둘레의 적까지 ratio 만큼 함께 지진다 */
+function scorch(b, living, hit, t, dmg, data) {
+  for (const o of living) {
+    if (o === hit || !o.alive) continue;
+    if (dist(o.x, o.y, hit.x, hit.y) > t.splash.radius) continue;
+    o.hp -= dmg * t.splash.ratio;
+    if (o.hp <= 0) killEnemy(b, o, data, 'turret', t.id);
+  }
+}
+
 function nearest(list, x, y, maxRange = Infinity) {
   let best = null;
   let bd = maxRange;
@@ -225,7 +244,16 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
     const counter = (t.counters || []).includes(b.type) ? 1.5 : 1;
     const dmg = t.dps * counter * b.multipliers.defender * dt;
     found.entity.hp -= dmg;
+    /* ★ §19-F1(F08-3) — 터렛의 「덤」. data 에 적힌 것만 돈다(화살탑은 한 톨도 안 바뀐다). */
+    if (t.slow) chill(found.entity, t.slow);
+    if (t.splash) scorch(b, livingEnemies, found.entity, t, dmg, data);
     if (found.entity.hp <= 0) killEnemy(b, found.entity, data, 'turret', t.id);
+  }
+  /* 얼어붙은 것들의 시계 — 시간이 다하면 제 걸음으로 돌아온다 */
+  for (const e of livingEnemies) {
+    if (!(e.chill > 0)) continue;
+    e.chill = round2(Math.max(0, e.chill - dt));
+    if (e.chill <= 0) e.chillFactor = 1;
   }
 
   // ── 2. 민병 ─────────────────────────────────────────────────
@@ -489,16 +517,19 @@ function smashBlocker(e, s, b, data, cfg, br, dt, world) {
   return true;
 }
 
+/** ★ §19-F1(F08-3) — 서리에 잡힌 걸음. 얼지 않았으면 제 속도 그대로다. */
+const paceOf = (e) => e.speed * (e.chill > 0 ? (e.chillFactor ?? 1) : 1);
+
 function moveToward(e, tx, ty, dt, world, data) {
   const d = dist(e.x, e.y, tx, ty);
   if (d <= 0.001) return;
-  const k = Math.min(1, (e.speed * dt) / d);
+  const k = Math.min(1, (paceOf(e) * dt) / d);
   const nx = round2(e.x + (tx - e.x) * k);
   const ny = round2(e.y + (ty - e.y) * k);
   /* ★ §17-4 — 나는 것 말고는 물을 못 건넌다(피드백: "적이 물에 들어감").
      곧장이 막히면 생태계(§16-3)와 같은 축 미끄러짐 — 난수 없음, 결정론 유지. */
   if (e.flying || !world || !isWaterAt(world.map, nx, ny, data)) { e.x = nx; e.y = ny; return; }
-  const step = Math.min(e.speed * dt, d);
+  const step = Math.min(paceOf(e) * dt, d);
   const cand = [
     { x: round2(e.x + Math.sign(tx - e.x) * Math.min(step, Math.abs(tx - e.x))), y: e.y },
     { x: e.x, y: round2(e.y + Math.sign(ty - e.y) * Math.min(step, Math.abs(ty - e.y))) },

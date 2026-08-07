@@ -275,6 +275,9 @@
     barracks:    { wall: '#c07a78', roof: '#7d2a2c', shape: 'gable', mark: 'sword' },
     ballista:    { wall: '#8b9fb0', roof: '#6b4526', shape: 'engine', mark: 'bolt' },
     cannon:      { wall: '#5e646c', roof: '#3b4148', shape: 'engine', mark: 'barrel' },
+    /* ★ §19-F1(F08-3) — 서리탑·화염탑. 새 모양을 빚지 않고 있는 뼈대(tower·engine)에 색과 표식만 얹는다 */
+    frost_tower: { wall: '#a9c6d8', roof: '#5d84a6', shape: 'tower', mark: 'frost' },
+    flame_tower: { wall: '#b06a44', roof: '#7d2a2c', shape: 'engine', mark: 'flame' },
     /* 발전 */
     campfire:    { wall: '#6b4526', roof: '#e08541', shape: 'fire',  mark: null },
     trading_post: { wall: '#cdb283', roof: '#8a5e33', shape: 'gable', mark: 'ship' },
@@ -561,6 +564,9 @@
         case 'sword':    P(11, 1, 2, 7, '#c6d6e2'); P(9, 7, 6, 2, '#a8701f'); break;
         case 'bolt':     P(10, 5, 4, 3, '#e8a33d'); break;
         case 'barrel':   P(20, 8, 4, 4, '#2b3138'); break;
+        /* ★ §19-F1(F08-3) — 서리 결정(여섯 갈래)과 솟는 불꽃 */
+        case 'frost':    P(11, 1, 2, 8, '#dff1fb'); P(8, 4, 8, 2, '#dff1fb'); P(9, 2, 2, 2, '#9fd4ee'); P(13, 6, 2, 2, '#9fd4ee'); break;
+        case 'flame':    P(10, 1, 4, 5, '#e08541'); P(11, 0, 2, 3, '#f6cf7a'); P(9, 4, 6, 2, '#d96a2c'); break;
         case 'ship':     P(4, 3, 6, 5, '#f4e4bc'); P(3, 8, 9, 2, '#8a5e33'); break;
         case 'awning':   P(2, 2, 20, 2, '#bc4749'); break;
         case 'holy':     P(11, 0, 2, 5, '#f6e6a8'); P(9, 1, 6, 2, '#f6e6a8'); break;

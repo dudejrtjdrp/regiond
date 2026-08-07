@@ -209,8 +209,10 @@
     if ((list || []).length && GM.sfx) GM.sfx.play('shot');
   }
 
+  /* ★ §19-F1(F08-3) — 쏘는 것이 늘었으니 빛깔도 늘어난다(터렛마다 제 빛). */
+  var SHOT_COLOR = { cannon: '#e08541', ballista: '#c6d6e2', frost_tower: '#9fd4ee', flame_tower: '#f0763a' };
   function shotColor(key) {
-    return key === 'cannon' ? '#e08541' : (key === 'ballista' ? '#c6d6e2' : '#f6e6a8');
+    return SHOT_COLOR[key] || '#f6e6a8';
   }
 
   /* ══════════ ★ §19-D(F03-7) 터렛의 한 발 ══════════
