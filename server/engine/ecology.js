@@ -12,8 +12,11 @@
 // ★ 울타리 (§13-C-2). 경로 탐색은 없다(A* 불요). 한 걸음이 살아 있는 울타리 조각을 **가로지르면**
 //   그 걸음이 통째로 무효다. 문(gate)도 짐승은 못 연다. 그래서 울타리를 두른 안쪽은 정말로 안전하다.
 import {
-  townOf, territoryRadius, dist, terrainAt, terrainIndex, ringAt, ringRadii, inTerritory, isWaterAt,
+  townOf, territoryRadius, dist, terrainAt, terrainIndex, terrainCodes, ringAt, ringRadii,
+  inTerritory, isWaterAt,
 } from './world.js';
+// ★ §19-F2(F07-4) — 세계에 한 마리뿐인 용. 짐승과 같은 목록에 앉되 정원·띠에는 매이지 않는다.
+import { ensureDragon, slayDragon } from './dragon.js';
 import { isRuined, turretList } from './structures.js';
 // ★ Sprint 3 — 울타리 칸 색인(fences.js 머리말 참고). 걸음마다 400조각을 재던 셈을 코앞 몇 조각으로 줄인다.
 import { fencesNear } from './fences.js';
@@ -100,11 +103,33 @@ export function crossesFence(nation, x0, y0, x1, y1) {
 // ────────────────────────────────────────────────────────────────
 // 스폰
 // ────────────────────────────────────────────────────────────────
-function ringPool(data, ring) {
+/**
+ * ★ §19-F2(F07-1) — 이 띠에 **실제로 있는 지형**을 성기게 훑어 둔다(난수 없음 · 결정론).
+ * 「왜」 필요한가: 새 바이옴에만 사는 것들(눈여우·모래도마뱀…)이 정원 뽑기에 섞이면, 그 땅이
+ * 내 둘레에 없을 때 pickSpawn 이 마흔 번 헛돌고 **그 자리가 통째로 빈다** — 짐승이 눈에 띄게 준다.
+ */
+function bandTerrains(world, nation, data, ring) {
+  const town = townOf(world, nation.id);
+  const codes = terrainCodes(data);
+  const out = new Set();
+  if (!town) return out;
+  const { inner, outer } = ringBand(nation, data, ring);
+  for (let i = 0; i < 240; i += 1) {
+    const a = (i * 2 * Math.PI) / 24;
+    const r = inner + ((outer - inner) * Math.floor(i / 24)) / 9;
+    const t = terrainAt(world.map, Math.round(town.x + Math.cos(a) * r), Math.round(town.y + Math.sin(a) * r));
+    if (t != null) out.add(codes[t]);
+  }
+  return out;
+}
+
+/** 그 띠의 정원 후보 — 링이 맞고, 제 서식지가 그 띠 안에 실제로 있는 것들 */
+function ringPool(data, ring, present = null) {
   const defs = creatureDefs(data);
   return data.creatures.order
     .map((k) => ({ key: k, def: defs[k] }))
-    .filter(({ def }) => def && def.ring === ring);
+    .filter(({ def }) => def && def.ring === ring)
+    .filter(({ def }) => !present || !def.habitat?.length || def.habitat.some((c) => present.has(c)));
 }
 
 function habitatOk(map, data, def, x, y) {
@@ -194,7 +219,7 @@ export function ensureCreatures(world, nation, data, rngOverride = null) {
   for (const ring of [0, 1, 2]) {
     const want = cfg.perRing?.[String(ring)] ?? 0;
     const have = alive.filter((c) => c.ring === ring).length;
-    const pool = ringPool(data, ring);
+    const pool = ringPool(data, ring, bandTerrains(world, nation, data, ring));
     if (!pool.length) continue;
     let need = Math.max(0, want - have);
     let guard = 0;
@@ -333,143 +358,6 @@ function pushOutOfTerritory(world, nation, data, c, step) {
   return true;
 }
 
-// ────────────────────────────────────────────────────────────────
-// ★ §19-F1(F08-4) 목장 개편 — 잡지 않고 데려온다
-// ────────────────────────────────────────────────────────────────
-export const tameCfg = (data) => ranchCfg(data).tame ?? null;
-
-/** 이 나라가 기르고 있는 것들 */
-export function livestock(nation) {
-  return (nation.wild?.creatures || []).filter((c) => c.tamed);
-}
-
-/** 다 지어진 목장이 받을 수 있는 머릿수 — 티어마다 늘어난다(data 정본) */
-export function ranchCapacity(nation, data) {
-  const per = tameCfg(data)?.capacityPerTier || [];
-  return activeRanches(nation, data)
-    .reduce((n, s) => n + (per[Math.max(0, (s.tier || 1) - 1)] ?? 0), 0);
-}
-
-/** 우리 한복판 — 목장 실체의 중심 칸 */
-function ranchSpot(s, data) {
-  const fp = data.buildings?.[s.key]?.footprint ?? [1, 1];
-  return { x: s.x + (fp[0] - 1) / 2, y: s.y + (fp[1] - 1) / 2 };
-}
-
-/** 이 가축이 매인 우리(없어졌으면 살아 있는 아무 우리) */
-function homeRanch(nation, c, data) {
-  const list = activeRanches(nation, data);
-  return list.find((s) => s.id === c.tamed) ?? list[0] ?? null;
-}
-
-/** ★ 기르는 짐승은 우리를 벗어나지 않는다 — 밖으로 뽑힌 목적지를 우리 안으로 죈다 */
-function tetherToRanch(nation, data, c, tx, ty) {
-  const home = homeRanch(nation, c, data);
-  if (!home) return { x: tx, y: ty };
-  const p = ranchSpot(home, data);
-  const r = Math.max(1, (ranchCfg(data).radius ?? 6) - 1);
-  const d = dist(p.x, p.y, tx, ty);
-  if (d <= r) return { x: tx, y: ty };
-  const k = r / Math.max(0.001, d);
-  return { x: Math.round(p.x + (tx - p.x) * k), y: Math.round(p.y + (ty - p.y) * k) };
-}
-
-/** 배회 목적지 한 자리 — 기르는 것은 우리 안으로, 들의 것은 옛 규칙(영토 밖·제 띠) 그대로 */
-function wanderSpot(world, nation, data, c, tx, ty) {
-  if (c.tamed) return tetherToRanch(nation, data, c, tx, ty);
-  /* ★ §14-4 — 목적지를 뽑은 **그 자리에서** 영토 밖으로 밀어낸다(난수를 더 쓰지 않는다) */
-  const want = keepTargetOutside(world, nation, data, c, tx, ty);
-  /* ★ §16-1 — 그 목적지를 다시 제 띠 안으로 죈다. 쫓다가·밀리다가 띠를 벗어난 놈은
-     다음 목적지부터 제 땅으로 돌아간다 — 사나운 것이 정착지 곁을 맴돌지 않는다. */
-  return keepTargetInBand(world, nation, data, c, want.x, want.y);
-}
-
-/** 하루치 가축 산출 — 머릿수 × data 의 정액. 목장 건물의 flatOutput 과는 따로 얹힌다. */
-export function livestockOutputs(nation, data) {
-  const per = tameCfg(data)?.perHeadPerDay || null;
-  const heads = per ? livestock(nation).length : 0;
-  const out = {};
-  if (!heads) return out;
-  for (const [res, v] of Object.entries(per)) out[res] = round2(v * heads);
-  return out;
-}
-
-/**
- * tameCreature {targetId} — 잡는 대신 데려온다(사냥과 병존, 서버 권위).
- * 「왜」 — 목장은 짐승이 「들어와도 되는 자리」만 열었을 뿐, 유저가 할 일이 없었다.
- * 이제 들에서 만난 온순한 짐승 곁에서 부르면 그 자리에서 우리로 옮겨 앉는다.
- */
-export function tameCreature(world, nation, cmd, data) {
-  const cfg = tameCfg(data);
-  if (!cfg) return err('NO_FEATURE', '아직 기를 수 없습니다.');
-  const ranches = activeRanches(nation, data);
-  if (!ranches.length) return err('NO_RANCH', '다 지어진 목장이 없습니다.');
-  const gate = tameTarget(world, nation, cmd, data, cfg);
-  if (!gate.ok) return gate;
-  if (livestock(nation).length >= ranchCapacity(nation, data)) {
-    return err('RANCH_FULL', '우리가 찼습니다 — 목장을 늘리십시오.');
-  }
-  return moveIntoRanch(world, nation, data, gate.target, nearestRanch(ranches, gate.target, data));
-}
-
-/** 데려올 짐승 고르기 — 사거리·종류를 서버가 판정한다(huntSwing 과 같은 잣대) */
-function tameTarget(world, nation, cmd, data, cfg) {
-  const avatarId = cmd.avatarId ?? cmd.playerName ?? 'lord';
-  const av = nation.avatars?.[avatarId];
-  const from = av ? { x: av.x, y: av.y } : (townOf(world, nation.id) ?? { x: 0, y: 0 });
-  const id = cmd.targetId ?? cmd.payload?.targetId ?? null;
-  const target = id ? creatureById(nation, id) : nearestTameable(nation, data, from);
-  if (!target) return err('NO_TARGET', '닿는 곳에 기를 짐승이 없습니다.');
-  if (target.tamed) return err('ALREADY_TAMED', '이미 기르는 짐승입니다.');
-  if (creatureDefs(data)[target.sp]?.kind !== 'animal') return err('WILD_BEAST', '사나운 것은 기를 수 없습니다.');
-  const range = cfg.rangeTiles ?? 3;
-  if (dist(target.x, target.y, from.x, from.y) > range) return err('OUT_OF_RANGE', '더 가까이 가야 합니다.');
-  return { ok: true, target };
-}
-
-/** 곁의 온순한 짐승 중 가장 가까운 것 */
-function nearestTameable(nation, data, from) {
-  let best = null;
-  let bd = Infinity;
-  for (const c of nation.wild?.creatures || []) {
-    if (c.tamed || creatureDefs(data)[c.sp]?.kind !== 'animal') continue;
-    const d = dist(c.x, c.y, from.x, from.y);
-    if (d < bd) { bd = d; best = c; }
-  }
-  return best;
-}
-
-function nearestRanch(ranches, c, data) {
-  let best = ranches[0];
-  let bd = Infinity;
-  for (const s of ranches) {
-    const p = ranchSpot(s, data);
-    const d = dist(p.x, p.y, c.x, c.y);
-    if (d < bd) { bd = d; best = s; }
-  }
-  return best;
-}
-
-/** 우리로 옮겨 앉힌다 — 자리도 목적지도 그 자리에서 우리 안으로 옮긴다(난수 없음) */
-function moveIntoRanch(world, nation, data, c, ranch) {
-  const p = ranchSpot(ranch, data);
-  c.tamed = ranch.id;
-  c.state = 'wander';
-  c.provoked = 0;
-  c.retarget = 0;
-  c.x = round2(p.x);
-  c.y = round2(p.y);
-  c.tx = c.x;
-  c.ty = c.y;
-  if (!c.seen) { c.seen = true; recordEncounter(nation, c.sp, world.tick); }
-  const def = creatureDefs(data)[c.sp];
-  return {
-    ok: true, tamed: true, targetId: c.id, species: c.sp, speciesName: def.name,
-    ranchId: ranch.id, x: c.x, y: c.y,
-    heads: livestock(nation).length, capacity: ranchCapacity(nation, data),
-  };
-}
-
 /**
  * 목적지가 영토 안이면 **경계 밖으로 밀어낸 자리**를 대신 준다.
  *
@@ -536,6 +424,9 @@ export function ringBand(nation, data, ring) {
 
 /** 목적지를 제 띠 안으로 죈다. 목장이 열어 준 영토 안 자리는 그대로 둔다(난수는 쓰지 않는다). */
 function keepTargetInBand(world, nation, data, c, tx, ty) {
+  /* ★ §19-F2(F07-4) — 용은 띠에 매이지 않는다. 링은 「본부에서 얼마나 먼가」로 사나움을 재는 자인데,
+     세계에 하나뿐인 놈은 제 굴이 곧 제 자리다 — 죄면 잿땅에서 끌려 나온다. */
+  if (c.boss) return { x: tx, y: ty };
   if (!creatureMayStand(world, nation, data, c, tx, ty)) return { x: tx, y: ty };  // 이미 다른 규칙이 민다
   if (inTerritory(world, nation, Math.round(tx), Math.round(ty), data)) return { x: tx, y: ty }; // 목장 자리
   const town = townOf(world, nation.id);
@@ -673,8 +564,7 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
       (hostile && near.d <= (def.aggroRadius || 0))
       || (c.provoked > 0 && near.d <= (cfg.chaseGiveUpTiles ?? 18))
     );
-    /* ★ §19-F1(F08-4) — 기르는 것은 사람을 피하지 않는다. 우리 안에서 사람이 다가와도 그대로 있는다. */
-    const wantsFlee = near && !hostile && !sanctuary && !c.tamed && near.d <= (def.fleeRadius || 0);
+    const wantsFlee = near && !hostile && !sanctuary && near.d <= (def.fleeRadius || 0);
 
     if (wantsChase) {
       c.state = 'chase';
@@ -698,9 +588,13 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
         c.retarget = cfg.wanderRetargetSeconds ?? 6;
         const a = r.float(0, Math.PI * 2);
         const rad = r.float(1, cfg.wanderRadius ?? 7);
-        const home = wanderSpot(world, nation, data, c,
+        /* ★ §14-4 — 목적지를 뽑은 **그 자리에서** 영토 밖으로 밀어낸다(난수를 더 쓰지 않는다) */
+        const want = keepTargetOutside(world, nation, data, c,
           clamp(Math.round(c.x + Math.cos(a) * rad), 1, size - 2),
           clamp(Math.round(c.y + Math.sin(a) * rad), 1, size - 2));
+        /* ★ §16-1 — 그 목적지를 다시 제 띠 안으로 죈다. 쫓다가·밀리다가 띠를 벗어난 놈은
+           다음 목적지부터 제 땅으로 돌아간다 — 사나운 것이 정착지 곁을 맴돌지 않는다. */
+        const home = keepTargetInBand(world, nation, data, c, want.x, want.y);
         c.tx = home.x;
         c.ty = home.y;
       }
@@ -900,6 +794,7 @@ export function huntSwing(world, nation, cmd, data, now = Date.now()) {
 
   let xp = grantXp(player, 'combat', cfgC.xpPerHit, data);
   let killed = false;
+  let boss = null;
   const gained = {};
   if (target.hp <= 0) {
     killed = true;
@@ -912,6 +807,8 @@ export function huntSwing(world, nation, cmd, data, now = Date.now()) {
     }
     player.stats.kills = (player.stats.kills || 0) + 1;
     recordKill(nation, target.sp, world.tick);
+    // ★ §19-F2(F07-4) — 자재 전리품은 위 drops 로 이미 들어갔다. 그 위에 얹는 몫만 여기서 준다.
+    if (target.boss) boss = slayDragon(world, nation, data, player.name ?? null);
     removeCreature(nation, target, data, world.tick);
     xp = grantXp(player, 'combat', cfgC.xpPerHuntKill ?? cfgC.xpPerKill, data);
   }
@@ -925,6 +822,7 @@ export function huntSwing(world, nation, cmd, data, now = Date.now()) {
     targetHp: Math.max(0, target.hp),
     killed,
     gained,
+    boss,
     x: target.x, y: target.y,
     cooldownMs: cd.cooldownMs,
     skill: 'combat',
@@ -938,7 +836,8 @@ function removeCreature(nation, c, data, tick) {
   const w = ensureWild(nation);
   const i = w.creatures.indexOf(c);
   if (i >= 0) w.creatures.splice(i, 1);
-  w.respawnQueue.push({ ring: c.ring, at: tick + (spawnCfg(data).respawnDays ?? 1) });
+  // ★ §19-F2(F07-4) — 세계에 하나뿐인 것은 리스폰 줄에 서지 않는다. 한 번 잡히면 그것으로 끝이다.
+  if (!c.boss) w.respawnQueue.push({ ring: c.ring, at: tick + (spawnCfg(data).respawnDays ?? 1) });
   return c;
 }
 
@@ -955,6 +854,9 @@ export function stepEcologyDay(world, nation, data) {
   const w = ensureWild(nation);
   const events = [];
   w.respawnQueue = (w.respawnQueue || []).filter((q) => q.at > world.tick);
+  /* ★ §19-F2(F07-4) — 용은 하루에 한 번 「아직 있는가」만 묻고 지나간다. 이미 앉았거나 잡혔거나
+     잿땅이 없으면(옛 세이브) 아무 일도 하지 않는다 — 옛 세상에 용이 갑자기 생기지 않는다. */
+  ensureDragon(world, nation, data);
   events.push(...(ensureCreatures(world, nation, data).length
     ? [{ kind: 'wild_spawned', nationId: nation.id, data: { alive: w.creatures.length } }] : []));
   const dt = simCfg(data).dayStepSeconds ?? 30;
@@ -1015,9 +917,7 @@ export function cullForHunters(world, nation, data) {
   if (!roll) return null;
   const w = ensureWild(nation);
   const town = townOf(world, nation.id);
-  /* ★ §19-F1(F08-4) — 기르는 짐승은 솎아 내지 않는다. 목장은 도읍 곁이라 옛 줄은 우리 안의
-     가축부터 집어 갔다 — 데려다 놓은 것이 다음 날 사라지면 「키우기」가 뜻을 잃는다. */
-  const prey = w.creatures.find((c) => creatureDefs(data)[c.sp]?.kind === 'animal' && !c.tamed
+  const prey = w.creatures.find((c) => creatureDefs(data)[c.sp]?.kind === 'animal'
     && town && dist(c.x, c.y, town.x, town.y) <= (cfg.nearbyRadius ?? 22));
   if (!prey) return null;
   removeCreature(nation, prey, data, world.tick);
@@ -1044,8 +944,6 @@ export function creatureViews(world, nation, data) {
     out.push({
       id: c.id, sp: c.sp, name: def?.name ?? c.sp, kind: def?.kind ?? 'animal',
       x: c.x, y: c.y, hp: round2(c.hp), maxHp: c.maxHp, ring: c.ring, state: c.state,
-      /* ★ §19-F1(F08-4) — 기르는 것인가. 화면은 이 한 칸으로 「사냥」과 「키우기」를 가른다. */
-      tamed: c.tamed ? true : undefined,
     });
   }
   return out;

@@ -12,7 +12,14 @@
     "stray_dog",
     "bear",
     "bandit_scout",
-    "direwolf"
+    "direwolf",
+    "snow_fox",
+    "sand_lizard",
+    "jungle_panther",
+    "marsh_lurker",
+    "ash_hound",
+    "spore_walker",
+    "ash_wyrm"
   ],
   "defs": {
     "chicken": {
@@ -270,6 +277,174 @@
       ],
       "habitatName": "사람의 발길이 끊긴 땅",
       "lore": "늑대보다 크고 늑대보다 조용하다. 눈이 마주쳤다면 이미 늦은 것이다."
+    },
+    "_biomeNote": "★ §19-F2(F07-1) 서식 몹 차등 — 땅의 정체성은 색과 자원만이 아니라 **거기 사는 것**이다. 아래 여섯은 새 바이옴에만 habitat 을 두었으므로, 그 땅이 내 정착지 둘레(띠)에 걸치지 않으면 아예 태어나지 않는다(ecology.ringPool 이 띠의 지형을 훑어 거른다). 능력치는 옛 것들과 같은 자 위에 올렸다: 온순한 것은 dps 0, 사나운 것은 링1이면 늑대(hp34/dps4.5)와 곰(hp110/dps11) 사이, 링2면 곰과 다이어울프 언저리다.",
+    "snow_fox": {
+      "name": "눈여우",
+      "kind": "animal",
+      "ring": 1,
+      "weight": 1.0,
+      "hp": 14,
+      "speed": 3.2,
+      "dps": 0,
+      "aggroRadius": 0,
+      "fleeRadius": 8,
+      "drops": {
+        "meat": 1,
+        "wool": 2
+      },
+      "habitat": [
+        "snow"
+      ],
+      "habitatName": "눈 덮인 산등성이",
+      "lore": "발자국이 곧 지워진다. 사냥꾼이 뒤를 밟으려면 여우보다 눈을 읽을 줄 알아야 한다."
+    },
+    "sand_lizard": {
+      "name": "모래도마뱀",
+      "kind": "animal",
+      "ring": 1,
+      "weight": 0.9,
+      "hp": 18,
+      "speed": 2.4,
+      "dps": 0,
+      "aggroRadius": 0,
+      "fleeRadius": 6,
+      "drops": {
+        "hide": 2,
+        "meat": 1
+      },
+      "habitat": [
+        "desert",
+        "salt"
+      ],
+      "habitatName": "그늘 없는 모래와 소금 판",
+      "lore": "낮에는 모래 밑에 있고 해가 기울면 나온다. 가죽이 두꺼워 갑옷 짓는 이들이 반긴다."
+    },
+    "jungle_panther": {
+      "name": "밀림 표범",
+      "kind": "predator",
+      "ring": 2,
+      "weight": 0.7,
+      "hp": 92,
+      "speed": 3.3,
+      "dps": 12,
+      "aggroRadius": 9,
+      "fleeRadius": 0,
+      "drops": {
+        "meat": 4,
+        "hide": 3
+      },
+      "habitat": [
+        "jungle",
+        "mush"
+      ],
+      "habitatName": "빛이 들지 않는 나무 그늘",
+      "lore": "위에서 내려온다. 밀림에서는 앞이 아니라 머리 위를 봐야 한다."
+    },
+    "marsh_lurker": {
+      "name": "진창 매복꾼",
+      "kind": "predator",
+      "ring": 2,
+      "weight": 0.8,
+      "hp": 130,
+      "speed": 1.4,
+      "dps": 9,
+      "aggroRadius": 5,
+      "fleeRadius": 0,
+      "drops": {
+        "meat": 5,
+        "hide": 2
+      },
+      "habitat": [
+        "marsh"
+      ],
+      "habitatName": "허리까지 차는 진창",
+      "lore": "물웅덩이인 줄 알고 밟은 것이 등이었다는 이야기가 습지 어귀마다 하나씩 있다."
+    },
+    "ash_hound": {
+      "name": "잿빛 사냥개",
+      "kind": "predator",
+      "ring": 2,
+      "weight": 0.9,
+      "hp": 68,
+      "speed": 3.1,
+      "dps": 9,
+      "aggroRadius": 10,
+      "fleeRadius": 0,
+      "packSize": [
+        2,
+        3
+      ],
+      "drops": {
+        "meat": 2,
+        "hide": 2
+      },
+      "habitat": [
+        "ash",
+        "dusk"
+      ],
+      "habitatName": "재가 쌓인 비탈과 그늘진 골짜기",
+      "lore": "재를 뒤집어써 회색이 되었다. 짖지 않는다 — 숨소리가 들리면 이미 둘러싸인 것이다."
+    },
+    "spore_walker": {
+      "name": "홀씨 걷는 것",
+      "kind": "predator",
+      "ring": 2,
+      "weight": 0.7,
+      "hp": 105,
+      "speed": 1.7,
+      "dps": 7,
+      "aggroRadius": 6,
+      "fleeRadius": 0,
+      "drops": {
+        "meat": 3,
+        "wool": 3
+      },
+      "habitat": [
+        "mush"
+      ],
+      "habitatName": "갓 아래 어둑한 길",
+      "lore": "버섯이 걷는 것인지 걷던 것에 버섯이 핀 것인지는 아무도 확인하지 못했다."
+    },
+    "ash_wyrm": {
+      "_note": "★ §19-F2(F07-4) 세계에 **한 마리뿐인** 용. ring 3 은 어느 정원에도 들지 않는 번호다 — 링0·1·2 만 채우는 ensureCreatures 가 이 놈을 세지도, 대신 채우지도 않는다(server/engine/dragon.js 가 홀로 심는다). 자리는 난수가 아니라 지도에서 **가장 깊은 화산재 땅**으로 정한다: 같은 씨앗은 같은 자리에 같은 용을 낸다. hp 는 다이어울프의 마흔 배 — 혼자서는 못 잡으라고 이렇게 잡았다.",
+      "name": "잿빛 산의 늙은 용",
+      "kind": "predator",
+      "ring": 3,
+      "weight": 0,
+      "hp": 3400,
+      "speed": 2.1,
+      "dps": 26,
+      "aggroRadius": 13,
+      "fleeRadius": 0,
+      "drops": {
+        "meat": 60,
+        "hide": 40,
+        "steel": 30
+      },
+      "habitat": [
+        "ash"
+      ],
+      "habitatName": "화산재 땅 가장 깊은 곳",
+      "lore": "세상에 한 마리뿐이다. 잿땅이 식지 않는 까닭이 이 짐승이 아직 숨을 쉬기 때문이라고들 한다."
+    }
+  },
+  "worldBoss": {
+    "_note": "★ §19-F2(F07-4) 세계에 한 마리뿐인 용. 웨이브와 무관한 **월드 보스**다 — 날을 잡고 오지 않고, 찾아가야 만난다. scanStep 은 굴 자리를 훑는 성긴 간격이고(384²를 다 보지 않는다), minDistanceFromTown 은 「엔드게임 콘텐츠」의 뜻이다: 걸어서 한참 가야 나오는 잿땅 가장 깊은 곳. 몫이 큰 까닭 — 세상에 한 번뿐이라 두 번 벌 수 없다. trophy 는 대장간의 용아검·용린 갑옷을 여는 표식이고(equipment.json requiresTrophy), artifact 는 이미 「드래곤 격퇴 확정 지급」으로 적혀 있던 왕관의 조각이다(artifacts.json crown_shard — 그 약속을 이제 실제로 지킨다).",
+    "species": "ash_wyrm",
+    "biome": "ash",
+    "scanStep": 3,
+    "minDistanceFromTown": 90,
+    "warnRadius": 22,
+    "warnTitle": "잿빛 산의 숨결",
+    "warnText": "재가 뜨겁다. 이 골짜기 어딘가에 아직 살아 있는 것이 있다 — 혼자 들어갈 자리가 아니다.",
+    "slainTitle": "용을 잡았다",
+    "slainText": "세상에 한 마리뿐이던 것이 잿땅에 눕는다. 그 비늘과 이빨로 벼릴 수 있는 것이 대장간에 열렸다.",
+    "reward": {
+      "gold": 1500,
+      "morale": 0.12,
+      "trophy": "dragon",
+      "artifact": "crown_shard"
     }
   },
   "spawn": {
@@ -325,21 +500,7 @@
   "ranch": {
     "_note": "★ GDD3 §14-4 — 목장. 영토는 짐승에게 닫혀 있지만(진입 금지·밀어냄), 목장이 서면 그 둘레 radius 안쪽만은 **온순한 짐승**(kind:animal)에게 열린다. 포식자는 목장이 있어도 못 든다. 산출은 buildings.json ranch 의 flatOutput 이 정본이다 — 여기 있는 것은 '문이 열리는 범위'뿐이다.",
     "building": "ranch",
-    "radius": 6,
-    "tame": {
-      "_note": "★ §19-F1(F08-4) 「키우기」 — 잡는 대신 데려온다(사냥과 병존). 들에서 만난 온순한 짐승(kind:animal) 곁 rangeTiles 안에서 부르면 그 자리에서 가장 가까운 우리로 옮겨 앉는다. capacityPerTier 는 목장 한 채가 받는 머릿수(티어별)이고, perHeadPerDay 는 머릿수당 하루 산출이다 — 목장 건물 자체의 flatOutput 과 따로 얹힌다. 값의 근거: 사냥꾼 오두막의 일꾼 하나(hunting.perWorkerPerDay meat 0.45)보다 조금 낮게 잡았다. 데려오는 데 드는 것은 자재가 아니라 발품이라, 후하면 식량 곡선이 통째로 흔들린다.",
-      "rangeTiles": 3,
-      "capacityPerTier": [
-        3,
-        5,
-        8
-      ],
-      "perHeadPerDay": {
-        "meat": 0.3,
-        "hide": 0.09,
-        "wool": 0.07
-      }
-    }
+    "radius": 6
   },
   "turretGuard": {
     "_note": "★ GDD3 §15-A-1·2·3 — 터렛 상시 사격. P0 실측: 터렛 판정이 battle.js 에만 있어 웨이브가 아닌 시간에는 코드상 한 대도 쏘지 않았다(900초 관측, 깎은 체력 0.00). 여기 값은 생태계 1초 루프가 쓰는 다이얼이다. skipDuringBattle 은 웨이브 중 이중 계산을 막는다 — 그 시각의 터렛은 stepBattle 이 굴린다. dropMultiplier 는 경제 유입을 조절하는 손잡이다(사람이 직접 벤 사냥보다 낮게 잡는다 — 자동으로 얻는 것이 손으로 얻는 것보다 후하면 사냥할 까닭이 없어진다).",

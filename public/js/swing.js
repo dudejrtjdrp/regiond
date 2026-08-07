@@ -454,6 +454,14 @@
       GM.fx.debris(pos.x, pos.y, '#bc4749', 8, 1.1);
       GM.fx.ring(pos.x, pos.y, '#ff9d99', 0.2, 1.1, 0.4);
     }
+    /* ★ §19-F2(F07-4) — 세상에 한 마리뿐이던 것이 눕는 순간. 한 판에 한 번뿐이라 요란해도 된다.
+       문구는 서버(자료)가 쥔다 — 화면이 제 낱말을 지어내지 않는다(§17-17 과 같은 규칙). */
+    if (p.boss) {
+      U.epic({ title: p.boss.title, sub: p.boss.text, kind: 'land' });
+      GM.fx.ring(pos.x, pos.y, '#e05a2c', 0.1, 4.5, 1.4);
+      GM.fx.sparkle(pos.x, pos.y, 42, '#ffcf6a');
+      GM.fx.shakeScreen(9, 0.9);
+    }
     if (p.buildPoints) GM.fx.floatText(pos.x, pos.y - 1.0, '공사 +' + U.fmt(p.buildPoints, 1), '#f6cf7a', 12);
   }
 
