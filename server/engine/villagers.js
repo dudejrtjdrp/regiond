@@ -252,6 +252,17 @@ export function place(world, nation, unit, target, job, data) {
  * 비율 배치 API — 좌표 없이 직업 비율만 준다. 정책 봇·시뮬·[각료에게 맡기기]가 이걸 쓴다.
  * 노드가 모자라 배치할 자리가 없으면 그 유닛은 대기(idle)가 된다 — "아무도 벌목 안 하면 0" 규칙.
  */
+/**
+ * ★ §19-C — 캐는 자리(노드)를 일자리 건물보다 **먼저** 준다.
+ * 「왜」 — targetsForJob 은 도읍에서 가까운 순으로 준다. 그런데 도읍(hall)은 거의 모든 직업을
+ * 받아 주는 마지막 그물이고 거리가 0이라 늘 맨 앞이었다: 「알아서 나누기」를 누르면 농부도
+ * 나무꾼도 먼저 도읍에 앉아, 사람들이 정착지 한복판에 뭉쳐 서 있고 산출은 절반이 됐다(B05-1).
+ * 자동 배치(assign.autoPlaceIdle)가 이미 쓰던 것과 같은 순서다.
+ */
+function nodesFirst(targets) {
+  return [...targets.filter((t) => t.kind === 'node'), ...targets.filter((t) => t.kind !== 'node')];
+}
+
 export function assignByMix(world, nation, mix, data) {
   const units = nation.villagers || [];
   if (!units.length) return null;
@@ -288,7 +299,7 @@ export function assignByMix(world, nation, mix, data) {
       for (const u of crew) place(world, nation, u, null, 'scout', data);
       continue;
     }
-    const targets = targetsForJob(world, nation, job, data);
+    const targets = nodesFirst(targetsForJob(world, nation, job, data));
     if (!targets.length) { for (const u of crew) place(world, nation, u, null, 'idle', data); continue; }
     // 라운드로빈 — 한 노드에 몰지 않고 넓게 편다(가동 노드 수 = 노드 기여의 근거).
     let i = 0;
@@ -405,7 +416,7 @@ export function commandVillagers(world, nation, cmd, data) {
 }
 
 /**
- * ★ §16-18 — 랠리 포인트(스타크래프트의 집결지에서 배웠다).
+ * ★ §16-18 — 랠리 포인트(RTS 의 집결지에서 배웠다).
  * 본부에 집결지가 꽂혀 있으면, 갓 도착한 주민은 손 갈 것 없이 그 일터로 걸어가 일을 시작한다.
  * 자리가 차 있으면 §16-14 분산 규칙처럼 곁의 같은 일터로, 그마저 없으면 여느 때처럼 논다.
  */

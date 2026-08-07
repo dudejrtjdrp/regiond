@@ -24,6 +24,8 @@ import { createRng, rngFromState } from './rng.js';
 import { round2, round3, clamp } from './economy.js';
 // ★ Sprint 2 — 전투의 발: 수비는 깃발로, 영토 밖 일꾼은 마을로. 끝나면 제 일터로.
 import { battleStations, standDown } from './assign.js';
+// ★ §19-C — 스폰 자리 검사(물에서 태어나 갇히는 사고를 막는다)
+import { nearestWalkable, findPath } from './path.js';
 
 const err = (code, message) => ({ ok: false, error: { code, message } });
 
@@ -33,6 +35,33 @@ const STRUCTURE_HIT_EVENT_EVERY = 1.0;
 // ────────────────────────────────────────────────────────────────
 // 시작
 // ────────────────────────────────────────────────────────────────
+/**
+ * ★ §19-C — 여기 설 수 있는가. 뭍으로 스냅한 뒤 **도읍까지 길이 있는지**까지 본다.
+ * 「왜」 — §17-4 이후 적은 물을 못 건넌다. 물에서 태어나면 미끄러질 곳이 없어 그 자리에
+ * 영원히 갇히고, 웨이브는 끝나지 않는다(B05-2). 호수 건너편 뭍도 마찬가지다.
+ * 나라를 null 로 넘기는 것은 일부러다 — 다리·매립은 사람의 길이지 적의 길이 아니다.
+ */
+function landingSpot(world, data, core, x, y) {
+  const near = nearestWalkable(world, null, data, x, y, 8);
+  if (!near) return null;
+  const path = findPath(world, null, data, near.x, near.y, core.x, core.y, { pad: 24, maxNodes: 2500 });
+  const end = path?.[path.length - 1];
+  if (!end || dist(end.x, end.y, core.x, core.y) > 1.5) return null;
+  return near;
+}
+
+/** 물이면 각을 조금씩 틀고 조금씩 안쪽으로 물리며 설 자리를 찾는다 (결정론 — 난수를 쓰지 않는다) */
+function spawnSpot(world, data, town, angle, radius, flying) {
+  const at = (a, r) => ({ x: round2(town.x + Math.cos(a) * r), y: round2(town.y + Math.sin(a) * r) });
+  if (flying) return at(angle, radius);
+  for (let i = 0; i < 8; i += 1) {
+    const p = at(angle + ((i % 2) ? -1 : 1) * Math.ceil(i / 2) * 0.22, radius - Math.floor(i / 4) * 4);
+    const spot = landingSpot(world, data, town, p.x, p.y);
+    if (spot) return spot;
+  }
+  return at(angle, radius);      // 끝내 못 찾으면 옛 규칙 그대로 — 전투가 서지 못하게 하지는 않는다
+}
+
 /** 전술 상성·성녀 예언의 계승 — 옛 전술 가산(±8%p)을 실시뮬의 '피해 배수'로 옮긴 것 */
 export function battleMultipliers(nation, spec, data, hooks = {}) {
   const cfg = battleCfg(data);
@@ -69,11 +98,13 @@ export function startBattle(world, nation, data, opts = {}) {
   for (let i = 0; i < spec.units; i += 1) {
     const a = baseAngle + rng.float(-0.45, 0.45);
     const r = cfg.spawnRadiusTiles + rng.float(-2, 4);
+    /* ★ §19-C — 뽑은 자리가 물이면 곁의 뭍으로. 난수는 위에서 이미 다 뽑았다(결정론 유지) */
+    const at = spawnSpot(world, data, town, a, r, spec.flying);
     enemies.push({
       id: `e${i}`,
       type: spec.type,
-      x: round2(town.x + Math.cos(a) * r),
-      y: round2(town.y + Math.sin(a) * r),
+      x: at.x,
+      y: at.y,
       hp: round2(spec.unitHp * rng.float(0.9, 1.1)),
       maxHp: round2(spec.unitHp),
       dps: round2(spec.unitDps * rng.float(0.9, 1.1) * mult.enemy),

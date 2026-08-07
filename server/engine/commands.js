@@ -25,6 +25,7 @@ import {
   toolDiscount, adjacencyDetail, syncLegacyBuildings,
   startDemolish, startRelocate, cancelStructureWork, structureView, structuresOf, maxTier,
 } from './structures.js';
+import { autoPlaceIdle } from './assign.js';
 import { placeFence, upgradeFence, repairFence, removeFence } from './fences.js';
 import { actionSwing } from './actions.js';
 // ★ GDD3 §14-5 — 레벨·스탯도 서버가 정본이다(allocStat).
@@ -108,6 +109,20 @@ export function normalizeAlloc(alloc, data) {
 }
 
 /** 노동 배분 적용 — 배치가 정본이다. 주민이 없으면 아무 일도 하지 않는다. */
+/**
+ * ★ §19-C — 나눔 직후의 「노는 손」을 그 자리에서 앉히고, 파생 laborAlloc 을 다시 낸다.
+ * tick.js 1-c 가 하루에 한 번 하던 일과 같은 셈이다 — 다른 것은 **기다리지 않는다**는 것뿐.
+ */
+function reseatIdle(world, nation, data) {
+  const seated = autoPlaceIdle(world, nation, data);
+  if (!seated.length) return 0;
+  const derived = deriveLabor(nation, data);
+  if (!derived) return seated.length;
+  nation.laborAlloc = normalizeAlloc(derived.alloc, data);
+  nation.gatherScale = derived.gatherScale;
+  return seated.length;
+}
+
 export function applyLabor(world, nation, alloc, data) {
   const norm = normalizeAlloc(alloc, data);
   if (!(nation.villagers || []).length) {
@@ -213,7 +228,10 @@ function runCommand(world, nationId, cmd, data, rng) {
     case 'setLabor': {
       const target = cmd.recommended ? recommendedLabor(nation, data) : cmd.alloc;
       const res = applyLabor(world, nation, target, data);
-      return ok(res);
+      /* ★ §19-C — 나눈 자리에서 곧장 일터로 보낸다. 몫이 반올림되며 남은 손은 도읍에 유휴로
+         섰고, 그들을 앉히는 유지보수 패스는 **다음 일 틱**(최대 10분)에나 돌았다 — 「알아서
+         나누기를 눌렀는데 다들 정착지에 모여 있다」(B05-1)의 절반이 이 기다림이었다. */
+      return ok({ ...res, seated: reseatIdle(world, nation, data) });
     }
 
     case 'setVillagerMix': {
@@ -224,10 +242,12 @@ function runCommand(world, nationId, cmd, data, rng) {
       const derived = assignByMix(world, nation, mix, data);
       nation.laborAlloc = normalizeAlloc(derived.alloc, data);
       nation.gatherScale = derived.gatherScale;
-      return ok({ mix: derived.mix, counts: derived.counts, alloc: nation.laborAlloc, gatherScale: derived.gatherScale });
+      const seated = reseatIdle(world, nation, data);          // ★ §19-C — setLabor 와 같은 문
+      return ok({ mix: derived.mix, counts: derived.counts, alloc: nation.laborAlloc,
+        gatherScale: derived.gatherScale, seated });
     }
 
-    /* ★ §16-18 — 랠리 포인트(스타크래프트의 집결지). 본부에 깃발을 꽂아 두면
+    /* ★ §16-18 — 랠리 포인트(RTS 의 집결지). 본부에 깃발을 꽂아 두면
        갓 도착한 주민이 손 갈 것 없이 그 일터로 걸어가 일을 시작한다. null 이면 걷는다. */
     case 'setRally': {
       const targetId = cmd.targetId ?? cmd.payload?.targetId ?? null;
