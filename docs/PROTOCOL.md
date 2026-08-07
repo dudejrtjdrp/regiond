@@ -6,6 +6,65 @@
 
 ---
 
+## 0-F4. v3.3 안 델타 — **연구 체계 개편 · 기차** (§19-F4 / QA-F4)
+
+**판번호를 올리지 않는다**(`world.schema` **6** 유지). **필드는 더하기만 했다.**
+연구소도 기차도 **없으면 없는 것**으로 읽힌다 — 옛 세이브는 한 줄도 고치지 않고 그대로 산다.
+
+### 0-F4-1. 신설 — 명령 (C→S)
+
+| 명령 | 페이로드 | 뜻 |
+|---|---|---|
+| `boardTrain` | `{trainId?}` | 정거장에 **서 있는**(`dwell>0`) 기차에 탄다. 내 아바타가 `research.trains.boardRadius`(3) 안에 있어야 한다. 실패: `NO_TRAIN` · `NO_AVATAR` · `ALREADY_ABOARD` · `NO_TRAIN_NEAR` · `TRAIN_FULL` |
+| `leaveTrain` | `{}` | 스스로 내린다(다음 정거장에 닿으면 저절로도 내린다). 실패: `NOT_ABOARD` |
+| `trainSummary` | `{}` | 노선 한 벌을 다시 읽는다(뷰 필드와 같은 내용) |
+
+`boardTrain` · `leaveTrain` 의 ack 에는 `trains[]` 가 실린다. 서버는 그 순간 `avatars` 도 방에 흘린다 —
+**탄 사람의 몸은 서버가 옮기기** 때문이다.
+
+### 0-F4-2. 바뀐 계약 — `lordMove` 는 **타고 있는 동안 물리쳐진다**
+
+기차에 탄 아바타의 자리는 서버 권위다(쓰러짐 `DOWNED` 와 같은 빗장).
+타고 있는 동안 `lordMove` 는 `RIDING` 으로 되돌아온다 — 클라가 옛 좌표를 되덮어
+몸만 승강장에 떨어져 남는 일을 막는다. 클라는 애초에 보내지 않는다.
+
+### 0-F4-3. 신설 — 이벤트 (S→C)
+
+| 이벤트 | 페이로드 | 뜻 |
+|---|---|---|
+| `trains` | `{tick, list:[{id,x,y,to,dwell,riders[]}]}` | 기차의 자리. **1초에 한 번**, 짐승(`creatures`)과 같은 박자로 온다. 화면은 §19-B 보간 규칙 그대로 읽는다 |
+| `train_arrived` | `{trainId, stationId, x, y, dropped[]}` | 정거장에 닿아 사람을 내렸다. 연대기에는 싣지 않는다 |
+
+### 0-F4-4. 신설 — 뷰 필드 (10장이 열린 뒤에만, `rails` 와 같은 자리)
+
+- `trains[] {id,x,y,to,dwell,riders[]}`
+- `trainSummary {open,minStations,boardRadius,capacity,stations[{id,x,y}],list[]}`
+- `research.labs {fields:[{key,name,bonus}], maxBonus, hasteDiscount}` — 연구소가 갈래마다 얹어 준 걸음
+- `research.list[].field` (`land`|`machine`) · `research.list[].step` — 하루가 깎는 날수(연구소가 없으면 1)
+- 건물 도감(`/api/config`) `defs[].requiresResearch` — 그 건물을 여는 연구(없으면 `null`)
+
+### 0-F4-5. 신설 — 상태 칸(전부 기본값 있음)
+
+| 칸 | 기본값 | 뜻 |
+|---|---|---|
+| `nation.trains[]` | `[]` | 지금 다니는 기차. 정거장이 `minStations`(2) 아래로 줄면 통째로 거둬진다 |
+| `nation.nextTrainId` | `1` | 기차 번호 |
+
+`nation.research.active.remainingDays` 는 **뜻이 그대로**다. 다만 하루가 지날 때 깎이는 값이
+`1` 이 아니라 `1 + 연구소 배수`다 — 연구소가 없으면 정확히 `1` 이라 옛 판의 진행이 한 칸도 안 달라진다.
+여는 문(티어·선행·골드·자재)은 **한 칸도 손대지 않았다**.
+
+### 0-F4-6. 자료만 바뀐 것 (계약 아님)
+
+- `data/buildings.json` — 갈래 `research`(연구) 신설 · 건물 `library`·`workshop`·`academy`·`station` 신설 · `effectRules.stackCap.researchSpeed`
+- `data/research.json` — 연구마다 `field` · `labs`(분야표·합산 상한) · `trains`(노선 수치)
+- `data/tiers.json` — 4단 `library` · 5단 `workshop`·`station` · 6단 `academy`
+
+**이번에 넣지 않은 것**: 기차 **화물**, 연구 **동시 진행 2건**(`research.active` 가 한 칸뿐이라
+세이브 모양과 명령 규약이 함께 바뀐다). 둘 다 후속 과제다.
+
+---
+
 ## 0-F3. v3.3 안 델타 — **경제 콘텐츠: 무역 동기·금화 사용처·감정소·꾸미기** (§19-F3 / QA-F3)
 
 **판번호를 올리지 않는다**(`world.schema` **6** 유지). **필드는 더하기만 했다.**
