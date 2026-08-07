@@ -28,6 +28,8 @@ export const officerOn = (nation, data) => Boolean(nation?.roles?.[equipCfg(data
 export const saintOn = (nation, data) => Boolean(nation?.roles?.[equipCfg(data).enchant.saintRole]?.holder);
 /** 대장간이 섰는가 */
 export const smithyOn = (nation, data) => hasBuilding(nation, equipCfg(data).requiresBuilding, data);
+/** ★ §19-F2(F07-2) — 이 물건이 요구하는 전리품을 가졌는가. 없는 요구면 언제나 참(옛 물건 전부). */
+export const trophyOk = (nation, spec) => !spec?.requiresTrophy || Boolean(nation?.trophies?.[spec.requiresTrophy]);
 
 /** 이 사람의 장비 장부 (없으면 만든다) */
 export function ensureGear(player, data) {
@@ -153,6 +155,8 @@ export function craftEquipment(nation, player, cmd, data) {
   if (spec.officer && !officerOn(nation, data)) {
     return err('NO_OFFICER', '공장장이 자리에 있어야 이만한 물건을 벼립니다.');
   }
+  /* ★ §19-F2(F07-2) — 자재로 살 수 없는 문. 용을 잡은 나라만 그 비늘과 이빨을 벼릴 수 있다. */
+  if (!trophyOk(nation, spec)) return err('NO_TROPHY', '용을 잡아야 벼릴 수 있는 물건입니다.');
   const gear = ensureGear(player, data);
   const cur = gear[slot];
   if (cur && cur.key === key) return err('SAME_TIER', '이미 그것을 들고 있습니다.');
@@ -324,15 +328,17 @@ export function equipmentView(nation, player, data) {
         if (have < need - 0.001) missing.push({ resource: res, name: data.resources.meta[res]?.name ?? res, have, need });
       }
       const goldShort = (spec.gold || 0) > (nation.gold || 0) ? { have: round2(nation.gold || 0), need: spec.gold } : null;
-      const locked = spec.officer && !officer;
+      const trophy = trophyOk(nation, spec);
+      const locked = (spec.officer && !officer) || !trophy;
       return {
         key: spec.key, name: spec.name, grade: spec.grade, officer: Boolean(spec.officer),
+        requiresTrophy: spec.requiresTrophy ?? null,
         cost: { ...spec.cost }, gold: spec.gold || 0,
         damage: spec.damage ?? null, huntYield: spec.huntYield ?? null,
         reduction: spec.reduction ?? null, downResist: spec.downResist ?? null,
         equipped: gear[slot].key === spec.key,
         locked,
-        lockReason: locked ? '공장장이 자리에 있어야 열립니다' : null,
+        lockReason: !trophy ? '용을 잡아야 열립니다' : (locked ? '공장장이 자리에 있어야 열립니다' : null),
         missing, goldShort,
         ok: smithy && !locked && !missing.length && !goldShort && gear[slot].key !== spec.key,
       };

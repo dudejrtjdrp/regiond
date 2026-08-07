@@ -460,7 +460,10 @@ test('§13-D-5 철로 — 물 위에는 깔리지 않고, 걷어 내면 절반�
 test('§13-D 공개본 — 규칙은 config 로, 실제 값은 state 로만 간다', () => {
   const c = publicConfig();
   assert.ok(c.residentStats && c.residentStats.order.length === 4);
-  assert.ok(c.equipment && c.equipment.tiers.weapon.length === 5);
+  /* ★ §19-F2(F07-2) — 표가 사다리 하나에서 갈래로 늘었다(무기 9 · 방어구 8). 계약은 「몇 개인가」가
+     아니라 「자료가 정본인가」라, 하드코딩 대신 자료와 맞춘다(§17-13 연구 수와 같은 손). */
+  assert.ok(c.equipment && c.equipment.tiers.weapon.length === data.equipment.tiers.weapon.length);
+  assert.ok(c.equipment.tiers.weapon.length >= 8 && c.equipment.tiers.armor.length >= 7);
   // ★ §17-13 — 가교·매립이 더해져 연구 수는 자료가 정본이다(하드코딩 금지)
   assert.ok(c.research && c.research.order.length === data.research.order.length);
   assert.ok(c.recruit && c.recruit.cost.grain > 0);
