@@ -6,6 +6,74 @@
 
 ---
 
+## 0-F3. v3.3 안 델타 — **경제 콘텐츠: 무역 동기·금화 사용처·감정소·꾸미기** (§19-F3 / QA-F3)
+
+**판번호를 올리지 않는다**(`world.schema` **6** 유지). **필드는 더하기만 했다.**
+새 상태 칸은 전부 **없으면 기본값**으로 읽힌다 — 옛 세이브는 한 줄도 고치지 않고 그대로 산다.
+
+### 0-F3-1. 신설 — 명령 (C→S)
+
+| 명령 | 페이로드 | 뜻 |
+|---|---|---|
+| `buySpecialty` | `{nationId, key}` | 이웃의 특산품 하나를 금화로 산다. 교역소 해금 + 그 나라를 만나 봤을 것(`metNations`). 실패: `TRADE_LOCKED` · `NOT_MET` · `NO_ITEM` · `SOLD_OUT` · `NO_GOLD` |
+| `hastenResearch` | `{}` | 붙들고 있는 연구를 금화로 하루 앞당긴다. 실패: `NO_RESEARCH` · `NO_GOLD` · `ALMOST_DONE` |
+| `reappraiseLand` | `{structureId?}` | 감정소를 다시 쓴다(태그 하나 재추첨 + 넓어진 영토의 지하 공개). 실패: `NOT_APPRAISED` · `NO_STRUCTURE` · `NOT_READY` · `NO_GOLD` |
+| `customizeResident` | `{residentId, name?, appearance?}` | 주민의 이름·옷을 고친다. `customizeCompanion` 과 같은 규격. 실패: `NO_RESIDENT` · `BAD_NAME` · `NOTHING_TO_CHANGE` · `NO_GOLD` |
+
+`customizeResident` 는 **소액 금화**를 치른다(`balance.gold.customize.resident`).
+`customizeCompanion` 은 같은 문을 지나가되 값이 **0** 이라 예전처럼 공짜다(§17-11 계약 유지) —
+값은 자료 한 칸이므로 바꾸면 양쪽 다 곧바로 따라간다. ack 에 `gold`(남은 국고)와 `cost` 가 실린다.
+
+### 0-F3-2. 바뀐 계약 — `trade` 의 단가에 **나라 성정**이 붙는다
+
+`trade {nationId, side, resource, amount}` 의 상대국 시세가 이제 나라마다 다르다:
+
+```
+foreign = localPrice(상대, 자원) × (1 + priceBias) × tradeFactor(상대, 자원, side)
+tradeFactor: side='buy'  → ai_nations.json  <나라>.tradeProfile.exports[자원]  (기본 1)
+             side='sell' → ai_nations.json  <나라>.tradeProfile.demands[자원]  (기본 1)
+```
+
+★ **오퍼(`world.offers`)의 값은 바뀌지 않았다.** 저쪽이 보내오는 제안은 저쪽이 부르는 값 그대로다 —
+성정 배수는 **직접 흥정(`trade`)에만** 붙는다. 그래서 옛 세이브의 자동 응답과 시뮬 기준선이 밀리지 않는다.
+
+### 0-F3-3. 신설 — 뷰 필드
+
+| 자리 | 필드 | 뜻 |
+|---|---|---|
+| `view.tradePartners[]` | `{id, name, buy{자원:값}, sell{자원:값}, profile{exports[],demands[]}, specialties[]}` | 만나 본 교역 상대. **관세·운임까지 얹은 실제 값**을 서버가 빚어 보낸다(교역소 해금 뒤에만 존재) |
+| `view.research.haste` | `{key, gold, days, ready, room}` \| `null` | 지금 붙든 연구를 앞당길 수 있는가·얼마인가 |
+| `view.reappraisal` | `{open, post, daysLeft, charges, gold}` | 감정소를 다시 쓸 수 있는가(첫 감정 뒤에만 존재) |
+| `structureView` | `postAction` · `postActionLabel` | 첫 감정을 마친 감정소의 두 번째 동사(`reappraiseLand`) |
+| `visitNation` 응답 | `tradeProfile` · `specialties[]` | 문 앞에서 펴는 첩에 성정과 좌판이 함께 온다 |
+
+### 0-F3-4. 신설 — 이벤트 (S→C)
+
+| 종류 | 페이로드 | 언제 |
+|---|---|---|
+| `reappraisal_ready` | `{line, gold}` | 감정소에 기운이 다시 고인 날(한 주기에 한 번만) |
+| `warmth` | `{wool, morale}` | 설산 곁 정착지가 하루치 털을 껴입은 날 |
+
+### 0-F3-5. 신설 — 상태 칸(전부 기본값 있음)
+
+```
+world.emotionDayTick        감정의 날의 틱(재감정 주기의 기준점)      없으면 0
+world.lastAppraisalTick     마지막 감정/재감정의 틱                  없으면 emotionDayTick
+nation.specialtyStock       {"<나라>:<물건>": {left, restockTick}}    없으면 좌판 가득
+nation.reappraisalCharges   옛 지도 조각으로 얻은 재감정 표          없으면 0
+nation.reappraisalCount     재감정 횟수(전용 난수의 씨앗)            없으면 0
+nation.reappraisalNotifiedFor  알림을 이미 보낸 주기                 없으면 미알림
+```
+
+### 0-F3-6. 자료만 바뀐 것 (계약 아님)
+
+- `data/ai_nations.json` — 나라마다 `tradeProfile`(exports/demands)과 `specialties[]`.
+- `data/research.json` `haste` — 가속 값(연구 금화의 `goldRatio` 배, 최소 `goldMin`).
+- `data/balance.json` `gold.customize` · `warmth` · `emotionDay.reappraisal`.
+- `data/buildings.json` — `appraisal_post.immovable`(철거·이전 금지) · `hunter_hut.tiers[].foodValueBonus`(요리).
+
+---
+
 ## 0-F2. v3.3 안 델타 — **세계 콘텐츠 확장: 바이옴·적·용·장비** (§19-F2 / QA-F2)
 
 **판번호를 올리지 않는다**(`world.schema` **6** 유지). **필드는 더하기만 했다.**

@@ -199,5 +199,70 @@
     });
   }
 
-  GM.crewpanel = { open: open, greet: greet };
+  /* ══════════ ★ §19-F3(F07-9) 주민 꾸미기 ══════════
+     「왜」 같은 파일에 두는가 — 동료 봇과 주민은 화면에서 다른 것이지만, 사람의 이름과 옷을
+     고르는 손짓은 하나여야 한다. 창의 모양도 규격(레이어 인덱스)도 그대로 쓰고, 다르게 가는 것은
+     보내는 명령(customizeResident)과 값(소액 금화)뿐이다. 값은 서버가 다시 재고 거절할 수 있다. */
+  function openResident(id) {
+    var v = S.residentById(id);
+    if (!v) { U.toast('그 사람을 찾지 못했습니다.', 'warn'); return null; }
+    var look = v.appearance || S.defaultAppearance();
+    var body = U.el('div', 'crew-panel');
+
+    var head = U.el('div', 'cp-head');
+    head.style.display = 'flex';
+    head.style.gap = '10px';
+    head.style.alignItems = 'center';
+    head.appendChild(GM.atlas.avatarImg(look, 64));
+    head.appendChild(U.el('b', 'cp-name', v.name));
+    body.appendChild(head);
+    body.appendChild(U.el('p', 'hint', '옷감과 품삯이 조금 듭니다. 바꾼 이름과 모습은 함께 하는 모두에게 그대로 보입니다.'));
+
+    var nameRow = U.el('div', 'cp-edit-name');
+    nameRow.style.display = 'flex';
+    nameRow.style.gap = '8px';
+    nameRow.style.alignItems = 'center';
+    nameRow.appendChild(U.el('span', 'cc-label', '이름'));
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'resident-name-input';
+    input.maxLength = nameMax();
+    input.value = v.name;
+    input.autocomplete = 'off';
+    nameRow.appendChild(input);
+    body.appendChild(nameRow);
+
+    var host = U.el('div');
+    body.appendChild(host);
+    var widget = GM.charcreate.mount(host, look, null);
+
+    var foot = U.el('div');
+    foot.appendChild(U.btn('물러난다', 'btn-ghost', function () { U.closeTopModal(); }));
+    var save = U.btn('바꾼다', 'btn-primary', function () {
+      sendResident(id, (input.value || '').trim(), widget.get());
+    });
+    save.id = 'resident-customize-save';
+    foot.appendChild(save);
+
+    return U.openModal({
+      title: '주민 — ' + v.name, body: body, footer: foot, width: '620px',
+      key: 'resident:' + id, icon: GM.icons.img('person', 22),
+      onClose: function () { if (widget) widget.destroy(); }
+    });
+  }
+
+  function sendResident(id, name, appearance) {
+    if (!name) { U.toast('이름을 적어 주세요.', 'warn'); return; }
+    GM.net.send('customizeResident', { residentId: id, name: name, appearance: appearance }, function (res) {
+      if (!res || !res.ok) {
+        U.toast((res && res.error && res.error.message) || '바꾸지 못했습니다.', 'warn', 3200);
+        return;
+      }
+      U.toast('이름과 모습을 바꿨습니다.', 'good', 2800);
+      GM.sfx.play('unlock');
+      U.closeTopModal();
+    });
+  }
+
+  GM.crewpanel = { open: open, greet: greet, openResident: openResident };
 })(window);

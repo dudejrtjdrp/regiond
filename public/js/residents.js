@@ -219,8 +219,17 @@
             U.toast(k ? '노는 사람 ' + k + '명을 골랐습니다.' : '노는 사람이 없습니다.', k ? 'good' : 'warn');
           } },
         { label: '선택 풀기', cls: 'btn-ghost', onClick: function () { S.clearSelection(); GM.hud.hideContext(); } }
-      ]
+      ].concat(customizeAct(ids))
     });
+  }
+
+  /* ★ §19-F3(F07-9) — 한 사람만 골랐을 때만 붙는 손짓. 패널은 동료 것과 같은 것을 쓴다(crewpanel):
+     봇이든 주민이든 사람의 이름과 옷을 고르는 손짓은 하나다. */
+  function customizeAct(ids) {
+    if (ids.length !== 1) return [];
+    return [{ label: '이름·옷 바꾸기', id: 'ctx-customize',
+      tip: '옷감과 품삯이 조금 듭니다',
+      onClick: function () { GM.crewpanel.openResident(ids[0]); } }];
   }
 
   /** 주민 명부 — 누가 무슨 일을 하고 있는가 */
