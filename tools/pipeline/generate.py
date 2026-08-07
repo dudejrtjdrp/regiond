@@ -99,11 +99,17 @@ def build_prompt(desc: str, category: str, grade: str | None, palette: list[str]
     """아트바이블 규칙 + 카테고리 템플릿 + 사용자 desc를 한 문장 덩어리로 합친다."""
     tpl = CATEGORY_PROMPTS[category]
     parts = [STYLE_HEAD, tpl["view"], desc.strip(), tpl["extra"]]
-    parts += [_grade_clause(grade), STYLE_LIGHT, _palette_clause(palette), STYLE_OUTLINE, STYLE_BACKGROUND]
+    parts += [_grade_clause(grade, category), STYLE_LIGHT, _palette_clause(palette), STYLE_OUTLINE, STYLE_BACKGROUND]
     return ", ".join(p for p in parts if p)
 
 
-def _grade_clause(grade: str | None) -> str:
+# 「왜」 UI 심볼·이펙트는 '낡은 재질' 등급 문구가 붙으면 채도와 가독성이 죽는다 — 등급 힌트는 물건에만.
+GRADE_SKIP_CATEGORIES = {"ui", "effect"}
+
+
+def _grade_clause(grade: str | None, category: str = "") -> str:
+    if category in GRADE_SKIP_CATEGORIES:
+        return ""
     return GRADE_HINTS.get(grade or "", "")
 
 

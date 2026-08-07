@@ -1,0 +1,167 @@
+{
+  "note": "배치 6 — 자원 아이콘 11종(게임 icon 키 = id · wood는 batch1의 material/wood_log가 정본)과 소비류·음식 7종. 전부 §8 아이콘 규격 64x64. consumable/ 접두 4종은 표현 목적상 category를 food·material로 잡았다(CATEGORY_PROMPTS의 consumable 템플릿이 '포션·플라스크'를 강제해 붕대·횃불·약초와 충돌하기 때문 — batch5의 tileset/ + furniture와 같은 선례). 계획 정본: docs/에셋_교체_배치계획.md",
+  "assets": [
+    {
+      "id": "material/grain",
+      "name": "곡물",
+      "category": "material",
+      "subcategory": "resource",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a tied bundle of ripe barley ears, pale straw stalks bound at the waist with a twist of cord, plump grain heads with fine bristling awns fanning out at the top, two loose ears crossed at the foot, warm straw yellow against the darker binding"
+    },
+    {
+      "id": "material/stone",
+      "name": "석재",
+      "category": "material",
+      "subcategory": "resource",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a small stack of quarried building stones, three squared gray blocks with chisel-tooled faces and chipped corners, thin pale dust in the seams between them, one flat flake leaning against the near side"
+    },
+    {
+      "id": "material/ironOre",
+      "name": "철광석",
+      "category": "material",
+      "subcategory": "resource",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a fist-sized lump of raw iron ore, dull gray rock crusted with rust-brown oxide patches, one fractured face laid open to show dark metallic grain speckled with pinpoint glints, gritty broken edges all round"
+    },
+    {
+      "id": "material/coal",
+      "name": "석탄",
+      "category": "material",
+      "subcategory": "resource",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "three lumps of hard coal, glossy blue-black surfaces broken into sharp shell-like fracture facets, the largest lump split to expose a brighter mirror plane, fine black dust clinging along the lower edges"
+    },
+    {
+      "id": "material/oil",
+      "name": "기름",
+      "category": "material",
+      "subcategory": "resource",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a thick blob of crude oil, one heavy black droplet pooling over a small tar-soaked stone, viscous surface carrying a violet-tinged sheen and a single long slanted highlight, a smaller drop breaking away beneath it"
+    },
+    {
+      "id": "material/steel",
+      "name": "강철",
+      "category": "material",
+      "subcategory": "resource",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "two stacked cast steel ingots, bars with beveled top edges and softly rounded corners, cool blue-gray faces each carrying one hard specular line, a stamped foundry notch pressed into the upper bar"
+    },
+    {
+      "id": "material/fuel",
+      "name": "연료",
+      "category": "material",
+      "subcategory": "resource",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a squat iron fuel canister with a screw cap and a folding carry handle, riveted seams running down the body, an oily dark smear below the spout, a small stamped flame mark on the front panel"
+    },
+    {
+      "id": "material/meat",
+      "name": "고기",
+      "category": "material",
+      "subcategory": "resource",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a raw haunch of red meat on the bone, deep red muscle streaked with pale marbling and rimmed by a band of cream fat, the cut white bone end protruding at one side, wet cut face catching the light"
+    },
+    {
+      "id": "material/hide",
+      "name": "가죽",
+      "category": "material",
+      "subcategory": "resource",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a rolled bundle of tanned animal hide, thick brown leather wound loosely so the tawny furred side shows along one edge, ragged trimmed corners, a rawhide thong tied around the middle"
+    },
+    {
+      "id": "material/wool",
+      "name": "양털",
+      "category": "material",
+      "subcategory": "resource",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a heaped fleece of raw sheep wool, off-white curls massed into springy clumps with creamy shadow pockets between them, a few loose wisps drifting off the top, one strand of twine holding the heap together"
+    },
+    {
+      "id": "material/gold",
+      "name": "금화",
+      "category": "material",
+      "subcategory": "resource",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a small heap of struck gold coins, five discs stacked and fanned so their milled rims overlap, a simple embossed crest on the face of the topmost coin, one coin standing on edge behind the pile"
+    },
+    {
+      "id": "consumable/meal_stew",
+      "name": "고기죽",
+      "category": "food",
+      "subcategory": "meal",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a wide earthenware bowl of thick meat porridge, creamy grain broth carrying chunks of braised meat and a scatter of sliced scallion, a worn wooden spoon resting across the rim, faint steam curling up from the surface"
+    },
+    {
+      "id": "consumable/bandage",
+      "name": "붕대",
+      "category": "material",
+      "subcategory": "supply",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a roll of clean linen bandage, tightly wound off-white cloth strip with the loose end unfurling and hanging free, frayed selvedge along the cut edge, a small brass pin stuck through the outer wrap"
+    },
+    {
+      "id": "consumable/torch_item",
+      "name": "횃불",
+      "category": "material",
+      "subcategory": "supply",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a wooden hand torch held upright, a stout oak shaft bound with crossed leather straps, the head packed with pitch-soaked rag burning as one small tight ember-orange tongue, warm light spilling onto the wood just below it"
+    },
+    {
+      "id": "consumable/medicine_herb",
+      "name": "약초 묶음",
+      "category": "material",
+      "subcategory": "supply",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a tied bundle of medicinal herbs, slender gray-green stalks with narrow paired leaves and small pale flower heads, bound at the stems with red thread, two dried root pieces tucked into the binding"
+    },
+    {
+      "id": "food/grain_bread",
+      "name": "보리빵",
+      "category": "food",
+      "subcategory": "meal",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a round barley loaf, dense dark-brown crust scored with a cross on top and dusted with flour, one thick wedge cut away to reveal the pale open crumb inside, a few crumbs at the foot"
+    },
+    {
+      "id": "food/roast_meat",
+      "name": "구운 고기",
+      "category": "food",
+      "subcategory": "meal",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a roasted meat leg on the bone, crisp caramel-brown seared skin with darker char stripes along the ridge, rendered juices running down toward the bared bone handle wrapped in a strip of cloth"
+    },
+    {
+      "id": "food/berry_bowl",
+      "name": "열매 그릇",
+      "category": "food",
+      "subcategory": "meal",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a shallow turned wooden bowl heaped with wild berries, deep red and dark blue fruit piled loose with two green leaves tucked among them, one berry resting on the rim, visible grain on the outside of the bowl"
+    }
+  ]
+}

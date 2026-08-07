@@ -1,0 +1,175 @@
+{
+  "note": "배치 7 — 무기 9종·방어구 8종 장비 아이콘 17장. id·한국어명·등급은 게임 데이터 계약 그대로(게임 1~6등급 → 1 common · 2 uncommon · 3 rare · 4 epic · 5·6 legendary). 전부 §8 아이콘 규격 64x64. weapon/iron_sword_common(batch1)과 weapon/iron_blade는 별개 id — 전자는 양날 장검, 후자는 실전형 외날 조선검이다. 용아검·용린 갑옷(6등급)은 desc에서 용 이빨·비늘 소재를 직접 묘사해 legendary 틴트만으로 끝나지 않게 했다.",
+  "assets": [
+    {
+      "id": "weapon/stone_blade",
+      "name": "돌칼",
+      "category": "weapon",
+      "subcategory": "tier1",
+      "grade": "common",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a knapped flint knife, leaf-shaped stone blade with a rippled flaked surface and a jagged working edge, seated into a split antler haft and lashed with crossed sinew strips, one loose sinew tail hanging below the binding"
+    },
+    {
+      "id": "weapon/bone_spear",
+      "name": "뼈창",
+      "category": "weapon",
+      "subcategory": "tier1",
+      "grade": "common",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a hunting spear tipped with a sharpened animal bone point, yellowed bone barbed along one side and lashed to a knotty ash shaft with wound hide cord, a single feather and a beaded knot swinging under the wrap"
+    },
+    {
+      "id": "weapon/iron_blade",
+      "name": "철검",
+      "category": "weapon",
+      "subcategory": "tier2",
+      "grade": "uncommon",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a single-edged korean field sword, slightly curved iron blade with a thick straight spine and one hard bright line down the ground edge, small round disc guard, hilt bound in dark cord over pale ray skin, plain iron ring pommel, a soldier's everyday sidearm"
+    },
+    {
+      "id": "weapon/hunters_bow",
+      "name": "사냥활",
+      "category": "weapon",
+      "subcategory": "tier2",
+      "grade": "uncommon",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a short korean horn bow strung and shown from the side, deeply recurved limbs of laminated horn and sinew over a dark lacquered core, silk wrapping at the narrow handle, twisted string pulled taut between the nocks, one fletched arrow crossed behind the grip"
+    },
+    {
+      "id": "weapon/steel_blade",
+      "name": "강철검",
+      "category": "weapon",
+      "subcategory": "tier3",
+      "grade": "rare",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a straight double-edged steel broadsword, wide blade with a crisp central fuller and a mirror-bright edge line, squared crossguard with slightly flared tips, leather-wrapped grip, faceted wheel pommel"
+    },
+    {
+      "id": "weapon/steel_axe",
+      "name": "강철 도끼",
+      "category": "weapon",
+      "subcategory": "tier3",
+      "grade": "rare",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a two-handed steel battle axe, broad crescent head with a hardened bright cutting arc and a squared hammer poll behind it, iron langets running down a straight hickory haft, corded wrap at the butt end"
+    },
+    {
+      "id": "weapon/elite_blade",
+      "name": "정예검",
+      "category": "weapon",
+      "subcategory": "tier4",
+      "grade": "epic",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a guard officer's sword, narrow deep-fullered blade with a hard specular line running its length, wing-shaped crossguard swept toward the tip, grip bound in braided cord, a knotted tassel hanging from the pommel ring"
+    },
+    {
+      "id": "weapon/master_blade",
+      "name": "명품검",
+      "category": "weapon",
+      "subcategory": "tier5",
+      "grade": "legendary",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a master-forged long sword, folded steel blade showing a rippling hamon temper line along the cutting edge, long slender guard pierced with a cloud motif, grip wound in braided silk over patterned skin, heavy shaped pommel counterweight"
+    },
+    {
+      "id": "weapon/wyrm_fang",
+      "name": "용아검",
+      "category": "weapon",
+      "subcategory": "tier6",
+      "grade": "legendary",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a sword whose blade is one curved dragon fang, ivory tooth enamel darkening to smoky amber toward the root with fine growth ridges running its length and a natural razor edge, the root socket clamped into a guard built from interlocking green-black dragon scales, grip wrapped in scaled dragon hide, a thin ember-red heat line bleeding along the fang edge"
+    },
+    {
+      "id": "armor/stone_guard",
+      "name": "가죽 덧대개",
+      "category": "armor",
+      "subcategory": "tier1",
+      "grade": "common",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a rough leather over-vest, sleeveless jerkin of thick hide with flat river stones sewn into sewn pockets across the chest, shoulder straps knotted at the front, hem and armholes cut raw and unhemmed"
+    },
+    {
+      "id": "armor/fur_coat",
+      "name": "털외투",
+      "category": "armor",
+      "subcategory": "tier1",
+      "grade": "common",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a heavy winter fur coat, long hide overcoat with a thick shaggy collar and cuffs of gray wolf pelt, wide front overlap held by a woven sash, pale fleece lining showing at the hem"
+    },
+    {
+      "id": "armor/iron_guard",
+      "name": "쇠비늘 갑옷",
+      "category": "armor",
+      "subcategory": "tier2",
+      "grade": "uncommon",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "an iron scale cuirass, rows of small overlapping iron plates laced onto a leather backing so each row edge catches a hard line, broad shoulder pieces, cord ties down the sides, several plates scuffed and dented"
+    },
+    {
+      "id": "armor/hide_brigandine",
+      "name": "가죽 미늘 갑옷",
+      "category": "armor",
+      "subcategory": "tier2",
+      "grade": "uncommon",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a leather brigandine, sleeveless torso of stiff boiled hide with plates riveted between the layers showing as regular rows of round rivet heads, buckled shoulder straps, laced open sides"
+    },
+    {
+      "id": "armor/steel_guard",
+      "name": "강철 갑옷",
+      "category": "armor",
+      "subcategory": "tier3",
+      "grade": "rare",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a steel plate cuirass, smoothly shaped breastplate with a raised center ridge and one hard specular sweep across the chest, articulated waist lames below, riveted pauldrons, buckled leather straps over the shoulders"
+    },
+    {
+      "id": "armor/elite_guard",
+      "name": "정예 갑옷",
+      "category": "armor",
+      "subcategory": "tier4",
+      "grade": "epic",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a guard captain's armor, lacquered plate cuirass worn over a mail collar with a broad chest strap, layered skirt lames hanging below the waist, corded fastenings with tassels and a rank plate at the center"
+    },
+    {
+      "id": "armor/master_guard",
+      "name": "명품 갑옷",
+      "category": "armor",
+      "subcategory": "tier5",
+      "grade": "legendary",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a master-made war harness, deeply modeled cuirass with fluted plate surfaces, mail gorget at the throat, sculpted shoulder guards shaped like crouching beasts, layered lacquered skirt lames laced with braided silk cords"
+    },
+    {
+      "id": "armor/wyrm_scale",
+      "name": "용린 갑옷",
+      "category": "armor",
+      "subcategory": "tier6",
+      "grade": "legendary",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a cuirass built from real dragon scales, large overlapping plates of green-black keratin with iridescent teal edges and pitted heat scarring across their faces, laced onto blackened dragon hide with sinew, a collar of smaller neck scales at the throat, faint ember-red light seeping through the gaps between plates"
+    }
+  ]
+}

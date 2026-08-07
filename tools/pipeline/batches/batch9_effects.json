@@ -1,0 +1,170 @@
+{
+  "note": "배치 9 — 전투·채집·제작·버프·화염 이펙트 11장. 전부 §8 이펙트 규격 128x128이며 애니 트랙을 함께 정의한다(anims). effect 카테고리는 config.json의 strategyByCategory에 의해 variation 전략이 자동 적용된다 — §7의 '프레임마다 실루엣 30% 이상 변화' 요구에 anchor img2img가 맞지 않기 때문. base desc는 각 이펙트의 대표 순간 한 프레임을 묘사한다.",
+  "assets": [
+    {
+      "id": "effect/slash_arc",
+      "name": "참격 궤적",
+      "category": "effect",
+      "subcategory": "impact",
+      "size": "128x128",
+      "candidates": 4,
+      "desc": "a sword slash trail caught at the widest point of its sweep, a crescent ribbon tapering from a thick leading edge down to a thin whipping tail, the inner face washed pale blue-white and the outer rim shading into ember orange, torn wisps peeling away behind the tail",
+      "anims": [
+        {
+          "name": "impact",
+          "frames": 5
+        }
+      ]
+    },
+    {
+      "id": "effect/hit_spark",
+      "name": "타격 불꽃",
+      "category": "effect",
+      "subcategory": "impact",
+      "size": "128x128",
+      "candidates": 4,
+      "desc": "a point-blank strike flash, a dense white star at the contact point with four uneven radiating spikes of unequal length, a scatter of short orange spark streaks thrown outward on every side",
+      "anims": [
+        {
+          "name": "impact",
+          "frames": 5
+        }
+      ]
+    },
+    {
+      "id": "effect/dust_puff",
+      "name": "흙먼지",
+      "category": "effect",
+      "subcategory": "impact",
+      "size": "128x128",
+      "candidates": 4,
+      "desc": "a low puff of kicked-up dust, three overlapping rounded clouds of pale tan grit rolling outward from one point, thinning into loose speckles at the outer edge, a darker earth-brown mass sitting at the base",
+      "anims": [
+        {
+          "name": "impact",
+          "frames": 5
+        }
+      ]
+    },
+    {
+      "id": "effect/debris_burst",
+      "name": "파편 폭발",
+      "category": "effect",
+      "subcategory": "impact",
+      "size": "128x128",
+      "candidates": 4,
+      "desc": "a burst of shattered stone, a ring of angular gray rock shards flung outward from a cracked center, each shard trailing a short streak of dust behind it, fine grit motes filling the gaps between them",
+      "anims": [
+        {
+          "name": "impact",
+          "frames": 6
+        }
+      ]
+    },
+    {
+      "id": "effect/gather_sparkle",
+      "name": "채집 반짝임",
+      "category": "effect",
+      "subcategory": "impact",
+      "size": "128x128",
+      "candidates": 4,
+      "desc": "a rising sparkle of harvest light, five four-pointed glints of warm gold at differing sizes drifting upward in a loose column, the largest one at the middle ringed by a soft halo, fine motes strung between them",
+      "anims": [
+        {
+          "name": "impact",
+          "frames": 5
+        }
+      ]
+    },
+    {
+      "id": "effect/craft_hammer_glint",
+      "name": "제작 불티",
+      "category": "effect",
+      "subcategory": "impact",
+      "size": "128x128",
+      "candidates": 4,
+      "desc": "a shower of forge sparks thrown off an anvil strike, a fan of short yellow-white streaks spraying up and sideways from one hot point, each streak cooling to deep orange at its tip, a flat ember-red flash pressed against the base",
+      "anims": [
+        {
+          "name": "impact",
+          "frames": 5
+        }
+      ]
+    },
+    {
+      "id": "effect/heal_ring",
+      "name": "치유 고리",
+      "category": "effect",
+      "subcategory": "cast",
+      "size": "128x128",
+      "candidates": 4,
+      "desc": "a healing ring lying flat in three-quarter perspective, a thin ellipse of pale green light with a softer inner rim, three small cross glyphs riding on the band, fine threads of light rising from the ring toward the center",
+      "anims": [
+        {
+          "name": "cast",
+          "frames": 6
+        }
+      ]
+    },
+    {
+      "id": "effect/buff_aura",
+      "name": "강화 오라",
+      "category": "effect",
+      "subcategory": "cast",
+      "size": "128x128",
+      "candidates": 4,
+      "desc": "an upward reinforcement aura, a tapering column of warm gold light rising from a wide elliptical footprint, three chevrons stacked inside the column pointing up, thin ascending motes drifting along the outer edge",
+      "anims": [
+        {
+          "name": "cast",
+          "frames": 6
+        }
+      ]
+    },
+    {
+      "id": "effect/debuff_cloud",
+      "name": "약화 안개",
+      "category": "effect",
+      "subcategory": "cast",
+      "size": "128x128",
+      "candidates": 4,
+      "desc": "a sinking weakening fog, a low bank of murky violet-gray vapor with lumpy rounded tops and ragged wisps trailing off the sides, two downward chevrons sunk into the mass, a sickly green shimmer along the underside",
+      "anims": [
+        {
+          "name": "cast",
+          "frames": 6
+        }
+      ]
+    },
+    {
+      "id": "effect/torch_flame",
+      "name": "횃불 불꽃",
+      "category": "effect",
+      "subcategory": "flame",
+      "size": "128x128",
+      "candidates": 4,
+      "desc": "a single small torch flame, a narrow teardrop tongue with a pale yellow-white heart, an ember-orange body and a deep red-brown outer edge, the tip curling to one side, two sparks lifting away above it",
+      "anims": [
+        {
+          "name": "flicker",
+          "frames": 6
+        }
+      ]
+    },
+    {
+      "id": "effect/campfire_flame",
+      "name": "모닥불 불꽃",
+      "category": "effect",
+      "subcategory": "flame",
+      "size": "128x128",
+      "candidates": 4,
+      "desc": "a campfire fire mass, three flame tongues of unequal height rising together from a hot ember-red bed, the tallest leaning slightly to one side, a bright yellow-white heart low in the middle, sparks and thin smoke wisps breaking off the tips",
+      "anims": [
+        {
+          "name": "burn",
+          "frames": 8
+        }
+      ]
+    }
+  ]
+}
