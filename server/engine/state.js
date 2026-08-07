@@ -8,7 +8,7 @@ import { generateWorldMap, townOf } from './world.js';
 import { createVillagers } from './villagers.js';
 import { createFog } from './fog.js';
 import { tierRadius, settlementTier } from './tiers.js';
-import { completeStructure, syncLegacyBuildings, anchorFromCell } from './structures.js';
+import { completeStructure, syncLegacyBuildings, anchorFromCell, tierSpec } from './structures.js';
 // ★ GDD3 §13-D-1 — 옛 세이브의 주민에게 능력치를 채워 넣을 때 쓴다
 import { rollStats, statRng } from './traits.js';
 // ★ §17-18b — 시작 태그 추첨(고정 배열 폐기). 결정론은 세계 시드가 쥔다.
@@ -262,7 +262,22 @@ export function isLegacySnapshot(world) {
  * ⚠ **아래 migrateWorld 에 줄을 더하면 이 숫자를 반드시 올려라.** 올리지 않으면 이미 표를 받은
  *   세이브가 새 줄을 건너뛴다 — 그것이 이 눈금이 지는 유일한 빚이다.
  */
-const MIGRATION_REV = 1;
+const MIGRATION_REV = 2;
+
+/**
+ * ★ §19-F1(F08-1) — 옛 세이브의 건물에 체력을 붙인다.
+ * 「왜」 — 체력은 이제 **모든 건물**이 지니는 값이고(부수며 진입·수리·효과 감쇠가 전부 이것을 읽는다),
+ * hp 가 없는 건물은 damageScale 이 1, isRuined 가 false 로 굴러가긴 해도 **부술 수 없는 벽**이 된다.
+ * 없으면 그 티어의 최대 체력으로 **성한 채** 열어 준다 — 옛 마을을 다치게 하지 않는다.
+ */
+function fillStructureHp(nation, data) {
+  for (const s of nation.structures || []) {
+    if (s.maxHp > 0 && s.hp != null) continue;
+    const max = tierSpec(s.key, s.tier, data)?.hp ?? 100;
+    s.maxHp = max;
+    s.hp = Math.min(s.hp ?? max, max);
+  }
+}
 
 export function migrateWorld(world, data) {
   if (!world) return world;
@@ -313,6 +328,7 @@ export function migrateWorld(world, data) {
     nation.claims ||= [];
     nation.nextClaimId ||= 1;
     nation.recruit ||= { readyTick: 0, count: 0 };
+    fillStructureHp(nation, data);
     for (const u of nation.villagers || []) {
       if (!u.stats) u.stats = rollStats(statRng(`${world.seed}:${nation.id}:${u.id}`), data);
     }
