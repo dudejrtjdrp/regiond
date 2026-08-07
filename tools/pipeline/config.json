@@ -11,15 +11,11 @@
 
   "negative": "photo, photorealistic, 3d render, blurry, jpeg artifacts, antialiasing, soft edges, gradient background, drop shadow on background, text, watermark, signature, ui frame, border, multiple views, extra limbs, mutated hands, low contrast, washed out, neon, fluorescent colors, isometric grid, chibi cartoon outline, black outline, thick black border, dithering noise, checkerboard background, white background, transparent checkerboard",
 
-  "steps": 32,
-  "cfg": 7.0,
-  "sampler": "dpmpp_2m",
-  "scheduler": "karras",
+  "_samplerNote": "steps·cfg·sampler·scheduler의 정본은 workflows/*.json의 카테고리별 값이다(character 32/7.0, prop 30/6.5, icon 26/6.5, tile 30/5.5 — 전부 dpmpp_2m+karras). 전역으로 강제하고 싶을 때만 이 파일에 steps·cfg·sampler·scheduler 키를 추가하면 모든 워크플로우를 덮어쓴다. keyColor #FF00FF는 프롬프트와 postprocess.py에 고정된 상수라 설정으로 바꿀 수 없다.",
 
   "candidates": 4,
   "quantizeStrength": 0.5,
   "downscaleFilter": "nearest",
-  "keyColor": "#FF00FF",
   "keyTolerance": 110,
   "haloTolerance": 190,
 

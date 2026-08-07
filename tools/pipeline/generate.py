@@ -18,11 +18,21 @@ import shutil
 import sys
 from pathlib import Path
 
-import postprocess as pp
-import qa
-import register
-import spritesheet
-from comfy_client import ComfyClient, ComfyError
+# 「왜」 의존성 미설치가 첫 실행에서 가장 흔한 실패라, traceback 대신 해결 명령을 바로 보여준다.
+try:
+    import postprocess as pp
+    import qa
+    import register
+    import spritesheet
+    from comfy_client import ComfyClient, ComfyError
+except ModuleNotFoundError as missing:
+    if missing.name not in ("PIL", "requests", "websocket"):
+        raise
+    print(f"필수 파이썬 패키지가 없습니다: {missing.name}")
+    print("다음 명령으로 설치한 뒤 다시 실행하세요:")
+    print("  pip install pillow requests websocket-client")
+    print("  (안 되면: py -3 -m pip install pillow requests websocket-client)")
+    raise SystemExit(1)
 
 CONFIG_PATH = pp.PIPELINE_DIR / "config.json"
 WORKFLOW_DIR = pp.PIPELINE_DIR / "workflows"
@@ -133,8 +143,18 @@ def apply_settings(workflow: dict, cfg: dict, prompt: str, seed: int) -> dict:
     _apply_lora(find_node(workflow, "LORA"), cfg)
     find_node(workflow, "POSITIVE")["inputs"]["text"] = prompt
     find_node(workflow, "NEGATIVE")["inputs"]["text"] = cfg["negative"]
-    find_node(workflow, "SAMPLER")["inputs"]["seed"] = seed
+    _apply_sampler(find_node(workflow, "SAMPLER"), cfg, seed)
     return workflow
+
+
+def _apply_sampler(node: dict, cfg: dict, seed: int) -> None:
+    """「왜」 config.json이 정본이어야 한다 — 워크플로우 하드코딩 값만 믿으면 config 수정이 조용히 무시된다."""
+    inputs = node["inputs"]
+    inputs["seed"] = seed
+    inputs["steps"] = cfg.get("steps", inputs["steps"])
+    inputs["cfg"] = cfg.get("cfg", inputs["cfg"])
+    inputs["sampler_name"] = cfg.get("sampler", inputs["sampler_name"])
+    inputs["scheduler"] = cfg.get("scheduler", inputs["scheduler"])
 
 
 def _apply_lora(node: dict, cfg: dict) -> None:
