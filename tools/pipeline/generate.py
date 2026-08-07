@@ -84,7 +84,7 @@ CATEGORY_PROMPTS: dict[str, dict] = {
     "plant":      {"view": "exactly one single subject, one top-down three-quarter view small plant or crop, a single connected patch", "extra": "compact leafy clusters"},
     "furniture":  {"view": "exactly one single subject, one top-down three-quarter view furniture piece", "extra": "wood grain strokes, plank seams"},
     "building":   {"view": "exactly one single subject, one top-down three-quarter view fantasy village building, front facade and roof visible", "extra": "stone and timber construction, warm glowing windows"},
-    "tileset":    {"view": "seamless repeating natural ground surface texture seen from directly above, filling the entire frame edge to edge", "extra": "a natural terrain surface and not a man-made floor or wall, no outline, no border, uniform density across the whole frame, no large focal object, repeats seamlessly on all four sides"},
+    "tileset":    {"view": "seamless repeating natural ground surface texture, (orthographic view pointing straight down at flat ground:1.3), (close-up macro texture of the ground itself:1.2), filling the entire frame edge to edge", "extra": "the camera looks straight down, the ground fills the whole frame at one constant distance, a natural terrain surface and not a man-made floor or wall, not a landscape and not a scene, no horizon and no sky, no outline, no border, uniform density across the whole frame, no large focal object, repeats seamlessly on all four sides"},
     "ui":         {"view": "exactly one single subject, a single flat game UI skill icon, one centered emblem", "extra": "bold readable symbol, subtle bevel"},
     "effect":     {"view": "exactly one single subject, one magical effect burst, isolated", "extra": "additive-friendly bright core with 1-2px glow"},
 }
@@ -104,6 +104,13 @@ NEGATIVE_NO_MASONRY = ("brick, bricks, brickwork, masonry, mortar, grout, cobble
                        "pavement, paving stones, flagstone, tiled floor, ceramic tile, "
                        "stone slab floor, wall, checkerboard, man-made floor, "
                        "repeating decorative pattern, wallpaper")
+
+# 「왜」 rock이 항공 지도, ash가 석양 산 풍경, desert_b가 횡스크롤 장면으로 나왔다.
+#      '지면을 위에서 본 텍스처'가 아니라 '어떤 장소를 그린 그림'이 되는 실패 모드다.
+NEGATIVE_NO_SCENE = ("landscape, scenery, horizon, sky, sun, moon, clouds, mountains, cliffs, "
+                     "valley, river, lake, coastline, aerial map, world map, side view, "
+                     "side-scroller level, isometric scene, diorama, vignette, "
+                     "painting of a place, distant view")
 
 # 「왜」 jungle_canopy 캐노피가 프레임에 잘렸다. 타일 제외 전 카테고리에 잘림 금지.
 NEGATIVE_NO_CROP = "cropped, cut off at the edge, out of frame, partial view, extreme close-up"
@@ -130,6 +137,7 @@ def _negatives_for(category: str) -> list[str]:
         out.append(NEGATIVE_NO_CROP)
     if category == "tileset":
         out.append(NEGATIVE_NO_MASONRY)
+        out.append(NEGATIVE_NO_SCENE)
     return out
 
 

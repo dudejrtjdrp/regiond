@@ -38,6 +38,12 @@ THRESHOLDS = {
     # 「왜」 타일은 랩(좌↔우, 상↔하)이 내부 인접 줄만큼 이어져야 격자 줄무늬가 안 보인다.
     #      절대값이 아니라 '내부 텍스처 노이즈 대비 비율'로 재야 잔디처럼 거친 텍스처가 억울하지 않다.
     "seamWarn": 1.4, "seamFail": 2.0,
+    # 「왜」 타일이 '지면 텍스처'가 아니라 '풍경화 한 장'으로 나오는 실패 모드가 있었다.
+    #      큰 스케일 구조(4x4 격자 블록·행/열 평균)가 크면 장면, 너무 작으면 민무늬다.
+    "sceneLineWarn": 22.0, "sceneLineFail": 27.0,
+    "sceneBlockWarn": 20.0, "sceneBlockFail": 30.0,
+    "flatStdWarn": 6.0, "flatStdFail": 4.5,
+    "flatColorsFail": 6,
     "opaqueAlpha": 250,            # museum.js OPAQUE_A
     "runLengthCap": 16,            # 대면적 단색을 그리드 추정에서 제외
     "gridDivisibleRatio": 0.80,
@@ -456,6 +462,134 @@ def _dominant_note(opaque: list) -> str:
     return f" · 지배색 {hexed} 점유 {count / len(opaque):.0%}"
 
 
+# ------------------------------------------------------- 타일 구도 검사 (장면/민무늬)
+
+# 「왜」 임계는 실물 8종 실측으로 보정했다(최종 64px, RGB). 아래가 그 근거표다.
+#
+#   타일        4x4격자   행평균   열평균   고유색   전체std   상태
+#   grass         12.6    21.0    10.2      22      11.1    정상(경계 — 행 21.0)
+#   snow          10.6    11.8    11.1      16       9.1    정상
+#   water          7.0    15.6     4.6       9       7.3    정상
+#   desert         5.9    19.8     5.4       8       8.0    정상(내용은 벽돌이었으나 구도는 정상)
+#   rock          56.7    44.6    59.9      22      12.7    풍경(항공 지도)
+#   desert_b      16.9    31.8    12.4      22       9.5    풍경(횡스크롤 장면)
+#   ash           66.8    56.3    40.8      22      12.7    풍경(석양+산)
+#   fertile        0.2     0.4     0.3       5       2.2    민무늬(질감 소멸)
+#
+# 「왜」 행/열을 따로 재고 max를 쓰는 이유: desert_b는 열(12.4)은 멀쩡하고 행(31.8)만 튄다.
+#      평균을 내면 22.1로 희석돼 안 잡힌다.
+
+TILE_GRID = 4          # 큰 스케일 구조를 보는 격자 분할 수
+FLAT_MIN_COLORS = 6    # 이보다 색이 적으면 질감이 사라진 것
+
+
+def _channel_variance(vectors: list) -> float:
+    """채널별 분산의 합. 색 벡터 집합이 얼마나 퍼져 있는지."""
+    n = len(vectors)
+    means = [sum(v[c] for v in vectors) / n for c in range(3)]
+    return sum(sum((v[c] - means[c]) ** 2 for v in vectors) / n for c in range(3))
+
+
+def _channel_std_sum(vectors: list) -> float:
+    """채널별 표준편차의 합 — 전체 대비(질감 유무) 지표."""
+    n = len(vectors)
+    means = [sum(v[c] for v in vectors) / n for c in range(3)]
+    return sum((sum((v[c] - means[c]) ** 2 for v in vectors) / n) ** 0.5 for c in range(3))
+
+
+def _mean_color(px: list, indices) -> list:
+    picked = [px[i][:3] for i in indices]
+    return [sum(q[c] for q in picked) / len(picked) for c in range(3)]
+
+
+def _block_means(px: list, w: int, h: int, grid: int) -> list:
+    """타일을 grid×grid로 나눈 각 구획의 평균색."""
+    bw, bh = max(1, w // grid), max(1, h // grid)
+    out = []
+    for gy in range(grid):
+        for gx in range(grid):
+            idx = [(gy * bh + y) * w + gx * bw + x for y in range(bh) for x in range(bw)]
+            out.append(_mean_color(px, idx))
+    return out
+
+
+def _line_means(px: list, w: int, h: int, horizontal: bool) -> list:
+    span = h if horizontal else w
+    other = w if horizontal else h
+    return [_mean_color(px, [_line_index(w, i, k, horizontal) for k in range(other)])
+            for i in range(span)]
+
+
+def _line_index(w: int, i: int, k: int, horizontal: bool) -> int:
+    if horizontal:
+        return i * w + k
+    return k * w + i
+
+
+def tile_composition(img: Image.Image) -> dict:
+    """타일의 큰 스케일 구조 수치. 장면성(큼)과 민무늬(작음)를 한 번에 잰다."""
+    rgb = img.convert("RGB")
+    px = pp.pixels(rgb)
+    w, h = rgb.size
+    return {
+        "block": round(_channel_variance(_block_means(px, w, h, TILE_GRID)) ** 0.5, 1),
+        "rowVar": round(_channel_variance(_line_means(px, w, h, True)) ** 0.5, 1),
+        "colVar": round(_channel_variance(_line_means(px, w, h, False)) ** 0.5, 1),
+        "std": round(_channel_std_sum(px) ** 0.5, 1),
+        "colors": len(set(px)),
+    }
+
+
+def check_tile_composition(img: Image.Image, category: str) -> dict:
+    """타일 전용 — 풍경화(장면)로 나왔거나 질감이 사라진 민무늬를 잡는다."""
+    anchor = pp.CATEGORY_SPECS.get(category, {}).get("anchor", "bottom")
+    if anchor != "fill":
+        return _result(SKIP, "타일이 아닌 카테고리입니다.", None)
+    m = tile_composition(img)
+    status = worst([_scene_status(m), _flat_status(m)])
+    return _result(status, _composition_detail(m, status), m)
+
+
+def _composition_detail(m: dict, status: str) -> str:
+    base = (f"격자 {m['block']} · 행 {m['rowVar']} · 열 {m['colVar']} · "
+            f"전체std {m['std']} · 색 {m['colors']}")
+    if status == PASS:
+        return base
+    return base + " — " + " / ".join(_composition_reasons(m))
+
+
+def _composition_reasons(m: dict) -> list[str]:
+    out = []
+    if _scene_status(m) != PASS:
+        out.append("지면 텍스처가 아니라 풍경/장면 구도로 보입니다(원경·지평선 어휘를 desc에서 빼세요)")
+    if _flat_status(m) != PASS:
+        out.append("질감이 거의 없는 민무늬입니다(알갱이·덩어리 디테일을 desc에 넣으세요)")
+    return out
+
+
+def _scene_status(m: dict) -> str:
+    """행/열은 따로 재서 max를 쓴다 — 한 축만 장면 구조여도 타일링에서 줄무늬로 보인다."""
+    line = max(m["rowVar"], m["colVar"])
+    return worst([_over(line, "sceneLineWarn", "sceneLineFail"),
+                  _over(m["block"], "sceneBlockWarn", "sceneBlockFail")])
+
+
+def _flat_status(m: dict) -> str:
+    if m["std"] < THRESHOLDS["flatStdFail"] or m["colors"] < THRESHOLDS["flatColorsFail"]:
+        return FAIL
+    if m["std"] < THRESHOLDS["flatStdWarn"]:
+        return WARNING
+    return PASS
+
+
+def _over(value: float, warn_key: str, fail_key: str) -> str:
+    if value > THRESHOLDS[fail_key]:
+        return FAIL
+    if value > THRESHOLDS[warn_key]:
+        return WARNING
+    return PASS
+
+
 # ------------------------------------------------------------- 타일 심(seam) 검사
 
 def check_seam(img: Image.Image, category: str) -> dict:
@@ -605,10 +739,10 @@ def _shared_problems(s: dict, lim: dict) -> list[str]:
 
 CHECK_ORDER = ("palette", "translucent", "resolution", "pixelGrid",
                "outline", "light", "night", "frames", "sizeRatio",
-               "backgroundResidue", "seamScore")
+               "backgroundResidue", "seamScore", "tileComposition")
 
 # museum.js가 계산할 수 없는(정지 1장 분석으로는 불가능한) 파이프라인 전용 검사 목록.
-PIPELINE_ONLY_CHECKS = ("backgroundResidue", "seamScore", "frameConsistency")
+PIPELINE_ONLY_CHECKS = ("backgroundResidue", "seamScore", "tileComposition", "frameConsistency")
 
 
 def run_checks(png: Path, category: str, subcategory: str | None = None,
@@ -638,6 +772,7 @@ def _collect(m: dict, spec, box, sheet, frames, category, img) -> dict:
         "sizeRatio": check_size_ratio(m, box[3] - box[1], spec),
         "backgroundResidue": check_background_residue(img, category),
         "seamScore": check_seam(img, category),
+        "tileComposition": check_tile_composition(img, category),
     }
 
 
