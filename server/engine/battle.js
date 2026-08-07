@@ -7,7 +7,11 @@
 //   · 서버 실시간: GameRuntime 이 subtick 타이머로 stepBattle 을 부르고 battleTick 을 흘려보낸다
 //   · 헤드리스(테스트·시뮬): runBattle 이 같은 함수를 루프로 돌린다 → 결과 동일
 import { townOf, territoryRadius, dist, isWaterAt } from './world.js';
-import { turretList, damageStructure, isRuined, structureName } from './structures.js';
+import {
+  turretList, damageStructure, isRuined, structureName,
+  // ★ §19-F1(F05-3) — 길목의 건물을 부수며 들어온다
+  blockingStructure, isBreached, structureRadius, centerOf, findStructure,
+} from './structures.js';
 import { militiaList } from './residents.js';
 // ★ GDD3 §13-D-3 — 손에 든 것과 두른 것. 무기는 피해를, 방어구는 맞는 피해와 다운 시간을 바꾼다.
 import { equipEffects } from './equipment.js';
@@ -274,6 +278,8 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
   }
 
   // ── 4. 적 ───────────────────────────────────────────────────
+  /* ★ §19-F1(F05-3) — 이 서브틱에 길목을 새로 찾아볼 수 있는 적 수(프레임 예산) */
+  b.scanLeft = breachCfg(cfg)?.scanBudget ?? 0;
   const fences = aliveFences(nation);
   const defenders = [
     ...alive(b.militia).map((m) => ({ kind: 'militia', ref: m, x: m.x, y: m.y })),
@@ -343,6 +349,10 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
       }
     }
 
+    /* 4-b-2. ★ §19-F1(F05-3) — 석벽을 넘었으면 길목의 건물이 기다린다.
+       부수는 값(체력 비례)이 돌아가는 값보다 싸면 부수고, 비싸면 비껴 간다. */
+    if (dCore > b.coreRadius + 1.5 && pushThrough(world, nation, e, b, data, cfg, dt)) continue;
+
     // 4-c. 중심까지 왔으면 건물을 부수고 계속 약탈한다 (쫓아내지 못하면 곳간이 마른다)
     if (dCore <= b.coreRadius + 1.5) {
       if (!e.atCore) {
@@ -350,21 +360,7 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
         push(b, { t: round2(b.t), kind: 'breach', targetId: e.id, x: round2(e.x), y: round2(e.y) }, data);
       }
       const s = pickStructure(nation, e, rng);
-      if (s) {
-        const dmg = e.dps * e.structureDamageBonus * (cfg.structureDamagePerSecond / 6) * dt;
-        const wasRuined = isRuined(s);
-        // ★ GDD3 §6 패배 관대 — 한 번의 습격으로 건물이 통째로 사라지지는 않는다.
-        //   내구도는 floor 아래로 내려가지 않는다(수리하면 되살아난다). 폐허 나선을 막는 안전장치다.
-        const floor = (s.maxHp || 0) * cfg.structureDamageFloor;
-        damageStructure(s, Math.min(dmg, Math.max(0, (s.hp ?? 0) - floor)));
-        b.structureDamage[s.id] = round2((b.structureDamage[s.id] || 0) + dmg);
-        if (!wasRuined && isRuined(s)) {
-          push(b, { t: round2(b.t), kind: 'structureRuined', structureId: s.id, key: s.key, x: s.x, y: s.y }, data);
-        } else if (b.t - b.lastStructureEventAt >= STRUCTURE_HIT_EVENT_EVERY) {
-          b.lastStructureEventAt = b.t;
-          push(b, { t: round2(b.t), kind: 'structureHit', structureId: s.id, key: s.key, x: s.x, y: s.y }, data);
-        }
-      }
+      if (s) hitStructure(b, s, e.dps * e.structureDamageBonus * (cfg.structureDamagePerSecond / 6) * dt, cfg, data);
       takeLoot(nation, b, cfg.lootRatioPerSecond * dt, data);
       continue;
     }
@@ -389,6 +385,108 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
   }
   b.rngState = rng.getState();
   return { events: b.timeline.slice(before), done: b.over };
+}
+
+/**
+ * 건물 한 대 — 도읍 한복판(4-c)과 길목(4-b-2)이 **같은 문**을 쓴다.
+ * ★ GDD3 §6 패배 관대 — 한 번의 습격으로 건물이 통째로 사라지지는 않는다:
+ *   내구도는 floor 아래로 내려가지 않는다(수리하면 되살아난다). 폐허 나선을 막는 안전장치다.
+ */
+function hitStructure(b, s, dmg, cfg, data) {
+  const wasRuined = isRuined(s);
+  const floor = (s.maxHp || 0) * cfg.structureDamageFloor;
+  damageStructure(s, Math.min(dmg, Math.max(0, (s.hp ?? 0) - floor)));
+  b.structureDamage[s.id] = round2((b.structureDamage[s.id] || 0) + dmg);
+  if (!wasRuined && isRuined(s)) {
+    push(b, { t: round2(b.t), kind: 'structureRuined', structureId: s.id, key: s.key, x: s.x, y: s.y }, data);
+    return;
+  }
+  if (b.t - b.lastStructureEventAt < STRUCTURE_HIT_EVENT_EVERY) return;
+  b.lastStructureEventAt = b.t;
+  push(b, { t: round2(b.t), kind: 'structureHit', structureId: s.id, key: s.key, x: s.x, y: s.y }, data);
+}
+
+const breachCfg = (cfg) => cfg.breach ?? null;
+
+/**
+ * ★ §19-F1(F05-3) — 길목의 건물 하나를 고른다(예산제). 「왜 예산인가」 — 길목 판정은 건물 수만큼의
+ * 선분 계산이고, 적 서른이 서브틱마다 그것을 다시 풀면 전투 한 판이 무거워진다. 그래서
+ * ① 한 번 찾은 길목은 rescanTiles 를 걷기 전까지 그대로 쓰고 ② 한 서브틱에 새로 찾는 적 수를 막는다.
+ */
+function findBlocker(nation, e, b, data, br) {
+  const cached = e.blockId ? findStructure(nation, e.blockId) : null;
+  const moved = Math.hypot(e.x - (e.blockScanX ?? -99), e.y - (e.blockScanY ?? -99));
+  if (cached && !isBreached(cached, br.openHpRatio) && moved < br.rescanTiles) return cached;
+  if (b.scanLeft <= 0) return (cached && !isBreached(cached, br.openHpRatio)) ? cached : null;
+  b.scanLeft -= 1;
+  e.blockScanX = e.x;
+  e.blockScanY = e.y;
+  const found = blockingStructure(nation, e, b.core, data, br);
+  e.blockId = found?.id ?? null;
+  return found;
+}
+
+/** 부수는 값(칸으로 환산) — 남은 체력 ÷ 미는 힘 × 걸음. 체력 비례 가중치가 이 한 줄이다. */
+function breakCostTiles(e, s, br) {
+  const need = Math.max(0, (s.hp ?? 0) - (s.maxHp || 0) * br.openHpRatio);
+  const dps = Math.max(0.01, e.dps * e.structureDamageBonus * br.damageScale);
+  return (need / dps) * e.speed;
+}
+
+/** 돌아가기로 했다 — 건물 몸집 밖 옆자리를 찍는다(난수 없음: 지금 서 있는 쪽으로 비킨다) */
+function detourPoint(e, s, data, br) {
+  const c = centerOf(s.key, s.x, s.y, data);
+  const r = structureRadius(s.key, data) + br.corridorTiles + 0.8;
+  const nx = -(e.y - c.y);
+  const ny = (e.x - c.x);
+  const len = Math.max(0.001, Math.hypot(nx, ny));
+  const side = (e.x - c.x) * ny - (e.y - c.y) * nx >= 0 ? 1 : -1;
+  return { x: round2(c.x + (nx / len) * r * side), y: round2(c.y + (ny / len) * r * side) };
+}
+
+/**
+ * 길목 한 칸 — 부수거나 비껴 가거나. 처리했으면 true(그 서브틱은 여기서 끝난다).
+ * ★ §19-F1(F05-3) 정본: 「돌아가는 것보다 부수는 게 싸면 부순다」.
+ */
+function pushThrough(world, nation, e, b, data, cfg, dt) {
+  const br = breachCfg(cfg);
+  if (!br || e.flying) return false;
+  if (e.detourTo) return walkDetour(e, b, dt, world, data);
+  const s = findBlocker(nation, e, b, data, br);
+  if (!s) return false;
+  if (breakCostTiles(e, s, br) > br.detourTiles || (e.breachT || 0) >= br.maxSecondsPerStructure) {
+    e.detourTo = detourPoint(e, s, data, br);
+    e.detourUntil = round2(b.t + br.detourTiles / Math.max(0.1, e.speed));
+    e.blockId = null;
+    e.breachT = 0;
+    return walkDetour(e, b, dt, world, data);
+  }
+  return smashBlocker(e, s, b, data, cfg, br, dt, world);
+}
+
+/** 비껴 가는 중 — 찍은 옆자리에 닿거나 시간이 다하면 다시 도읍을 본다 */
+function walkDetour(e, b, dt, world, data) {
+  const to = e.detourTo;
+  if (!to || b.t >= (e.detourUntil ?? 0) || dist(e.x, e.y, to.x, to.y) <= 0.9) {
+    e.detourTo = null;
+    return false;
+  }
+  moveToward(e, to.x, to.y, dt, world, data);
+  return true;
+}
+
+/** 두드린다 — 사거리 밖이면 다가서고, 안이면 민다. openHpRatio 아래로 밀리면 길이 열린다. */
+function smashBlocker(e, s, b, data, cfg, br, dt, world) {
+  const c = centerOf(s.key, s.x, s.y, data);
+  const reach = structureRadius(s.key, data) + cfg.meleeRangeTiles + 0.4;
+  if (dist(e.x, e.y, c.x, c.y) > reach) { moveToward(e, c.x, c.y, dt, world, data); return true; }
+  e.breachT = round2((e.breachT || 0) + dt);
+  hitStructure(b, s, e.dps * e.structureDamageBonus * br.damageScale * dt, cfg, data);
+  if (!isBreached(s, br.openHpRatio)) return true;
+  push(b, { t: round2(b.t), kind: 'structureBreach', structureId: s.id, key: s.key, x: s.x, y: s.y }, data);
+  e.blockId = null;
+  e.breachT = 0;
+  return true;
 }
 
 function moveToward(e, tx, ty, dt, world, data) {

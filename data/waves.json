@@ -177,7 +177,17 @@
     "rewardGoldPerPower": 0.35,
     "timelineMaxEvents": 900,
     "lootRatioPerSecond": 0.0003,
-    "structureDamageFloor": 0.25
+    "structureDamageFloor": 0.25,
+    "breach": {
+      "_note": "★ §19-F1(F05-3) 부수며 진입. 적은 이제 석벽을 넘은 뒤 **길목에 선 건물**을 만나면 저울질한다: 뚫는 데 드는 시간×제 걸음(=칸으로 환산한 값)이 detourTiles 보다 싸면 부수고, 비싸면 돌아간다(체력 비례 가중치 — 튼튼한 건물일수록 돌아간다). openHpRatio 아래로 밀리면 「뚫렸다」고 보고 더 두드리지 않는다 — 건물이 통째로 사라지지 않는 §6 패배 관대는 그대로다(structureDamageFloor 가 여전히 바닥이다). corridorTiles 는 건물 몸집에 더하는 옆폭이고, scanBudget·rescanTiles 는 프레임 예산이다: 한 서브틱에 길목을 새로 찾아보는 적 수와, 그만큼 걸어야 다시 찾는 거리.",
+      "damageScale": 8,
+      "openHpRatio": 0.6,
+      "detourTiles": 4,
+      "corridorTiles": 0.5,
+      "scanBudget": 6,
+      "rescanTiles": 1.5,
+      "maxSecondsPerStructure": 4
+    }
   },
   "simulation": {
     "_note": "시뮬 봇(server/sim/policy.js)이 웨이브를 준비하는 다이얼. botPlayerDps 는 '플레이어가 검을 들고 참여한 평균치' 근사다 — GDD3 §10 의 '봇은 플레이어 행동 근사 포함' 요구를 만족한다.",

@@ -124,10 +124,13 @@
         GM.fx.debris(mx, my, '#8a5e33', 12, 1.4);
         GM.fx.floatText(mx, my - 0.8, '울타리가 부서졌다', '#ff9d99', 12);
       }
-    } else if (e.kind === 'structureHit' || e.kind === 'structureRuined') {
-      var b = S.structureById(e.targetId);
+    } else if (e.kind === 'structureHit' || e.kind === 'structureRuined' || e.kind === 'structureBreach') {
+      /* ★ §19-F1 — 서버가 실어 보내는 이름은 structureId 다(targetId 아님). 옛 줄은 늘 빈손이라
+         건물이 맞아도 화면에 먼지 한 톨 안 났다 — 부수며 진입(F05-3)이 이 길을 그대로 쓴다. */
+      var b = S.structureById(e.structureId || e.targetId);
       if (b) {
         GM.fx.debris(b.x, b.y, '#c8a874', e.kind === 'structureRuined' ? 16 : 6, 1.2);
+        if (e.kind === 'structureBreach') GM.fx.floatText(b.x, b.y - 1.2, b.name + ' 뚫림', '#f0a09c', 12);
         if (e.kind === 'structureRuined') {
           GM.fx.shakeScreen(5, 0.3);
           GM.fx.floatText(b.x, b.y - 1.2, b.name + ' 무너짐', '#ff9d99', 13);

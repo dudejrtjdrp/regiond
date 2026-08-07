@@ -793,6 +793,50 @@ export function damageStructure(s, amount) {
   return s.hp;
 }
 
+/** ★ §19-F1(F05-3) — 이 건물은 아직 길을 막는가. openRatio 아래로 밀리면 뚫린 것으로 친다. */
+export function isBreached(s, openRatio) {
+  return (s.hp ?? 0) <= (s.maxHp || 0) * openRatio + 0.001;
+}
+
+/** 건물을 감싸는 원의 반지름 — 풋프린트 대각의 절반 */
+export function structureRadius(key, data) {
+  const { w, h } = footprint(key, data);
+  return Math.max(w, h) / 2;
+}
+
+/**
+ * ★ §19-F1(F05-3) — 적→도읍 선을 막고 선 **가장 앞의 건물**. 울타리(blockingFence)와 같은 규칙이다:
+ * 선분에 내린 수선 거리가 그 건물의 몸집 안쪽이면 「길목」이고, 그중 t(진행률)가 가장 작은 것을 고른다.
+ * 「왜」 A* 를 새로 돌리지 않는가 — 적 서른이 서브틱마다 격자를 다시 푸는 값은 전투 한 판을 무겁게 한다.
+ * 길목 판정은 **선분 하나**로 끝나고(O(건물 수)), 부술지 돌아갈지는 battle.js 가 체력으로 저울질한다.
+ */
+export function blockingStructure(nation, from, core, data, cfg) {
+  const vx = core.x - from.x;
+  const vy = core.y - from.y;
+  const len2 = vx * vx + vy * vy;
+  if (len2 <= 0.0001) return null;
+  let best = null;
+  let bestT = Infinity;
+  for (const s of nation.structures || []) {
+    const t = blockT(s, from, core, data, cfg, vx, vy, len2);
+    if (t == null || t >= bestT) continue;
+    bestT = t; best = s;
+  }
+  return best;
+}
+
+/** 길목 판정 한 채 — 막고 서 있으면 진행률 t, 아니면 null */
+function blockT(s, from, core, data, cfg, vx, vy, len2) {
+  /* 본부는 「길목」이 아니라 목적지다 — 도읍에 닿은 뒤의 약탈 처리(4-c)가 맡는다 */
+  if (isRuined(s) || s.inactive || isHq(s.key, data)) return null;
+  if (isBreached(s, cfg.openHpRatio)) return null;
+  const c = centerOf(s.key, s.x, s.y, data);
+  const t = ((c.x - from.x) * vx + (c.y - from.y) * vy) / len2;
+  if (t < -0.02 || t > 1.02) return null;
+  const perp = Math.hypot(c.x - (from.x + vx * t), c.y - (from.y + vy * t));
+  return perp <= structureRadius(s.key, data) + cfg.corridorTiles ? t : null;
+}
+
 // ────────────────────────────────────────────────────────────────
 // 개간 — 값싼 목재로 영토 안 풀밭에 밭 노드를 만든다
 // ────────────────────────────────────────────────────────────────

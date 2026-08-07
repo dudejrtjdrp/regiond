@@ -1607,7 +1607,12 @@ ack / `joined` 이벤트 payload:
   "players": [{ "id": "p1", "hp": 60, "maxHp": 60, "down": false }],
   "events": [ { "t": 12.25, "kind": "kill", "targetId": "e2", "by": "turret", "byId": "s9" } ] }
 ```
-`events[].kind`: `spawn` `kill` `fenceBreak` `structureHit` `structureRuined` `breach` `militiaDown` `playerDown` `playerHit` `hold` `withdraw`
+`events[].kind`: `spawn` `kill` `fenceBreak` `structureHit` `structureRuined` `structureBreach` `breach` `militiaDown` `playerDown` `playerHit` `hold` `withdraw`
+
+> ★ §19-F1(F05-3) — `structureBreach` 는 **길목의 건물이 뚫린** 순간이다(무너진 것이 아니다:
+> `waves.battle.breach.openHpRatio` 아래로 밀리면 적이 그 자리를 지나간다). 필드는
+> `structureHit` 과 같다: `{ t, kind, structureId, key, x, y }`. 옛 클라이언트는 모르는 kind 를
+> 그냥 흘려보내므로 추가만으로 호환이 깨지지 않는다.
 
 #### `waveResult`
 ```jsonc
