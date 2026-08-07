@@ -1129,6 +1129,8 @@ button[data-tip],.res-chip[data-tip],.minister[data-tip]{cursor:pointer}
 
 /* 목표 카드 — 열리는 것 한 줄 */
 .goal-card .gc-unlock{display:block; font-size:11.5px; color:var(--green-deep); margin-top:4px}
+/* ★ §19-E(F04-6) — 이 장에 남은 칸(장 진행 가시화) */
+.goal-card .gc-rest{display:block; font-size:11px; color:var(--ink2); margin-top:3px; opacity:.85}
 
 /* 자원칸 흡수 튀김 */
 .res-chip.absorb{animation:chipPop .34s steps(5)}
@@ -1244,6 +1246,9 @@ body.cutscene .toasts{bottom:74px}
 .th-turret{display:flex; align-items:center; gap:9px; padding:5px 9px; text-align:left;
   background:rgba(255,255,255,.3); border:2px solid var(--paper-deep); color:var(--ink); font-size:13px}
 .th-turret:hover{border-color:var(--gold-deep)}
+/* ★ §19-E(F04-4) — 침공 채비 줄. 채운 줄은 초록으로 눕고, 남은 줄이 눈에 띈다 */
+.th-ready{display:flex; justify-content:space-between; gap:10px; padding:3px 0; font-size:13px; color:var(--ink)}
+.th-ready.on{color:var(--leaf, #6a994e)}
 
 /* ── 집무실 표 ── */
 .price-rows,.labor-rows{display:flex; flex-direction:column; gap:5px}

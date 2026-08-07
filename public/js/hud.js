@@ -1060,6 +1060,15 @@
     if (w && w.unlocked && !w.active) {
       if (w.daysUntil != null) rows.push({ icon: 'sword', text: '웨이브 D-' + U.fmt(w.daysUntil, w.daysUntil < 2 ? 1 : 0) + (w.enemy && w.enemy.name ? ' · ' + w.enemy.name : '') });
       else if (w.daysUntilMin != null) rows.push({ icon: 'sword', text: '웨이브 D-' + U.fmt(w.daysUntilMin, 0) + '±' });
+      /* ★ §19-E(F04-4·F04-6) — 「무작정 대기」를 없애는 한 줄. 적을 기다리는 동안에도
+         **다음에 무엇을 하면 되는지**가 늘 여기 적힌다. 다 갖췄으면 앞당기는 길을 알린다. */
+      var rd = w.readiness;
+      if (rd && !rd.ok) {
+        var miss = rd.rows.filter(function (q) { return !q.ok; })[0];
+        if (miss) rows.push({ icon: 'shield', text: '침공 채비 — ' + miss.label + ' (' + U.fmt(miss.have, 0) + '/' + U.fmt(miss.need, 0) + ')' });
+      } else if (w.canRush) {
+        rows.push({ icon: 'shield', text: '채비 끝 — [울타리 앞]에서 적을 불러들일 수 있습니다' });
+      }
     }
     var r = v.research;
     if (r && r.active) {

@@ -227,6 +227,13 @@ export function measure(world, nation, cond, data) {
       const have = (nation.wave?.history || []).filter((h) => h.won).length;
       return { ok: have >= cond.count, have, need: cond.count };
     }
+    /* ★ §19-E(F04-5) — 「겪은 무리」. 이긴 것만 세면, 첫 무리를 못 막은 사람은 영원히 7장에 갇힌다.
+       졌으면 곳간을 헤집히고 건물이 상하는 **벌은 이미 받았다**(battle.js 전리품·구조물 피해).
+       그 위에 '장을 못 넘긴다'를 얹을 까닭이 없다 — 두 번째 무리를 겪으면 이야기는 흐른다. */
+    case 'wavesFaced': {
+      const have = (nation.wave?.history || []).length;
+      return { ok: have >= cond.count, have, need: cond.count };
+    }
     case 'tier': {
       const have = settlementTier(nation);
       return { ok: have >= cond.tier, have, need: cond.tier };
@@ -460,6 +467,9 @@ export function chapterView(world, nation, data) {
     endless: Boolean(ch.endless),
     stepIndex: p.step,
     stepCount: steps.length,
+    /* ★ §19-E(F04-6) — 이 장에 남은 칸들. 목표 카드가 「그다음엔 무엇이」를 한 줄로 미리 보인다.
+       왜 제목만 주나 — 조건 계측은 그 칸이 열린 뒤의 몫이고, 미리 재면 스포일러이자 헛계산이다. */
+    remaining: steps.slice(p.step + 1).map((s) => ({ key: s.key, title: s.short ?? s.title })),
     goal: st ? {
       key: st.key,
       title: st.title,

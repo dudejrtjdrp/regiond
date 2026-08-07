@@ -180,8 +180,16 @@
           "condition": {
             "type": "any",
             "of": [
-              { "type": "resource", "resource": "grain", "amount": 20 },
-              { "type": "resource", "resource": "meat", "amount": 7 }
+              {
+                "type": "resource",
+                "resource": "grain",
+                "amount": 20
+              },
+              {
+                "type": "resource",
+                "resource": "meat",
+                "amount": 7
+              }
             ]
           },
           "target": {
@@ -387,7 +395,8 @@
           "sawmill",
           "quarry_camp",
           "hunter_hut",
-          "appraisal_post"
+          "appraisal_post",
+          "bloomery"
         ],
         "features": [
           "mining",
@@ -517,7 +526,8 @@
           "arrow_tower",
           "ballista",
           "cannon",
-          "banner"
+          "banner",
+          "bloomery"
         ],
         "features": [
           "scout",
@@ -586,11 +596,20 @@
         },
         {
           "key": "wave_held",
-          "title": "첫 무리를 막아 내세요",
-          "sub": "언제 오는지는 위협 배지에 뜹니다. 검을 들고 직접 붙어도 됩니다 — 죽지 않습니다.",
+          "title": "첫 무리를 겪어 내세요",
+          "sub": "막아 내면 그 자리에서 넘어갑니다. 뚫리더라도 두 번째 무리를 겪으면 이야기는 흐릅니다 — 잃은 것은 다시 모으면 됩니다.",
           "condition": {
-            "type": "wavesHeld",
-            "count": 1
+            "type": "any",
+            "of": [
+              {
+                "type": "wavesHeld",
+                "count": 1
+              },
+              {
+                "type": "wavesFaced",
+                "count": 2
+              }
+            ]
           },
           "target": {
             "type": "camp"
@@ -639,7 +658,8 @@
           "smelter",
           "smithy",
           "mine_shaft",
-          "claim_flag"
+          "claim_flag",
+          "bloomery"
         ],
         "_openNote": "★ §17-9 피드백('강재를 얻을 루트가 없다') — 제련소·대장간·광산을 9장에서 8장으로 내렸다. 어차피 정착지 티어 3(requiresTier)이 진짜 문이라, 장 사슬이 늦게 풀리며 강재 루트가 통째로 잠기던 매듭만 푼 것이다. ★ §17-14 — 개척 깃발도 여기서 열린다: 무역이 열리는 장이면 바깥 땅으로 눈을 돌릴 때다.",
         "features": [],
@@ -729,7 +749,8 @@
           "smithy",
           "mine_shaft",
           "barracks",
-          "market"
+          "market",
+          "bloomery"
         ],
         "features": [
           "equipment"

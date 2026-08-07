@@ -5,7 +5,8 @@
 import { townOf, territoryRadius, dist } from './world.js';
 import { isVisible } from './fog.js';
 import { canSeeTacticHint } from './tactics.js';
-import { featureUnlocked } from './progression.js';
+// ★ §19-E(F04-4) — 침공 조건은 **장 목표와 같은 계측기**로 잰다(§13-A-1 조건 행의 단일 정본).
+import { featureUnlocked, measure } from './progression.js';
 import { warnBonusDays, turretList, militiaSlots, militiaBonus } from './structures.js';
 import { difficultyPreset } from './difficulty.js';
 import { round2, round3 } from './economy.js';
@@ -163,6 +164,47 @@ export function daysUntilWave(world, nation) {
 }
 
 // ────────────────────────────────────────────────────────────────
+// ★ §19-E(F04-4) — 침공 앞당기기. 「무작정 대기」를 없앤다.
+//
+// 왜. 흔적을 살핀 뒤 적이 오기까지 엿새다. 그 엿새 동안 화면은 아무 말도 하지 않았고,
+// 플레이어는 「무엇을 더 갖춰야 하는지」도 「언제 끝나는지」도 모른 채 기다렸다(QA 1차 F04-4).
+// 고침은 둘이다: ① 침공 조건을 **늘 보이게** 적어 준다 ② 그 조건을 다 채우면 **본인이 앞당긴다**.
+// 시간이 여는 것은 여전히 없다 — 앞당기는 것도 플레이어의 행동이다(§11 대원칙).
+// ────────────────────────────────────────────────────────────────
+export const rushCfg = (data) => wavesCfg(data).rush ?? null;
+
+/** 침공 준비가 되었는가 — 조건 행은 chapters.json 의 조건 문법을 그대로 쓴다 */
+export function waveReadiness(world, nation, data) {
+  const cfg = rushCfg(data);
+  if (!cfg?.enabled) return null;
+  const rows = (cfg.conditions || []).map((c) => {
+    const m = measure(world, nation, c, data);
+    return { label: c.label ?? '', have: m.have, need: m.need, ok: m.ok };
+  });
+  return { ok: rows.every((r) => r.ok), daysAhead: cfg.daysAhead ?? 1, rows };
+}
+
+/** 지금 앞당길 수 있는가 — 준비가 끝났고, 아직 그날이 하루보다 멀리 있을 때만 */
+export function canRushWave(world, nation, data) {
+  const cfg = rushCfg(data);
+  if (!cfg?.enabled || !nation?.isPlayer) return false;
+  if (!featureUnlocked(nation, 'waves', data)) return false;
+  if (nation.battle && !nation.battle.over) return false;
+  const days = daysUntilWave(world, nation);
+  if (days == null || days <= (cfg.daysAhead ?? 1)) return false;
+  return Boolean(waveReadiness(world, nation, data)?.ok);
+}
+
+/** 적을 불러들인다 — 도착일을 '다음날'로 당긴다. 서버 권위(명령 rushWave 하나만 이 문을 쓴다). */
+export function rushWave(world, nation, data) {
+  if (!canRushWave(world, nation, data)) return null;
+  const w = ensureWaveState(nation);
+  w.arrivalTick = world.tick + (rushCfg(data).daysAhead ?? 1);
+  w.rushedIndex = w.index;
+  return w.arrivalTick;
+}
+
+// ────────────────────────────────────────────────────────────────
 // 예고 — 캠프 · 예언
 // ────────────────────────────────────────────────────────────────
 function edgePoint(world, data, angleDeg) {
@@ -288,6 +330,11 @@ export function waveView(world, nation, viewerRole, data, hooks = {}) {
     unlocked,
     startTier: cfg.startTier,
     active: Boolean(nation.battle && !nation.battle.over),
+    /* ★ §19-E(F04-4) — 조건과 앞당김은 **정보 비대칭 바깥**이다. 적이 언제 오는지는 흐려도,
+       「내가 무엇을 더 갖춰야 하는지」는 언제나 또렷해야 한다(대기 중 할 일 제로 방지). */
+    readiness: waveReadiness(world, nation, data),
+    canRush: canRushWave(world, nation, data),
+    rushed: w.rushedIndex === w.index,
     history: (w.history || []).slice(-10).map((h) => ({
       index: h.index, number: h.index + 1, type: h.type, name: h.name, tick: h.tick,
       won: h.won, enemiesKilled: h.enemiesKilled, enemiesTotal: h.enemiesTotal,

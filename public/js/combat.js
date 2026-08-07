@@ -480,6 +480,34 @@
                          key: 'threat', icon: GM.icons.img('shield', 22) });
   }
 
+  /* ★ §19-E(F04-4·F04-6) — 침공 조건과 앞당기기.
+     왜 여기인가 — 「울타리 앞」은 방어를 재는 자리이고, 「무엇을 더 갖춰야 적이 오는가」는 그 자리의 말이다.
+     조건 행은 서버가 장 목표와 **같은 계측기**로 재어 준다(waves.waveReadiness) — 화면은 그리기만 한다. */
+  function paintReadiness(host, w) {
+    var rd = w && w.readiness;
+    if (!rd) return;
+    host.appendChild(U.el('h3', 'sec-title', '침공 채비'));
+    var box = U.el('div', 'scroll-card');
+    rd.rows.forEach(function (q) {
+      var line = U.el('div', 'th-ready' + (q.ok ? ' on' : ''));
+      line.appendChild(U.el('span', null, (q.ok ? '✓ ' : '· ') + q.label));
+      line.appendChild(U.el('span', 'num', U.fmt(q.have, 0) + ' / ' + U.fmt(q.need, 0)));
+      box.appendChild(line);
+    });
+    box.appendChild(U.el('p', 'hint', rd.ok
+      ? '채비가 끝났습니다. 기다릴 것 없이 그대가 그날을 당길 수 있습니다.'
+      : '이 줄들을 채우면 적을 앞당겨 부를 수 있습니다. 그 전에도 적은 제 날에 옵니다.'));
+    host.appendChild(box);
+    if (!w.canRush) return;
+    host.appendChild(U.btn('적을 불러들인다 — 다음날 온다', 'btn-primary', function () {
+      GM.net.send('rushWave', {}, function (r) {
+        if (r && r.ok === false) { U.toast((r.error && r.error.message) || '아직입니다.', 'bad'); return; }
+        U.toast('봉화를 올렸습니다 — 다음날 적이 옵니다.', 'good', 4200);
+        U.closeTopModal();
+      });
+    }));
+  }
+
   function paintThreat(host) {
     U.clear(host);
     var w = S.wave(), d = S.defense();
@@ -508,6 +536,8 @@
       if (w.tacticHint) card.appendChild(U.el('p', 'state-good', w.tacticHint.text || ''));
       host.appendChild(card);
     }
+
+    paintReadiness(host, w);
 
     var est = d.estimate || {};
     var g = U.makeGauge({ height: 24 });

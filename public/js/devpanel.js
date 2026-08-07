@@ -57,18 +57,14 @@
     speed.value = '30';
     speed.setAttribute('aria-label', '하루 길이(초)');
     r1.appendChild(speed);
-    r1.appendChild(U.btn('하루 길이', 'btn-sm', function () {
-      GM.net.post('/api/debug/speed', { tickRealSeconds: Number(speed.value) || 30 })
-        .then(function () { U.toast('하루가 ' + speed.value + '초.', 'good'); }).catch(err);
-    }));
+    r1.appendChild(U.btn('하루 길이', 'btn-sm', function () { setSpeed(Number(speed.value) || 30); }));
     panel.appendChild(r1);
 
     var presets = U.el('div', 'dev-row');
     [['0.5s', 0.5], ['3s', 3], ['30s', 30], ['600s', 600]].forEach(function (p) {
       presets.appendChild(U.btn(p[0], 'btn-sm btn-ghost', function () {
         speed.value = String(p[1]);
-        GM.net.post('/api/debug/speed', { tickRealSeconds: p[1] })
-          .then(function () { U.toast('하루가 ' + p[1] + '초.', 'good'); }).catch(err);
+        setSpeed(p[1]);
       }));
     });
     panel.appendChild(presets);
@@ -76,13 +72,13 @@
     var r2 = U.el('div', 'dev-row');
     var paused = S.S.view && S.S.view.paused;
     r2.appendChild(U.btn(paused ? '▶ 다시' : '‖ 멈춤', 'btn-sm', function () {
-      GM.net.post('/api/debug/pause', {}).then(function (r) {
+      devTime({ togglePause: true }, function (r) {
         U.toast(r && r.paused ? '시간을 멈췄습니다.' : '시간이 흐릅니다.', 'good');
         setTimeout(render, 120);
-      }).catch(err);
+      });
     }));
     r2.appendChild(U.btn('↦ 하루', 'btn-sm', function () {
-      GM.net.post('/api/debug/step', {}).then(function () { U.toast('하루 지났습니다.', 'good'); }).catch(err);
+      devTime({ step: true }, function () { U.toast('하루 지났습니다.', 'good'); });
     }));
     panel.appendChild(r2);
 
@@ -124,6 +120,25 @@
     var link = U.el('div', 'dev-note');
     link.textContent = 'WASD 군주 · 방향키 시선 · B 건설 · T 성문 방비 · C 작전 · E 손쓰기 · Esc 물림';
     panel.appendChild(link);
+  }
+
+  /* ★ §19-E(F04-9) — 시간 손잡이는 **소켓**으로 간다. REST /api/debug/speed 는 신원도 방도 없어
+     멀티에서 남의 방 시계를 밀 수 있었다(gameId 없이 anyGame). 서버가 세션으로 방장을 다시 판정한다.
+     구경 모드(mock)와 소켓이 없는 자리에서는 옛 REST 길로 물러선다. */
+  function devTime(payload, done) {
+    if (!GM.net.socket() || GM.net.isMock()) {
+      var path = payload.step ? '/api/debug/step' : (payload.togglePause ? '/api/debug/pause' : '/api/debug/speed');
+      GM.net.post(path, payload).then(function (r) { if (done) done(r); }).catch(err);
+      return;
+    }
+    GM.net.send('devTime', payload, function (r) {
+      if (r && r.ok === false) { err(new Error((r.error && r.error.message) || '거절되었습니다.')); return; }
+      if (done) done(r);
+    });
+  }
+
+  function setSpeed(sec) {
+    devTime({ tickRealSeconds: sec }, function () { U.toast('하루가 ' + sec + '초.', 'good'); });
   }
 
   function err(e) {

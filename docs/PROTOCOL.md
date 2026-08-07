@@ -454,6 +454,61 @@ TrailView { id, key, kind:'chain'|'micro', x, y, name, art, verb, ready }
 
 ---
 
+## 0-M. v3.3 안 델타 — **진행 흐름과 경제** (§19-E · QA1차 F04-4~7 · F04-9 · F06-1)
+
+**판번호를 올리지 않는다.** 전부 **더하기**다 — 삭제도 의미 변경도 없고 `world.schema` **6** 그대로다.
+옛 세이브에 없는 것(`nation.wave.rushedIndex`)은 없으면 `undefined` 로 읽히고 뷰가 `false` 를 내므로
+그대로 돈다. 장 진행(`nation.progress`)의 뜻도 바뀌지 않았다 — 7장 마지막 칸의 조건이 **넓어졌을 뿐**이라
+이미 그 칸을 통과한 세이브는 통과한 채로 남는다.
+
+### 0-M-1. 신설 — 명령 (C→S)
+
+| 명령 | 페이로드 | 서버가 하는 일 | 거절 |
+|---|---|---|---|
+| `rushWave` | (없음) | ★ 침공 앞당기기. `waves.canRushWave` 로 **서버가 다시 재고** 도착일을 `waves.rush.daysAhead` 일 뒤로 당긴다. 선발대 캠프도 그 자리에서 세운다 | `NOT_READY` — 채비가 덜 됐거나, 웨이브가 안 잡혔거나, 이미 하루 앞이거나, 전투 중 |
+| `devTime` | `{tickRealSeconds?, paused?, togglePause?, step?}` | ★ 개발·QA 전용 시간 손잡이. **방장만**(방에 남아 있는 사람 중 가장 먼저 들어온 이) 받는다. 바뀐 하루 길이는 `timeScale` 로 방 전체에 흘린다 | `NOT_FOUND`(운영에서 뒷문 잠김) · `NOT_JOINED` · `NOT_HOST` |
+
+> `devTime` 이 REST `/api/debug/speed` 를 대신하는 까닭: REST 는 신원도 방도 없어 `gameId` 를 안 주면
+> **아무 방이나**(`anyGame`) 집었다 — 멀티에서 남의 방 시계를 밀 수 있었다. REST 뒷문은 도구(E2E·하니스)용으로 남는다.
+
+### 0-M-2. 신설 — 이벤트 (S→C)
+
+| 이벤트 | 언제 | 페이로드 | 클라가 할 일 |
+|---|---|---|---|
+| `timeScale` | 방장이 `devTime` 을 쓸 때 | `{tickRealSeconds, paused, tick}` | `config.time.dayRealSeconds`·`tickRealSeconds` 를 받아 적는다(해·달·주민 사이클이 전부 이 값을 본다) |
+| `wave_rushed` | `rushWave` 성공 | `{index, number, name, daysUntil}` | 연대기·알림 (`events` 채널로 온다) |
+
+### 0-M-3. 신설 — 뷰 필드
+
+| 자리 | 필드 | 뜻 |
+|---|---|---|
+| `nation.wave` | `readiness` | ★ `{ok, daysAhead, rows:[{label, have, need, ok}]}`. **정보 비대칭 바깥이다** — 적이 언제 오는지는 흐려도 「내가 무엇을 더 갖춰야 하는지」는 언제나 또렷하다. `rows` 는 `data/waves.json` 의 `rush.conditions` 를 **장 목표와 같은 계측기**(`progression.measure`)로 잰 값이다 |
+| `nation.wave` | `canRush` | 지금 `rushWave` 를 보낼 수 있는가(화면의 단추 유무) |
+| `nation.wave` | `rushed` | 이번 웨이브를 이미 당겼는가 |
+| `state.chapter` | `remaining` | ★ `[{key, title}]` — 이 장에 **남은 칸**들의 제목. 조건은 재지 않는다(열리지 않은 칸의 숫자는 스포일러이자 헛계산) |
+
+### 0-M-4. 넓어진 조건 — `wavesFaced` (F04-5)
+
+조건 문법에 `{"type":"wavesFaced","count":N}` 가 늘었다 — **이기든 지든** 겪은 무리의 수다.
+7장 마지막 칸이 `any(wavesHeld 1, wavesFaced 2)` 가 되어, 첫 무리를 놓쳐도 두 번째를 겪으면 장이 넘어간다.
+벌은 이미 전투가 준다(전리품·구조물 피해·사기) — 그 위에 「장을 못 넘긴다」를 얹지 않는다.
+`wavesHeld` 의 뜻은 그대로다: 옛 세이브에서 이미 막아 낸 사람은 예전과 똑같이 통과한다.
+
+### 0-M-5. 부패는 곳간 상한 앞에서 멈춘다 (QA-A 되튐)
+
+`economy.applySpoilage(nation, data, floor)` 에 세 번째 인자가 늘었고, `tick.js` 가 `storage.spoilFloor` 를 준다.
+단단한 상한(§0-Y-4)이 무른 문턱(`storageCapacity`)보다 높으면 그 사이는 **채집은 멎었는데 매일 깎이는** 구간이었다
+(실측: 상한 500 · 목재 문턱 315 · 하루 −3.68 → 자원칸이 496↔499 로 되튐). 이제 곳간 **안**에 든 것은 썩지 않는다.
+상한을 넘겨 받은 몫(교역·전리품·환급)은 그대로 서서히 덜린다 — §0-Y-4 가 말한 「넘친 재고」가 정확히 그것이다.
+다이얼은 `balance.storage.spoilRespectsLimit`(false 로 두면 옛 규칙).
+
+### 0-M-6. 자료만 바뀐 것 (계약 아님)
+
+`data/waves.json` `rush`(신설) · `settlementScale.reference` 110→118 ·
+`data/buildings.json` `bloomery`(신설, 6장) 와 산출 건물 상향 · `data/chapters.json` 6장 `opens.buildings`.
+
+---
+
 ## 0-N. v3.3 안 델타 — **위치 보간 다이얼** (§19-B · QA1차 B02-1)
 
 **판번호를 올리지 않는다.** 이벤트도 페이로드도 그대로다 — `/api/config` 의 `world` 에 **화면만 보는 값 둘**이

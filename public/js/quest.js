@@ -60,6 +60,11 @@
     var where = pointerText(g);
     if (where) card.appendChild(U.el('span', 'gc-unlock', where));
 
+    /* ★ §19-E(F04-6) — 이 장에 남은 칸. 「이 장이 언제까지 막힐지 모르겠다」의 답이다.
+       조건까지 미리 재지는 않는다 — 열리지 않은 칸의 숫자는 스포일러이자 헛계산이다. */
+    var rest = (ch.remaining || []).map(function (r) { return r.title; });
+    if (rest.length) card.appendChild(U.el('span', 'gc-rest', '이 장에 남은 것 — ' + rest.join(' · ')));
+
     /* ② 카드를 누르면 목표로 시선이 뛴다 */
     card.classList.add('clickable');
     card.onclick = function () { jumpToGoal(); };

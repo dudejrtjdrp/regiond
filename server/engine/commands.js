@@ -15,6 +15,8 @@ import {
   validateAppearance, normalizeAppearance, pushChat, memberAppearance, upsertMember, normalizeMembers,
 } from './social.js';
 import { normalizeBattlePlan } from './tactics.js';
+// ★ §19-E(F04-4) — 침공 앞당기기. 준비를 끝낸 사람이 제 손으로 그날을 당긴다.
+import { rushWave, canRushWave, nextWaveSpec, ensureCamps, campEventView, daysUntilWave } from './waves.js';
 import { adviceCommand } from './advisor.js';
 import {
   assignByAlloc, assignByMix, commandVillagers as placeVillagers, deriveLabor, mixFromAlloc,
@@ -897,6 +899,20 @@ function runCommand(world, nationId, cmd, data, rng) {
       if (norm.error) return { ok: false, error: norm.error };
       nation.battlePlan = { tactic: norm.plan.tactic, setTick: world.tick };
       return ok({ battlePlan: nation.battlePlan });
+    }
+
+    /* ── ★ §19-E(F04-4) 침공 앞당기기 ────────────────────────────
+       준비 조건(data/waves.json rush.conditions)을 다 채웠을 때만 열린다. 서버가 다시 재고
+       당긴다 — 화면이 보낸 「준비됐다」는 믿지 않는다. 캠프도 그 자리에서 세워 예고가 보이게 한다. */
+    case 'rushWave': {
+      if (!canRushWave(world, nation, data)) return err('NOT_READY', '아직 적을 부를 준비가 되지 않았습니다.');
+      const at = rushWave(world, nation, data);
+      const spec = nextWaveSpec(world, nation, data);
+      const events = ensureCamps(world, nation, data)
+        .map((c) => ({ kind: 'camp_spotted', nationId: nation.id, data: campEventView(c, data) }));
+      events.push({ kind: 'wave_rushed', nationId: nation.id,
+        data: { index: spec.index, number: spec.index + 1, name: spec.name, daysUntil: daysUntilWave(world, nation) } });
+      return ok({ arrivalTick: at, daysUntil: daysUntilWave(world, nation), events });
     }
 
     case 'setAutoAssist': {

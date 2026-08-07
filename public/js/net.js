@@ -52,7 +52,11 @@
     /* ★ §17-16 — 이웃 나라 찾아가기(도읍 앞에 서면 그 나라의 시세가 열린다) */
     'visitNation',
     /* ★ §18-D2 — 앞마당의 흔적 조사(1차 = 살핀다 · 2차 = choice 확정, 같은 명령이다) */
-    'investigateTrail'
+    'investigateTrail',
+    /* ★ §19-E(F04-4) — 침공 앞당기기(준비를 끝냈을 때만 서버가 받는다) */
+    'rushWave',
+    /* ★ §19-E(F04-9) — 개발 뒷문의 시간 손잡이. 서버가 방장인지 다시 판정한다. */
+    'devTime'
   ];
 
   var socket = null;
@@ -188,6 +192,8 @@
     socket.on('battleTick', function (p) { S.set({ battle: p }); S.emit('battleTick', p); });
     socket.on('waveResult', function (p) { S.set({ battle: null, lastWave: p }); S.emit('waveResult', p); });
     socket.on('chronicle', function (p) { S.set({ chronicle: p }); S.emit('chronicle', p); });
+    /* ★ §19-E(F04-9) — 방장이 시계를 돌렸다. 방 전체가 같은 하루 길이를 쓴다(해가 사람마다 다르면 안 된다). */
+    socket.on('timeScale', function (p) { S.applyTimeScale(p); S.emit('timeScale', p); });
     /* 동료의 스윙 — 창고는 나라 공용이라 잔고·노드 잔량은 함께 갱신한다(솜씨 장부는 제외) */
     socket.on('swing', function (p) {
       try { S.applyAck(p && p.type, p, { self: false }); } catch (e) {}

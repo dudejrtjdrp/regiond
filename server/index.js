@@ -108,6 +108,18 @@ function emitAvatars(gameId, nation, exceptSocket = null) {
   to.emit('avatars', avatarViews(nation, data));
 }
 
+/**
+ * ★ §19-E(F04-9) — 방장. 이 방에 **남아 있는 사람 가운데 가장 먼저 들어온 이**다.
+ *
+ * 왜 저장하지 않나 — 방장은 권한이지 재산이 아니다. 세션 표(Map)는 들어온 차례를 그대로 지키므로
+ * 여기서 한 줄로 파생된다. 방장이 나가면 다음 사람이 자동으로 이어받고, 다시 들어오면 맨 뒤에 선다.
+ * 아무도 없으면 null 이다 — 그때는 도구(E2E·하니스)의 REST 호출만 남으므로 검사할 사람이 없다.
+ */
+function hostOf(gameId) {
+  for (const s of sessions.values()) if (s.gameId === gameId) return s.avatarId ?? s.playerName;
+  return null;
+}
+
 // ────────────────────────────────────────────────────────────────
 // 게임 런타임
 // ────────────────────────────────────────────────────────────────
@@ -594,6 +606,8 @@ const CLIENT_COMMANDS = [
   'visitNation',
   // ★ §18-D2 — 앞마당의 흔적 조사(발자국 사슬 · 돌무더기 · 둥지 · 우물 · 석상)
   'investigateTrail',
+  // ★ §19-E(F04-4) — 침공 앞당기기. 준비를 끝낸 사람이 제 손으로 그날을 당긴다.
+  'rushWave',
 ];
 
 /** ★ 신원(누구의 아바타인가)은 서버 세션이 정한다 — 클라가 보낸 avatarId·playerName 은 신뢰하지 않는다. */
@@ -626,6 +640,25 @@ function readAck(payload, maybeAck) {
 function ackPayload(res) {
   const { events, ...rest } = res;
   return rest;
+}
+
+/** devTime 을 거절할 까닭 하나 — 없으면 null */
+function devTimeDenial(session, rt) {
+  if (!debugApiEnabled()) return { code: 'NOT_FOUND', message: '없는 길입니다.' };
+  if (!session || !rt) return { code: 'NOT_JOINED', message: '먼저 접속하세요.' };
+  const host = hostOf(rt.gameId);
+  const who = session.avatarId ?? session.playerName;
+  if (host && who !== host) return { code: 'NOT_HOST', message: '시간은 방장만 돌릴 수 있습니다.' };
+  return null;
+}
+
+/** 하루 길이 · 멈춤 · 하루 넘기기 — 셋을 한 문으로 받는다(방 전체에 같은 시계를 돌린다) */
+function applyDevTime(rt, payload) {
+  if (payload.tickRealSeconds != null) rt.setSpeed(payload.tickRealSeconds);
+  if (payload.paused != null) rt.setPaused(payload.paused);
+  else if (payload.togglePause) rt.setPaused(!rt.world.paused);
+  if (payload.step) rt.advance();
+  return { tickRealSeconds: rt.tickRealSeconds, paused: Boolean(rt.world.paused), tick: rt.world.tick };
 }
 
 /** 실시간 ack 에 실어 보내는 창고 잔고(권위값) — 소수 둘째 자리까지 */
@@ -712,6 +745,26 @@ io.on('connection', (socket) => {
       const { ack } = readAck(rawPayload, rawAck);
       if (ack) ack({ ok: false, error });
     }
+  });
+
+  /**
+   * ★ §19-E(F04-9) — 멀티 시간 가속. **서버 권위 · 방장만.**
+   *
+   * 왜 REST 가 아니라 소켓인가 — /api/debug/speed 는 신원이 없어 gameId 를 안 주면 아무 방이나
+   * 집었고(anyGame), 누가 눌렀는지도 알 수 없었다. 그래서 멀티에서는 남의 방 시계를 밀 수 있었다.
+   * 소켓은 세션이 곧 신원이고 방이다 — 그 둘을 서버가 쥔 채로 판정한다.
+   * 바뀐 하루 길이는 방 전체에 흘린다(timeScale) — 사람마다 다른 속도의 해가 뜨면 안 된다.
+   * 운영(NODE_ENV=production)에서는 뒷문이 잠기므로 이 문도 함께 닫힌다.
+   */
+  socket.on('devTime', (rawPayload = {}, rawAck) => {
+    const { payload, ack } = readAck(rawPayload, rawAck);
+    const s = sessions.get(socket.id);
+    const rt = s ? games.get(s.gameId) : null;
+    const deny = devTimeDenial(s, rt);
+    if (deny) { socket.emit('serverError', deny); if (ack) ack({ ok: false, error: deny }); return; }
+    const out = applyDevTime(rt, payload);
+    io.to(rt.gameId).emit('timeScale', out);
+    if (ack) ack({ ok: true, ...out });
   });
 
   socket.on('requestWorld', (rawPayload = {}, rawAck) => {
