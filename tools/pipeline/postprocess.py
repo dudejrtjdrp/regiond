@@ -13,7 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections import Counter
+from collections import Counter, deque
 from pathlib import Path
 
 from PIL import Image
@@ -156,6 +156,135 @@ def binarize_alpha(img: Image.Image, cutoff: int = ALPHA_CUTOFF) -> Image.Image:
     alpha = rgba.getchannel("A").point(lambda a: 255 if a >= cutoff else 0)
     rgba.putalpha(alpha)
     return rgba
+
+
+# --------------------------------------- 1-b단계: 마젠타 실패 시 테두리 배경 폴백
+
+# 「왜」 모델이 마젠타 지시를 무시하고 회색 스튜디오·베이지 배경을 그리는 일이 잦다.
+#      그러면 키 제거가 거의 아무것도 못 지우고, 뒤의 양자화가 배경을 팔레트색으로
+#      바꿔 놓아 눈에도 안 띈 채 QA를 통과한다. 커버리지가 낮으면 폴백을 돈다.
+MIN_KEY_COVERAGE = 0.08     # 키 제거가 이보다 적게 지웠으면 '마젠타 배경이 아니었다'
+BORDER_BAND = 3             # 테두리 색을 통계 낼 띠 두께(px)
+FLOOD_BASE_TOL = 26         # 적응 임계의 하한
+FLOOD_SPREAD_K = 2.2        # 테두리 색 분산에 곱하는 계수(그림자·비네트 흡수용)
+FLOOD_MAX_TOL = 120
+FLOOD_MIN_REMOVED = 0.04    # 이만큼도 못 지우면 폴백 실패로 본다
+FLOOD_MAX_REMOVED = 0.92    # 이만큼 지웠으면 피사체까지 먹은 것으로 본다
+FLOOD_LOCAL_TOL = 6         # 이웃 픽셀과의 국소 허용 거리(완만한 그라데이션만 따라간다)
+FLOOD_CEILING_MARGIN = 60   # 시드색에서 이만큼 넘게 멀어지면 피사체로 보고 멈춘다
+FLOOD_MIN_SHARE = 0.25      # 테두리가 이만큼도 한 색으로 안 덮이면 단색 배경이 아니다
+FLOOD_SEED_RADIUS = 70      # 분산을 잴 때 '배경으로 볼' 최대 거리
+ALREADY_CUT = 0.10          # 원본이 이미 이만큼 투명하면 배경은 처리된 것으로 본다
+
+
+def _border_pixels(px: list, w: int, h: int, band: int = BORDER_BAND) -> list:
+    """「왜」 이미 투명한 테두리 픽셀의 RGB는 의미 없는 값(대개 검정)이다. 통계에서 뺀다."""
+    return [px[y * w + x] for y in range(h) for x in range(w)
+            if (x < band or y < band or x >= w - band or y >= h - band)
+            and px[y * w + x][3] >= 250]
+
+
+def border_profile(img: Image.Image, band: int = BORDER_BAND) -> dict:
+    """테두리 4변의 지배색과 그 색 주변의 분산을 낸다. 폴백 임계의 근거."""
+    rgba = img.convert("RGBA")
+    edge = _border_pixels(pixels(rgba), rgba.width, rgba.height, band)
+    if not edge:
+        return {"color": (0, 0, 0), "share": 0.0, "tolerance": FLOOD_BASE_TOL}
+    color, share = _dominant_color(edge)
+    return {"color": color, "share": share, "tolerance": _adaptive_tolerance(edge, color)}
+
+
+def _dominant_color(edge: list) -> tuple[tuple[int, int, int], float]:
+    """「왜」 그라데이션 배경은 정확히 같은 색이 아니다. 8단위 버킷으로 뭉쳐 최빈 덩어리를 찾는다."""
+    buckets = Counter((p[0] // 8, p[1] // 8, p[2] // 8) for p in edge)
+    key, count = buckets.most_common(1)[0]
+    members = [p for p in edge if (p[0] // 8, p[1] // 8, p[2] // 8) == key]
+    return (_mean_rgb(members), count / len(edge))
+
+
+def _mean_rgb(members: list) -> tuple[int, int, int]:
+    n = len(members)
+    return tuple(int(round(sum(p[i] for p in members) / n)) for i in range(3))
+
+
+def _adaptive_tolerance(edge: list, color: tuple[int, int, int]) -> int:
+    """「왜」 테두리에는 피사체도 닿는다. 지배색 근처(=배경으로 볼 만한) 픽셀만으로 퍼짐을 재야
+       그림자·비네트는 흡수하면서 피사체 색까지 임계에 끌어들이지 않는다."""
+    near = sorted(d for d in (_sq_dist(p[:3], color) ** 0.5 for p in edge) if d <= FLOOD_SEED_RADIUS)
+    if not near:
+        return FLOOD_BASE_TOL
+    cut = near[min(len(near) - 1, int(len(near) * 0.90))]
+    return int(min(FLOOD_MAX_TOL, max(FLOOD_BASE_TOL, FLOOD_BASE_TOL + cut * FLOOD_SPREAD_K)))
+
+
+def remove_border_background(img: Image.Image, profile: dict | None = None) -> tuple[Image.Image, float]:
+    """테두리에 닿아 있는 배경색 영역만 flood-fill로 지운다. 내부의 같은 색은 살린다."""
+    rgba = img.convert("RGBA")
+    prof = profile or border_profile(rgba)
+    px = pixels(rgba)
+    removed = _flood_from_border(px, rgba.width, rgba.height, prof["color"], prof["tolerance"])
+    rgba.putdata(px)
+    return (rgba, removed / max(1, len(px)))
+
+
+def _flood_from_border(px: list, w: int, h: int, color, tol: int) -> int:
+    """「왜」 4방향 flood-fill이라 배경과 끊긴 내부 동색 픽셀(눈동자·금속면)은 보존된다."""
+    seed = _limits(color, tol)
+    seen = bytearray(len(px))
+    queue = deque(i for i in _border_indices(w, h) if _matches(px[i], color, seed["tol"]))
+    for i in queue:
+        seen[i] = 1
+    return _drain(queue, px, w, h, seed, seen)
+
+
+def _limits(color, tol: int) -> dict:
+    """「왜」 비네트가 있는 배경은 한 임계로 안 잡힌다. 국소 연속성으로 그라데이션을 따라가되,
+       시드색에서 너무 멀어지지 않게 천장을 둔다 — 그 천장이 피사체로 새는 걸 막는다."""
+    ceiling = min(FLOOD_MAX_TOL, tol + FLOOD_CEILING_MARGIN)
+    return {"color": color, "tol": tol * tol,
+            "local": FLOOD_LOCAL_TOL * FLOOD_LOCAL_TOL,
+            "ceiling": ceiling * ceiling}
+
+
+def _drain(queue: deque, px: list, w: int, h: int, seed: dict, seen: bytearray) -> int:
+    removed = 0
+    while queue:
+        i = queue.popleft()
+        here = px[i]
+        px[i] = (here[0], here[1], here[2], 0)
+        removed += 1
+        _push_neighbors(queue, px, i, w, h, here, seed, seen)
+    return removed
+
+
+def _push_neighbors(queue: deque, px: list, i: int, w: int, h: int,
+                    here, seed: dict, seen: bytearray) -> None:
+    for n in _neighbors(i, w, h):
+        if seen[n] or not _accepts(px[n], here, seed):
+            continue
+        seen[n] = 1
+        queue.append(n)
+
+
+def _accepts(pixel, here, seed: dict) -> bool:
+    """시드색에 가깝거나(평평한 배경), 직전 픽셀과 국소 연속이면(그라데이션) 배경으로 본다."""
+    far = _sq_dist(pixel[:3], seed["color"])
+    if far <= seed["tol"]:
+        return True
+    if far > seed["ceiling"]:
+        return False
+    return _sq_dist(pixel[:3], here[:3]) <= seed["local"]
+
+
+def _matches(pixel, color, limit: int) -> bool:
+    return _sq_dist(pixel[:3], color) <= limit
+
+
+def _border_indices(w: int, h: int) -> list[int]:
+    top = [x for x in range(w)]
+    bottom = [(h - 1) * w + x for x in range(w)]
+    sides = [y * w + e for y in range(h) for e in (0, w - 1)]
+    return top + bottom + sides
 
 
 # ------------------------------------------------------------- 2단계: halo 제거
@@ -369,7 +498,7 @@ def _merged_options(options: dict | None) -> dict:
 
 def _process_sprite(raw: Image.Image, dst: Path, spec: dict, opts: dict) -> dict:
     """캐릭터·오브젝트·아이콘 경로: 배경 제거 → 트림 → 정수 축소 → 양자화 → 앵커."""
-    cleaned = _clean_background(raw, opts)
+    cleaned, fallback = _clean_background(raw, opts)
     trimmed = trim_content(cleaned)
     if trimmed.getchannel("A").getbbox() is None:
         raise ValueError(f"{src_name(dst)}: 배경을 지우고 나니 남은 픽셀이 없습니다 — 마젠타 배경 프롬프트나 임계값을 확인하세요.")
@@ -377,7 +506,7 @@ def _process_sprite(raw: Image.Image, dst: Path, spec: dict, opts: dict) -> dict
     small = integer_downscale(trimmed, factor, opts["downscale_filter"])
     small = trim_content(quantize_to_palette(small, opts["palette"], opts["quantize_strength"]))
     final = place_on_canvas(small, spec["canvas"], spec["anchor"], opts["margin"])
-    return _write_report(final, dst, factor, small.size, spec)
+    return _write_report(final, dst, factor, small.size, spec, fallback)
 
 
 def _process_tile(raw: Image.Image, dst: Path, spec: dict, opts: dict) -> dict:
@@ -388,14 +517,55 @@ def _process_tile(raw: Image.Image, dst: Path, spec: dict, opts: dict) -> dict:
     small = small.resize((cw, chh), Image.Resampling.NEAREST)
     final = quantize_to_palette(small, opts["palette"], opts["quantize_strength"])
     final.putalpha(255)
-    return _write_report(final, dst, factor, final.size, spec)
+    return _write_report(final, dst, factor, final.size, spec, False)
 
 
-def _clean_background(raw: Image.Image, opts: dict) -> Image.Image:
-    keyed = remove_key_color(raw, opts["key"], opts["key_tolerance"])
+def _clean_background(raw: Image.Image, opts: dict) -> tuple[Image.Image, bool]:
+    """배경을 지우고, 마젠타가 아니라 테두리 폴백을 썼는지 여부를 함께 돌려준다."""
+    keyed, coverage = _key_pass(raw, opts)
+    keyed, fallback = _fallback_if_needed(raw, keyed, coverage, opts)
     early = trim_content(keyed)  # 「왜」 halo 검사는 픽셀 단위라 먼저 여백을 버려 시간을 줄인다.
     haloed = strip_halo(early, opts["key"], opts["halo_tolerance"], opts["halo_rounds"])
-    return bleed_rgb(binarize_alpha(despeckle(haloed)))
+    return (bleed_rgb(binarize_alpha(despeckle(haloed))), fallback)
+
+
+def _key_pass(raw: Image.Image, opts: dict) -> tuple[Image.Image, float]:
+    keyed = remove_key_color(raw, opts["key"], opts["key_tolerance"])
+    cleared = sum(1 for a in pixels(keyed.getchannel("A")) if a == 0)
+    return (keyed, cleared / max(1, raw.width * raw.height))
+
+
+def _fallback_if_needed(raw: Image.Image, keyed: Image.Image,
+                        coverage: float, opts: dict) -> tuple[Image.Image, bool]:
+    """마젠타가 거의 안 지워졌으면 모델이 다른 배경을 그린 것이다. 테두리 색으로 다시 시도한다."""
+    if coverage >= opts.get("min_key_coverage", MIN_KEY_COVERAGE):
+        return (keyed, False)
+    if _already_cut(raw) >= ALREADY_CUT:
+        return (keyed, False)  # 「왜」 이미 배경이 빠진 PNG를 또 파내면 피사체가 깎인다.
+    profile = border_profile(raw)
+    if profile["share"] < FLOOD_MIN_SHARE:
+        print(f"  ! 테두리가 단색이 아닙니다(지배색 점유 {profile['share']:.0%}) — 폴백을 건너뜁니다.")
+        return (keyed, False)
+    return _apply_fallback(raw, keyed, coverage, profile)
+
+
+def _apply_fallback(raw: Image.Image, keyed: Image.Image,
+                    coverage: float, profile: dict) -> tuple[Image.Image, bool]:
+    flooded, removed = remove_border_background(raw, profile)
+    if not FLOOD_MIN_REMOVED <= removed <= FLOOD_MAX_REMOVED:
+        print(f"  ! 배경 폴백 실패(제거율 {removed:.1%}) — 마젠타 결과를 그대로 씁니다.")
+        return (keyed, False)
+    print(f"  ! 마젠타 배경이 아닙니다(키 제거 {coverage:.1%}) — "
+          f"테두리색 {profile['color']} 임계 {profile['tolerance']}로 {removed:.1%} 제거")
+    return (flooded, True)
+
+
+def _already_cut(raw: Image.Image) -> float:
+    """원본이 이미 투명 영역을 갖고 있는 비율."""
+    if raw.mode != "RGBA":
+        return 0.0
+    alpha = pixels(raw.getchannel("A"))
+    return sum(1 for a in alpha if a < 250) / max(1, len(alpha))
 
 
 def _target_box(spec: dict) -> tuple[int, int]:
@@ -403,12 +573,14 @@ def _target_box(spec: dict) -> tuple[int, int]:
     return (spec["canvas"][0], spec["content"][1])
 
 
-def _write_report(final: Image.Image, dst: Path, factor: int, content: tuple[int, int], spec: dict) -> dict:
+def _write_report(final: Image.Image, dst: Path, factor: int, content: tuple[int, int],
+                  spec: dict, bg_fallback: bool = False) -> dict:
     dst.parent.mkdir(parents=True, exist_ok=True)
     final.save(dst, "PNG", optimize=True)
     return {
         "path": str(dst), "canvas": list(final.size), "pixelSize": list(content),
         "factor": factor, "contentFit": _fit_note(content[1], spec),
+        "bgFallback": bg_fallback,
     }
 
 

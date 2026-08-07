@@ -7,8 +7,8 @@
       "category": "tree",
       "subcategory": "node",
       "size": "128x192",
-      "candidates": 4,
-      "desc": "a tight stand of three timber trees sharing one root mass, straight trunks of different thickness with rough furrowed bark and old branch scars, their canopies overlapping into a single broad crown of layered leaf clusters, two lower limbs breaking the silhouette, fallen leaves and one short cut log at the foot, trunk bases flush with the bottom edge"
+      "candidates": 6,
+      "desc": "three overlapping broadleaf trees growing as one dense clump, shared canopy, lush green foliage in summer greens, straight trunks of different thickness rising from one shared root mass and merging into a single connected leaf mass, no autumn colors, no red or orange or silver leaves, trunk bases flush with the bottom edge"
     },
     {
       "id": "plant/berry_bush",
@@ -25,8 +25,8 @@
       "category": "mineral",
       "subcategory": "node",
       "size": "96x96",
-      "candidates": 4,
-      "desc": "a split boulder with an iron vein running through it, angular gray stone faces cracked open to expose a rust-brown ore band shot with dull metallic glints, chipped corners and orange staining running down the shaded face, broken ore chunks scattered at the foot, base flush with the bottom edge"
+      "candidates": 6,
+      "desc": "a single large boulder with exposed rusty iron ore veins, one solid mass of gray faceted stone with chipped edges and small cracks, rust-brown and deep red metallic veins threading across the broken faces, a few pebbles at the base, sturdy and weighty, an inanimate rock object only, no people, base flush with the bottom edge"
     },
     {
       "id": "mineral/coal_node",
@@ -34,8 +34,8 @@
       "category": "mineral",
       "subcategory": "node",
       "size": "96x96",
-      "candidates": 4,
-      "desc": "an exposed coal seam, a low gray rock shelf broken open to show a thick glossy black band with sharp shell-like fracture facets, loose coal lumps spilled at the base, black dust smudging the pale stone around the break, base flush with the bottom edge"
+      "candidates": 6,
+      "desc": "a single large boulder with an exposed coal seam, one solid mass of gray faceted stone broken open to show a thick glossy black band with sharp shell-like fracture faces, coal dust darkening the stone below, a few chips at the base, an inanimate rock object only, no people, base flush with the bottom edge"
     },
     {
       "id": "mineral/oil_seep",
@@ -43,8 +43,8 @@
       "category": "mineral",
       "subcategory": "node",
       "size": "96x96",
-      "candidates": 4,
-      "desc": "an oil seep in the ground, a shallow depression ringed by dark stained earth holding a glossy black pool with slow iridescent sheen bands across it, a sticky tar crust cracking around the rim, two reed stalks and one half-sunken stone at the edge, base flush with the bottom edge"
+      "candidates": 6,
+      "desc": "a single dark tar pool bubbling between cracked rocks, one shallow rocky basin holding glossy black liquid with amber and violet sheen highlights on its surface, the surrounding soil stained black and wet, two or three low stone lips framing the pool as one connected object, no creatures, no people, an inanimate ground object only, base flush with the bottom edge"
     },
     {
       "id": "mineral/ruin_block",
@@ -52,8 +52,8 @@
       "category": "mineral",
       "subcategory": "node",
       "size": "96x96",
-      "candidates": 4,
-      "desc": "the remains of an old stone structure, two toppled cut blocks and a broken pillar drum in pale gray granite, a worn geometric relief still legible on one face, thick moss along the shaded edges and grass sprouting from a joint, rubble chips heaped at the foot, base flush with the bottom edge"
+      "candidates": 6,
+      "desc": "the remains of an old stone structure gathered as one single cluster, two toppled cut blocks and a broken pillar drum in pale gray granite leaning against each other as one connected pile, weathered chipped corners with moss in the seams, one object group only, not a row of separate blocks, base flush with the bottom edge"
     },
     {
       "id": "mineral/cache_mound",
@@ -61,8 +61,8 @@
       "category": "mineral",
       "subcategory": "node",
       "size": "96x96",
-      "candidates": 4,
-      "desc": "a buried supply cache half dug out of the earth, a low mound of loose soil with the rope-bound corner of a wooden chest and a canvas bundle pushing through, a rusted iron band and a broken plank beside it, a fresh shovel cut trenched at the front, base flush with the bottom edge"
+      "candidates": 6,
+      "desc": "one single half-buried wooden crate under a canvas tarp, packed as one compact mound, two lumpy sacks resting on the crate lid and lashed down with rope so the whole thing reads as a single connected bundle, loose soil banked around the base hiding the lower half, one object only, not a row of crates, base flush with the bottom edge"
     },
     {
       "id": "plant/field_wild",
@@ -70,8 +70,8 @@
       "category": "plant",
       "subcategory": "node",
       "size": "96x96",
-      "candidates": 4,
-      "desc": "a patch of self-sown grain gone wild, uneven ranks of tall stalks with drooping seed heads rising from clumpy broken soil, thistles and broadleaf weeds mixed in among them, a few stalks flattened at the front, base flush with the bottom edge"
+      "candidates": 6,
+      "desc": "one square patch of tilled dark soil with a few young sprouts growing in rows, seen as one plot, three or four low parallel earth ridges filling one small connected ground tile, thin green shoots and a few wild grass tufts rising from the ridges, one continuous patch of ground, not separate pots or planters, a low flat ground object seen from a top-down three-quarter view"
     },
     {
       "id": "tree/pine_snow",
@@ -169,8 +169,8 @@
       "category": "mineral",
       "subcategory": "prop",
       "size": "64x64",
-      "candidates": 4,
-      "desc": "a small scatter of loose stones, six rounded gray pebbles of differing size with one flat flake resting across another, chipped facets catching the light on the upper stones, fine grit and sand gathered around them, base flush with the bottom edge"
+      "candidates": 6,
+      "desc": "one single cluster of loose stones heaped together, six rounded gray pebbles of differing size packed into one small connected pile with one flat flake resting across the top, a scatter of grit around the base, one compact group only, not a spread-out row, base flush with the bottom edge"
     },
     {
       "id": "tree/stump",

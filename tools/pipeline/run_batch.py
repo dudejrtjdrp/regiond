@@ -63,16 +63,37 @@ def run_anims(entry: dict, passthrough: list[str]) -> int:
     return 0
 
 
+def parse_only(text: str | None) -> list[str]:
+    """「왜」 requalify.py가 FAIL id를 쉼표로 묶어 한 줄로 뱉는다. 그걸 그대로 받는다."""
+    if not text:
+        return []
+    return [part.strip() for part in text.split(",") if part.strip()]
+
+
+def _select(entries: list[dict], only: str | None) -> list[dict]:
+    wanted = parse_only(only)
+    if not wanted:
+        return entries
+    picked = [e for e in entries if e["id"] in wanted]
+    _warn_unknown(wanted, picked)
+    return picked
+
+
+def _warn_unknown(wanted: list[str], picked: list[dict]) -> None:
+    missing = [w for w in wanted if w not in {e["id"] for e in picked}]
+    for aid in missing:
+        print(f"  ! --only에 준 id가 이 배치에 없습니다: {aid}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="에셋 배치 실행기")
     ap.add_argument("batch", help="배치 json 경로")
-    ap.add_argument("--only", help="이 id만 실행")
+    ap.add_argument("--only", help="이 id만 실행. 쉼표로 여러 개 (예: tree/oak_large,mineral/iron_node)")
     ap.add_argument("--force", action="store_true", help="이미 등록된 에셋도 다시 생성")
     ap.add_argument("--dry-run", action="store_true", help="generate.py에 --dry-run 전달")
     args = ap.parse_args()
     entries = json.loads(Path(args.batch).read_text(encoding="utf-8"))["assets"]
-    if args.only:
-        entries = [e for e in entries if e["id"] == args.only]
+    entries = _select(entries, args.only)
     done = set() if args.force else load_registered_ids()
     passthrough = ["--dry-run"] if args.dry_run else []
     results = {}

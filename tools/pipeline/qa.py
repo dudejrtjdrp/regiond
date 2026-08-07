@@ -31,6 +31,10 @@ THRESHOLDS = {
     "outlineInkRatio": 0.70,       # 실루엣 경계의 70%+가 ink/램프0단
     "nightOverlay": (0x16, 0x21, 0x4a), "nightAlpha": 0.46, "nightMinLuma": 56,
     "sizeRatioTolerance": 0.25,
+    # 「왜」 생성 모델이 마젠타를 무시하고 다른 단색 배경을 그리면 양자화가 그 배경을
+    #      팔레트색으로 바꿔 놓아 다른 검사에 전혀 안 걸린다. 테두리 링으로 직접 잡는다.
+    "borderRingBand": 2,
+    "backgroundResidueWarn": 0.02, "backgroundResidueFail": 0.05,
     "opaqueAlpha": 250,            # museum.js OPAQUE_A
     "runLengthCap": 16,            # 대면적 단색을 그리드 추정에서 제외
     "gridDivisibleRatio": 0.80,
@@ -401,6 +405,54 @@ def _pct(v: float) -> str:
     return f"{v * 100:.2f}%"
 
 
+# ------------------------------------------------------------- 배경 잔존 검사
+
+# 「왜」 museum.js에는 없는 파이프라인 전용 검사다(박물관은 PASS인데 여기선 FAIL일 수 있다).
+#      아트바이블 §10은 배경 없는 PNG를 요구하므로 이건 반려 사유(FAIL)로 둔다.
+
+def _ring_indices(size: tuple[int, int], anchor: str, band: int) -> list[int]:
+    """캔버스 테두리 링. 하단 앵커 카테고리는 **바닥 변을 뺀다** — 발이 닿는 게 정상이다."""
+    w, h = size
+    rows = range(h - band, h) if anchor != "bottom" else range(0)
+    idx = [y * w + x for y in range(band) for x in range(w)]
+    idx += [y * w + x for y in rows for x in range(w)]
+    idx += [y * w + x for y in range(band, h - band) for x in _side_columns(w, band)]
+    return idx
+
+
+def _side_columns(w: int, band: int) -> list[int]:
+    return list(range(band)) + list(range(w - band, w))
+
+
+def check_background_residue(img: Image.Image, category: str) -> dict:
+    """테두리 링의 불투명 비율로 '지워지지 않은 배경'을 잡는다."""
+    anchor = pp.CATEGORY_SPECS.get(category, {}).get("anchor", "bottom")
+    if anchor == "fill":
+        return _result(SKIP, "타일은 배경 제거 대상이 아닙니다.", None)
+    px = pp.pixels(img)
+    ring = [px[i] for i in _ring_indices(img.size, anchor, THRESHOLDS["borderRingBand"])]
+    if not ring:
+        return _result(SKIP, "링을 잴 수 없는 캔버스입니다.", None)
+    return _residue_verdict(ring, anchor)
+
+
+def _residue_verdict(ring: list, anchor: str) -> dict:
+    opaque = [p[:3] for p in ring if p[3] >= THRESHOLDS["opaqueAlpha"]]
+    ratio = len(opaque) / len(ring)
+    where = "상/좌/우" if anchor == "bottom" else "4변"
+    detail = f"테두리({where}) 불투명 {_pct(ratio)}{_dominant_note(opaque)}"
+    return _result(_ratio_status(ratio, "backgroundResidueWarn", "backgroundResidueFail"), detail, ratio)
+
+
+def _dominant_note(opaque: list) -> str:
+    """「왜」 한 색이 링을 덮고 있으면 '피사체가 닿은 것'이 아니라 배경이다. 근거를 남긴다."""
+    if not opaque:
+        return ""
+    color, count = Counter(opaque).most_common(1)[0]
+    hexed = "#%02x%02x%02x" % color
+    return f" · 지배색 {hexed} 점유 {count / len(opaque):.0%}"
+
+
 # ------------------------------------------------------- 프레임 일관성 (애니 전용)
 
 # 「왜」 museum.js는 프레임을 서로 비교하지 않는다(정지 이미지 1장만 분석). 이 검사는
@@ -528,7 +580,10 @@ def _shared_problems(s: dict, lim: dict) -> list[str]:
 # ---------------------------------------------------------------- 종합
 
 CHECK_ORDER = ("palette", "translucent", "resolution", "pixelGrid",
-               "outline", "light", "night", "frames", "sizeRatio")
+               "outline", "light", "night", "frames", "sizeRatio", "backgroundResidue")
+
+# museum.js가 계산할 수 없는(정지 1장 분석으로는 불가능한) 파이프라인 전용 검사 목록.
+PIPELINE_ONLY_CHECKS = ("backgroundResidue", "frameConsistency")
 
 
 def run_checks(png: Path, category: str, subcategory: str | None = None,
@@ -541,11 +596,11 @@ def run_checks(png: Path, category: str, subcategory: str | None = None,
     metrics = scan(img, palette, outline_colors(root))
     spec = spec_for(category, subcategory)
     box = img.getchannel("A").getbbox() or (0, 0, 0, 0)
-    checks = _collect(metrics, spec, box, sheet, frames, category)
+    checks = _collect(metrics, spec, box, sheet, frames, category, img)
     return _summarize(checks, metrics, box)
 
 
-def _collect(m: dict, spec, box, sheet, frames, category) -> dict:
+def _collect(m: dict, spec, box, sheet, frames, category, img) -> dict:
     return {
         "palette": check_palette(m),
         "translucent": check_translucent(m),
@@ -556,6 +611,7 @@ def _collect(m: dict, spec, box, sheet, frames, category) -> dict:
         "night": check_night(m),
         "frames": check_frames(sheet, frames, category),
         "sizeRatio": check_size_ratio(m, box[3] - box[1], spec),
+        "backgroundResidue": check_background_residue(img, category),
     }
 
 

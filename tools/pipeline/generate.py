@@ -59,10 +59,13 @@ STYLE_OUTLINE = (
 )
 
 # 「왜」 배경 제거를 파이썬에서 하므로 ComfyUI에는 '평평한 마젠타 배경'만 요구한다.
+# 「왜」 프롬프트 뒤쪽은 희석된다. 배경 지시는 ComfyUI 가중 문법으로 눌러 준다.
+#      (텍스트:숫자) 형식이며 괄호 안 콜론 뒤 숫자 하나 — 중첩/여분 괄호는 파서 오류를 낸다.
 STYLE_BACKGROUND = (
-    "isolated single subject centered on a completely flat solid magenta background (#FF00FF), "
-    "background is one uniform pure magenta color with no gradient, no shadow cast on the background, "
-    "no ground plane, no scenery"
+    "isolated single subject centered on a (completely flat solid magenta background:1.3), "
+    "(pure #FF00FF magenta backdrop:1.3), (uniform chroma key background:1.2), "
+    "no gradient on the background, no shadow cast on the background, "
+    "no ground plane, no scenery, no studio backdrop"
 )
 
 CATEGORY_PROMPTS: dict[str, dict] = {
@@ -71,20 +74,72 @@ CATEGORY_PROMPTS: dict[str, dict] = {
     "monster":    {"view": "top-down three-quarter view monster sprite, facing the camera, full body", "extra": "menacing readable silhouette, creature anatomy"},
     "animal":     {"view": "top-down three-quarter view animal sprite, side-facing three-quarter, full body", "extra": "fur or hide texture in pixel clusters"},
     "portrait":   {"view": "character portrait bust, head and shoulders, facing camera", "extra": "expressive face, painted-pixel rendering"},
-    "weapon":     {"view": "single game inventory icon, diagonal three-quarter presentation, item floating", "extra": "metal specular 1px highlights, high contrast material"},
-    "armor":      {"view": "single game inventory icon, front three-quarter presentation, item floating", "extra": "cloth and leather folds, low contrast ramps"},
-    "food":       {"view": "single game inventory icon, appetizing item floating", "extra": "soft warm ramps, glossy 1px highlight"},
-    "consumable": {"view": "single game inventory icon, potion or flask floating", "extra": "glass transparency suggested with blue ramps and diagonal highlight"},
-    "material":   {"view": "single game inventory icon, crafting material floating", "extra": "clear material identity, chunky readable shape"},
-    "mineral":    {"view": "top-down three-quarter view ore node resource object", "extra": "rock facets with chipped corners, embedded glinting ore veins"},
-    "tree":       {"view": "top-down three-quarter view tree, full trunk and canopy, roots at the base", "extra": "leaf clusters of 3-6 pixels, no individual leaves"},
-    "plant":      {"view": "top-down three-quarter view small plant or crop", "extra": "compact leafy clusters"},
-    "furniture":  {"view": "top-down three-quarter view furniture piece", "extra": "wood grain strokes, plank seams"},
-    "building":   {"view": "top-down three-quarter view fantasy village building, front facade and roof visible", "extra": "stone and timber construction, warm glowing windows"},
+    "weapon":     {"view": "exactly one single subject, a single game inventory icon, diagonal three-quarter presentation, one item floating alone", "extra": "metal specular 1px highlights, high contrast material"},
+    "armor":      {"view": "exactly one single subject, a single game inventory icon, front three-quarter presentation, one item floating alone", "extra": "cloth and leather folds, low contrast ramps"},
+    "food":       {"view": "exactly one single subject, a single game inventory icon, one appetizing item floating alone", "extra": "soft warm ramps, glossy 1px highlight"},
+    "consumable": {"view": "exactly one single subject, a single game inventory icon, one potion or flask floating alone", "extra": "glass transparency suggested with blue ramps and diagonal highlight"},
+    "material":   {"view": "exactly one single subject, a single game inventory icon, one crafting material floating alone", "extra": "clear material identity, chunky readable shape"},
+    "mineral":    {"view": "exactly one single subject, one top-down three-quarter view ore node resource object, a single connected rock mass", "extra": "rock facets with chipped corners, embedded glinting ore veins"},
+    "tree":       {"view": "exactly one single subject, one top-down three-quarter view tree, full trunk and canopy, roots at the base", "extra": "leaf clusters of 3-6 pixels, no individual leaves"},
+    "plant":      {"view": "exactly one single subject, one top-down three-quarter view small plant or crop, a single connected patch", "extra": "compact leafy clusters"},
+    "furniture":  {"view": "exactly one single subject, one top-down three-quarter view furniture piece", "extra": "wood grain strokes, plank seams"},
+    "building":   {"view": "exactly one single subject, one top-down three-quarter view fantasy village building, front facade and roof visible", "extra": "stone and timber construction, warm glowing windows"},
     "tileset":    {"view": "seamless tileable top-down terrain texture filling the entire frame edge to edge", "extra": "no outline, no border, uniform density, tiles seamlessly on all four sides"},
-    "ui":         {"view": "single flat game UI skill icon, centered emblem", "extra": "bold readable symbol, subtle bevel"},
-    "effect":     {"view": "single magical effect burst, isolated", "extra": "additive-friendly bright core with 1-2px glow"},
+    "ui":         {"view": "exactly one single subject, a single flat game UI skill icon, one centered emblem", "extra": "bold readable symbol, subtle bevel"},
+    "effect":     {"view": "exactly one single subject, one magical effect burst, isolated", "extra": "additive-friendly bright core with 1-2px glow"},
 }
+
+# 「왜」 pixel-art-xl은 캐릭터 편향이 강해 추상적인 desc를 주면 사람을 그린다.
+#      실제로 mineral/oil_seep·iron_node에서 검사·전사가 나왔다. 비캐릭터 계열은 사람을 막는다.
+NEGATIVE_NO_HUMAN = ("person, human, man, woman, character, warrior, knight, adventurer, "
+                     "hero, portrait, face, figure, humanoid")
+
+# 「왜」 "아이템 세트 시트"로 해석돼 한 장에 궤짝 7개·화분 12개가 콜라주로 나온 사례가 있었다.
+NEGATIVE_NO_COLLAGE = ("multiple separate objects, collection of items, item set, collage, "
+                       "sprite sheet, grid layout, rows of objects, catalog")
+
+# 「왜」 jungle_canopy 캐노피가 프레임에 잘렸다. 타일 제외 전 카테고리에 잘림 금지.
+NEGATIVE_NO_CROP = "cropped, cut off at the edge, out of frame, partial view, extreme close-up"
+
+# 캐릭터 계열 — 사람이 나와야 정상이므로 사람 금지를 걸지 않는다.
+CHARACTER_CATEGORIES = frozenset({"player", "npc", "monster", "animal", "portrait"})
+
+# 단일 오브젝트 강제 — 낱개로 놓이는 오브젝트·아이콘 전부
+SINGLE_OBJECT_CATEGORIES = frozenset({
+    "weapon", "armor", "food", "consumable", "material", "ui",
+    "mineral", "tree", "plant", "furniture", "building",
+})
+
+
+def _negatives_for(category: str) -> list[str]:
+    """카테고리 계약 네거티브. 「왜」 config가 아니라 코드 상수인 이유: 카테고리의 정의이지
+       사용자 취향이 아니다. 취향은 config의 negativeExtra로 덧붙인다."""
+    out = []
+    if category not in CHARACTER_CATEGORIES:
+        out.append(NEGATIVE_NO_HUMAN)
+    if category in SINGLE_OBJECT_CATEGORIES:
+        out.append(NEGATIVE_NO_COLLAGE)
+    if category != "tileset":
+        out.append(NEGATIVE_NO_CROP)
+    return out
+
+
+NEGATIVE_BY_CATEGORY = {c: ", ".join(_negatives_for(c)) for c in pp.CATEGORIES}
+
+
+def category_negative(category: str, cfg_extra: str = "") -> str:
+    """카테고리 계약 네거티브 + config의 negativeExtra."""
+    parts = [NEGATIVE_BY_CATEGORY.get(category, ""), cfg_extra]
+    return ", ".join(p for p in parts if p)
+
+
+def build_negative(cfg: dict, category: str) -> str:
+    """config의 기본 네거티브 + 카테고리 계약 네거티브."""
+    extra = category_negative(category, cfg.get("negativeExtra", ""))
+    if not extra:
+        return cfg["negative"]
+    return f"{cfg['negative']}, {extra}"
+
 
 GRADE_HINTS = {
     "common": "plain worn materials, muted tones",
@@ -95,11 +150,21 @@ GRADE_HINTS = {
 }
 
 
+# 「왜」 tree/jungle_canopy에서 캐노피가 좌우 테두리에 잘려 나왔다 — 피사체가 프레임을 넘치면
+#      후처리로 복구할 방법이 없다. 타일(edge-to-edge가 정상)만 빼고 전 카테고리에 여백을 강제한다.
+STYLE_FIT = (
+    "(the entire subject fits fully inside the frame with clear empty margin on all sides:1.2), "
+    "nothing cropped at the image edges"
+)
+
+
 def build_prompt(desc: str, category: str, grade: str | None, palette: list[str]) -> str:
     """아트바이블 규칙 + 카테고리 템플릿 + 사용자 desc를 한 문장 덩어리로 합친다."""
     tpl = CATEGORY_PROMPTS[category]
     parts = [STYLE_HEAD, tpl["view"], desc.strip(), tpl["extra"]]
     parts += [_grade_clause(grade, category), STYLE_LIGHT, _palette_clause(palette), STYLE_OUTLINE, STYLE_BACKGROUND]
+    if category != "tileset":
+        parts.append(STYLE_FIT)
     return ", ".join(p for p in parts if p)
 
 
@@ -113,8 +178,8 @@ def _grade_clause(grade: str | None, category: str = "") -> str:
     return GRADE_HINTS.get(grade or "", "")
 
 
-def _palette_clause(palette: list[str], take: int = 20) -> str:
-    """「왜」 전체 62색을 나열하면 토큰만 먹는다. 대표색만 알려 주고 최종 강제는 양자화가 한다."""
+def _palette_clause(palette: list[str], take: int = 12) -> str:
+    """「왜」 색 목록이 길수록 뒤따르는 배경 지시가 희석된다. 표본을 12색으로 줄였다."""
     sample = palette[::max(1, len(palette) // take)][:take]
     return "restricted earthy fantasy color palette using only these colors: " + " ".join(sample)
 
@@ -143,15 +208,22 @@ def find_node(workflow: dict, title: str) -> dict:
     raise SystemExit(f"워크플로우에 '{title}' 제목의 노드가 없습니다 — workflows/*.json을 확인하세요.")
 
 
-def apply_settings(workflow: dict, cfg: dict, prompt: str, seed: int) -> dict:
-    """모델·프롬프트·시드를 워크플로우에 주입한다."""
+def apply_settings(workflow: dict, cfg: dict, prompt: str, seed: int,
+                   category: str | None = None) -> dict:
+    """모델·프롬프트·시드를 워크플로우에 주입한다. category를 주면 계약 네거티브가 붙는다."""
     find_node(workflow, "CHECKPOINT")["inputs"]["ckpt_name"] = cfg["checkpoint"]
     find_node(workflow, "VAE")["inputs"]["vae_name"] = cfg["vae"]
     _apply_lora(find_node(workflow, "LORA"), cfg)
     find_node(workflow, "POSITIVE")["inputs"]["text"] = prompt
-    find_node(workflow, "NEGATIVE")["inputs"]["text"] = cfg["negative"]
+    find_node(workflow, "NEGATIVE")["inputs"]["text"] = _negative_for(cfg, category)
     _apply_sampler(find_node(workflow, "SAMPLER"), cfg, seed)
     return workflow
+
+
+def _negative_for(cfg: dict, category: str | None) -> str:
+    if category is None:
+        return cfg["negative"]
+    return build_negative(cfg, category)
 
 
 def _apply_sampler(node: dict, cfg: dict, seed: int) -> None:
@@ -197,7 +269,7 @@ def generate_candidates(client: ComfyClient, cfg: dict, args, prompt: str, out_d
     saved: list[Path] = []
     for index in range(args.candidates):
         seed = args.seed + index if args.seed is not None else random.randint(0, 2**31 - 1)
-        workflow = apply_settings(load_workflow(args.workflow), cfg, prompt, seed)
+        workflow = apply_settings(load_workflow(args.workflow), cfg, prompt, seed, args.category)
         print(f"  [{index + 1}/{args.candidates}] 큐잉 (seed={seed}) ...", flush=True)
         saved.extend(_run_one(client, workflow, out_dir, index))
     return saved
@@ -228,12 +300,35 @@ def _save_images(blobs: list[bytes], out_dir: Path, index: int) -> list[Path]:
 # ------------------------------------------------------------------ 후처리 + 랭킹
 
 def refine_and_rank(raws: list[Path], spec: dict, cfg: dict, args, out_dir: Path) -> list[dict]:
-    """후보를 전부 규격화한 뒤 QA 점수로 정렬한다(동점이면 먼저 나온 것)."""
+    """후보를 규격화한 뒤 QA 점수로 정렬한다. FAIL 후보는 뽑히지 않게 뒤로 밀어낸다."""
     scored = [_refine_one(raw, spec, cfg, args, out_dir) for raw in raws]
     alive = [s for s in scored if s.get("report")]
     if not alive:
         raise SystemExit("모든 후보가 후처리에 실패했습니다 — 마젠타 배경이 제대로 생성됐는지 확인하세요.")
-    return sorted(alive, key=lambda s: -s["report"]["score"])
+    return _rank(alive)
+
+
+def _rank(alive: list[dict]) -> list[dict]:
+    """「왜」 배경 잔존 같은 FAIL은 점수가 높아도 반려 대상이다. PASS/WARNING을 항상 앞에 둔다."""
+    ok = sorted((s for s in alive if s["report"]["result"] != qa.FAIL), key=_by_score)
+    bad = sorted((s for s in alive if s["report"]["result"] == qa.FAIL), key=_by_score)
+    if not ok:
+        _warn_all_failed(bad)
+    return ok + bad
+
+
+def _by_score(entry: dict) -> float:
+    return -entry["report"]["score"]
+
+
+def _warn_all_failed(bad: list[dict]) -> None:
+    reasons = _fail_reasons(bad[0]["report"])
+    print(f"  ! 후보 {len(bad)}장이 전부 QA FAIL입니다 — 최고점을 쓰지만 반려 대상입니다: {reasons}")
+    print("    desc를 더 구체적으로 바꾸거나 --candidates를 늘려 다시 뽑으세요.")
+
+
+def _fail_reasons(report: dict) -> str:
+    return ", ".join(k for k, v in report["checks"].items() if v == qa.FAIL) or "(사유 없음)"
 
 
 def _refine_one(raw: Path, spec: dict, cfg: dict, args, out_dir: Path) -> dict:
@@ -245,7 +340,9 @@ def _refine_one(raw: Path, spec: dict, cfg: dict, args, out_dir: Path) -> dict:
         print(f"  ! {raw.name}: {err}")
         return {"raw": raw, "report": None}
     report = qa.run_checks(dst, args.category, args.subcategory, root=pp.project_root(cfg.get("projectRoot")))
-    print(f"  · {raw.name} → {report['result']} 점수 {report['score']} (축소 1/{info['factor']}, {info['contentFit']})")
+    mark = " · 배경폴백" if info.get("bgFallback") else ""
+    print(f"  · {raw.name} → {report['result']} 점수 {report['score']} "
+          f"(축소 1/{info['factor']}, {info['contentFit']}{mark})")
     return {"raw": raw, "refined": dst, "info": info, "report": report}
 
 
@@ -468,7 +565,7 @@ def _generate_per_frame(client, cfg, args, prompts, workflow_name, denoise, anch
     saved: list[Path] = []
     for index, text in enumerate(prompts):
         seed = _frame_seed(args, index)
-        workflow = _anim_workflow(workflow_name, cfg, text, seed, denoise, anchor)
+        workflow = _anim_workflow(workflow_name, cfg, text, seed, denoise, anchor, args.category)
         print(f"  [{index + 1}/{len(prompts)}] 프레임 큐잉 (seed={seed}, denoise={denoise}) ...", flush=True)
         saved.extend(_run_one(client, workflow, out_dir, index))
     return saved
@@ -476,7 +573,7 @@ def _generate_per_frame(client, cfg, args, prompts, workflow_name, denoise, anch
 
 def _generate_sheet(client, cfg, args, prompts, workflow_name, out_dir) -> list[Path]:
     seed = _frame_seed(args, 0)
-    workflow = _anim_workflow(workflow_name, cfg, prompts[0], seed, 1.0, None)
+    workflow = _anim_workflow(workflow_name, cfg, prompts[0], seed, 1.0, None, args.category)
     print(f"  [1/1] 시트 1장 큐잉 (seed={seed}) — 내용 인식 슬라이싱으로 자릅니다 ...", flush=True)
     return _run_one(client, workflow, out_dir, 0)
 
@@ -489,8 +586,8 @@ def _frame_seed(args, index: int) -> int:
 
 
 def _anim_workflow(name: str, cfg: dict, prompt: str, seed: int,
-                   denoise: float, anchor: str | None) -> dict:
-    workflow = apply_settings(load_workflow(name), cfg, prompt, seed)
+                   denoise: float, anchor: str | None, category: str | None = None) -> dict:
+    workflow = apply_settings(load_workflow(name), cfg, prompt, seed, category)
     _apply_denoise(workflow, denoise)
     _apply_anchor(workflow, anchor)
     return workflow
@@ -579,8 +676,15 @@ def _anim_prompts(prompt: str, args, count: int, strategy: str) -> list[str]:
     return frame_prompts(prompt, args.anim, count)
 
 
+def _print_negative(args, cfg: dict) -> None:
+    """「왜」 카테고리 계약 네거티브가 실제로 붙었는지 dry-run에서 눈으로 확인할 수 있어야 한다."""
+    extra = category_negative(args.category, cfg.get("negativeExtra", ""))
+    print(f"네거티브(카테고리 추가분): {extra or '(없음)'}\n")
+
+
 def _print_anim_plan(args, strategy, count, denoise, fps, prompts) -> None:
     print(f"# {args.id} — 애니메이션 '{args.anim}' ({strategy} 전략, {count}프레임, {fps}fps)")
+    _print_negative(args, load_config())
     if strategy == "anchor":
         print(f"앵커: public/assets/{args.id}/base.png · denoise {denoise}")
     for index, text in enumerate(prompts):
@@ -766,6 +870,7 @@ def main(argv: list[str] | None = None) -> int:
 def _run(args, cfg: dict, root: Path, spec: dict, prompt: str) -> int:
     print(f"# {args.id} — {args.name} ({args.category}, {spec['canvas'][0]}x{spec['canvas'][1]})")
     print(f"프롬프트: {prompt}\n")
+    _print_negative(args, cfg)
     if args.dry_run:
         return 0
     out_dir = root / cfg.get("outDir", "tools/pipeline/out") / args.id
