@@ -35,6 +35,9 @@ THRESHOLDS = {
     #      팔레트색으로 바꿔 놓아 다른 검사에 전혀 안 걸린다. 테두리 링으로 직접 잡는다.
     "borderRingBand": 2,
     "backgroundResidueWarn": 0.02, "backgroundResidueFail": 0.05,
+    # 「왜」 타일은 랩(좌↔우, 상↔하)이 내부 인접 줄만큼 이어져야 격자 줄무늬가 안 보인다.
+    #      절대값이 아니라 '내부 텍스처 노이즈 대비 비율'로 재야 잔디처럼 거친 텍스처가 억울하지 않다.
+    "seamWarn": 1.4, "seamFail": 2.0,
     "opaqueAlpha": 250,            # museum.js OPAQUE_A
     "runLengthCap": 16,            # 대면적 단색을 그리드 추정에서 제외
     "gridDivisibleRatio": 0.80,
@@ -453,6 +456,27 @@ def _dominant_note(opaque: list) -> str:
     return f" · 지배색 {hexed} 점유 {count / len(opaque):.0%}"
 
 
+# ------------------------------------------------------------- 타일 심(seam) 검사
+
+def check_seam(img: Image.Image, category: str) -> dict:
+    """타일 전용 — 랩 차이가 내부 인접 줄 대비 얼마나 큰지. 스프라이트는 대상이 아니다."""
+    anchor = pp.CATEGORY_SPECS.get(category, {}).get("anchor", "bottom")
+    if anchor != "fill":
+        return _result(SKIP, "타일이 아닌 카테고리입니다.", None)
+    m = pp.wrap_metrics(img)
+    detail = (f"랩 좌우 {m['lr']}/내부 {m['innerX']} (비 {m['ratioX']}) · "
+              f"랩 상하 {m['tb']}/내부 {m['innerY']} (비 {m['ratioY']})")
+    return _result(_seam_status(m["score"]), detail, m)
+
+
+def _seam_status(score: float) -> str:
+    if score > THRESHOLDS["seamFail"]:
+        return FAIL
+    if score > THRESHOLDS["seamWarn"]:
+        return WARNING
+    return PASS
+
+
 # ------------------------------------------------------- 프레임 일관성 (애니 전용)
 
 # 「왜」 museum.js는 프레임을 서로 비교하지 않는다(정지 이미지 1장만 분석). 이 검사는
@@ -580,10 +604,11 @@ def _shared_problems(s: dict, lim: dict) -> list[str]:
 # ---------------------------------------------------------------- 종합
 
 CHECK_ORDER = ("palette", "translucent", "resolution", "pixelGrid",
-               "outline", "light", "night", "frames", "sizeRatio", "backgroundResidue")
+               "outline", "light", "night", "frames", "sizeRatio",
+               "backgroundResidue", "seamScore")
 
 # museum.js가 계산할 수 없는(정지 1장 분석으로는 불가능한) 파이프라인 전용 검사 목록.
-PIPELINE_ONLY_CHECKS = ("backgroundResidue", "frameConsistency")
+PIPELINE_ONLY_CHECKS = ("backgroundResidue", "seamScore", "frameConsistency")
 
 
 def run_checks(png: Path, category: str, subcategory: str | None = None,
@@ -612,6 +637,7 @@ def _collect(m: dict, spec, box, sheet, frames, category, img) -> dict:
         "frames": check_frames(sheet, frames, category),
         "sizeRatio": check_size_ratio(m, box[3] - box[1], spec),
         "backgroundResidue": check_background_residue(img, category),
+        "seamScore": check_seam(img, category),
     }
 
 

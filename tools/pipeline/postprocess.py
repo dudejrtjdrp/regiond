@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from collections import Counter, deque
 from pathlib import Path
@@ -287,7 +288,102 @@ def _border_indices(w: int, h: int) -> list[int]:
     return top + bottom + sides
 
 
-# ------------------------------------------------------------- 2단계: halo 제거
+# ------------------------------------------------------- 타일 심리스화 (§8 지형)
+
+# 「왜」 생성 모델은 "seamless"를 프롬프트로 시켜도 상하/좌우 랩을 맞춰 주지 않는다.
+#      실측: desert 상하랩 44.5(내부 세로 38.5), grass 55.3(43.3). 게임에서 타일을 깔면
+#      이 차이가 격자 줄무늬로 보인다. 그래서 후처리에서 기하적으로 강제한다.
+SEAM_BAND = 7          # 가장자리에서 섞을 대역 폭(px). 64px 타일 기준
+SEAM_MAX_ALPHA = 0.45  # 「왜」 0.5면 양 끝 줄이 완전히 같아져 2px 평평한 띠가 보인다. 살짝 남긴다
+# 「왜」 매끈한 타일(잔잔한 물·평평한 눈)은 내부 인접 차이가 0에 가깝다. 그대로 나누면
+#      눈에 보이지도 않는 몇 단위 차이가 무한대 비율이 된다. 분모에 바닥을 깐다.
+SEAM_MIN_BASE = 4.0
+
+
+def _cos_ramp(i: int, band: int, peak: float) -> float:
+    """가장자리에서 peak, band 끝에서 0으로 부드럽게 떨어지는 코사인 가중."""
+    if band <= 0:
+        return 0.0
+    return peak * 0.5 * (1.0 + math.cos(math.pi * i / band))
+
+
+def _blend(a: tuple, b: tuple, w: float) -> tuple:
+    return tuple(int(round(a[k] * (1 - w) + b[k] * w)) for k in range(3)) + (255,)
+
+
+def _wrap_blend_axis(px: list, w: int, h: int, band: int, horizontal: bool) -> None:
+    """한 축의 양 끝 대역을 서로 마주보게 섞는다(제자리 수정)."""
+    span = w if horizontal else h
+    limit = min(band, span // 2)
+    for i in range(limit):
+        weight = _cos_ramp(i, limit, SEAM_MAX_ALPHA)
+        _mix_line_pair(px, w, h, i, span - 1 - i, weight, horizontal)
+
+
+def _mix_line_pair(px: list, w: int, h: int, near: int, far: int,
+                   weight: float, horizontal: bool) -> None:
+    for k in range(h if horizontal else w):
+        ia = _index(w, near, k, horizontal)
+        ib = _index(w, far, k, horizontal)
+        first, second = px[ia], px[ib]
+        px[ia] = _blend(first, second, weight)
+        px[ib] = _blend(second, first, weight)
+
+
+def _index(w: int, along: int, across: int, horizontal: bool) -> int:
+    if horizontal:
+        return across * w + along
+    return along * w + across
+
+
+def make_seamless(img: Image.Image, band: int = SEAM_BAND) -> Image.Image:
+    """좌우·상하 가장자리를 랩 크로스페이드해 타일이 이어지게 만든다."""
+    rgba = img.convert("RGBA")
+    px = pixels(rgba)
+    _wrap_blend_axis(px, rgba.width, rgba.height, band, True)
+    _wrap_blend_axis(px, rgba.width, rgba.height, band, False)
+    rgba.putdata(px)
+    return rgba
+
+
+# ------------------------------------------------------- 심(seam) 측정 (공용)
+
+def _line(px: list, w: int, h: int, at: int, horizontal: bool) -> list:
+    span = h if horizontal else w
+    return [px[_index(w, at, k, horizontal)][:3] for k in range(span)]
+
+
+def _line_gap(a: list, b: list) -> float:
+    """두 줄의 평균 RGB 유클리드 거리."""
+    if not a:
+        return 0.0
+    return sum(_sq_dist(p, q) ** 0.5 for p, q in zip(a, b)) / len(a)
+
+
+def _axis_stats(px: list, w: int, h: int, horizontal: bool) -> tuple[float, float]:
+    """(랩 차이, 내부 인접 줄 평균 차이) — 내부 기준이 있어야 텍스처 노이즈와 구분된다."""
+    span = w if horizontal else h
+    wrap = _line_gap(_line(px, w, h, 0, horizontal), _line(px, w, h, span - 1, horizontal))
+    inner = [_line_gap(_line(px, w, h, i, horizontal), _line(px, w, h, i + 1, horizontal))
+             for i in range(span - 1)]
+    return (wrap, sum(inner) / max(1, len(inner)))
+
+
+def wrap_metrics(img: Image.Image) -> dict:
+    """타일의 랩 심 수치. score는 축별 비율의 최댓값 — 한 축만 어긋나도 잡아야 한다."""
+    rgba = img.convert("RGBA")
+    px = pixels(rgba)
+    lr, inner_x = _axis_stats(px, rgba.width, rgba.height, True)
+    tb, inner_y = _axis_stats(px, rgba.width, rgba.height, False)
+    ratio_x = lr / max(inner_x, SEAM_MIN_BASE)
+    ratio_y = tb / max(inner_y, SEAM_MIN_BASE)
+    return {"lr": round(lr, 2), "tb": round(tb, 2),
+            "innerX": round(inner_x, 2), "innerY": round(inner_y, 2),
+            "ratioX": round(ratio_x, 2), "ratioY": round(ratio_y, 2),
+            "score": round(max(ratio_x, ratio_y), 2)}
+
+
+# ------------------------------------------------------- 2단계: halo 제거
 
 def _neighbors(idx: int, w: int, h: int) -> list[int]:
     x, y = idx % w, idx // w
@@ -510,14 +606,28 @@ def _process_sprite(raw: Image.Image, dst: Path, spec: dict, opts: dict) -> dict
 
 
 def _process_tile(raw: Image.Image, dst: Path, spec: dict, opts: dict) -> dict:
-    """타일 경로: 심리스라 트림·앵커가 없다. 캔버스로 곧장 정수 축소만 한다."""
+    """타일 경로: 심리스라 트림·앵커가 없다. 축소 → 랩 크로스페이드 → 양자화."""
     cw, chh = spec["canvas"]
     factor = pick_factor(raw.size, (cw, chh))
     small = integer_downscale(raw.convert("RGBA"), factor, opts["downscale_filter"])
     small = small.resize((cw, chh), Image.Resampling.NEAREST)
-    final = quantize_to_palette(small, opts["palette"], opts["quantize_strength"])
-    final.putalpha(255)
-    return _write_report(final, dst, factor, final.size, spec, False)
+    final, seam = _seamless_pass(small, opts)
+    final.putalpha(255)   # 「왜」 지형 타일은 전면 불투명이 규격이다(§8 외곽선 없음).
+    report = _write_report(final, dst, factor, final.size, spec, False)
+    report["seam"] = seam
+    return report
+
+
+def _seamless_pass(small: Image.Image, opts: dict) -> tuple[Image.Image, dict]:
+    """심리스화 전/후 랩 수치를 함께 돌려준다. 「왜」 개선됐는지 사람이 눈으로 확인해야 한다."""
+    before = wrap_metrics(small)
+    if not opts.get("seamless", True):
+        return (quantize_to_palette(small, opts["palette"], opts["quantize_strength"]),
+                {"applied": False, "before": before, "after": before})
+    blended = make_seamless(small, opts.get("seam_band", SEAM_BAND))
+    # 「왜」 블렌드는 팔레트 밖 중간색을 만든다. 기존 양자화로 다시 팔레트에 스냅한다.
+    final = quantize_to_palette(blended, opts["palette"], opts["quantize_strength"])
+    return (final, {"applied": True, "before": before, "after": wrap_metrics(final)})
 
 
 def _clean_background(raw: Image.Image, opts: dict) -> tuple[Image.Image, bool]:

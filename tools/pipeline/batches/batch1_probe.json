@@ -46,7 +46,7 @@
       "name": "풀 지형 타일",
       "category": "tileset",
       "candidates": 6,
-      "desc": "seamless top-down grassland ground tile, short dense meadow grass rendered as soft clustered tufts, two or three tiny daisies and a few darker grass patches for variation, edge-to-edge texture that tiles in every direction, no border, no objects, mid-tone leaf green dominant"
+      "desc": "seamless top-down grassland ground surface, short dense meadow grass rendered as soft clustered tufts, mostly plain green grass blades covering nearly the whole frame, at most two tiny white daisies in the entire frame, no flower field, no dense flowers, no scattered blossoms, a few darker grass patches for variation, edge-to-edge texture that repeats in every direction, no border, no objects, mid-tone leaf green dominant, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "weapon/iron_sword_common",

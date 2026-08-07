@@ -7,7 +7,7 @@
       "category": "tileset",
       "subcategory": "variant",
       "candidates": 4,
-      "desc": "seamless top-down meadow ground tile, taller windswept grass blades all leaning the same way in clustered tufts, a scatter of tiny white and yellow wildflowers, two small bare soil patches showing through the sward, one dry straw-colored tuft, even coverage with no single focal point"
+      "desc": "seamless top-down meadow ground surface, taller windswept grass blades all leaning the same way in clustered tufts, a scatter of tiny white and yellow wildflowers, two small bare soil patches showing through the sward, one dry straw-colored tuft, even coverage with no single focal point, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/forest",
@@ -15,7 +15,7 @@
       "category": "tileset",
       "subcategory": "base",
       "candidates": 4,
-      "desc": "seamless top-down forest floor tile, packed fallen leaves in russet and olive lying over dark humus, spongy moss cushions creeping across two exposed root ridges, scattered twigs and acorn caps, even coverage with no single focal point, ground litter only and no standing trees"
+      "desc": "seamless top-down forest floor surface, packed fallen leaves in russet and olive lying over dark humus, spongy moss cushions creeping across two exposed root ridges, scattered twigs and acorn caps, even coverage with no single focal point, ground litter only and no standing trees, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/forest_b",
@@ -23,7 +23,7 @@
       "category": "tileset",
       "subcategory": "variant",
       "candidates": 4,
-      "desc": "seamless top-down forest floor tile, thick emerald moss carpet over damp dark soil, a small cluster of brown mushroom caps and two curled fern fronds, one half-buried mossy stone, dry pine needles gathered in the low spots, ground litter only and no standing trees"
+      "desc": "seamless top-down forest floor surface, thick emerald moss carpet over damp dark soil, a small cluster of brown mushroom caps and two curled fern fronds, one half-buried mossy stone, dry pine needles gathered in the low spots, ground litter only and no standing trees, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/rock",
@@ -31,7 +31,7 @@
       "category": "tileset",
       "subcategory": "base",
       "candidates": 4,
-      "desc": "seamless top-down bare rock outcrop tile, cracked gray bedrock split into large angular plates, gritty scree filling the seams between plates, chipped plate corners and shallow pits, thin gray-green lichen crust in the hollows, even coverage with no single focal point"
+      "desc": "seamless top-down bare rock outcrop ground surface, cracked gray bedrock split into large angular plates, gritty scree filling the seams between plates, chipped plate corners and shallow pits, thin gray-green lichen crust in the hollows, even coverage with no single focal point, no bricks, no stones cut into blocks, no masonry, no paving, natural ground only, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/rock_b",
@@ -39,7 +39,7 @@
       "category": "tileset",
       "subcategory": "variant",
       "candidates": 4,
-      "desc": "seamless top-down stone ground tile, weathered slabs with rust-brown mineral staining across their faces, loose gravel and thin flakes gathered along a diagonal fissure, one shallow water-worn depression, sparse lichen speckles"
+      "desc": "seamless top-down stone ground surface, weathered slabs with rust-brown mineral staining across their faces, loose gravel and thin flakes gathered along a diagonal fissure, one shallow water-worn depression, sparse lichen speckles, no bricks, no stones cut into blocks, no masonry, no paving, natural ground only, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/water",
@@ -47,7 +47,7 @@
       "category": "tileset",
       "subcategory": "base",
       "candidates": 4,
-      "desc": "seamless top-down still water tile, calm flat surface in layered blue tones, broad slow ripple rings and a few short horizontal glint lines, faint darker depth mottling drifting underneath, glassy and quiet with no waves, no foam and no shoreline"
+      "desc": "seamless top-down still water ground surface, calm flat surface in layered blue tones, broad slow ripple rings and a few short horizontal glint lines, faint darker depth mottling drifting underneath, glassy and quiet with no waves, no foam and no shoreline, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/water_b",
@@ -55,7 +55,7 @@
       "category": "tileset",
       "subcategory": "variant",
       "candidates": 4,
-      "desc": "seamless top-down shallow water tile, pale sandy bed visible through the calm surface, soft wavering caustic bands over the sand, a scatter of submerged rounded pebbles, a thin trail of duckweed specks floating on top, no waves and no shoreline"
+      "desc": "seamless top-down shallow water ground surface, pale sandy bed visible through the calm surface, soft wavering caustic bands over the sand, a scatter of submerged rounded pebbles, a thin trail of duckweed specks floating on top, no waves and no shoreline, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/fertile",
@@ -63,7 +63,7 @@
       "category": "tileset",
       "subcategory": "base",
       "candidates": 4,
-      "desc": "seamless top-down tilled earth tile, plowed furrows running as even parallel ridges and troughs, crumbly dark loam clods with a warm brown sheen on the ridge tops, a few pale straw bits and small stones worked into the soil, even coverage with no single focal point"
+      "desc": "seamless top-down tilled earth ground surface, plowed furrows running as even parallel ridges and troughs, crumbly dark loam clods with a warm brown sheen on the ridge tops, a few pale straw bits and small stones worked into the soil, even coverage with no single focal point, no bricks, no stones cut into blocks, no masonry, no paving, natural ground only, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/fertile_b",
@@ -71,7 +71,7 @@
       "category": "tileset",
       "subcategory": "variant",
       "candidates": 4,
-      "desc": "seamless top-down rich soil tile, freshly turned earth broken into irregular clumps, damp darker patches between drier crumbs, sparse green seedling shoots pushing through, one low worm-cast mound and a fragment of eggshell-pale root"
+      "desc": "seamless top-down rich soil ground surface, freshly turned earth broken into irregular clumps, damp darker patches between drier crumbs, sparse green seedling shoots pushing through, one low worm-cast mound and a fragment of eggshell-pale root, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/snow",
@@ -79,7 +79,7 @@
       "category": "tileset",
       "subcategory": "base",
       "candidates": 4,
-      "desc": "seamless top-down alpine snow tile, packed powder shaped into soft wind-drifted dunes, fine granular sparkle across the crests, cool blue-shadowed hollows between the drifts, one small dark rock chip poking through, even coverage with no single focal point"
+      "desc": "seamless top-down alpine snow ground surface, packed powder shaped into soft wind-drifted dunes, fine granular sparkle across the crests, cool blue-shadowed hollows between the drifts, one small dark rock chip poking through, even coverage with no single focal point, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/snow_b",
@@ -87,7 +87,7 @@
       "category": "tileset",
       "subcategory": "variant",
       "candidates": 4,
-      "desc": "seamless top-down wind-scoured snow tile, hard crust cracked into thin ice plates, frozen gravel and dark stone flecks exposed where the snow has been stripped away, low drift ridges combed in one direction, a glassy ice glaze in the flat spots"
+      "desc": "seamless top-down wind-scoured snow ground surface, hard crust cracked into thin ice plates, frozen gravel and dark stone flecks exposed where the snow has been stripped away, low drift ridges combed in one direction, a glassy ice glaze in the flat spots, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/jungle",
@@ -95,7 +95,7 @@
       "category": "tileset",
       "subcategory": "base",
       "candidates": 4,
-      "desc": "seamless top-down jungle floor tile, dense low undergrowth of broad glossy leaves overlapping in layers, creeping vines threading between them, deep shadowed leaf litter beneath the foliage, one thick root crossing the ground, humid dark green dominant, ground cover only and no standing trees"
+      "desc": "seamless top-down jungle floor surface, dense low undergrowth of broad glossy leaves overlapping in layers, creeping vines threading between them, deep shadowed leaf litter beneath the foliage, one thick root crossing the ground, humid dark green dominant, ground cover only and no standing trees, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/jungle_b",
@@ -103,23 +103,23 @@
       "category": "tileset",
       "subcategory": "variant",
       "candidates": 4,
-      "desc": "seamless top-down jungle ground tile, tangled vine mat sprawling over wet clay soil, two big fallen fronds with split ribs, small red-orange blossoms dropped among the leaves, patches of pale slick mud showing through, ground cover only and no standing trees"
+      "desc": "seamless top-down jungle ground surface, tangled vine mat sprawling over wet clay soil, two big fallen fronds with split ribs, small red-orange blossoms dropped among the leaves, patches of pale slick mud showing through, ground cover only and no standing trees, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/desert",
       "name": "사막",
       "category": "tileset",
       "subcategory": "base",
-      "candidates": 4,
-      "desc": "seamless top-down desert sand tile, fine wind-rippled sand in even parallel ripple lines, warm pale ochre tones, a sparse scatter of tiny pebbles and dry seed husks caught in the troughs, even coverage with no single focal point"
+      "candidates": 6,
+      "desc": "seamless top-down desert sand ground surface, fine wind-rippled loose sand in even parallel ripple lines, warm pale ochre and tan grains, low soft dune ridges crossing the frame, a sparse scatter of tiny pebbles and dry seed husks caught in the troughs, soft granular material with no hard edges, no bricks, no stones, no masonry, no paving, loose sand only, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/desert_b",
       "name": "사막 변주",
       "category": "tileset",
       "subcategory": "variant",
-      "candidates": 4,
-      "desc": "seamless top-down desert hardpan tile, coarse gravel strewn over sand with cracked dry clay plates showing through, one low drift ridge crossing at an angle, a bleached dry twig and a few flat shale chips"
+      "candidates": 6,
+      "desc": "seamless top-down desert hardpan ground surface, coarse gravel strewn over loose sand with sun-cracked dry clay showing through in irregular natural cracks, one low sand drift ridge crossing at an angle, a bleached dry twig and a few flat shale chips, natural weathered earth, no bricks, no mortar, no straight joints, no masonry, no paving, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/marsh",
@@ -127,7 +127,7 @@
       "category": "tileset",
       "subcategory": "base",
       "candidates": 4,
-      "desc": "seamless top-down marsh ground tile, waterlogged black mud with shallow standing pools of brackish water, coarse sedge grass tufts breaking the surface, a floating film of green algae, half-sunken broken reed stubs"
+      "desc": "seamless top-down marsh ground surface, waterlogged black mud with shallow standing pools of brackish water, coarse sedge grass tufts breaking the surface, a floating film of green algae, half-sunken broken reed stubs, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/marsh_b",
@@ -135,7 +135,7 @@
       "category": "tileset",
       "subcategory": "variant",
       "candidates": 4,
-      "desc": "seamless top-down bog tile, spongy peat hummocks in olive and rust brown, dark brackish water threading in narrow channels between them, small gas bubbles held at the surface, a few rotting leaves sinking into the mire"
+      "desc": "seamless top-down bog ground surface, spongy peat hummocks in olive and rust brown, dark brackish water threading in narrow channels between them, small gas bubbles held at the surface, a few rotting leaves sinking into the mire, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/ash",
@@ -143,7 +143,7 @@
       "category": "tileset",
       "subcategory": "base",
       "candidates": 4,
-      "desc": "seamless top-down volcanic ash tile, fine gray ash drifted over a cracked black basalt crust, a faint ember-orange glow deep inside the widest cracks, low wind-combed ash ridges, scattered cinder pebbles"
+      "desc": "seamless top-down volcanic ash ground surface, fine gray ash drifted over a cracked black basalt crust, a faint ember-orange glow deep inside the widest cracks, low wind-combed ash ridges, scattered cinder pebbles, no bricks, no stones cut into blocks, no masonry, no paving, natural ground only, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/ash_b",
@@ -151,7 +151,7 @@
       "category": "tileset",
       "subcategory": "variant",
       "candidates": 4,
-      "desc": "seamless top-down cinder ground tile, coarse black cinder gravel and porous pumice chunks half buried in pale gray ash, one crusted lava seam still warm along its length, wind-swept ash streaks over everything"
+      "desc": "seamless top-down cinder ground surface, coarse black cinder gravel and porous pumice chunks half buried in pale gray ash, one crusted lava seam still warm along its length, wind-swept ash streaks over everything, no bricks, no stones cut into blocks, no masonry, no paving, natural ground only, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/mush",
@@ -159,7 +159,7 @@
       "category": "tileset",
       "subcategory": "base",
       "candidates": 4,
-      "desc": "seamless top-down mushroom forest floor tile, spongy pale mycelium mat threaded over damp dark soil, clusters of small round caps in muted violet and cream pushing up through it, short broken stalks and settled spore dust, fine white filaments webbing the gaps"
+      "desc": "seamless top-down mushroom forest floor surface, spongy pale mycelium mat threaded over damp dark soil, clusters of small round caps in muted violet and cream pushing up through it, short broken stalks and settled spore dust, fine white filaments webbing the gaps, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/mush_b",
@@ -167,7 +167,7 @@
       "category": "tileset",
       "subcategory": "variant",
       "candidates": 4,
-      "desc": "seamless top-down fungal ground tile, wide flat shelf fungus growing low and overlapping across the soil, gill-ridged undersides showing at the curled edges, tiny cool blue-white spore specks glowing among them, damp leaf mulch filling the spaces between"
+      "desc": "seamless top-down fungal ground surface, wide flat shelf fungus growing low and overlapping across the soil, gill-ridged undersides showing at the curled edges, tiny cool blue-white spore specks glowing among them, damp leaf mulch filling the spaces between, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/salt",
@@ -175,7 +175,7 @@
       "category": "tileset",
       "subcategory": "base",
       "candidates": 4,
-      "desc": "seamless top-down salt flat tile, dried crust cracked into wide polygonal plates, crystalline white bloom raised along every plate edge, faint pale mineral banding across the plate faces, a thin brine film left in the seams"
+      "desc": "seamless top-down salt flat ground surface, dried crust cracked into wide polygonal plates, crystalline white bloom raised along every plate edge, faint pale mineral banding across the plate faces, a thin brine film left in the seams, no bricks, no stones cut into blocks, no masonry, no paving, natural ground only, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/salt_b",
@@ -183,7 +183,7 @@
       "category": "tileset",
       "subcategory": "variant",
       "candidates": 4,
-      "desc": "seamless top-down salt pan tile, coarse salt crystal clusters heaped along shallow evaporation ridges, ochre and rose mineral staining pooled between them, one damp brine hollow with a glassy still surface, fine crystal grit scattered over the flats"
+      "desc": "seamless top-down salt pan ground surface, coarse salt crystal clusters heaped along shallow evaporation ridges, ochre and rose mineral staining pooled between them, one damp brine hollow with a glassy still surface, fine crystal grit scattered over the flats, no bricks, no stones cut into blocks, no masonry, no paving, natural ground only, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/dusk",
@@ -191,7 +191,7 @@
       "category": "tileset",
       "subcategory": "base",
       "candidates": 4,
-      "desc": "seamless top-down twilight valley ground tile, cool violet-shadowed soil under short blue-gray grass tufts, a faint lavender bloom along the blade tips, scattered dark rounded pebbles, muted dusky tonality with no bright spot"
+      "desc": "seamless top-down twilight valley ground surface, cool violet-shadowed soil under short blue-gray grass tufts, a faint lavender bloom along the blade tips, scattered dark rounded pebbles, muted dusky tonality with no bright spot, uniform density across the whole frame, no large focal object, no seams at the edges"
     },
     {
       "id": "tileset/dusk_b",
@@ -199,7 +199,7 @@
       "category": "tileset",
       "subcategory": "variant",
       "candidates": 4,
-      "desc": "seamless top-down twilight valley ground tile, patches of pale moss glowing faint violet across dark mineral grit, a few small translucent crystal shards half buried at angles, sparse blue-gray grass strands between the patches"
+      "desc": "seamless top-down twilight valley ground surface, patches of pale moss glowing faint violet across dark mineral grit, a few small translucent crystal shards half buried at angles, sparse blue-gray grass strands between the patches, uniform density across the whole frame, no large focal object, no seams at the edges"
     }
   ]
 }

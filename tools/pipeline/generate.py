@@ -84,7 +84,7 @@ CATEGORY_PROMPTS: dict[str, dict] = {
     "plant":      {"view": "exactly one single subject, one top-down three-quarter view small plant or crop, a single connected patch", "extra": "compact leafy clusters"},
     "furniture":  {"view": "exactly one single subject, one top-down three-quarter view furniture piece", "extra": "wood grain strokes, plank seams"},
     "building":   {"view": "exactly one single subject, one top-down three-quarter view fantasy village building, front facade and roof visible", "extra": "stone and timber construction, warm glowing windows"},
-    "tileset":    {"view": "seamless tileable top-down terrain texture filling the entire frame edge to edge", "extra": "no outline, no border, uniform density, tiles seamlessly on all four sides"},
+    "tileset":    {"view": "seamless repeating natural ground surface texture seen from directly above, filling the entire frame edge to edge", "extra": "a natural terrain surface and not a man-made floor or wall, no outline, no border, uniform density across the whole frame, no large focal object, repeats seamlessly on all four sides"},
     "ui":         {"view": "exactly one single subject, a single flat game UI skill icon, one centered emblem", "extra": "bold readable symbol, subtle bevel"},
     "effect":     {"view": "exactly one single subject, one magical effect burst, isolated", "extra": "additive-friendly bright core with 1-2px glow"},
 }
@@ -97,6 +97,13 @@ NEGATIVE_NO_HUMAN = ("person, human, man, woman, character, warrior, knight, adv
 # 「왜」 "아이템 세트 시트"로 해석돼 한 장에 궤짝 7개·화분 12개가 콜라주로 나온 사례가 있었다.
 NEGATIVE_NO_COLLAGE = ("multiple separate objects, collection of items, item set, collage, "
                        "sprite sheet, grid layout, rows of objects, catalog")
+
+# 「왜」 'tile'이라는 단어가 세라믹·포장 타일로 읽혀 desert 지형이 벽돌 석조로 생성됐다.
+#      지형은 사람이 깐 바닥이 아니라 자연 지표면이라는 것을 네거티브로 못 박는다.
+NEGATIVE_NO_MASONRY = ("brick, bricks, brickwork, masonry, mortar, grout, cobblestone, "
+                       "pavement, paving stones, flagstone, tiled floor, ceramic tile, "
+                       "stone slab floor, wall, checkerboard, man-made floor, "
+                       "repeating decorative pattern, wallpaper")
 
 # 「왜」 jungle_canopy 캐노피가 프레임에 잘렸다. 타일 제외 전 카테고리에 잘림 금지.
 NEGATIVE_NO_CROP = "cropped, cut off at the edge, out of frame, partial view, extreme close-up"
@@ -121,6 +128,8 @@ def _negatives_for(category: str) -> list[str]:
         out.append(NEGATIVE_NO_COLLAGE)
     if category != "tileset":
         out.append(NEGATIVE_NO_CROP)
+    if category == "tileset":
+        out.append(NEGATIVE_NO_MASONRY)
     return out
 
 
@@ -352,6 +361,8 @@ def _postprocess_options(cfg: dict, args) -> dict:
         "downscale_filter": args.downscale_filter,
         "key_tolerance": cfg.get("keyTolerance", pp.KEY_TOLERANCE),
         "halo_tolerance": cfg.get("haloTolerance", pp.HALO_TOLERANCE),
+        "seamless": cfg.get("seamless", True),
+        "seam_band": cfg.get("seamBand", pp.SEAM_BAND),
         "root": pp.project_root(cfg.get("projectRoot")),
     }
 

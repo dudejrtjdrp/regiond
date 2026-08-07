@@ -107,5 +107,8 @@
     "sdxlBase": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0",
     "sdxlVaeFix": "https://huggingface.co/madebyollin/sdxl-vae-fp16-fix",
     "fluxPixelAlt": "https://huggingface.co/UmeAiRT/FLUX.1-dev-LoRA-Modern_Pixel_art"
-  }
+  },
+  "seamless": true,
+  "seamBand": 7,
+  "_seamNote": "타일 심리스화. seamless=false로 끄고, seamBand로 섞을 가장자리 대역(px)을 조절한다. generate.py의 _postprocess_options가 cfg.get으로 실제로 읽는다."
 }
