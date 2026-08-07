@@ -124,13 +124,10 @@
         GM.fx.debris(mx, my, '#8a5e33', 12, 1.4);
         GM.fx.floatText(mx, my - 0.8, '울타리가 부서졌다', '#ff9d99', 12);
       }
-    } else if (e.kind === 'structureHit' || e.kind === 'structureRuined' || e.kind === 'structureBreach') {
-      /* ★ §19-F1 — 서버가 실어 보내는 이름은 structureId 다(targetId 아님). 옛 줄은 늘 빈손이라
-         건물이 맞아도 화면에 먼지 한 톨 안 났다 — 부수며 진입(F05-3)이 이 길을 그대로 쓴다. */
-      var b = S.structureById(e.structureId || e.targetId);
+    } else if (e.kind === 'structureHit' || e.kind === 'structureRuined') {
+      var b = S.structureById(e.targetId);
       if (b) {
         GM.fx.debris(b.x, b.y, '#c8a874', e.kind === 'structureRuined' ? 16 : 6, 1.2);
-        if (e.kind === 'structureBreach') GM.fx.floatText(b.x, b.y - 1.2, b.name + ' 뚫림', '#f0a09c', 12);
         if (e.kind === 'structureRuined') {
           GM.fx.shakeScreen(5, 0.3);
           GM.fx.floatText(b.x, b.y - 1.2, b.name + ' 무너짐', '#ff9d99', 13);
@@ -209,10 +206,8 @@
     if ((list || []).length && GM.sfx) GM.sfx.play('shot');
   }
 
-  /* ★ §19-F1(F08-3) — 쏘는 것이 늘었으니 빛깔도 늘어난다(터렛마다 제 빛). */
-  var SHOT_COLOR = { cannon: '#e08541', ballista: '#c6d6e2', frost_tower: '#9fd4ee', flame_tower: '#f0763a' };
   function shotColor(key) {
-    return SHOT_COLOR[key] || '#f6e6a8';
+    return key === 'cannon' ? '#e08541' : (key === 'ballista' ? '#c6d6e2' : '#f6e6a8');
   }
 
   /* ══════════ ★ §19-D(F03-7) 터렛의 한 발 ══════════
@@ -485,34 +480,6 @@
                          key: 'threat', icon: GM.icons.img('shield', 22) });
   }
 
-  /* ★ §19-E(F04-4·F04-6) — 침공 조건과 앞당기기.
-     왜 여기인가 — 「울타리 앞」은 방어를 재는 자리이고, 「무엇을 더 갖춰야 적이 오는가」는 그 자리의 말이다.
-     조건 행은 서버가 장 목표와 **같은 계측기**로 재어 준다(waves.waveReadiness) — 화면은 그리기만 한다. */
-  function paintReadiness(host, w) {
-    var rd = w && w.readiness;
-    if (!rd) return;
-    host.appendChild(U.el('h3', 'sec-title', '침공 채비'));
-    var box = U.el('div', 'scroll-card');
-    rd.rows.forEach(function (q) {
-      var line = U.el('div', 'th-ready' + (q.ok ? ' on' : ''));
-      line.appendChild(U.el('span', null, (q.ok ? '✓ ' : '· ') + q.label));
-      line.appendChild(U.el('span', 'num', U.fmt(q.have, 0) + ' / ' + U.fmt(q.need, 0)));
-      box.appendChild(line);
-    });
-    box.appendChild(U.el('p', 'hint', rd.ok
-      ? '채비가 끝났습니다. 기다릴 것 없이 그대가 그날을 당길 수 있습니다.'
-      : '이 줄들을 채우면 적을 앞당겨 부를 수 있습니다. 그 전에도 적은 제 날에 옵니다.'));
-    host.appendChild(box);
-    if (!w.canRush) return;
-    host.appendChild(U.btn('적을 불러들인다 — 다음날 온다', 'btn-primary', function () {
-      GM.net.send('rushWave', {}, function (r) {
-        if (r && r.ok === false) { U.toast((r.error && r.error.message) || '아직입니다.', 'bad'); return; }
-        U.toast('봉화를 올렸습니다 — 다음날 적이 옵니다.', 'good', 4200);
-        U.closeTopModal();
-      });
-    }));
-  }
-
   function paintThreat(host) {
     U.clear(host);
     var w = S.wave(), d = S.defense();
@@ -534,6 +501,11 @@
       if (w.precise) {
         card.appendChild(U.el('p', null, w.enemy.units + '마리 · 한 마리 체력 ' + U.fmt(w.enemy.unitHp, 0) +
           ' · 공격력 ' + U.fmt(w.enemy.unitDps, 0)));
+        /* ★ §19-F2(F07-3) — 무엇이 섞여 오는지도 예언에 든다. 문구는 서버가 쥔 이름 그대로다. */
+        if (w.enemy.escort) {
+          card.appendChild(U.el('p', 'state-warn',
+            '섞여 온다 — ' + w.enemy.escort.name + ' ' + w.enemy.escort.units + '마리'));
+        }
       } else {
         card.appendChild(U.el('p', 'hint', '성녀가 자리에 있어야 규모와 날을 정확히 압니다.'));
       }
@@ -541,8 +513,6 @@
       if (w.tacticHint) card.appendChild(U.el('p', 'state-good', w.tacticHint.text || ''));
       host.appendChild(card);
     }
-
-    paintReadiness(host, w);
 
     var est = d.estimate || {};
     var g = U.makeGauge({ height: 24 });

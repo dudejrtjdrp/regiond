@@ -6,38 +6,26 @@
     5,
     7
   ],
-  "rush": {
-    "_note": "★ §19-E(F04-4) 침공 앞당기기 — QA 1차 「적이 올 때까지 할 일 없이 기다린다」의 답. conditions 는 chapters.json 의 조건 문법 그대로다(progression.measure 가 잰다) — 조건 행의 계측기를 둘로 나누지 않기 위해서다(§13-A-1). 다 채우면 화면에 [적을 불러들인다]가 열리고, 누르면 도착일이 daysAhead 일 뒤로 당겨진다. 밸런스: 앞당김은 **플레이어의 선택**이고 시뮬 봇은 쓰지 않는다 — 체크포인트 곡선은 그대로다. 앞당기면 준비할 날이 줄어드는 만큼 위험도 본인 몫이다(적 파워는 그대로).",
-    "enabled": true,
-    "daysAhead": 1,
-    "conditions": [
-      {
-        "label": "울타리 여덟 조각이나 화살탑 하나",
-        "type": "any",
-        "of": [
-          {
-            "type": "fenceSegments",
-            "count": 8
-          },
-          {
-            "type": "structure",
-            "building": "arrow_tower",
-            "count": 1
-          }
-        ]
-      },
-      {
-        "label": "주민 넷 — 울타리 앞에 설 손",
-        "type": "population",
-        "count": 4
-      },
-      {
-        "label": "곡물 40 — 농성할 먹을 것",
-        "type": "resource",
-        "resource": "grain",
-        "amount": 40
-      }
-    ]
+  "escort": {
+    "_note": "★ §19-F2(F07-3) 웨이브 구성 다양화 — 「같은 놈이 수만 늘어 온다」의 답. **총 파워는 한 톨도 바꾸지 않는다**(basePower·growth·settlementScale 이 그대로 쥔다): share 만큼을 떼어 호위대에게 주고 본대는 그만큼 줄인다. 그래서 위협의 크기는 같고 모양만 갈린다.\n· fromWave 가 6인 까닭: 시드42 n=20 체크포인트(웨이브5 생존율 60.0%)는 하한선에 딱 붙어 있어, 앞 다섯 웨이브의 구성을 건드리면 밸런스 판정이 노이즈에 흔들린다. 앞 다섯은 옛 구성 그대로 두고(적 한 마리 한 마리까지 동일) 여섯 번째부터 갈린다 — 「배웠으면 이제 섞어서 온다」는 뜻도 된다.\n· byBiome: 무엇이 따라오는지는 **내 도읍 둘레의 땅**이 정한다(biomeSampleRadius 안을 성기게 훑어 가장 흔한 바이옴을 고른다 — 난수 없음). 설산 곁에 살면 중갑병이, 밀림 곁이면 투석꾼이 따라온다. 땅이 곧 이웃이고 이웃이 곧 적이라는 뜻이다.",
+    "fromWave": 6,
+    "share": 0.25,
+    "biomeSampleRadius": 70,
+    "fallback": "raider",
+    "byBiome": {
+      "grass": "raider",
+      "fertile": "raider",
+      "forest": "sapper",
+      "rock": "ironclad",
+      "snow": "ironclad",
+      "dusk": "ironclad",
+      "jungle": "slinger",
+      "marsh": "slinger",
+      "mush": "slinger",
+      "desert": "raider",
+      "salt": "raider",
+      "ash": "sapper"
+    }
   },
   "basePower": 390,
   "growth": 1.07,
@@ -134,6 +122,54 @@
       "structureDamageBonus": 2.5,
       "desc": "울타리를 넘어 곧장 마을 한복판으로 내려앉는다."
     },
+    "raider": {
+      "name": "말 탄 약탈자",
+      "hp": 44,
+      "dps": 9,
+      "speed": 3.4,
+      "powerCost": 8,
+      "weakTo": "sortie",
+      "direction": "west",
+      "sprite": "raider",
+      "prefersLoot": true,
+      "desc": "질주형. 울타리를 도는 대신 곧장 파고든다 — 무르지만 손이 모자라면 먼저 닿는다."
+    },
+    "ironclad": {
+      "name": "중갑병",
+      "hp": 300,
+      "dps": 15,
+      "speed": 0.85,
+      "powerCost": 55,
+      "weakTo": "siege",
+      "direction": "north",
+      "sprite": "ironclad",
+      "structureDamageBonus": 1.8,
+      "desc": "중갑형. 느려서 오래 걸리지만 그동안 화살이 다 튕긴다."
+    },
+    "slinger": {
+      "name": "투석꾼",
+      "hp": 80,
+      "dps": 10,
+      "speed": 1.7,
+      "powerCost": 15,
+      "weakTo": "sortie",
+      "direction": "east",
+      "sprite": "slinger",
+      "rangeTiles": 4.5,
+      "desc": "원거리형. 붙지 않고 선 자리에서 던진다 — 민병이 다가가는 동안 계속 맞는다."
+    },
+    "sapper": {
+      "name": "폭약을 진 자",
+      "hp": 60,
+      "dps": 6,
+      "speed": 2.2,
+      "powerCost": 11,
+      "weakTo": "fire",
+      "direction": "west",
+      "sprite": "sapper",
+      "detonate": 16,
+      "desc": "자폭형. 울타리에 닿으면 제 몸과 함께 터진다 — 한 번뿐이지만 그 한 번이 문을 연다."
+    },
     "_note": "적 종류. hp/powerCost 비(≈5.5)를 종류마다 같게 맞춰 두었다 — 파워가 곧 위협의 크기가 되도록 하기 위함이고, 종류의 개성은 속도·비행·건물 피해 배수·듣는 전술(weakTo)로 낸다."
   },
   "warn": {
@@ -151,7 +187,7 @@
     }
   },
   "battle": {
-    "_note": "실시뮬 다이얼. subtickSeconds 는 서브틱 길이(결정론 — 실시간 여부와 무관하게 같은 입력이면 같은 결과), maxSeconds 는 한 웨이브의 최대 길이다. 적은 접근하며 울타리·터렛·민병과 붙고, 마을 한복판에 닿으면 건물을 부수며 초당 lootRatioPerSecond 만큼 곳간을 헤집는다. ★ 이기려면 한 놈도 남기지 않고 쫓아내야 한다 — 시간이 다 되면 남은 적이 챙긴 것을 들고 물러간다(전멸도 게임오버도 없다).",
+    "_note": "실시뮬 다이얼. subtickSeconds 는 서브틱 길이(결정론 — 실시간 여부와 무관하게 같은 입력이면 같은 결과), maxSeconds 는 한 웨이브의 최대 길이다. 적은 접근하며 울타리·터렛·민병과 붙고, 마을 한복판에 닿으면 건물을 부수며 초당 lootRatioPerSecond 만큼 곳간을 헤집는다. ★ 이기려면 한 놈도 남기지 않고 쫓아내야 한다 — 시간이 다 되면 남은 적이 챙긴 것을 들고 물러간다(전멸도 게임오버도 없다). ★ §19-F2(F07-3) — rangeTiles 는 붙지 않고 때리는 사거리이고(없으면 meleeRangeTiles), detonate 는 울타리·건물에 닿는 순간 제 몸을 터뜨리는 배수다(그 한 방 뒤 스스로 사라진다).",
     "subtickSeconds": 0.25,
     "maxSeconds": 120,
     "spawnRadiusTiles": 22,
@@ -177,17 +213,7 @@
     "rewardGoldPerPower": 0.35,
     "timelineMaxEvents": 900,
     "lootRatioPerSecond": 0.0003,
-    "structureDamageFloor": 0.25,
-    "breach": {
-      "_note": "★ §19-F1(F05-3) 부수며 진입. 적은 이제 석벽을 넘은 뒤 **길목에 선 건물**을 만나면 저울질한다: 뚫는 데 드는 시간×제 걸음(=칸으로 환산한 값)이 detourTiles 보다 싸면 부수고, 비싸면 돌아간다(체력 비례 가중치 — 튼튼한 건물일수록 돌아간다). openHpRatio 아래로 밀리면 「뚫렸다」고 보고 더 두드리지 않는다 — 건물이 통째로 사라지지 않는 §6 패배 관대는 그대로다(structureDamageFloor 가 여전히 바닥이다). corridorTiles 는 건물 몸집에 더하는 옆폭이고, scanBudget·rescanTiles 는 프레임 예산이다: 한 서브틱에 길목을 새로 찾아보는 적 수와, 그만큼 걸어야 다시 찾는 거리.",
-      "damageScale": 8,
-      "openHpRatio": 0.6,
-      "detourTiles": 4,
-      "corridorTiles": 0.5,
-      "scanBudget": 6,
-      "rescanTiles": 1.5,
-      "maxSecondsPerStructure": 4
-    }
+    "structureDamageFloor": 0.25
   },
   "simulation": {
     "_note": "시뮬 봇(server/sim/policy.js)이 웨이브를 준비하는 다이얼. botPlayerDps 는 '플레이어가 검을 들고 참여한 평균치' 근사다 — GDD3 §10 의 '봇은 플레이어 행동 근사 포함' 요구를 만족한다.",
@@ -198,9 +224,9 @@
     "botMaxTurretsPerWave": 2
   },
   "settlementScale": {
-    "_note": "★ 정착지 규모 보정(GDD3 §6 보강) — 웨이브 번호만 세는 1.18^n 은 '인구 0에서 시작해 폭발적으로 자라는' 정착지를 따라가지 못한다. 그래서 파워에 '지금 이 정착지가 갖춘 방어(터렛 DPS + 민병 DPS + 울타리 내구 × fenceWeight)'를 한 항으로 곱한다. reference 는 그 항이 1이 되는 기준 방어량이고, exponent<1 이라 투자할수록 이득이 남는다(따라오되 앞지르지는 않는다). ★ v3.2(GDD3 §12-4): 유입 가속으로 85일 인구가 37 → 52 로 늘었다. 기준 방어량(reference)도 그만큼 올려(70→88) 커진 정착지가 제 규모 때문에 벌 받지 않게 했다. ★ v3.2(GDD3 §13-B): 군락 개편으로 자원이 영토 밖으로 나가면서 주민 일자리 반경이 넓어졌고(영토+26), 45일차 목재가 1283→2223 으로 불었다. 규모 보정이 그 부를 곧바로 적군 머릿수로 바꾸는 바람에 웨이브5(오우거)가 120초 제한에 걸려 무너졌다(생존율 65%→40%, 전투 99.5→106.4초). 투자가 더 남게 exponent 0.85→0.72 로 눌렀다 — 쓸어보기 표는 docs/PROTOCOL.md §9-5. ★ §15-B: 터렛의 몫에 **닿는 넓이**를 곱한다(turretRangeReference = 화살탑 1단계 사거리 8). 옛 식은 dps 만 셌다 — 사거리가 길수록 적이 사정권에 오래 머물러 같은 dps 가 더 많은 피해를 낸다. 이 항이 없으면 사거리를 올릴 때마다 규모 보정이 그 몫을 못 보고 지나친다. 체크포인트에 준 실측 영향은 작았다(웨이브8 60%→55%) — 지금 자료의 초반 터렛이 기준 사거리와 같아서다. 뒤 티어(노포 13칸)에서 값어치가 난다. ★ §19-E(F06-1 재보정, 2026-08-07): 산출 건물 상향으로 같은 날짜의 정착지가 다시 부유해졌고, 규모 보정이 그 부를 곧바로 적 전력으로 되돌려 웨이브5 생존율이 60.0%에서 55.0%(시드42 n=20)로 하한을 벗어났다. v3.2 의 70→88 · Sprint 4 의 88→110 과 같은 손으로 기준 방어량을 110→118 로 올려 재보정한다 — 「살림이 늘면 기준도 함께 오른다」가 이 다이얼의 뜻이고, 적을 통째로 내리는 것(basePower)보다 뒷 웨이브의 압력을 덜 흔든다.",
+    "_note": "★ 정착지 규모 보정(GDD3 §6 보강) — 웨이브 번호만 세는 1.18^n 은 '인구 0에서 시작해 폭발적으로 자라는' 정착지를 따라가지 못한다. 그래서 파워에 '지금 이 정착지가 갖춘 방어(터렛 DPS + 민병 DPS + 울타리 내구 × fenceWeight)'를 한 항으로 곱한다. reference 는 그 항이 1이 되는 기준 방어량이고, exponent<1 이라 투자할수록 이득이 남는다(따라오되 앞지르지는 않는다). ★ v3.2(GDD3 §12-4): 유입 가속으로 85일 인구가 37 → 52 로 늘었다. 기준 방어량(reference)도 그만큼 올려(70→88) 커진 정착지가 제 규모 때문에 벌 받지 않게 했다. ★ v3.2(GDD3 §13-B): 군락 개편으로 자원이 영토 밖으로 나가면서 주민 일자리 반경이 넓어졌고(영토+26), 45일차 목재가 1283→2223 으로 불었다. 규모 보정이 그 부를 곧바로 적군 머릿수로 바꾸는 바람에 웨이브5(오우거)가 120초 제한에 걸려 무너졌다(생존율 65%→40%, 전투 99.5→106.4초). 투자가 더 남게 exponent 0.85→0.72 로 눌렀다 — 쓸어보기 표는 docs/PROTOCOL.md §9-5. ★ §15-B: 터렛의 몫에 **닿는 넓이**를 곱한다(turretRangeReference = 화살탑 1단계 사거리 8). 옛 식은 dps 만 셌다 — 사거리가 길수록 적이 사정권에 오래 머물러 같은 dps 가 더 많은 피해를 낸다. 이 항이 없으면 사거리를 올릴 때마다 규모 보정이 그 몫을 못 보고 지나친다. 체크포인트에 준 실측 영향은 작았다(웨이브8 60%→55%) — 지금 자료의 초반 터렛이 기준 사거리와 같아서다. 뒤 티어(노포 13칸)에서 값어치가 난다.",
     "enabled": true,
-    "reference": 118,
+    "reference": 110,
     "exponent": 0.72,
     "fenceWeight": 0.02,
     "min": 0.5,

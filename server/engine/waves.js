@@ -2,11 +2,10 @@
 // ★ v3.1: 첫 위협은 '티어'가 아니라 **7장(낯선 발자국)에서 흔적을 살핀 뒤**에 잡힌다 — 진행 감독이 문을 쥔다.
 // 그 뒤로는 4~6게임일 간격으로 끝없이 온다.
 // 파워 = basePower × growth^n × 난이도 배수 × 변형 배수. 적은 로테이션으로 돌아오고 한 바퀴마다 강해진다.
-import { townOf, territoryRadius, dist } from './world.js';
+import { townOf, territoryRadius, dist, terrainAt } from './world.js';
 import { isVisible } from './fog.js';
 import { canSeeTacticHint } from './tactics.js';
-// ★ §19-E(F04-4) — 침공 조건은 **장 목표와 같은 계측기**로 잰다(§13-A-1 조건 행의 단일 정본).
-import { featureUnlocked, measure } from './progression.js';
+import { featureUnlocked } from './progression.js';
 import { warnBonusDays, turretList, militiaSlots, militiaBonus } from './structures.js';
 import { difficultyPreset } from './difficulty.js';
 import { round2, round3 } from './economy.js';
@@ -24,11 +23,34 @@ export function hasSaintSight(nation, data, hooks = {}) {
 // ────────────────────────────────────────────────────────────────
 // 웨이브 정의
 // ────────────────────────────────────────────────────────────────
+/** 한 무리의 실체 — 종류 하나가 몇이서 어떤 몸으로 오는가 (본대·호위대가 같은 틀을 쓴다) */
+function groupOf(type, def, statMult, power) {
+  const units = Math.max(1, Math.round(power / (def.powerCost * statMult)));
+  return {
+    type, units, sprite: def.sprite ?? type,
+    unitHp: round2(def.hp * statMult), unitDps: round2(def.dps * statMult),
+    speed: def.speed, flying: Boolean(def.flying),
+    structureDamageBonus: def.structureDamageBonus ?? 1,
+    rangeTiles: def.rangeTiles ?? null, detonate: def.detonate ?? null,
+  };
+}
+
+/**
+ * ★ §19-F2(F07-3) — 이 웨이브에 누가 따라오는가. 없으면 null(옛 구성 그대로).
+ * 「왜」 fromWave 인가: 앞 다섯 웨이브는 밸런스 체크포인트가 매달린 자리라 한 마리도 건드리지 않는다.
+ */
+function escortKey(index, cfg, biome) {
+  const e = cfg.escort;
+  if (!e || index + 1 < (e.fromWave ?? Infinity)) return null;
+  const key = (biome && e.byBiome?.[biome]) || e.fallback;
+  return cfg.types[key] ? key : null;
+}
+
 /**
  * n번째 웨이브(0-based)의 실체.
- * @returns {{index,type,name,cycle,power,units,unitHp,unitDps,speed,direction,weakTo,flying,...}}
+ * @returns {{index,type,name,cycle,power,units,groups,unitHp,unitDps,speed,direction,weakTo,flying,...}}
  */
-export function waveSpec(index, data, { difficultyMultiplier = 1, settlementScale = 1 } = {}) {
+export function waveSpec(index, data, { difficultyMultiplier = 1, settlementScale = 1, biome = null } = {}) {
   const cfg = wavesCfg(data);
   const rot = cfg.rotation;
   const type = rot[index % rot.length];
@@ -46,8 +68,13 @@ export function waveSpec(index, data, { difficultyMultiplier = 1, settlementScal
     * difficultyMultiplier
     * settlementScale
     * ramp;
+  /* ★ §19-F2(F07-3) — 총 파워를 본대와 호위대로 가른다. 합은 언제나 power 다(위협의 크기는 그대로). */
+  const esc = escortKey(index, cfg, biome);
+  const share = esc ? (cfg.escort.share ?? 0) : 0;
   const unitCost = def.powerCost * statMult;
-  const units = Math.max(2, Math.round(power / unitCost));
+  const units = Math.max(2, Math.round((power * (1 - share)) / unitCost));
+  const groups = [{ ...groupOf(type, def, statMult, power * (1 - share)), units }];
+  if (esc) groups.push(groupOf(esc, cfg.types[esc], statMult, power * share));
   const prefix = cfg.variant.prefixes[Math.min(cycle, cfg.variant.prefixes.length - 1)];
   return {
     index,
@@ -57,7 +84,9 @@ export function waveSpec(index, data, { difficultyMultiplier = 1, settlementScal
     baseName: def.name,
     desc: def.desc ?? null,
     power: round2(power),
-    units,
+    units: groups.reduce((a, g) => a + g.units, 0),
+    groups,
+    escort: esc ? { type: esc, name: cfg.types[esc].name, units: groups[1].units } : null,
     unitHp: round2(def.hp * statMult),
     unitDps: round2(def.dps * statMult),
     speed: def.speed,
@@ -106,6 +135,39 @@ export function settlementScale(nation, data) {
   return Math.min(cfg.max, Math.max(cfg.min, scale));
 }
 
+/**
+ * ★ §19-F2(F07-3) — 내 도읍 둘레에서 가장 흔한 **새 땅**. 없으면 가장 흔한 옛 지형.
+ * 난수를 쓰지 않는다(같은 지도·같은 도읍이면 언제나 같은 답) — 웨이브 결정론을 지킨다.
+ */
+export function dominantBiome(world, nation, data) {
+  const town = townOf(world, nation.id);
+  const cfg = wavesCfg(data).escort;
+  if (!town || !cfg || !world.map) return null;
+  const codes = data.world.terrain.codes;
+  const biomes = new Set(data.world.terrain.biomes?.codes || []);
+  const tally = new Map();
+  for (let i = 0; i < 192; i += 1) {
+    const a = (i * 2 * Math.PI) / 24;
+    const r = ((Math.floor(i / 24) + 1) * (cfg.biomeSampleRadius ?? 70)) / 8;
+    const t = terrainAt(world.map, Math.round(town.x + Math.cos(a) * r), Math.round(town.y + Math.sin(a) * r));
+    if (t != null) tally.set(codes[t], (tally.get(codes[t]) || 0) + 1);
+  }
+  return topCode(tally, biomes);
+}
+
+/** 표에서 이긴 코드 — 새 땅이 하나라도 있으면 그중에서, 없으면 옛 지형 중에서 고른다 */
+function topCode(tally, biomes) {
+  let best = null;
+  for (const only of [true, false]) {
+    for (const [code, n] of tally) {
+      if (only !== biomes.has(code)) continue;
+      if (!best || n > best.n) best = { code, n };
+    }
+    if (best) return best.code;
+  }
+  return null;
+}
+
 /** 이 나라의 다음 웨이브 정의 */
 export function nextWaveSpec(world, nation, data) {
   const diff = difficultyPreset(world, data);
@@ -113,6 +175,7 @@ export function nextWaveSpec(world, nation, data) {
   return waveSpec(index, data, {
     difficultyMultiplier: diff.invasionPowerMultiplier ?? 1,
     settlementScale: settlementScale(nation, data),
+    biome: dominantBiome(world, nation, data),
   });
 }
 
@@ -161,47 +224,6 @@ export function daysUntilWave(world, nation) {
   const w = nation.wave;
   if (!w || w.arrivalTick == null) return null;
   return w.arrivalTick - world.tick;
-}
-
-// ────────────────────────────────────────────────────────────────
-// ★ §19-E(F04-4) — 침공 앞당기기. 「무작정 대기」를 없앤다.
-//
-// 왜. 흔적을 살핀 뒤 적이 오기까지 엿새다. 그 엿새 동안 화면은 아무 말도 하지 않았고,
-// 플레이어는 「무엇을 더 갖춰야 하는지」도 「언제 끝나는지」도 모른 채 기다렸다(QA 1차 F04-4).
-// 고침은 둘이다: ① 침공 조건을 **늘 보이게** 적어 준다 ② 그 조건을 다 채우면 **본인이 앞당긴다**.
-// 시간이 여는 것은 여전히 없다 — 앞당기는 것도 플레이어의 행동이다(§11 대원칙).
-// ────────────────────────────────────────────────────────────────
-export const rushCfg = (data) => wavesCfg(data).rush ?? null;
-
-/** 침공 준비가 되었는가 — 조건 행은 chapters.json 의 조건 문법을 그대로 쓴다 */
-export function waveReadiness(world, nation, data) {
-  const cfg = rushCfg(data);
-  if (!cfg?.enabled) return null;
-  const rows = (cfg.conditions || []).map((c) => {
-    const m = measure(world, nation, c, data);
-    return { label: c.label ?? '', have: m.have, need: m.need, ok: m.ok };
-  });
-  return { ok: rows.every((r) => r.ok), daysAhead: cfg.daysAhead ?? 1, rows };
-}
-
-/** 지금 앞당길 수 있는가 — 준비가 끝났고, 아직 그날이 하루보다 멀리 있을 때만 */
-export function canRushWave(world, nation, data) {
-  const cfg = rushCfg(data);
-  if (!cfg?.enabled || !nation?.isPlayer) return false;
-  if (!featureUnlocked(nation, 'waves', data)) return false;
-  if (nation.battle && !nation.battle.over) return false;
-  const days = daysUntilWave(world, nation);
-  if (days == null || days <= (cfg.daysAhead ?? 1)) return false;
-  return Boolean(waveReadiness(world, nation, data)?.ok);
-}
-
-/** 적을 불러들인다 — 도착일을 '다음날'로 당긴다. 서버 권위(명령 rushWave 하나만 이 문을 쓴다). */
-export function rushWave(world, nation, data) {
-  if (!canRushWave(world, nation, data)) return null;
-  const w = ensureWaveState(nation);
-  w.arrivalTick = world.tick + (rushCfg(data).daysAhead ?? 1);
-  w.rushedIndex = w.index;
-  return w.arrivalTick;
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -330,11 +352,6 @@ export function waveView(world, nation, viewerRole, data, hooks = {}) {
     unlocked,
     startTier: cfg.startTier,
     active: Boolean(nation.battle && !nation.battle.over),
-    /* ★ §19-E(F04-4) — 조건과 앞당김은 **정보 비대칭 바깥**이다. 적이 언제 오는지는 흐려도,
-       「내가 무엇을 더 갖춰야 하는지」는 언제나 또렷해야 한다(대기 중 할 일 제로 방지). */
-    readiness: waveReadiness(world, nation, data),
-    canRush: canRushWave(world, nation, data),
-    rushed: w.rushedIndex === w.index,
     history: (w.history || []).slice(-10).map((h) => ({
       index: h.index, number: h.index + 1, type: h.type, name: h.name, tick: h.tick,
       won: h.won, enemiesKilled: h.enemiesKilled, enemiesTotal: h.enemiesTotal,
@@ -363,9 +380,14 @@ export function waveView(world, nation, viewerRole, data, hooks = {}) {
         type: spec.type, name: spec.name, desc: spec.desc, units: spec.units,
         power: spec.power, unitHp: spec.unitHp, unitDps: spec.unitDps,
         direction: spec.direction, weakTo: spec.weakTo, flying: spec.flying, sprite: spec.sprite,
+        /* ★ §19-F2(F07-3) — 예언은 「몇이 오는가」만이 아니라 **무엇이 섞여 오는가**까지 본다.
+           성녀가 없으면 이 칸도 없다(§11-1 잠긴 계층은 부재다). */
+        groups: spec.groups.map((g) => ({ type: g.type, units: g.units, sprite: g.sprite })),
+        escort: spec.escort,
       },
       blessing: warnCfg(data).saint.damageBonus,
-      hint: `성녀의 예언 — ${spec.name} ${spec.units}이(가) ${days}일 뒤 ${directionName(spec.direction, data)}에서 옵니다.`,
+      hint: `성녀의 예언 — ${spec.name} ${spec.units}이(가) ${days}일 뒤 ${directionName(spec.direction, data)}에서 옵니다.`
+        + (spec.escort ? ` ${spec.escort.name} ${spec.escort.units}이(가) 섞여 있습니다.` : ''),
     };
   }
   return {

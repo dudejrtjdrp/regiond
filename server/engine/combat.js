@@ -53,8 +53,11 @@ export function defenseSummary(world, nation, data, hooks = {}) {
   const totalDps = (turretDps + militiaDps + pDps) * mult.defender;
 
   const spec = nextWaveSpec(world, nation, data);
-  const enemyHp = spec.unitHp * spec.units;
-  const enemyDps = spec.unitDps * spec.units;
+  /* ★ §19-F2(F07-3) — 호위대가 섞이면 「한 마리 체력 × 총 마릿수」는 거짓이 된다. 무리마다 제 몸이
+     따로 있으므로 무리별로 더한다(호위대가 없으면 무리가 하나뿐이라 옛 셈과 한 톨도 다르지 않다). */
+  const gs = spec.groups ?? [{ unitHp: spec.unitHp, unitDps: spec.unitDps, units: spec.units }];
+  const enemyHp = gs.reduce((a, g) => a + g.unitHp * g.units, 0);
+  const enemyDps = gs.reduce((a, g) => a + g.unitDps * g.units, 0);
   const fenceHp = fences.reduce((a, f) => a + (f.hp || 0), 0);
   const timeToClear = totalDps > 0 ? enemyHp / totalDps : Infinity;
   const timeToBreach = enemyDps > 0 ? fenceHp / enemyDps : 0;
