@@ -44,7 +44,77 @@
     /* ★ §17-17 바이옴 — 설산은 밝은 회백(눈이 덮인 돌밭), 밀림은 짙은 초록(빛이 안 드는 숲).
        그리는 규칙은 옛 다섯과 한 벌이다: 바탕 한 겹 + 점 열둘 + 종류마다의 표식 몇 획. */
     snow:    { base: '#d8dee6', dots: ['#eef2f6', '#c2cad4', '#b0b8c4'] },
-    jungle:  { base: '#2c4a26', dots: ['#37592e', '#223c1e', '#436a38'] }
+    jungle:  { base: '#2c4a26', dots: ['#37592e', '#223c1e', '#436a38'] },
+    /* ★ §19-F2(F07-1) — 여섯 땅. 그리는 규칙은 옛것과 한 벌이다(바탕 한 겹 + 점 열둘 + 표식 몇 획).
+       에셋은 여전히 없다: 팔레트와 사각형 몇 개로만 낸다(CDN·이미지 금지). */
+    desert:  { base: '#d9c089', dots: ['#e8d2a0', '#c8ac74', '#f0e0b6'] },
+    marsh:   { base: '#4a5f4a', dots: ['#5a7057', '#3b4e3c', '#6b8062'] },
+    ash:     { base: '#5a5450', dots: ['#6b6460', '#474240', '#7a736c'] },
+    mush:    { base: '#4a3f5c', dots: ['#5b4e70', '#3a3149', '#6d5f85'] },
+    salt:    { base: '#e2e6e4', dots: ['#f2f5f4', '#c9cfcd', '#d6dbd9'] },
+    dusk:    { base: '#6b4a55', dots: ['#7d5865', '#573a45', '#8f6675'] }
+  };
+
+  /* ★ §19-F2 — 땅마다의 표식을 **표**로 세운다. 옛것은 if 를 줄줄이 이어 붙였는데,
+     땅이 일곱에서 열셋이 되면 그 함수 하나가 예순 줄이 된다(함수 ≤15줄 규칙 위반).
+     그림은 한 획도 바뀌지 않는다 — 옛 if 의 몸통을 그대로 옮겨 담았다. */
+  var MARK = {
+    forest: function (P) {
+      P(4, 5, 3, 6, '#2f4d27'); P(9, 3, 3, 7, '#2f4d27');
+      P(3, 3, 5, 4, '#5f8a4c'); P(8, 1, 5, 4, '#5f8a4c');
+    },
+    rock: function (P) {
+      P(3, 8, 6, 5, '#6f6a5e'); P(3, 8, 6, 1, '#b0aa9c');
+      P(9, 4, 4, 4, '#6f6a5e'); P(9, 4, 4, 1, '#b0aa9c');
+    },
+    water: function (P) { P(2, 5, 6, 1, '#78aed6'); P(9, 10, 5, 1, '#78aed6'); },
+    fertile: function (P) { for (var k = 1; k < 16; k += 4) P(0, k, 16, 1, '#8a7238'); },
+    /* ★ §17-17 설산 — 눈에 반쯤 묻힌 바위 둘과 그 위 햇빛 한 줄 */
+    snow: function (P) {
+      P(3, 9, 5, 3, '#a8b0bc'); P(3, 9, 5, 1, '#f2f6fa');
+      P(9, 5, 4, 3, '#9ea6b2'); P(9, 5, 4, 1, '#f2f6fa');
+    },
+    /* ★ §17-17 밀림 — 넓은 잎 세 겹이 겹쳐 바닥이 안 보인다 */
+    jungle: function (P) {
+      P(1, 6, 7, 8, '#1e3a1a'); P(2, 4, 6, 3, '#436a38');
+      P(8, 3, 7, 10, '#254421'); P(9, 2, 5, 3, '#4e7a40');
+      P(6, 11, 3, 4, '#1a3216');
+    },
+    /* ★ §19-F2 사막 — 바람이 밀어 놓은 모래 언덕 세 줄과 그 마루의 햇빛 */
+    desert: function (P) {
+      P(1, 5, 8, 2, '#c8ac74'); P(1, 5, 8, 1, '#f2e4bc');
+      P(7, 10, 8, 2, '#c8ac74'); P(7, 10, 8, 1, '#f2e4bc');
+      P(3, 13, 5, 1, '#c0a26a');
+    },
+    /* ★ §19-F2 습지 — 고인 물웅덩이 둘과 그 사이로 선 갈대 */
+    marsh: function (P) {
+      P(2, 8, 6, 4, '#31474a'); P(2, 8, 6, 1, '#5d8288');
+      P(10, 4, 4, 3, '#31474a'); P(10, 4, 4, 1, '#5d8288');
+      P(5, 2, 1, 5, '#7d9160'); P(8, 11, 1, 4, '#7d9160');
+    },
+    /* ★ §19-F2 화산재 땅 — 식지 않은 갈라진 틈 사이로 붉은 기가 비친다 */
+    ash: function (P) {
+      P(3, 3, 1, 9, '#2e2a28'); P(4, 7, 6, 1, '#2e2a28');
+      P(10, 9, 1, 6, '#2e2a28');
+      P(3, 6, 1, 2, '#a8482c'); P(10, 11, 1, 2, '#a8482c');
+    },
+    /* ★ §19-F2 버섯 숲 — 사람 키만 한 갓 둘. 자루는 희고 갓은 붉다 */
+    mush: function (P) {
+      P(3, 9, 2, 5, '#d8cfc0'); P(1, 6, 6, 3, '#a8425a'); P(2, 6, 4, 1, '#d4657c');
+      P(10, 11, 2, 4, '#d8cfc0'); P(8, 8, 6, 3, '#8c3a6a'); P(9, 8, 4, 1, '#b45a90');
+    },
+    /* ★ §19-F2 소금 평원 — 말라 갈라진 소금 판의 격자 금 */
+    salt: function (P) {
+      P(0, 5, 16, 1, '#b8c0be'); P(0, 11, 16, 1, '#b8c0be');
+      P(4, 0, 1, 16, '#b8c0be'); P(11, 0, 1, 16, '#b8c0be');
+      P(6, 7, 3, 2, '#ffffff');
+    },
+    /* ★ §19-F2 황혼 골짜기 — 비스듬히 누운 그림자와 그 끝의 노을 한 줄 */
+    dusk: function (P) {
+      P(0, 10, 16, 4, '#3f2b33'); P(0, 10, 16, 1, '#8f6675');
+      P(2, 2, 5, 6, '#4e3540'); P(9, 4, 5, 5, '#4e3540');
+      P(0, 0, 16, 1, '#c98a6a');
+    }
   };
 
   function terrain(code, variant) {
@@ -57,27 +127,7 @@
         var x = Math.floor(r() * 16), y = Math.floor(r() * 16);
         P(x, y, 2, 1, def.dots[Math.floor(r() * def.dots.length)]);
       }
-      if (code === 'forest') {
-        P(4, 5, 3, 6, '#2f4d27'); P(9, 3, 3, 7, '#2f4d27');
-        P(3, 3, 5, 4, '#5f8a4c'); P(8, 1, 5, 4, '#5f8a4c');
-      }
-      if (code === 'rock') {
-        P(3, 8, 6, 5, '#6f6a5e'); P(3, 8, 6, 1, '#b0aa9c');
-        P(9, 4, 4, 4, '#6f6a5e'); P(9, 4, 4, 1, '#b0aa9c');
-      }
-      if (code === 'water') { P(2, 5, 6, 1, '#78aed6'); P(9, 10, 5, 1, '#78aed6'); }
-      if (code === 'fertile') { for (var k = 1; k < 16; k += 4) P(0, k, 16, 1, '#8a7238'); }
-      /* ★ §17-17 설산 — 눈에 반쯤 묻힌 바위 둘과 그 위 햇빛 한 줄 */
-      if (code === 'snow') {
-        P(3, 9, 5, 3, '#a8b0bc'); P(3, 9, 5, 1, '#f2f6fa');
-        P(9, 5, 4, 3, '#9ea6b2'); P(9, 5, 4, 1, '#f2f6fa');
-      }
-      /* ★ §17-17 밀림 — 넓은 잎 세 겹이 겹쳐 바닥이 안 보인다 */
-      if (code === 'jungle') {
-        P(1, 6, 7, 8, '#1e3a1a'); P(2, 4, 6, 3, '#436a38');
-        P(8, 3, 7, 10, '#254421'); P(9, 2, 5, 3, '#4e7a40');
-        P(6, 11, 3, 4, '#1a3216');
-      }
+      if (MARK[code]) MARK[code](P);
     });
   }
 
@@ -269,17 +319,12 @@
     smithy:      { wall: '#9c8878', roof: '#5c4438', shape: 'shed',  mark: 'anvil' },
     mine_shaft:  { wall: '#8a8478', roof: '#4a4038', shape: 'mine',  mark: null },
     mill:        { wall: '#dcc9a0', roof: '#8a5e33', shape: 'mill',  mark: null },
-    /* ★ §19-F1(F08-4) — 목장은 집이 아니다. 낮은 울타리로 두른 우리와 짚가리·여물통이다. */
-    ranch:       { wall: '#c9a86e', roof: '#8a5e33', shape: 'ranch', mark: null },
     /* 군사 */
     watchpost:   { wall: '#a3703f', roof: '#6b4526', shape: 'tower', mark: 'eye' },
     arrow_tower: { wall: '#a3703f', roof: '#8a5e33', shape: 'tower', mark: 'arrow' },
     barracks:    { wall: '#c07a78', roof: '#7d2a2c', shape: 'gable', mark: 'sword' },
     ballista:    { wall: '#8b9fb0', roof: '#6b4526', shape: 'engine', mark: 'bolt' },
     cannon:      { wall: '#5e646c', roof: '#3b4148', shape: 'engine', mark: 'barrel' },
-    /* ★ §19-F1(F08-3) — 서리탑·화염탑. 새 모양을 빚지 않고 있는 뼈대(tower·engine)에 색과 표식만 얹는다 */
-    frost_tower: { wall: '#a9c6d8', roof: '#5d84a6', shape: 'tower', mark: 'frost' },
-    flame_tower: { wall: '#b06a44', roof: '#7d2a2c', shape: 'engine', mark: 'flame' },
     /* 발전 */
     campfire:    { wall: '#6b4526', roof: '#e08541', shape: 'fire',  mark: null },
     trading_post: { wall: '#cdb283', roof: '#8a5e33', shape: 'gable', mark: 'ship' },
@@ -518,25 +563,6 @@
           P(4, 0, 4, 2, '#e8a33d');
           break;
         }
-        case 'ranch': {
-          /* 바닥 — 밟아 다져진 흙 마당 */
-          P(1, 6, 22, 16, '#8a7449'); P(1, 6, 22, 1, '#9c8556');
-          P(4, 10, 6, 4, '#7a6540'); P(14, 15, 6, 3, '#7a6540');
-          /* 울타리 — 기둥과 가로대 두 줄(사방을 두른다) */
-          for (var rp = 0; rp < 6; rp++) {
-            P(1 + rp * 4, 4, 2, 5, '#8a5e33');
-            P(1 + rp * 4, 19, 2, 5, '#8a5e33');
-          }
-          P(0, 4, 2, 20, '#8a5e33'); P(22, 4, 2, 20, '#8a5e33');
-          P(1, 5, 22, 1, wall); P(1, 7, 22, 1, U.shade(wall, -0.15));
-          P(1, 21, 22, 1, wall); P(1, 23, 22, 1, U.shade(wall, -0.15));
-          P(1, 5, 1, 19, wall); P(22, 5, 1, 19, U.shade(wall, -0.15));
-          /* 우리 한켠의 헛간 지붕과 짚가리·여물통 — 티어가 오르면 짚가리가 자란다 */
-          P(14, 4, 9, 6, roof); P(14, 4, 9, 1, U.shade(roof, 0.3));
-          P(15, 8 - grow, 7, 3 + grow, '#e8c96a'); P(15, 8 - grow, 7, 1, '#f6e6a8');
-          P(3, 16, 6, 3, '#6b4526'); P(3, 16, 6, 1, '#8a5e33');
-          break shapeAndMark;
-        }
         case 'garden': {
           P(2, 16, 20, 6, '#7a5c30'); P(2, 16, 20, 1, '#8a6a3a');
           for (var g = 0; g < 5; g++) {
@@ -585,9 +611,6 @@
         case 'sword':    P(11, 1, 2, 7, '#c6d6e2'); P(9, 7, 6, 2, '#a8701f'); break;
         case 'bolt':     P(10, 5, 4, 3, '#e8a33d'); break;
         case 'barrel':   P(20, 8, 4, 4, '#2b3138'); break;
-        /* ★ §19-F1(F08-3) — 서리 결정(여섯 갈래)과 솟는 불꽃 */
-        case 'frost':    P(11, 1, 2, 8, '#dff1fb'); P(8, 4, 8, 2, '#dff1fb'); P(9, 2, 2, 2, '#9fd4ee'); P(13, 6, 2, 2, '#9fd4ee'); break;
-        case 'flame':    P(10, 1, 4, 5, '#e08541'); P(11, 0, 2, 3, '#f6cf7a'); P(9, 4, 6, 2, '#d96a2c'); break;
         case 'ship':     P(4, 3, 6, 5, '#f4e4bc'); P(3, 8, 9, 2, '#8a5e33'); break;
         case 'awning':   P(2, 2, 20, 2, '#bc4749'); break;
         case 'holy':     P(11, 0, 2, 5, '#f6e6a8'); P(9, 1, 6, 2, '#f6e6a8'); break;
@@ -989,7 +1012,13 @@
     return im;
   }
 
-  /* ══════════ 적 유닛 6종 ══════════ */
+  /* ══════════ 적 유닛 ══════════
+     ★ §19-F2(F07-3) — 여섯에서 열로 늘었다. 늑대·오우거·드래곤은 제 몸틀을 따로 갖고,
+     나머지는 사람꼴 하나에 **옷 색과 표식 한 획**만 달리 준다(에셋 없이 실루엣만으로 갈라 읽히게). */
+  var FOE = {
+    viking: '#6b7580', pirate: '#5a4038', bandit: '#7a5a48',
+    raider: '#8a4a3a', ironclad: '#4e5a68', slinger: '#7a7048', sapper: '#5c4a5e',
+  };
   function enemy(type, frame) {
     return cached('e:' + type + ':' + frame, 14, 16, function (P) {
       var bob = frame ? 1 : 0;
@@ -1022,7 +1051,7 @@
         P(3, 12 + bob, 2, 4 - bob, '#3a5a2e'); P(8, 12, 2, 4, '#3a5a2e');
         return;
       }
-      var col = type === 'viking' ? '#6b7580' : (type === 'pirate' ? '#5a4038' : '#7a5a48');
+      var col = FOE[type] || FOE.bandit;
       P(3, 12 + bob, 2, 4 - bob, '#2b2118');
       P(8, 12, 2, 4, '#2b2118');
       P(2, 6 + bob, 9, 7, col); P(2, 6 + bob, 9, 1, U.shade(col, 0.3));
@@ -1031,6 +1060,17 @@
       if (type === 'viking') { P(1, 0 + bob, 2, 3, '#f0e6d2'); P(10, 0 + bob, 2, 3, '#f0e6d2'); P(3, 0 + bob, 7, 2, '#8b9fb0'); }
       if (type === 'pirate') { P(2, 0 + bob, 9, 2, '#7d2a2c'); P(7, 3 + bob, 3, 1, '#1a1008'); }
       if (type === 'bandit') { P(3, 3 + bob, 7, 1, '#3a3028'); P(2, 0 + bob, 9, 2, '#5c4438'); }
+      /* 질주형 — 몸을 앞으로 눕히고 붉은 띠를 두른다(빠르다는 표) */
+      if (type === 'raider') { P(2, 5 + bob, 9, 1, '#d4525f'); P(0, 8 + bob, 3, 1, '#d4525f'); }
+      /* 중갑형 — 어깨판이 몸통 밖으로 나오고 투구가 얼굴을 덮는다 */
+      if (type === 'ironclad') {
+        P(0, 6 + bob, 3, 5, '#8b9fb0'); P(10, 6 + bob, 3, 5, '#8b9fb0');
+        P(3, 1 + bob, 7, 3, '#8b9fb0'); P(4, 4 + bob, 5, 1, '#2b3540');
+      }
+      /* 원거리형 — 머리 위로 돌팔매 줄이 돈다 */
+      if (type === 'slinger') { P(1, 0 + bob, 1, 4, '#c8a184'); P(0, 0 + bob, 5, 1, '#c8a184'); }
+      /* 자폭형 — 등에 진 통과 그 위의 심지 불 */
+      if (type === 'sapper') { P(0, 6 + bob, 3, 5, '#3a3028'); P(1, 4 + bob, 1, 2, '#e8a33d'); }
       P(11, 3 + bob, 2, 9, '#8b9fb0'); P(11, 3 + bob, 2, 1, '#c6d6e2');
     });
   }
@@ -1052,6 +1092,16 @@
     bear:         { w: 15, h: 13, body: '#5a4436', dark: '#40301f', mark: '#e8a33d', legs: '#33261c', tag: 'hump' },
     bandit_scout: { w: 12, h: 14, body: '#5c4438', dark: '#3f2f26', mark: '#c8a184', legs: '#2b2118', tag: 'hood' },
     direwolf:     { w: 15, h: 12, body: '#4e4a52', dark: '#37343c', mark: '#bc4749', legs: '#26242a', tag: 'mane' },
+    /* ★ §19-F2(F07-1·F07-4) — 새 바이옴의 것들. 몸빛만으로도 어느 땅에서 왔는지 읽히게 잡았다
+       (눈여우는 흰빛, 모래도마뱀은 모래빛, 잿빛 사냥개는 재, 홀씨는 버섯 갓의 보랏빛). */
+    snow_fox:       { w: 11, h: 10, body: '#e6ecf2', dark: '#bcc6d2', mark: '#8fa6bd', legs: '#a8b2be', tag: 'ears' },
+    sand_lizard:    { w: 13, h: 9,  body: '#c9a96a', dark: '#a48546', mark: '#6b5a2e', legs: '#8a7038', tag: 'tusk' },
+    jungle_panther: { w: 14, h: 11, body: '#2f3a2c', dark: '#1d251b', mark: '#d9c14a', legs: '#161c14', tag: 'fang' },
+    marsh_lurker:   { w: 16, h: 10, body: '#3f5a46', dark: '#2a3d30', mark: '#8fb06a', legs: '#22301f', tag: 'hump' },
+    ash_hound:      { w: 13, h: 11, body: '#6e6862', dark: '#4c4742', mark: '#c96a3c', legs: '#332f2c', tag: 'mane' },
+    spore_walker:   { w: 13, h: 13, body: '#6d5f85', dark: '#4a3f5c', mark: '#c98cff', legs: '#3a3149', tag: 'wool' },
+    /* 세계에 하나뿐인 것 — 몸집(w·h)이 곧 위압이다. 화면은 여느 짐승과 같은 길로 그린다. */
+    ash_wyrm:       { w: 16, h: 15, body: '#5a4a4a', dark: '#33292b', mark: '#e05a2c', legs: '#241d1f', tag: 'horns' },
   };
 
   function wild(sp, frame, opts) {

@@ -1299,7 +1299,10 @@
   /* ★ Sprint 3 — 걸을 수 있는 지형을 **표**로 세워 둔다. 길찾기(A*)가 칸마다 이 판정을
      부르므로 길 한 번에 수천 번이 걸리는데, 옛 셈은 그때마다 설정을 꺼내 배열을 훑었다.
      설정 객체는 좀처럼 바뀌지 않으니 같은 배열이면 세워 둔 표를 그대로 쓴다(값은 같다). */
-  var WALK_FALLBACK = ['grass', 'forest', 'rock', 'fertile', 'snow', 'jungle'];
+  var WALK_FALLBACK = ['grass', 'forest', 'rock', 'fertile', 'snow', 'jungle',
+    /* ★ §19-F2(F07-1) — 새로 붙은 여섯 땅도 걸을 수 있다. 정본은 서버 설정(terrain.walkable)이고
+       이 목록은 설정이 오기 전 몇 프레임을 버티는 폴백이다 — 빠지면 그 땅에서 「밟을 수 없다」가 된다. */
+    'desert', 'marsh', 'ash', 'mush', 'salt', 'dusk'];
   var walkTable = { src: null, map: null };
   function walkableCodes() {
     var w = S.worldCfg();
@@ -2197,27 +2200,12 @@
   function verbFor(t) {
     if (!t) return null;
     if (t.kind === 'enemy') return VERB.enemy;
-    /* ★ §19-F1(F08-4) — 목장이 서 있고 온순한 짐승이면 「키우기」가 한 줄 더 붙는다(사냥과 병존). */
-    if (t.kind === 'wild') {
-      var nm = (t.obj && t.obj.name) ? t.obj.name : '짐승';
-      return 'E — ' + nm + ' 사냥' + (tameable(t.obj) ? '   ·   Q — 키우기' : '');
-    }
+    if (t.kind === 'wild') return 'E — ' + (t.obj && t.obj.name ? t.obj.name : '짐승') + ' 사냥';
     if (t.kind === 'site') {
       var name = t.obj && t.obj.name ? t.obj.name : '공사';
       return 'E — ' + name + ' 짓기';
     }
     return VERB[t.nodeType] || 'E — 일하기';
-  }
-
-  /** ★ §19-F1(F08-4) — 데려올 수 있는가. 판정은 서버가 다시 한다(여기는 말머리를 걸 뿐이다). */
-  function tameable(c) {
-    if (!c || c.tamed || c.kind !== 'animal') return false;
-    var list = S.structures() || [];
-    for (var i = 0; i < list.length; i++) {
-      var b = list[i];
-      if (b.key === 'ranch' && !b.ruined && !b.inactive) return true;
-    }
-    return false;
   }
 
   /** ① 근처 대상 상호작용 라벨 — 손이 닿는 것 하나에만 붙는다 */

@@ -78,7 +78,10 @@
      ★ Sprint 3 — 그 목록을 **표**로 세워 둔다. 길찾기(A*)가 칸마다 이 판정을 부르는데
      그때마다 배열을 훑으면(indexOf) 길 한 번에 수천 번의 헛걸음이 된다.
      설정 객체는 좀처럼 바뀌지 않으므로 같은 배열이면 세워 둔 표를 그대로 쓴다(값은 같다). */
-  var WALK_FALLBACK = ['grass', 'forest', 'rock', 'fertile', 'snow', 'jungle'];
+  var WALK_FALLBACK = ['grass', 'forest', 'rock', 'fertile', 'snow', 'jungle',
+    /* ★ §19-F2(F07-1) — 새로 붙은 여섯 땅도 걸을 수 있다. 정본은 서버 설정(terrain.walkable)이고
+       이 목록은 설정이 오기 전 몇 프레임을 버티는 폴백이다 — 빠지면 그 땅에서 「밟을 수 없다」가 된다. */
+    'desert', 'marsh', 'ash', 'mush', 'salt', 'dusk'];
   var walkTable = { src: null, map: null };
   function walkableCodes() {
     var w = S.worldCfg();
@@ -99,6 +102,17 @@
     return code === 'water' && (S.onBridge(x, y) || S.onFill(x, y));
   }
 
+  /* ★ §19-F2(F07-1) 땅의 무게 — 진창은 발을 물고 소금 판은 미끄럽다.
+     값은 전부 자료(world.terrain.moveMultiplier)가 쥔다. 아바타 자리는 클라 권위라(§12-11)
+     여기서 곱해도 서버와 어긋나지 않는다 — 서버는 「어디에 섰는가」만 받아 적는다. */
+  function ground() {
+    var w = S.worldCfg();
+    var tbl = (w && w.terrain && w.terrain.moveMultiplier) || null;
+    if (!tbl) return 1;
+    var code = S.terrainKey(Math.round(me.x), Math.round(me.y));
+    return code && tbl[code] > 0 ? tbl[code] : 1;
+  }
+
   function speed() {
     /* 정착지가 커지면 몸도 가벼워진다 (GDD3 §3) */
     var p = S.player();
@@ -108,7 +122,7 @@
     var charm = (e && e.effects && e.effects.moveSpeed) || 0;
     /* ★ GDD3 §14-5 — 민첩 한 점이 걸음을 3% 빠르게 한다(서버가 낸 값을 그대로 쓴다) */
     var agility = (p && p.progress && p.progress.effects && p.progress.effects.moveSpeed) || 1;
-    return 4.6 * (1 + bonus * 0.6) * (1 + charm) * agility;
+    return 4.6 * (1 + bonus * 0.6) * (1 + charm) * agility * ground();
   }
 
   /**
@@ -274,6 +288,12 @@
       }
       // ★ §17-17 — 처음 밟은 땅. 문구는 서버(자료)가 쥔다 — 화면이 제 낱말을 만들지 않는다.
       if (res.biomes && res.biomes.length) announceBiomes(res.biomes);
+      /* ★ §19-F2(F07-4) — 굴 앞. 서버가 한 번만 보내므로 여기서는 쿨다운을 걸지 않는다(요란해도 된다). */
+      if (res.dragonWarn) {
+        announceLand(res.dragonWarn.title, res.dragonWarn.text, 'danger', false);
+        if (GM.fx) { GM.fx.dangerEdge(2.4); GM.fx.shakeScreen(6, 0.5); }
+        if (GM.sfx) GM.sfx.play('deny');
+      }
     });
   }
 

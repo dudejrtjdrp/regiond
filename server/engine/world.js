@@ -53,22 +53,51 @@ function octaveSample(fields, grids, x, y, size) {
   return v / total;
 }
 
+/** ★ §19-F2 — 규칙 한 줄이 이 자리에 맞는가. 없는 축은 묻지 않는다(구간 [min,max], 양끝 포함). */
+function ruleFits(rule, lat, elev, moist) {
+  const within = (v, r) => !r || (v >= r[0] && v <= r[1]);
+  return within(lat, rule.lat) && within(elev, rule.elev) && within(moist, rule.moist);
+}
+
 /**
- * ★ §17-17 바이옴 덧칠 — 옛 다섯 지형을 먼저 정하고 그 위를 위도로 덮는다.
+ * ★ §17-17 바이옴 덧칠 — 옛 다섯 지형을 먼저 정하고 그 위를 위도·고도·습도로 덮는다.
  * 난수를 한 톨도 쓰지 않는다: 같은 씨앗은 언제나 같은 자리에 같은 설산·밀림을 낸다.
  * 지도 한복판(protectRadius)은 손대지 않는다 — 시작 밸런스는 옛 다섯 지형 위에서 검증된 값이다.
  * keepCodes 는 어떤 경우에도 덮이지 않는다(물·바위 노두 — 자료의 주석에 까닭이 있다).
+ * ★ §19-F2(F07-1) — 여덟 땅으로 늘며 판정이 **차례 있는 표**(biomes.rules)가 됐다. 위에서부터
+ * 처음 맞는 칸이 그 땅이다. 설산·밀림이 표 맨 앞이라 §17-17 의 결과는 한 톨도 바뀌지 않는다.
  */
-function biomeCode(t, code, x, y, elev, moist, size) {
+function biomeCode(t, code, x, y, elev, moist, size, rules = null) {
   const b = t.biomes;
   if (!b || (b.keepCodes || []).includes(code)) return code;
   const c = (size - 1) / 2;
   if (Math.hypot(x - c, y - c) <= (b.protectRadius ?? 0)) return code;
   const lat = y / Math.max(1, size - 1);
-  if (lat <= b.snow.latitudeMax && elev >= b.snow.elevationMin) return 'snow';
-  if (lat >= b.jungle.latitudeMin && moist >= b.jungle.moistureMin) return 'jungle';
-  return code;
+  const hit = (rules ?? b.rules ?? []).find((r) => ruleFits(r, lat, elev, moist));
+  return hit ? hit.code : code;
 }
+
+/**
+ * ★ §19-F2 — 노이즈 들판 한 벌. generateTerrain 과 paintBiomes 가 **같은 함수**로 만든다:
+ * 같은 씨앗에서 같은 순서로 뽑으므로 두 곳이 보는 고도·습도가 한 톨도 다르지 않다.
+ */
+function noiseFields(rng, t) {
+  const grids = [];
+  const elev = [];
+  const moist = [];
+  for (let o = 0; o < t.octaves; o += 1) {
+    const g = t.noiseGrid * Math.pow(2, o);
+    grids.push(g);
+    elev.push(noiseField(rng, g));
+  }
+  for (let o = 0; o < t.octaves; o += 1) moist.push(noiseField(rng, grids[o]));
+  return { grids, elev, moist };
+}
+
+/** 생성 그 자리에서 칠하는 옛 둘(설산·밀림) — 자원 노드가 이 위에 앉을지를 물어보며 뽑힌다 */
+const legacyRules = (t) => (t.biomes?.rules || []).filter((r) => r.legacy);
+/** 자원·길을 다 놓은 뒤에 덧칠하는 새 여섯 — 그래야 노드 배치 난수가 흔들리지 않는다 */
+const paintRules = (t) => (t.biomes?.rules || []).filter((r) => !r.legacy);
 
 /** 지형 생성 → 길이 size² 의 문자열(코드 인덱스를 문자로 저장 — 스냅샷·구조복제가 싸다) */
 export function generateTerrain(rng, data) {
@@ -76,15 +105,8 @@ export function generateTerrain(rng, data) {
   const t = cfg.terrain;
   const size = cfg.size;
   const idx = terrainIndex(data);
-  const grids = [];
-  const elevFields = [];
-  const moistFields = [];
-  for (let o = 0; o < t.octaves; o += 1) {
-    const g = t.noiseGrid * Math.pow(2, o);
-    grids.push(g);
-    elevFields.push(noiseField(rng, g));
-  }
-  for (let o = 0; o < t.octaves; o += 1) moistFields.push(noiseField(rng, grids[o]));
+  const { grids, elev: elevFields, moist: moistFields } = noiseFields(rng, t);
+  const legacy = legacyRules(t);
 
   const out = new Array(size * size);
   for (let y = 0; y < size; y += 1) {
@@ -97,7 +119,7 @@ export function generateTerrain(rng, data) {
       else if (moist > t.forestMoisture) code = 'forest';
       else if (moist >= t.fertileMoisture[0] && moist <= t.fertileMoisture[1]
         && elev >= t.fertileElevation[0] && elev <= t.fertileElevation[1]) code = 'fertile';
-      out[y * size + x] = String.fromCharCode(48 + idx[biomeCode(t, code, x, y, elev, moist, size)]);
+      out[y * size + x] = String.fromCharCode(48 + idx[biomeCode(t, code, x, y, elev, moist, size, legacy)]);
     }
   }
   return out.join('');
@@ -545,7 +567,55 @@ export function generateWorldMap(seed, data, opts = {}) {
      짧은 사슬 하나와 미시 발견 넷~여섯을 **보장** 생성한다. 자리는 씨앗에서 짓되 **월드 난수(rng)는
      한 톨도 쓰지 않는다** — 여기서 한 칸이라도 밀면 웨이브 구성·사건·이름이 통째로 어긋난다. */
   map.trails = generateTrails(map, data, seed);
+  /* ★ §19-F2(F07-1) — 새 여섯 땅은 **여기서, 맨 마지막에** 덧칠한다.
+     까닭: 자원 노드는 난수로 자리를 뽑고 「지형이 맞는가」를 물어 받아들이므로, 생성 도중에
+     땅을 바꾸면 같은 씨앗의 노드가 통째로 다시 뽑힌다(실측: 웨이브5 생존율 67.5%→55.0%).
+     다 놓은 뒤에 칠하면 월드 난수의 소비 차례가 한 톨도 바뀌지 않는다 — 결정론 계약이 그대로 산다. */
+  paintBiomes(map, seed, data);
   return map;
+}
+
+/** 덧칠이 비켜 가야 하는 칸 — 자원이 앉았거나 길이 난 자리(그 위는 옛 땅으로 남는다) */
+function busyTiles(map) {
+  const busy = new Set();
+  for (const n of map.nodes || []) busy.add(`${n.x},${n.y}`);
+  for (const t of map.trails || []) busy.add(`${t.x},${t.y}`);
+  return busy;
+}
+
+/**
+ * ★ §19-F2(F07-1) 새 바이옴 덧칠 — 자원·길을 다 놓은 **뒤에** 지도를 다시 칠한다.
+ * 난수를 한 톨도 쓰지 않는다(위도·고도·습도만 본다). 씨앗이 같으면 들판도 같으므로
+ * 여기서 보는 고도·습도는 생성 때 본 것과 정확히 같은 값이다.
+ * 노드·길이 앉은 칸은 비켜 간다 — 그래서 새 땅 한가운데에 옛 땅 조각(오아시스)이 점점이 남는다.
+ */
+export function paintBiomes(map, seed, data) {
+  const t = worldCfg(data).terrain;
+  const rules = paintRules(t);
+  if (!rules.length) return map;
+  const idx = terrainIndex(data);
+  const size = map.size;
+  const { grids, elev, moist } = noiseFields(createRng((seed >>> 0) ^ 0x9e3779b9), t);
+  const busy = busyTiles(map);
+  const chars = map.terrain.split('');
+  const codes = terrainCodes(data);
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) paintOne(chars, { t, rules, idx, codes, busy, size }, x, y, grids, elev, moist);
+  }
+  map.terrain = chars.join('');
+  return map;
+}
+
+/** 한 칸을 다시 칠한다 — 이미 옛 바이옴(설산·밀림)인 칸과 자원이 앉은 칸은 그대로 둔다 */
+function paintOne(chars, ctx, x, y, grids, elev, moist) {
+  const { t, rules, idx, codes, busy, size } = ctx;
+  const i = y * size + x;
+  const code = codes[chars[i].charCodeAt(0) - 48];
+  if (busy.has(`${x},${y}`) || legacyRules(t).some((r) => r.code === code)) return;
+  const e = octaveSample(elev, grids, x, y, size);
+  const m = octaveSample(moist, grids, x, y, size);
+  const next = biomeCode(t, code, x, y, e, m, size, rules);
+  if (next !== code) chars[i] = String.fromCharCode(48 + idx[next]);
 }
 
 /** ★ §17-8 — 도읍 둘레의 물을 뭍(풀밭)으로 메운다. terrain 문자열을 제자리에서 고쳐 쓴다. */

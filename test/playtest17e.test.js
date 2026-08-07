@@ -218,9 +218,12 @@ test('★ §17-17 바이옴 — 북쪽에 설산이, 남쪽에 밀림이 난다'
   }
   assert.ok(snow > 0, '설산이 있다');
   assert.ok(jungle > 0, '밀림이 있다');
-  assert.ok(snowSouthEnd <= BIOMES.snow.latitudeMax * SIZE + 1,
+  /* ★ §19-F2 — 위도 문턱의 정본이 rules 표로 옮겨 갔다(옛 BIOMES.snow.latitudeMax 의 자리).
+     값은 한 톨도 바뀌지 않았다 — 설산·밀림이 표 맨 앞이라 §17-17 의 판정이 그대로 산다. */
+  const ruleOf = (code) => BIOMES.rules.find((r) => r.code === code);
+  assert.ok(snowSouthEnd <= ruleOf('snow').lat[1] * SIZE + 1,
     `설산은 북쪽 띠 안에만 있다 (최남단 y=${snowSouthEnd})`);
-  assert.ok(jungleNorthEnd >= BIOMES.jungle.latitudeMin * SIZE - 1,
+  assert.ok(jungleNorthEnd >= ruleOf('jungle').lat[0] * SIZE - 1,
     `밀림은 남쪽 띠 안에만 있다 (최북단 y=${jungleNorthEnd})`);
 });
 
@@ -248,10 +251,18 @@ test('★ §17-17 바이옴 계약 — 코드는 뒤에 붙었고, 걸을 수 �
   const t = data.world.terrain;
   assert.deepEqual(t.codes.slice(0, 5), ['grass', 'forest', 'rock', 'water', 'fertile'],
     'RLE 계약 — 앞 다섯의 순서는 영원히 고정이다');
-  assert.deepEqual(t.codes.slice(5), ['snow', 'jungle'], '새 지형은 뒤에만 붙는다');
+  /* ★ §19-F2(F07-1) — 여섯 땅이 더 붙었다. 규칙은 그대로다: **뒤에만** 붙는다.
+     설산·밀림의 인덱스(5·6)가 움직이면 옛 세이브의 RLE 가 통째로 어긋난다 — 그 자리를 못박는다. */
+  assert.deepEqual(t.codes.slice(5, 7), ['snow', 'jungle'], '옛 두 지형의 자리는 움직이지 않는다');
+  assert.deepEqual(t.codes.slice(7), ['desert', 'marsh', 'ash', 'mush', 'salt', 'dusk'],
+    '새 지형은 뒤에만 붙는다');
+  assert.ok(t.codes.length >= 10, '바이옴은 열 종을 넘는다 (F07-1)');
   for (const code of BIOMES.codes) assert.ok(t.names[code], `${code} 에 이름이 있다`);
 
   assert.ok(t.walkable.includes('snow') && t.walkable.includes('jungle'), '둘 다 걸을 수 있다');
+  for (const code of BIOMES.codes) assert.ok(t.walkable.includes(code), `${code} 은 걸을 수 있다`);
+  assert.equal(t.buildable.includes('marsh'), false, '진창에는 주춧돌이 놓이지 않는다');
+  assert.equal(t.buildable.includes('ash'), false, '잿땅에는 집이 서지 않는다');
   assert.ok(t.buildable.includes('jungle'), '밀림에는 지을 수 있다');
   assert.equal(t.buildable.includes('snow'), false, '설산에는 짓지 못한다');
   assert.equal(t.walkable.includes('water'), false, '물은 여전히 길이 아니다');

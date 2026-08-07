@@ -6,6 +6,59 @@
 
 ---
 
+## 0-F2. v3.3 안 델타 — **세계 콘텐츠 확장: 바이옴·적·용·장비** (§19-F2 / QA-F2)
+
+**판번호를 올리지 않는다**(`world.schema` **6** 유지). **필드는 더하기만 했다.**
+옛 세이브는 지형(`world.map.terrain`)과 노드가 스냅샷에 통째로 저장돼 있으므로 **그 지도가 그대로 산다** —
+새 바이옴은 **새 월드를 만들 때만** 나온다. 바이옴 배치는 난수를 한 톨도 쓰지 않으므로(위도·고도·습도만 본다)
+월드 생성의 난수 소비 **차례도 횟수도 바뀌지 않는다**.
+
+### 0-F2-1. 지형 코드 — 뒤에만 붙었다 (RLE 계약)
+
+```
+codes = [grass, forest, rock, water, fertile, snow, jungle,   ← 앞 일곱의 인덱스는 영원히 고정
+         desert, marsh, ash, mush, salt, dusk]                ← ★ 새로 붙은 여섯 (7~12)
+```
+
+- 옛 세이브의 RLE 값(0~6)은 뜻이 바뀌지 않는다. 옛 클라에 새 세이브를 물리면 7 이상을 모르므로 **클라를 같이 올려야** 한다.
+- `/api/config` 의 `world.terrain` 에 `moveMultiplier{}` 가 늘었다 — 밟는 땅마다의 걸음 배수(화면이 제 걸음에 곱한다).
+  「어디에 무엇이 있는가」가 아니라 「밟으면 어떤가」라 공개해도 정보 비대칭이 깨지지 않는다.
+- `biomeCodes[]` 는 여덟이 됐다(`snow, jungle, desert, marsh, ash, mush, salt, dusk`). 위도·문턱(`terrain.biomes.rules`)은 **여전히 내려보내지 않는다**.
+- 첫 발견(`lordMove.biomes[]` · `nation.biomesSeen`)의 계약은 §0-Q-4 그대로다 — 새 여섯도 같은 문을 지난다.
+
+### 0-F2-2. 신설 — 월드 보스(용)
+
+| 자리 | 필드 | 뜻 |
+|---|---|---|
+| 스냅샷 | `world.dragon = {placed, x, y, slainTick}` | 세계에 하나뿐인 용. 없으면(옛 세이브) `undefined` — 화산재 땅이 없는 지도에서는 영영 앉지 않는다 |
+| 스냅샷 | `nation.trophies = {dragon: 게임일}` | 전리품 표식. 대장간의 `requiresTrophy` 물건을 여는 유일한 열쇠 |
+| 스냅샷 | `nation.dragonWarnedTick` | 굴 앞 경고를 이미 받았는가(한 번뿐) |
+| ack | `lordMove.dragonWarn = {title, text, x, y}\|null` | ★ 굴 반경 안에 들어선 그 한 걸음에만 실린다 |
+| ack | `combatSwing/huntSwing.boss = {title, text, gold, trophy, artifact}\|null` | ★ 용을 눕힌 그 일격에만 실린다 |
+
+야생 짐승 목록(`wild[]`)에 `sp:"ash_wyrm"` 으로 함께 실린다 — 그리는 길도 베는 길도 여느 짐승과 같다.
+
+### 0-F2-3. 신설 — 웨이브 구성(호위대)
+
+| 자리 | 필드 | 뜻 |
+|---|---|---|
+| 웨이브 정의 | `spec.groups[] = {type, units, unitHp, unitDps, speed, sprite, rangeTiles, detonate, ...}` | ★ 무리별 구성. 호위대가 없으면 길이 1 |
+| 웨이브 정의 | `spec.escort = {type, name, units}\|null` | 따라온 이웃(없으면 null) |
+| 전투 상태 | `battle.spec.groups[]` · `timeline[0].groups[]` | 화면·보고가 「무엇이 섞여 왔는가」를 읽는다 |
+
+- `spec.units` 는 여전히 **총 마릿수**이고, `spec.power` 도 옛 식 그대로다 — 총량은 한 톨도 바뀌지 않았다.
+- 적 종류가 넷 늘었다(`raider · ironclad · slinger · sapper`). `rangeTiles`(붙지 않고 때리는 사거리) ·
+  `detonate`(울타리에 닿는 순간 제 몸을 터뜨리는 배수)가 새 필드다. 없는 적은 옛 규칙 그대로 군다.
+- 호위대는 `waves.escort.fromWave`(6) 번째 웨이브부터 붙는다 — 앞 다섯은 적 한 마리까지 옛것과 같다(밸런스 체크포인트 보존).
+
+### 0-F2-4. 신설 — 장비
+
+`config.equipment.tiers` 가 늘었다(무기 5→9 · 방어구 5→8). 옛 물건의 **열쇠말·값·순서는 하나도 바뀌지 않았다**.
+새 필드는 `requiresTrophy`(문자열, 없으면 없음) 하나이고, `equipmentView().catalog[].requiresTrophy` 로 화면에도 내려간다.
+`grades` 에 `"6": "용비늘"` 이 붙었고 스프라이트 팔레트도 여섯 칸이 됐다.
+
+---
+
 ## 0-S. v3.2 → **v3.3** 델타 — 터렛·전투와 건설 UX (GDD3 §15-A · §15-B)
 
 **판번호를 올린다.** 까닭은 §0-W 와 같다 — **세이브가 안 맞아서**다.
@@ -454,61 +507,6 @@ TrailView { id, key, kind:'chain'|'micro', x, y, name, art, verb, ready }
 
 ---
 
-## 0-M. v3.3 안 델타 — **진행 흐름과 경제** (§19-E · QA1차 F04-4~7 · F04-9 · F06-1)
-
-**판번호를 올리지 않는다.** 전부 **더하기**다 — 삭제도 의미 변경도 없고 `world.schema` **6** 그대로다.
-옛 세이브에 없는 것(`nation.wave.rushedIndex`)은 없으면 `undefined` 로 읽히고 뷰가 `false` 를 내므로
-그대로 돈다. 장 진행(`nation.progress`)의 뜻도 바뀌지 않았다 — 7장 마지막 칸의 조건이 **넓어졌을 뿐**이라
-이미 그 칸을 통과한 세이브는 통과한 채로 남는다.
-
-### 0-M-1. 신설 — 명령 (C→S)
-
-| 명령 | 페이로드 | 서버가 하는 일 | 거절 |
-|---|---|---|---|
-| `rushWave` | (없음) | ★ 침공 앞당기기. `waves.canRushWave` 로 **서버가 다시 재고** 도착일을 `waves.rush.daysAhead` 일 뒤로 당긴다. 선발대 캠프도 그 자리에서 세운다 | `NOT_READY` — 채비가 덜 됐거나, 웨이브가 안 잡혔거나, 이미 하루 앞이거나, 전투 중 |
-| `devTime` | `{tickRealSeconds?, paused?, togglePause?, step?}` | ★ 개발·QA 전용 시간 손잡이. **방장만**(방에 남아 있는 사람 중 가장 먼저 들어온 이) 받는다. 바뀐 하루 길이는 `timeScale` 로 방 전체에 흘린다 | `NOT_FOUND`(운영에서 뒷문 잠김) · `NOT_JOINED` · `NOT_HOST` |
-
-> `devTime` 이 REST `/api/debug/speed` 를 대신하는 까닭: REST 는 신원도 방도 없어 `gameId` 를 안 주면
-> **아무 방이나**(`anyGame`) 집었다 — 멀티에서 남의 방 시계를 밀 수 있었다. REST 뒷문은 도구(E2E·하니스)용으로 남는다.
-
-### 0-M-2. 신설 — 이벤트 (S→C)
-
-| 이벤트 | 언제 | 페이로드 | 클라가 할 일 |
-|---|---|---|---|
-| `timeScale` | 방장이 `devTime` 을 쓸 때 | `{tickRealSeconds, paused, tick}` | `config.time.dayRealSeconds`·`tickRealSeconds` 를 받아 적는다(해·달·주민 사이클이 전부 이 값을 본다) |
-| `wave_rushed` | `rushWave` 성공 | `{index, number, name, daysUntil}` | 연대기·알림 (`events` 채널로 온다) |
-
-### 0-M-3. 신설 — 뷰 필드
-
-| 자리 | 필드 | 뜻 |
-|---|---|---|
-| `nation.wave` | `readiness` | ★ `{ok, daysAhead, rows:[{label, have, need, ok}]}`. **정보 비대칭 바깥이다** — 적이 언제 오는지는 흐려도 「내가 무엇을 더 갖춰야 하는지」는 언제나 또렷하다. `rows` 는 `data/waves.json` 의 `rush.conditions` 를 **장 목표와 같은 계측기**(`progression.measure`)로 잰 값이다 |
-| `nation.wave` | `canRush` | 지금 `rushWave` 를 보낼 수 있는가(화면의 단추 유무) |
-| `nation.wave` | `rushed` | 이번 웨이브를 이미 당겼는가 |
-| `state.chapter` | `remaining` | ★ `[{key, title}]` — 이 장에 **남은 칸**들의 제목. 조건은 재지 않는다(열리지 않은 칸의 숫자는 스포일러이자 헛계산) |
-
-### 0-M-4. 넓어진 조건 — `wavesFaced` (F04-5)
-
-조건 문법에 `{"type":"wavesFaced","count":N}` 가 늘었다 — **이기든 지든** 겪은 무리의 수다.
-7장 마지막 칸이 `any(wavesHeld 1, wavesFaced 2)` 가 되어, 첫 무리를 놓쳐도 두 번째를 겪으면 장이 넘어간다.
-벌은 이미 전투가 준다(전리품·구조물 피해·사기) — 그 위에 「장을 못 넘긴다」를 얹지 않는다.
-`wavesHeld` 의 뜻은 그대로다: 옛 세이브에서 이미 막아 낸 사람은 예전과 똑같이 통과한다.
-
-### 0-M-5. 부패는 곳간 상한 앞에서 멈춘다 (QA-A 되튐)
-
-`economy.applySpoilage(nation, data, floor)` 에 세 번째 인자가 늘었고, `tick.js` 가 `storage.spoilFloor` 를 준다.
-단단한 상한(§0-Y-4)이 무른 문턱(`storageCapacity`)보다 높으면 그 사이는 **채집은 멎었는데 매일 깎이는** 구간이었다
-(실측: 상한 500 · 목재 문턱 315 · 하루 −3.68 → 자원칸이 496↔499 로 되튐). 이제 곳간 **안**에 든 것은 썩지 않는다.
-상한을 넘겨 받은 몫(교역·전리품·환급)은 그대로 서서히 덜린다 — §0-Y-4 가 말한 「넘친 재고」가 정확히 그것이다.
-다이얼은 `balance.storage.spoilRespectsLimit`(false 로 두면 옛 규칙).
-
-### 0-M-6. 자료만 바뀐 것 (계약 아님)
-
-`data/waves.json` `rush`(신설) · `settlementScale.reference` 110→118 ·
-`data/buildings.json` `bloomery`(신설, 6장) 와 산출 건물 상향 · `data/chapters.json` 6장 `opens.buildings`.
-
----
-
 ## 0-N. v3.3 안 델타 — **위치 보간 다이얼** (§19-B · QA1차 B02-1)
 
 **판번호를 올리지 않는다.** 이벤트도 페이로드도 그대로다 — `/api/config` 의 `world` 에 **화면만 보는 값 둘**이
@@ -578,17 +576,6 @@ TrailView { id, key, kind:'chain'|'micro', x, y, name, art, verb, ready }
 * **목장**(`ranch`, 생산 2×3, 티어 4)이 서면 `creatures.ranch.radius`(6) 안쪽만은 `kind:'animal'` 에게 열린다.
   포식자는 목장이 있어도 못 든다. 목장 산출은 `buildings.ranch.tiers[].flatOutput`(고기·털·가죽)이 정본이다.
 * 웨이브 적은 이 규칙을 타지 않는다 — 그쪽은 `battle.js` 의 별도 계층이다.
-
-★ §19-F1(F08-4) **키우기** — `tameCreature {targetId?}` (C→S). 다 지어진 목장이 있고, 아바타 곁
-`creatures.ranch.tame.rangeTiles`(3) 안에 `kind:'animal'` 이 있으면 그 자리에서 가장 가까운 우리로
-옮겨 앉는다(사냥과 병존 — 같은 짐승 앞에서 유저가 고른다). 서버가 사거리·종류·정원을 판정한다.
-* 정원 = `activeRanches` 마다 `tame.capacityPerTier[티어−1]` 의 합. 넘치면 `RANCH_FULL`.
-* 기른 짐승은 `c.tamed = 목장 id` 를 지닌다: 사람을 피하지 않고, 우리 밖으로 목적지를 뽑지 않으며,
-  사냥꾼 오두막의 솎아냄(`cullForHunters`)이 집어 가지 않는다.
-* 산출은 머릿수 × `tame.perHeadPerDay` 이며 **건물 정액 산출과 같은 문**으로 들어간다(곳간 상한·연구 배수 동일).
-* ack: `{ ok, tamed:true, targetId, species, speciesName, ranchId, x, y, heads, capacity }`
-* 오류: `NO_RANCH` · `NO_TARGET` · `WILD_BEAST` · `OUT_OF_RANGE` · `RANCH_FULL` · `ALREADY_TAMED`
-* `creatures.list[]` 에 **필드 추가만**: `tamed:true`(기르는 것일 때만 실린다 — 옛 클라는 없는 칸으로 읽는다).
 
 ### 0-T-5. 플레이어 레벨 · 능력치 (§14-5)
 
@@ -1618,12 +1605,7 @@ ack / `joined` 이벤트 payload:
   "players": [{ "id": "p1", "hp": 60, "maxHp": 60, "down": false }],
   "events": [ { "t": 12.25, "kind": "kill", "targetId": "e2", "by": "turret", "byId": "s9" } ] }
 ```
-`events[].kind`: `spawn` `kill` `fenceBreak` `structureHit` `structureRuined` `structureBreach` `breach` `militiaDown` `playerDown` `playerHit` `hold` `withdraw`
-
-> ★ §19-F1(F05-3) — `structureBreach` 는 **길목의 건물이 뚫린** 순간이다(무너진 것이 아니다:
-> `waves.battle.breach.openHpRatio` 아래로 밀리면 적이 그 자리를 지나간다). 필드는
-> `structureHit` 과 같다: `{ t, kind, structureId, key, x, y }`. 옛 클라이언트는 모르는 kind 를
-> 그냥 흘려보내므로 추가만으로 호환이 깨지지 않는다.
+`events[].kind`: `spawn` `kill` `fenceBreak` `structureHit` `structureRuined` `breach` `militiaDown` `playerDown` `playerHit` `hold` `withdraw`
 
 #### `waveResult`
 ```jsonc

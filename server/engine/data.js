@@ -148,6 +148,9 @@ export function publicWorld(d = loadGameData()) {
       codes: [...w.terrain.codes], names: { ...w.terrain.names },
       buildable: [...w.terrain.buildable], walkable: [...w.terrain.walkable],
       biomeCodes: [...(w.terrain.biomes?.codes || [])],
+      /* ★ §19-F2(F07-1) — 땅의 무게는 공개해도 된다. 「어디에 무엇이 있는가」가 아니라
+         「밟으면 어떤가」라서, 밟아 본 사람이라면 누구나 아는 값이다(화면이 걸음에 곱한다). */
+      moveMultiplier: { ...(w.terrain.moveMultiplier || {}) },
     },
     nodes: {
       order: [...w.nodes.order],

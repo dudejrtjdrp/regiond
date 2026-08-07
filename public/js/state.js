@@ -114,7 +114,15 @@
     { key: 'fertile', name: '기름진 땅',  color: '#9c8341', color2: '#ae944e' },
     /* ★ §17-17 바이옴 — 지도 북쪽 끝의 설산, 남쪽 끝의 밀림. 축소본(미니맵)이 이 색으로 칠한다. */
     { key: 'snow',    name: '설산',      color: '#d8dee6', color2: '#eef2f6' },
-    { key: 'jungle',  name: '밀림',      color: '#2c4a26', color2: '#37592e' }
+    { key: 'jungle',  name: '밀림',      color: '#2c4a26', color2: '#37592e' },
+    /* ★ §19-F2(F07-1) 여섯 땅이 더 붙었다. 축소본(미니맵)이 한눈에 갈라 보이도록 색상환을 흩어 잡았다:
+       모래(누런빛)·진창(탁한 초록)·잿땅(무채색)·버섯 숲(보랏빛 그늘)·소금(거의 흰빛)·황혼(노을빛). */
+    { key: 'desert',  name: '사막',      color: '#d9c089', color2: '#e8d2a0' },
+    { key: 'marsh',   name: '습지',      color: '#4a5f4a', color2: '#5a7057' },
+    { key: 'ash',     name: '화산재 땅',  color: '#5a5450', color2: '#6b6460' },
+    { key: 'mush',    name: '버섯 숲',    color: '#4a3f5c', color2: '#5b4e70' },
+    { key: 'salt',    name: '소금 평원',  color: '#e2e6e4', color2: '#f2f5f4' },
+    { key: 'dusk',    name: '황혼 골짜기', color: '#6b4a55', color2: '#7d5865' }
   ];
 
   /* ── 자원 자리(노드) ── */
@@ -494,19 +502,6 @@
     clearStorageNotice();
     emit('change', S);
     emit('live', S);
-    return true;
-  }
-
-  /**
-   * ★ §19-E(F04-9) — 방장이 돌린 하루 길이를 그대로 받아 적는다.
-   *   화면의 해·달·주민 사이클이 전부 config.time 을 보고 도므로, 여기 한 곳만 고치면 전부 따라온다.
-   */
-  function applyTimeScale(p) {
-    var c = S.config;
-    if (!p || !c || !c.time || p.tickRealSeconds == null) return false;
-    c.time.tickRealSeconds = p.tickRealSeconds;
-    c.time.dayRealSeconds = p.tickRealSeconds;
-    emit('change', S);
     return true;
   }
 
@@ -1545,7 +1540,6 @@
     applyWorld: applyWorld, applyWorldDiff: applyWorldDiff, decodeRleInto: decodeRleInto,
     revealAround: revealAround, visionRadius: visionRadius, applyAck: applyAck,
     applyLiveResources: applyLiveResources, syncMyVitals: syncMyVitals,
-    applyTimeScale: applyTimeScale,
 
     nation: nation, ap: ap,
     tier: tier, tierNo: tierNo, unlocked: unlocked, uiOn: uiOn, featOn: featOn, buildingOn: buildingOn,
