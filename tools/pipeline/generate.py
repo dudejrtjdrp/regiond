@@ -82,11 +82,11 @@ CATEGORY_PROMPTS: dict[str, dict] = {
     "mineral":    {"view": "exactly one single subject, one top-down three-quarter view ore node resource object, a single connected rock mass", "extra": "rock facets with chipped corners, embedded glinting ore veins"},
     "tree":       {"view": "exactly one single subject, one top-down three-quarter view tree, full trunk and canopy, roots at the base", "extra": "leaf clusters of 3-6 pixels, no individual leaves"},
     "plant":      {"view": "exactly one single subject, one top-down three-quarter view small plant or crop, a single connected patch", "extra": "compact leafy clusters"},
-    "furniture":  {"view": "exactly one single subject, one top-down three-quarter view furniture piece", "extra": "wood grain strokes, plank seams"},
-    "building":   {"view": "exactly one single subject, one top-down three-quarter view fantasy village building, front facade and roof visible", "extra": "stone and timber construction, warm glowing windows"},
+    "furniture":  {"view": "exactly one single subject, one top-down three-quarter view furniture piece standing alone", "extra": "wood grain strokes, plank seams, unoccupied, no people, no room and no floor around it"},
+    "building":   {"view": "exactly one single subject, one standalone building seen from a top-down three-quarter view, the whole building alone, front facade and roof visible", "extra": "stone and timber construction, warm glowing windows, unoccupied, no people anywhere, no other buildings and no street around it"},
     "tileset":    {"view": "seamless repeating natural ground surface texture, (orthographic view pointing straight down at flat ground:1.3), (close-up macro texture of the ground itself:1.2), filling the entire frame edge to edge", "extra": "the camera looks straight down, the ground fills the whole frame at one constant distance, a natural terrain surface and not a man-made floor or wall, not a landscape and not a scene, no horizon and no sky, no outline, no border, uniform density across the whole frame, no large focal object, repeats seamlessly on all four sides"},
     "ui":         {"view": "exactly one single subject, a single flat game UI skill icon, one centered emblem", "extra": "bold readable symbol, subtle bevel"},
-    "effect":     {"view": "exactly one single subject, one magical effect burst, isolated", "extra": "additive-friendly bright core with 1-2px glow"},
+    "effect":     {"view": "exactly one single subject, one magical effect burst alone in an empty frame", "extra": "additive-friendly bright core with 1-2px glow, no figures and no people"},
 }
 
 # 「왜」 pixel-art-xl은 캐릭터 편향이 강해 추상적인 desc를 주면 사람을 그린다.

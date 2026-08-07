@@ -9,7 +9,7 @@
       "grade": "common",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a knapped flint knife, leaf-shaped stone blade with a rippled flaked surface and a jagged working edge, seated into a split antler haft and lashed with crossed sinew strips, one loose sinew tail hanging below the binding"
+      "desc": "a knapped flint knife, leaf-shaped stone blade with a rippled flaked surface and a jagged working edge, seated into a split antler haft and lashed with crossed sinew strips, one loose sinew tail hanging below the binding, one single subject only, not a row, not a set of variations, not multiple drawings, no one wearing it, the item alone with nothing else, no body, no mannequin, no hands holding it, no people, no figures"
     },
     {
       "id": "weapon/bone_spear",
@@ -19,7 +19,7 @@
       "grade": "common",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a hunting spear tipped with a sharpened animal bone point, yellowed bone barbed along one side and lashed to a knotty ash shaft with wound hide cord, a single feather and a beaded knot swinging under the wrap"
+      "desc": "a hunting spear tipped with a sharpened animal bone point, yellowed bone barbed along one side and lashed to a knotty ash shaft with wound hide cord, a single feather and a beaded knot swinging under the wrap, one single subject only, not a row, not a set of variations, not multiple drawings, no one wearing it, the item alone with nothing else, no body, no mannequin, no hands holding it, no people, no figures"
     },
     {
       "id": "weapon/iron_blade",
@@ -29,7 +29,7 @@
       "grade": "uncommon",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a single-edged korean field sword, slightly curved iron blade with a thick straight spine and one hard bright line down the ground edge, small round disc guard, hilt bound in dark cord over pale ray skin, plain iron ring pommel, a soldier's everyday sidearm"
+      "desc": "a single-edged korean field sword, slightly curved iron blade with a thick straight spine and one hard bright line down the ground edge, small round disc guard, hilt bound in dark cord over pale ray skin, plain iron ring pommel, a soldier's everyday sidearm, one single subject only, not a row, not a set of variations, not multiple drawings, no one wearing it, the item alone with nothing else, no body, no mannequin, no hands holding it, no people, no figures"
     },
     {
       "id": "weapon/hunters_bow",
@@ -39,7 +39,7 @@
       "grade": "uncommon",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a short korean horn bow strung and shown from the side, deeply recurved limbs of laminated horn and sinew over a dark lacquered core, silk wrapping at the narrow handle, twisted string pulled taut between the nocks, one fletched arrow crossed behind the grip"
+      "desc": "a short korean horn bow strung and shown from the side, deeply recurved limbs of laminated horn and sinew over a dark lacquered core, silk wrapping at the narrow handle, twisted string pulled taut between the nocks, one fletched arrow crossed behind the grip, one single subject only, not a row, not a set of variations, not multiple drawings, no one wearing it, the item alone with nothing else, no body, no mannequin, no hands holding it, no people, no figures"
     },
     {
       "id": "weapon/steel_blade",
@@ -49,7 +49,7 @@
       "grade": "rare",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a straight double-edged steel broadsword, wide blade with a crisp central fuller and a mirror-bright edge line, squared crossguard with slightly flared tips, leather-wrapped grip, faceted wheel pommel"
+      "desc": "a straight double-edged steel broadsword, wide blade with a crisp central fuller and a mirror-bright edge line, squared crossguard with slightly flared tips, leather-wrapped grip, faceted wheel pommel, one single subject only, not a row, not a set of variations, not multiple drawings, no one wearing it, the item alone with nothing else, no body, no mannequin, no hands holding it, no people, no figures"
     },
     {
       "id": "weapon/steel_axe",
@@ -59,7 +59,7 @@
       "grade": "rare",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a two-handed steel battle axe, broad crescent head with a hardened bright cutting arc and a squared hammer poll behind it, iron langets running down a straight hickory haft, corded wrap at the butt end"
+      "desc": "a two-handed steel battle axe, broad crescent head with a hardened bright cutting arc and a squared hammer poll behind it, iron langets running down a straight hickory haft, corded wrap at the butt end, one single subject only, not a row, not a set of variations, not multiple drawings, no one wearing it, the item alone with nothing else, no body, no mannequin, no hands holding it, no people, no figures"
     },
     {
       "id": "weapon/elite_blade",
@@ -69,7 +69,7 @@
       "grade": "epic",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a guard officer's sword, narrow deep-fullered blade with a hard specular line running its length, wing-shaped crossguard swept toward the tip, grip bound in braided cord, a knotted tassel hanging from the pommel ring"
+      "desc": "a guard officer's sword, narrow deep-fullered blade with a hard specular line running its length, wing-shaped crossguard swept toward the tip, grip bound in braided cord, a knotted tassel hanging from the pommel ring, one single subject only, not a row, not a set of variations, not multiple drawings, no one wearing it, the item alone with nothing else, no body, no mannequin, no hands holding it, no people, no figures"
     },
     {
       "id": "weapon/master_blade",
@@ -79,7 +79,7 @@
       "grade": "legendary",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a master-forged long sword, folded steel blade showing a rippling hamon temper line along the cutting edge, long slender guard pierced with a cloud motif, grip wound in braided silk over patterned skin, heavy shaped pommel counterweight"
+      "desc": "a master-forged long sword, folded steel blade showing a rippling hamon temper line along the cutting edge, long slender guard pierced with a cloud motif, grip wound in braided silk over patterned skin, heavy shaped pommel counterweight, one single subject only, not a row, not a set of variations, not multiple drawings, no one wearing it, the item alone with nothing else, no body, no mannequin, no hands holding it, no people, no figures"
     },
     {
       "id": "weapon/wyrm_fang",
@@ -89,7 +89,7 @@
       "grade": "legendary",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a sword whose blade is one curved dragon fang, ivory tooth enamel darkening to smoky amber toward the root with fine growth ridges running its length and a natural razor edge, the root socket clamped into a guard built from interlocking green-black dragon scales, grip wrapped in scaled dragon hide, a thin ember-red heat line bleeding along the fang edge"
+      "desc": "a sword whose blade is one curved dragon fang, ivory tooth enamel darkening to smoky amber toward the root with fine growth ridges running its length and a natural razor edge, the root socket clamped into a guard built from interlocking green-black dragon scales, grip wrapped in scaled dragon hide, a thin ember-red heat line bleeding along the fang edge, one single subject only, not a row, not a set of variations, not multiple drawings, no one wearing it, the item alone with nothing else, no body, no mannequin, no hands holding it, no people, no figures"
     },
     {
       "id": "armor/stone_guard",
@@ -99,7 +99,7 @@
       "grade": "common",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a rough leather over-vest, sleeveless jerkin of thick hide with flat river stones sewn into sewn pockets across the chest, shoulder straps knotted at the front, hem and armholes cut raw and unhemmed"
+      "desc": "a rough leather over-vest, sleeveless jerkin of thick hide with flat river stones sewn into sewn pockets across the chest, shoulder straps knotted at the front, hem and armholes cut raw and unhemmed, one single subject only, not a row, not a set of variations, not multiple drawings, no one wearing it, the item alone with nothing else, no body, no mannequin, no hands holding it, no people, no figures"
     },
     {
       "id": "armor/fur_coat",
@@ -109,7 +109,7 @@
       "grade": "common",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a heavy winter fur coat, long hide overcoat with a thick shaggy collar and cuffs of gray wolf pelt, wide front overlap held by a woven sash, pale fleece lining showing at the hem"
+      "desc": "a heavy winter fur coat, long hide overcoat with a thick shaggy collar and cuffs of gray wolf pelt, wide front overlap held by a woven sash, pale fleece lining showing at the hem, one single subject only, not a row, not a set of variations, not multiple drawings, no one wearing it, the item alone with nothing else, no body, no mannequin, no hands holding it, no people, no figures"
     },
     {
       "id": "armor/iron_guard",
@@ -119,7 +119,7 @@
       "grade": "uncommon",
       "size": "64x64",
       "candidates": 4,
-      "desc": "an iron scale cuirass, rows of small overlapping iron plates laced onto a leather backing so each row edge catches a hard line, broad shoulder pieces, cord ties down the sides, several plates scuffed and dented"
+      "desc": "an iron scale cuirass, rows of small overlapping iron plates laced onto a leather backing so each row edge catches a hard line, broad shoulder pieces, cord ties down the sides, several plates scuffed and dented, one single subject only, not a row, not a set of variations, not multiple drawings, no one wearing it, the item alone with nothing else, no body, no mannequin, no hands holding it, no people, no figures"
     },
     {
       "id": "armor/hide_brigandine",
@@ -129,7 +129,7 @@
       "grade": "uncommon",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a leather brigandine, sleeveless torso of stiff boiled hide with plates riveted between the layers showing as regular rows of round rivet heads, buckled shoulder straps, laced open sides"
+      "desc": "a leather brigandine, sleeveless torso of stiff boiled hide with plates riveted between the layers showing as regular rows of round rivet heads, buckled shoulder straps, laced open sides, one single subject only, not a row, not a set of variations, not multiple drawings, no one wearing it, the item alone with nothing else, no body, no mannequin, no hands holding it, no people, no figures"
     },
     {
       "id": "armor/steel_guard",
@@ -139,7 +139,7 @@
       "grade": "rare",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a steel plate cuirass, smoothly shaped breastplate with a raised center ridge and one hard specular sweep across the chest, articulated waist lames below, riveted pauldrons, buckled leather straps over the shoulders"
+      "desc": "a steel plate cuirass, smoothly shaped breastplate with a raised center ridge and one hard specular sweep across the chest, articulated waist lames below, riveted pauldrons, buckled leather straps over the shoulders, one single subject only, not a row, not a set of variations, not multiple drawings, no one wearing it, the item alone with nothing else, no body, no mannequin, no hands holding it, no people, no figures"
     },
     {
       "id": "armor/elite_guard",
@@ -149,7 +149,7 @@
       "grade": "epic",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a guard captain's armor, lacquered plate cuirass worn over a mail collar with a broad chest strap, layered skirt lames hanging below the waist, corded fastenings with tassels and a rank plate at the center"
+      "desc": "a guard captain's armor, lacquered plate cuirass worn over a mail collar with a broad chest strap, layered skirt lames hanging below the waist, corded fastenings with tassels and a rank plate at the center, one single subject only, not a row, not a set of variations, not multiple drawings, no one wearing it, the item alone with nothing else, no body, no mannequin, no hands holding it, no people, no figures"
     },
     {
       "id": "armor/master_guard",
@@ -159,7 +159,7 @@
       "grade": "legendary",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a master-made war harness, deeply modeled cuirass with fluted plate surfaces, mail gorget at the throat, sculpted shoulder guards shaped like crouching beasts, layered lacquered skirt lames laced with braided silk cords"
+      "desc": "a master-made war harness, deeply modeled cuirass with fluted plate surfaces, mail gorget at the throat, sculpted shoulder guards shaped like crouching beasts, layered lacquered skirt lames laced with braided silk cords, one single subject only, not a row, not a set of variations, not multiple drawings, no one wearing it, the item alone with nothing else, no body, no mannequin, no hands holding it, no people, no figures"
     },
     {
       "id": "armor/wyrm_scale",
@@ -169,7 +169,7 @@
       "grade": "legendary",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a cuirass built from real dragon scales, large overlapping plates of green-black keratin with iridescent teal edges and pitted heat scarring across their faces, laced onto blackened dragon hide with sinew, a collar of smaller neck scales at the throat, faint ember-red light seeping through the gaps between plates"
+      "desc": "a cuirass built from real dragon scales, large overlapping plates of green-black keratin with iridescent teal edges and pitted heat scarring across their faces, laced onto blackened dragon hide with sinew, a collar of smaller neck scales at the throat, faint ember-red light seeping through the gaps between plates, one single subject only, not a row, not a set of variations, not multiple drawings, no one wearing it, the item alone with nothing else, no body, no mannequin, no hands holding it, no people, no figures"
     }
   ]
 }

@@ -8,7 +8,7 @@
       "subcategory": "fence_wood",
       "size": "64x96",
       "candidates": 4,
-      "desc": "a single wooden palisade post standing alone, squared weathered pine timber eight pixels thick with a chamfered top cap, straight vertical grain and two dark knots in mid brown, two hemp rope lashing bands at the heights where rails would meet, a wedge stone at the foot, identical timber tone and post thickness to the other fence pieces, base flush with the bottom edge"
+      "desc": "a single wooden palisade post standing alone, squared weathered pine timber eight pixels thick with a chamfered top cap, straight vertical grain and two dark knots in mid brown, two hemp rope lashing bands at the heights where rails would meet, a wedge stone at the foot, identical timber tone and post thickness to the other fence pieces, base flush with the bottom edge, one single subject only, not a row, not a set of variations, not multiple drawings, an unoccupied building, the building is empty, nobody present, no people, no figures, no characters, no animals, no surrounding village, no street, no other buildings, nothing else around it, empty surroundings, the building stands completely alone"
     },
     {
       "id": "building/fence_h",
@@ -17,7 +17,7 @@
       "subcategory": "fence_wood",
       "size": "64x96",
       "candidates": 4,
-      "desc": "one horizontal span of wooden palisade fence, two squared weathered pine posts eight pixels thick carrying two split rails four pixels thick that run dead straight and touch both the left frame edge and the right frame edge so identical spans join without a seam, hemp rope lashings at every joint, the same mid brown timber tone and grain as the other fence pieces, base flush with the bottom edge"
+      "desc": "one horizontal span of wooden palisade fence, two squared weathered pine posts eight pixels thick carrying two split rails four pixels thick that run dead straight and touch both the left frame edge and the right frame edge so identical spans join without a seam, hemp rope lashings at every joint, the same mid brown timber tone and grain as the other fence pieces, base flush with the bottom edge, one single subject only, not a row, not a set of variations, not multiple drawings, an unoccupied building, the building is empty, nobody present, no people, no figures, no characters, no animals, no surrounding village, no street, no other buildings, nothing else around it, empty surroundings, the building stands completely alone"
     },
     {
       "id": "building/fence_v",
@@ -26,7 +26,7 @@
       "subcategory": "fence_wood",
       "size": "64x96",
       "candidates": 4,
-      "desc": "a run of wooden palisade fence receding away from the viewer, three squared weathered pine posts eight pixels thick in a line front to back with two split rails four pixels thick between them, the rails reaching the bottom frame edge in front and the top frame edge behind so identical runs join without a seam, hemp rope lashings, the same mid brown timber tone and rail height as the other fence pieces"
+      "desc": "a run of wooden palisade fence receding away from the viewer, three squared weathered pine posts eight pixels thick in a line front to back with two split rails four pixels thick between them, the rails reaching the bottom frame edge in front and the top frame edge behind so identical runs join without a seam, hemp rope lashings, the same mid brown timber tone and rail height as the other fence pieces, one single subject only, not a row, not a set of variations, not multiple drawings, an unoccupied building, the building is empty, nobody present, no people, no figures, no characters, no animals, no surrounding village, no street, no other buildings, nothing else around it, empty surroundings, the building stands completely alone, base flush with the bottom edge"
     },
     {
       "id": "building/gate_wood",
@@ -35,7 +35,7 @@
       "subcategory": "fence_wood",
       "size": "64x96",
       "candidates": 4,
-      "desc": "a wooden gate leaf hung between two palisade posts of the same squared weathered pine eight pixels thick, vertical planks with one diagonal brace and dark iron strap hinges, a rope latch loop over a peg, the two posts pushed out to the left and right frame edges so the gate lines up with the fence spans, the same mid brown timber tone and top height as the other fence pieces, base flush with the bottom edge"
+      "desc": "a wooden gate leaf hung between two palisade posts of the same squared weathered pine eight pixels thick, vertical planks with one diagonal brace and dark iron strap hinges, a rope latch loop over a peg, the two posts pushed out to the left and right frame edges so the gate lines up with the fence spans, the same mid brown timber tone and top height as the other fence pieces, base flush with the bottom edge, one single subject only, not a row, not a set of variations, not multiple drawings, an unoccupied building, the building is empty, nobody present, no people, no figures, no characters, no animals, no surrounding village, no street, no other buildings, nothing else around it, empty surroundings, the building stands completely alone"
     },
     {
       "id": "building/wall_post",
@@ -44,7 +44,7 @@
       "subcategory": "fence_stone",
       "size": "64x96",
       "candidates": 4,
-      "desc": "a single stone wall pillar of coursed gray granite blocks twelve pixels thick, squared courses with chipped corners under one flat capstone, pale lichen caught in the mortar joints, a rubble footing of small packed stones, identical granite tone and wall thickness to the other stone wall pieces, base flush with the bottom edge"
+      "desc": "a single stone wall pillar of coursed gray granite blocks twelve pixels thick, squared courses with chipped corners under one flat capstone, pale lichen caught in the mortar joints, a rubble footing of small packed stones, identical granite tone and wall thickness to the other stone wall pieces, base flush with the bottom edge, one single subject only, not a row, not a set of variations, not multiple drawings, an unoccupied building, the building is empty, nobody present, no people, no figures, no characters, no animals, no surrounding village, no street, no other buildings, nothing else around it, empty surroundings, the building stands completely alone"
     },
     {
       "id": "building/wall_h",
@@ -53,7 +53,7 @@
       "subcategory": "fence_stone",
       "size": "64x96",
       "candidates": 4,
-      "desc": "one horizontal run of gray granite wall, rectangular blocks laid in level courses twelve pixels thick under a continuous flat capstone that touches both the left frame edge and the right frame edge so identical runs join without a seam, chipped block corners and pale lichen in the joints, the same granite tone and wall height as the other stone wall pieces, base flush with the bottom edge"
+      "desc": "one horizontal run of gray granite wall, rectangular blocks laid in level courses twelve pixels thick under a continuous flat capstone that touches both the left frame edge and the right frame edge so identical runs join without a seam, chipped block corners and pale lichen in the joints, the same granite tone and wall height as the other stone wall pieces, base flush with the bottom edge, one single subject only, not a row, not a set of variations, not multiple drawings, an unoccupied building, the building is empty, nobody present, no people, no figures, no characters, no animals, no surrounding village, no street, no other buildings, nothing else around it, empty surroundings, the building stands completely alone"
     },
     {
       "id": "building/wall_v",
@@ -62,7 +62,7 @@
       "subcategory": "fence_stone",
       "size": "64x96",
       "candidates": 4,
-      "desc": "a run of gray granite wall receding away from the viewer, level courses of rectangular blocks twelve pixels thick with the flat capstone reaching the bottom frame edge in front and the top frame edge behind so identical runs join without a seam, chipped corners and pale lichen in the joints, the same granite tone and wall height as the other stone wall pieces"
+      "desc": "a run of gray granite wall receding away from the viewer, level courses of rectangular blocks twelve pixels thick with the flat capstone reaching the bottom frame edge in front and the top frame edge behind so identical runs join without a seam, chipped corners and pale lichen in the joints, the same granite tone and wall height as the other stone wall pieces, one single subject only, not a row, not a set of variations, not multiple drawings, an unoccupied building, the building is empty, nobody present, no people, no figures, no characters, no animals, no surrounding village, no street, no other buildings, nothing else around it, empty surroundings, the building stands completely alone, base flush with the bottom edge"
     },
     {
       "id": "building/gate_stone",
@@ -71,7 +71,7 @@
       "subcategory": "fence_stone",
       "size": "64x96",
       "candidates": 4,
-      "desc": "a heavy timber double door set in a gray granite gateway of the same coursed blocks twelve pixels thick, granite jambs with chipped corners under a flat capstone lintel, dark iron studs and strap hinges across the doors, a worn stone threshold below, the jambs pushed out to the left and right frame edges so the gateway lines up with the wall runs, the same granite tone and wall height as the other stone wall pieces, base flush with the bottom edge"
+      "desc": "a heavy timber double door set in a gray granite gateway of the same coursed blocks twelve pixels thick, granite jambs with chipped corners under a flat capstone lintel, dark iron studs and strap hinges across the doors, a worn stone threshold below, the jambs pushed out to the left and right frame edges so the gateway lines up with the wall runs, the same granite tone and wall height as the other stone wall pieces, base flush with the bottom edge, one single subject only, not a row, not a set of variations, not multiple drawings, an unoccupied building, the building is empty, nobody present, no people, no figures, no characters, no animals, no surrounding village, no street, no other buildings, nothing else around it, empty surroundings, the building stands completely alone"
     },
     {
       "id": "tileset/path_dirt",
@@ -80,7 +80,7 @@
       "subcategory": "path",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a straight dirt path segment drawn as a flat ground overlay decal seen directly from above with no perspective and no thickness, a band of packed tan earth about forty pixels wide with small pressed pebbles and two faint cart ruts, running from the left frame edge to the right frame edge, the long edges of the band irregular and softly broken into scattered dirt flecks, everything outside the band left completely empty so the piece layers over terrain, the same earth tone and band width as the other path pieces"
+      "desc": "a straight dirt path segment drawn as a flat ground overlay decal seen directly from above with no perspective and no thickness, a band of packed tan earth about forty pixels wide with small pressed pebbles and two faint cart ruts, running from the left frame edge to the right frame edge, the long edges of the band irregular and softly broken into scattered dirt flecks, everything outside the band left completely empty so the piece layers over terrain, the same earth tone and band width as the other path pieces, one single subject only, not a row, not a set of variations, not multiple drawings, an inanimate object only, no people, no figures, no hands, no characters, nothing else around it, empty surroundings"
     },
     {
       "id": "tileset/path_dirt_corner",
@@ -89,7 +89,7 @@
       "subcategory": "path",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a right angle corner of dirt path drawn as a flat ground overlay decal seen directly from above with no perspective and no thickness, the same band of packed tan earth about forty pixels wide with pressed pebbles and faint ruts entering at the left frame edge and turning to leave at the bottom frame edge, the outside of the bend worn slightly wider, irregular softly broken band edges, everything outside the band left completely empty so the piece layers over terrain, the same earth tone and band width as the other path pieces"
+      "desc": "a right angle corner of dirt path drawn as a flat ground overlay decal seen directly from above with no perspective and no thickness, the same band of packed tan earth about forty pixels wide with pressed pebbles and faint ruts entering at the left frame edge and turning to leave at the bottom frame edge, the outside of the bend worn slightly wider, irregular softly broken band edges, everything outside the band left completely empty so the piece layers over terrain, the same earth tone and band width as the other path pieces, one single subject only, not a row, not a set of variations, not multiple drawings, an inanimate object only, no people, no figures, no hands, no characters, nothing else around it, empty surroundings"
     },
     {
       "id": "tileset/path_dirt_cross",
@@ -98,7 +98,7 @@
       "subcategory": "path",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a four way crossroads of dirt path drawn as a flat ground overlay decal seen directly from above with no perspective and no thickness, the same bands of packed tan earth about forty pixels wide reaching all four frame edges and meeting in a slightly wider trodden center, pressed pebbles and faint ruts crossing each other, irregular softly broken band edges, everything outside the bands left completely empty so the piece layers over terrain, the same earth tone and band width as the other path pieces"
+      "desc": "a four way crossroads of dirt path drawn as a flat ground overlay decal seen directly from above with no perspective and no thickness, the same bands of packed tan earth about forty pixels wide reaching all four frame edges and meeting in a slightly wider trodden center, pressed pebbles and faint ruts crossing each other, irregular softly broken band edges, everything outside the bands left completely empty so the piece layers over terrain, the same earth tone and band width as the other path pieces, one single subject only, not a row, not a set of variations, not multiple drawings, an inanimate object only, no people, no figures, no hands, no characters, nothing else around it, empty surroundings"
     },
     {
       "id": "tileset/path_dirt_end",
@@ -107,7 +107,7 @@
       "subcategory": "path",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a dead end cap of dirt path drawn as a flat ground overlay decal seen directly from above with no perspective and no thickness, the same band of packed tan earth about forty pixels wide with pressed pebbles and faint ruts entering at the left frame edge and thinning into a rounded stub that scatters into loose dirt flecks before the right side, irregular softly broken band edges, everything outside the band left completely empty so the piece layers over terrain, the same earth tone and band width as the other path pieces"
+      "desc": "a dead end cap of dirt path drawn as a flat ground overlay decal seen directly from above with no perspective and no thickness, the same band of packed tan earth about forty pixels wide with pressed pebbles and faint ruts entering at the left frame edge and thinning into a rounded stub that scatters into loose dirt flecks before the right side, irregular softly broken band edges, everything outside the band left completely empty so the piece layers over terrain, the same earth tone and band width as the other path pieces, one single subject only, not a row, not a set of variations, not multiple drawings, an inanimate object only, no people, no figures, no hands, no characters, nothing else around it, empty surroundings"
     },
     {
       "id": "tileset/apron_dirt",
@@ -116,7 +116,7 @@
       "subcategory": "apron",
       "size": "128x128",
       "candidates": 4,
-      "desc": "a round patch of packed bare earth drawn as a flat ground decal seen directly from above with no perspective and no thickness, trodden tan soil worn smooth toward the middle with scattered pebbles and a few boot scuffs, the rim ragged and irregular where it fades into loose dirt flecks, everything outside the patch left completely empty so the decal layers under a building, the same earth tone as the dirt path pieces"
+      "desc": "a round patch of packed bare earth drawn as a flat ground decal seen directly from above with no perspective and no thickness, trodden tan soil worn smooth toward the middle with scattered pebbles and a few boot scuffs, the rim ragged and irregular where it fades into loose dirt flecks, everything outside the patch left completely empty so the decal layers under a building, the same earth tone as the dirt path pieces, one single subject only, not a row, not a set of variations, not multiple drawings, an inanimate object only, no people, no figures, no hands, no characters, nothing else around it, empty surroundings"
     },
     {
       "id": "tileset/apron_stone",
@@ -125,7 +125,7 @@
       "subcategory": "apron",
       "size": "128x128",
       "candidates": 4,
-      "desc": "a round platform of fitted flagstones drawn as a flat ground decal seen directly from above with no perspective and no thickness, gray cut slabs of uneven size with narrow gritty joints and chipped corners, thin moss lines between a few of them, the rim ragged and irregular with two loose outlying slabs, everything outside the platform left completely empty so the decal layers under a building, the same granite tone as the stone wall pieces"
+      "desc": "a round platform of fitted flagstones drawn as a flat ground decal seen directly from above with no perspective and no thickness, gray cut slabs of uneven size with narrow gritty joints and chipped corners, thin moss lines between a few of them, the rim ragged and irregular with two loose outlying slabs, everything outside the platform left completely empty so the decal layers under a building, the same granite tone as the stone wall pieces, one single subject only, not a row, not a set of variations, not multiple drawings, an inanimate object only, no people, no figures, no hands, no characters, nothing else around it, empty surroundings"
     }
   ]
 }

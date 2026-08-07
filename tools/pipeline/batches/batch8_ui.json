@@ -8,7 +8,7 @@
       "subcategory": "skill",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a farming emblem: a short-handled hoe angled down into three turned furrow ridges, a bound sheaf of barley standing behind the shaft, two grain heads breaking past the hoe blade, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a farming emblem: a short-handled hoe angled down into three turned furrow ridges, a bound sheaf of barley standing behind the shaft, two grain heads breaking past the hoe blade, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/skill_lumber",
@@ -17,7 +17,7 @@
       "subcategory": "skill",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a woodcutting emblem: a felling axe buried in the flat cut face of a log round, concentric growth rings spreading around the bite, two wood chips flung clear of the cut, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a woodcutting emblem: a felling axe buried in the flat cut face of a log round, concentric growth rings spreading around the bite, two wood chips flung clear of the cut, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/skill_mining",
@@ -26,7 +26,7 @@
       "subcategory": "skill",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a mining emblem: a pickaxe laid across a split ore chunk, the broken rock face opened to show three angular mineral facets, a scatter of small stone chips beneath the head, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a mining emblem: a pickaxe laid across a split ore chunk, the broken rock face opened to show three angular mineral facets, a scatter of small stone chips beneath the head, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/skill_build",
@@ -35,7 +35,7 @@
       "subcategory": "skill",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a construction emblem: a mason's hammer crossed with a carpenter's square over two stacked dressed blocks, a plumb line hanging from the square's corner, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a construction emblem: a mason's hammer crossed with a carpenter's square over two stacked dressed blocks, a plumb line hanging from the square's corner, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/skill_combat",
@@ -44,7 +44,7 @@
       "subcategory": "skill",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a combat emblem: two swords crossed point-up behind a small round shield carrying a single domed center boss, blade edges catching a hard line, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a combat emblem: two swords crossed point-up behind a small round shield carrying a single domed center boss, blade edges catching a hard line, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/folk",
@@ -53,7 +53,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a population mark: one simplified standing person seen from the front, round head over broad squared shoulders, short arms held out from the body, legs set slightly apart, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a population mark: one simplified standing person seen from the front, round head over broad squared shoulders, short arms held out from the body, legs set slightly apart, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a flat two-tone pictogram silhouette, not a realistic person, no face, no facial features, no clothing detail, a plain geometric symbol"
     },
     {
       "id": "ui/morale",
@@ -62,7 +62,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a morale mark: a plump rounded heart with two full upper lobes meeting in a deep notch, rendered in a soft violet-pink ramp, one small facet highlight on the upper-left lobe, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a morale mark: a plump rounded heart with two full upper lobes meeting in a deep notch, rendered in a soft violet-pink ramp, one small facet highlight on the upper-left lobe, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/shield",
@@ -71,7 +71,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a defense mark: a heater shield with a straight top and a pointed base, a vertical band running down the center crossed by a shorter horizontal band, a single domed rivet at the crossing, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a defense mark: a heater shield with a straight top and a pointed base, a vertical band running down the center crossed by a shorter horizontal band, a single domed rivet at the crossing, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/research",
@@ -80,7 +80,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a research mark: a round-bottomed laboratory flask with a narrow straight neck and a flared lip, filled two thirds with clear blue liquid, three small bubbles rising inside the fluid, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a research mark: a round-bottomed laboratory flask with a narrow straight neck and a flared lip, filled two thirds with clear blue liquid, three small bubbles rising inside the fluid, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/ship",
@@ -89,7 +89,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a trade mark: a small merchant sailing ship in side view, curved wooden hull with a raised stern, one mast carrying a square canvas sail bellied by wind, a cargo bale lashed on the foredeck, a short waterline stroke under the keel, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a trade mark: a small merchant sailing ship in side view, curved wooden hull with a raised stern, one mast carrying a square canvas sail bellied by wind, a cargo bale lashed on the foredeck, a short waterline stroke under the keel, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/warn",
@@ -98,7 +98,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a warning mark: an equilateral triangle standing on its base with slightly rounded corners, a thick exclamation stroke and separate dot cut through the middle in dark ink, a darker band along the bottom edge, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a warning mark: an equilateral triangle standing on its base with slightly rounded corners, a thick exclamation stroke and separate dot cut through the middle in dark ink, a darker band along the bottom edge, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/hammer",
@@ -107,7 +107,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a construction mark: a claw-free builder's hammer laid diagonally, a heavy squared steel head with a bright struck face and a straight wooden handle running down to the opposite corner, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a construction mark: a claw-free builder's hammer laid diagonally, a heavy squared steel head with a bright struck face and a straight wooden handle running down to the opposite corner, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/repair",
@@ -116,7 +116,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a repair mark: an open-ended wrench laid diagonally across a cracked timber plank, the split in the wood pinned shut by two iron staples, one bright line along the wrench jaw, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a repair mark: an open-ended wrench laid diagonally across a cracked timber plank, the split in the wood pinned shut by two iron staples, one bright line along the wrench jaw, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/up",
@@ -125,7 +125,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "an upgrade mark: a thick upward arrow with a wide chevron head and a straight shaft, resting on a short horizontal base bar, green ramp with the lit face along the upper-left of the chevron, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "an upgrade mark: a thick upward arrow with a wide chevron head and a straight shaft, resting on a short horizontal base bar, green ramp with the lit face along the upper-left of the chevron, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/gear",
@@ -134,7 +134,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a settings mark: a cogwheel seen face on with eight squared teeth evenly spaced around the rim, a wide dark bore through the middle, a thin lit ring along the upper-left of the body, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a settings mark: a cogwheel seen face on with eight squared teeth evenly spaced around the rim, a wide dark bore through the middle, a thin lit ring along the upper-left of the body, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/check",
@@ -143,7 +143,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a completion mark: a bold check stroke made of stepped square segments, a short thick descending leg meeting a long rising leg, green ramp brightening toward the raised tip, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a completion mark: a bold check stroke made of stepped square segments, a short thick descending leg meeting a long rising leg, green ramp brightening toward the raised tip, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/lock",
@@ -152,7 +152,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a lock mark: a squat padlock body with a steel shackle arching above it, a keyhole cut as a small round hole over a narrow slot, the shackle's upper-left curve catching a hard line, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a lock mark: a squat padlock body with a steel shackle arching above it, a keyhole cut as a small round hole over a narrow slot, the shackle's upper-left curve catching a hard line, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/crown",
@@ -161,7 +161,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a rule mark: a broad crown band with three tall points rising above it, the center point highest, one red and one blue cabochon set into the band, a beaded rim along its lower edge, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a rule mark: a broad crown band with three tall points rising above it, the center point highest, one red and one blue cabochon set into the band, a beaded rim along its lower edge, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/scroll",
@@ -170,7 +170,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a decree mark: a parchment scroll unrolled between two turned wooden rods, four short lines of illegible ruled writing across the sheet, the parchment curling at the top and bottom edges, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a decree mark: a parchment scroll unrolled between two turned wooden rods, four short lines of illegible ruled writing across the sheet, the parchment curling at the top and bottom edges, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/book",
@@ -179,7 +179,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a chronicle mark: a thick bound book lying open, a stiff leather cover wrapping both boards, two facing cream pages divided by a deep center gutter, three short ruled text lines on each page, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a chronicle mark: a thick bound book lying open, a stiff leather cover wrapping both boards, two facing cream pages divided by a deep center gutter, three short ruled text lines on each page, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/heart",
@@ -188,7 +188,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a health mark: a bold heart with two round upper lobes and a sharp lower point, deep red body with a darker seam at the notch and one small square glint on the upper-left lobe, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a health mark: a bold heart with two round upper lobes and a sharp lower point, deep red body with a darker seam at the notch and one small square glint on the upper-left lobe, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/star",
@@ -197,7 +197,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a level-up mark: a five-pointed star with straight even arms and a bright pale core spreading from the middle, two small sparkle points set diagonally off opposing arms, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a level-up mark: a five-pointed star with straight even arms and a bright pale core spreading from the middle, two small sparkle points set diagonally off opposing arms, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/tier",
@@ -206,7 +206,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a growth mark: a wooden stake driven into a low mound of turf with a small pennant flying from its top, two short grass sprouts pushing up on either side of the stake, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a growth mark: a wooden stake driven into a low mound of turf with a small pennant flying from its top, two short grass sprouts pushing up on either side of the stake, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/swords",
@@ -215,7 +215,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a raid alert mark: two swords crossed in an X with blades up and hilts down, quillons and grips meeting near the base, a short red slash stroke laid across the crossing point, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a raid alert mark: two swords crossed in an X with blades up and hilts down, quillons and grips meeting near the base, a short red slash stroke laid across the crossing point, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/bell",
@@ -224,7 +224,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "an alert mark: a cast bell hanging from a short crown loop, flaring body with a heavy lip band at the bottom and the clapper just visible beneath, a hard line down the upper-left of the body, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "an alert mark: a cast bell hanging from a short crown loop, flaring body with a heavy lip band at the bottom and the clapper just visible beneath, a hard line down the upper-left of the body, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/eye",
@@ -233,7 +233,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a scouting mark: an open eye in a pointed almond outline, a blue iris ring around a dark round pupil, a lid line above and a shorter crease below, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a scouting mark: an open eye in a pointed almond outline, a blue iris ring around a dark round pupil, a lid line above and a shorter crease below, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/chat",
@@ -242,7 +242,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a dialogue mark: a rounded rectangular speech balloon with a short tail angling down from its lower-left corner, two ruled lines of illegible text inside, a darker rule along the top and bottom of the balloon, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a dialogue mark: a rounded rectangular speech balloon with a short tail angling down from its lower-left corner, two ruled lines of illegible text inside, a darker rule along the top and bottom of the balloon, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/flag",
@@ -251,7 +251,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a banner mark: a red pennant flying from a tall wooden pole, the cloth cut with a swallow-tail notch at its free end and rippling in two shallow folds, a pointed finial at the pole top, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a banner mark: a red pennant flying from a tall wooden pole, the cloth cut with a swallow-tail notch at its free end and rippling in two shallow folds, a pointed finial at the pole top, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/wagon",
@@ -260,7 +260,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a transport mark: a covered wagon in side view, a canvas hood arched over a plank box body, two dark spoked wheels beneath, a drawbar reaching out from the front, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a transport mark: a covered wagon in side view, a canvas hood arched over a plank box body, two dark spoked wheels beneath, a drawbar reaching out from the front, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     },
     {
       "id": "ui/tools",
@@ -269,7 +269,7 @@
       "subcategory": "hud",
       "size": "64x64",
       "candidates": 4,
-      "desc": "a toolkit mark: a saw and a chisel crossed handle-down behind a small anvil, wooden handles below and bright steel above the crossing, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape"
+      "desc": "a toolkit mark: a saw and a chisel crossed handle-down behind a small anvil, wooden handles below and bright steel above the crossing, the symbol stands alone on empty space, no background disc, no round plate behind it, no frame, no border ring, no badge shape, one single subject only, not a row, not a set of variations, not multiple drawings, a simple flat abstract symbol, no faces, no human silhouettes, no realistic people, no characters"
     }
   ]
 }
