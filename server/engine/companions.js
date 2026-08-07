@@ -572,7 +572,7 @@ function decide(world, nation, data, actor, player, av, opts = {}) {
   if (node) return { kind: 'node', id: node.id };
 
   /* ⑥ ★ Sprint 2 — rest 로 끝나던 사다리의 마지막 계단. 캘 것이 없어 손이 빌 때는
-     자리 홀짝을 접고 공사라도 돕는다(RimWorld 폴백 사다리 — 유휴는 마지막 수단이다). */
+     자리 홀짝을 접고 공사라도 돕는다(콜로니 시뮬의 폴백 사다리 — 유휴는 마지막 수단이다). */
   const anySite = pickSite(nation, data, actor, roleKey, true);
   if (anySite) return { kind: 'site', id: anySite.id };
 

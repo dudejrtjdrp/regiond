@@ -68,36 +68,69 @@
   }
 
   /* ── 공장장 — 공정 ────────────────────────────────── */
+  /* ★ §19-C — 여기는 「검은 기둥 + −/+ 두 개」였다. 무반응의 원인은 둘이다:
+     ① 눈금(.gauge)이 flex 자식으로 0폭이 되어 막대도 숫자도 안 보였다(main.css 에서 고쳤다).
+     ② 무기 칸은 **어디에서도 쓰이지 않는 죽은 몫**이었다 — 서버의 공정(tick.applyFactoryQueue)이
+        만드는 것은 강재와 연료뿐이고, 무기는 골드로 사는 국가 도구(buyTool)다. 그 칸에 준 몫은
+        그대로 버려졌다. 실제로 만들어지는 둘만 놓고, 무엇이 무엇으로 바뀌는지를 함께 적는다. */
+  var FACTORY_LINES = [
+    { key: 'steel', name: '강재', color: '#9aa3ad',
+      from: '철광석 + 연료', desc: '녹여 벼린 쇠 — 개축과 장비가 여기서 나옵니다.' },
+    { key: 'fuel', name: '연료', color: '#c98b3a',
+      from: '석유', desc: '제련의 불. 모자라면 목재를 숯으로 태워 메웁니다.' },
+  ];
+
+  function factoryShare(draft, key) {
+    var sum = (draft.steel || 0) + (draft.fuel || 0);
+    return sum > 0 ? (draft[key] || 0) / sum : 0;
+  }
+
+  /** −/+ 한 번 = 5%p. 둘 다 0이 되면 서버가 되돌려 보내므로 한쪽은 남겨 둔다. */
+  function bumpFactory(draft, key, dir) {
+    var other = key === 'steel' ? 'fuel' : 'steel';
+    var v = Math.min(1, Math.max(0, (draft[key] || 0) + dir * 0.05));
+    draft[key] = Math.round(v * 100) / 100;
+    if ((draft[key] || 0) + (draft[other] || 0) <= 0) draft[other] = 0.05;
+  }
+
+  function factoryRow(host, draft, line, repaint) {
+    var res = (S.nation() || {}).resources || {};
+    var row = U.row();
+    row.appendChild(U.el('span', 'row-name', line.name));
+    var g = U.makeGauge({ height: 18, color: line.color });
+    g.setValue(factoryShare(draft, line.key), U.pct(factoryShare(draft, line.key), 0));
+    row.appendChild(g);
+    var acts = U.el('span', 'row-acts');
+    acts.appendChild(U.btn('−', 'btn-sm', function () { bumpFactory(draft, line.key, -1); repaint(); }));
+    acts.appendChild(U.btn('＋', 'btn-sm', function () { bumpFactory(draft, line.key, 1); repaint(); }));
+    row.appendChild(acts);
+    host.appendChild(row);
+    host.appendChild(U.el('p', 'hint', line.from + ' → ' + line.name + ' · ' + line.desc +
+      ' 지금 곳간에 ' + U.fmt(res[line.key] || 0, 0) + '.'));
+  }
+
+  function saveFactory(draft) {
+    /* weapon 은 계약(PROTOCOL setQueue)에 남은 칸이라 0으로 실어 보낸다 — 필드는 지우지 않는다 */
+    GM.net.send('setQueue', { factory: { steel: draft.steel, fuel: draft.fuel, weapon: 0 } });
+    U.toast('공정을 정했습니다 — 강재 ' + U.pct(factoryShare(draft, 'steel'), 0) +
+            ' · 연료 ' + U.pct(factoryShare(draft, 'fuel'), 0) + '.', 'good');
+    U.closeTopModal();
+  }
+
   function factoryRoom(body) {
-    var n = S.nation();
+    var q = S.nation().factoryQueue || {};
+    var draft = { steel: q.steel == null ? 0.6 : q.steel, fuel: q.fuel == null ? 0.4 : q.fuel };
     body.appendChild(U.el('h3', 'sec-title', '무엇을 먼저 만들까'));
-    var q = n.factoryQueue || { steel: 0.34, fuel: 0.33, weapon: 0.33 };
-    var draft = { steel: q.steel || 0, fuel: q.fuel || 0, weapon: q.weapon || 0 };
+    body.appendChild(U.el('p', 'hint', '공방에 앉은 손이 오늘 어느 쪽에 붙을지 정합니다. ' +
+      '두 몫을 합해 100%가 되도록 나뉘고, 원료가 모자라면 그만큼만 나옵니다.'));
     var host = U.el('div');
     body.appendChild(host);
-    var NAMES = { steel: '강재', fuel: '연료', weapon: '무기' };
-    function paint() {
+    var repaint = function () {
       U.clear(host);
-      var sum = draft.steel + draft.fuel + draft.weapon || 1;
-      ['steel', 'fuel', 'weapon'].forEach(function (k) {
-        var row = U.row();
-        row.appendChild(U.el('span', 'row-name', NAMES[k]));
-        var g = U.makeGauge({ height: 18, color: '#8d7f6a' });
-        g.setValue(draft[k] / sum, U.pct(draft[k] / sum, 0));
-        row.appendChild(g);
-        var acts = U.el('span', 'row-acts');
-        acts.appendChild(U.btn('−', 'btn-sm', function () { draft[k] = Math.max(0, draft[k] - 0.05); paint(); }));
-        acts.appendChild(U.btn('＋', 'btn-sm', function () { draft[k] = Math.min(1, draft[k] + 0.05); paint(); }));
-        row.appendChild(acts);
-        host.appendChild(row);
-      });
-    }
-    paint();
-    var save = U.btn('이대로 돌린다', 'btn-primary', function () {
-      GM.net.send('setQueue', { factory: draft });
-      U.toast('공정을 정했습니다.', 'good');
-      U.closeTopModal();
-    });
+      FACTORY_LINES.forEach(function (line) { factoryRow(host, draft, line, repaint); });
+    };
+    repaint();
+    var save = U.btn('이대로 돌린다', 'btn-primary', function () { saveFactory(draft); });
     save.id = 'factory-save';
     body.appendChild(save);
   }

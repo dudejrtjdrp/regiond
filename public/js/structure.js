@@ -102,7 +102,7 @@
     body.appendChild(rl);
     if (r.count) body.appendChild(U.el('p', 'hint', '지금까지 ' + r.count + '명을 불렀습니다.'));
 
-    /* ★ §16-18 — 집결지(스타크래프트의 랠리). 새로 오는 주민이 곧장 갈 일터를 꽂아 둔다. */
+    /* ★ §16-18 — 집결지(RTS 의 랠리 포인트). 새로 오는 주민이 곧장 갈 일터를 꽂아 둔다. */
     body.appendChild(U.el('h4', 'se-sec', '집결지'));
     var rl2 = S.rally();
     body.appendChild(U.el('p', 'se-line', rl2

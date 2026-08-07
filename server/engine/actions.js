@@ -126,7 +126,7 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
   addYield(spec.yield);
   if (cycleDone) addYield(spec.cycleBonus);
 
-  /* ★ §16-17 — 광역 스윙(스타듀밸리의 충전 도끼에서 배웠다). 솜씨가 오르면 한 번의 스윙이
+  /* ★ §16-17 — 광역 스윙(농장 생활물의 충전 도구에서 배웠다). 솜씨가 오르면 한 번의 스윙이
      곁의 **같은 자리**까지 스친다 — 레벨업 보상이 「쿨타임 감소」뿐이던 성장에 손맛을 더한다.
      스친 자리는 제 잔량이 깎인다(공짜가 아니다). 여물어야 하는 밭은 여문 이웃만 스친다. */
   let cleaved = 0;

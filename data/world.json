@@ -821,7 +821,7 @@
     "_workRadiusNote": "★ GDD3 §13-B-2 — 자원 군락이 영토 밖에 앉으면서 주민의 일터도 영토를 넘는다. 일자리 판정 반경 = 영토 반경 + workRadiusBonus. 이 값이 0 이면 영토 안이 텅 비어 아무도 일하지 못한다.",
     "spreadRadiusTiles": 9,
     "autoAssign": {
-      "_note": "★ Sprint 2 — 유휴는 흡수 상태였다: 한 번 놀면 영원히 놀고, 새 주민도 집결지 없이는 영원히 유휴였다(배치는 플레이어 명령 때만 돌았다). 이제 매일 틱마다 「노는 손」만 필요도순으로 빈 자리에 앉힌다(Manor Lords 의 「미배정 = 노동 풀」). 수동 배치(manual)는 절대 건드리지 않는다 — RimWorld 예약의 축소판. 필요도: 곡물 잔여일수가 grainDaysUrgent 아래면 곡물 먼저, 그다음 재고 적은 순(stockKinds), 그다음 extraKinds. preDepartmentDeadJobs 는 3티어(부처 개막) 전에는 산출이 문자 그대로 0 인 직업들 — 그 전에는 유휴와 같이 취급해 캐는 손으로 돌린다(§11-1 잠긴 것은 부재).",
+      "_note": "★ Sprint 2 — 유휴는 흡수 상태였다: 한 번 놀면 영원히 놀고, 새 주민도 집결지 없이는 영원히 유휴였다(배치는 플레이어 명령 때만 돌았다). 이제 매일 틱마다 「노는 손」만 필요도순으로 빈 자리에 앉힌다(미배정 = 범용 노동 풀). 수동 배치(manual)는 절대 건드리지 않는다 — 손가락으로 앉힌 자리는 예약된 자리다. 필요도: 곡물 잔여일수가 grainDaysUrgent 아래면 곡물 먼저, 그다음 재고 적은 순(stockKinds), 그다음 extraKinds. preDepartmentDeadJobs 는 3티어(부처 개막) 전에는 산출이 문자 그대로 0 인 직업들 — 그 전에는 유휴와 같이 취급해 캐는 손으로 돌린다(§11-1 잠긴 것은 부재).",
       "enabled": true,
       "grainDaysUrgent": 6,
       "stockKinds": ["wood", "stone", "grain"],

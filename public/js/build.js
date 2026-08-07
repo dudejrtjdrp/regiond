@@ -85,6 +85,13 @@
     return out.join(' · ');
   }
 
+  /** ★ §19-C — 이 칸에 지을 수 있는가. 매립한 물 칸은 뭍과 똑같이 친다(§17-13). */
+  function placeableCell(buildable, x, y) {
+    var code = S.terrainKey(x, y);
+    if (buildable.indexOf(code) >= 0) return true;
+    return code === 'water' && S.onFill(x, y);
+  }
+
   /** 고스트 유효성 — {ok, reason?, note?} */
   function validate(pl, x, y) {
     if (!pl) return { ok: false };
@@ -130,7 +137,9 @@
             return { ok: false, reason: '본영에서 너무 멉니다' };
           }
         } else if (!S.inTerritory(cx2, cy)) return { ok: false, reason: '아직 우리 땅이 아닙니다' };
-        if (buildable.indexOf(S.terrainKey(cx2, cy)) < 0) return { ok: false, reason: '여기에는 지을 수 없습니다' };
+        /* ★ §19-C — 매립한 물 칸은 뭍으로 친다(서버 structures.validatePlacement 와 같은 §17-13 규칙).
+           이 한 줄이 없어 화면이 먼저 막아 세웠다 — 서버는 허락하는데 커서가 붉었다(B08-2). */
+        if (!placeableCell(buildable, cx2, cy)) return { ok: false, reason: '여기에는 지을 수 없습니다' };
       }
     }
     var sp = cfg.minSpacing || 2;

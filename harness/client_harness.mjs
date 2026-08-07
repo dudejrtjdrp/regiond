@@ -238,7 +238,9 @@ test('클라이언트 하니스 — 목표 카드가 가리키는 대로만 1장
       GM.hud.update();
       GM.quest.update();
       const chips = [...doc.querySelectorAll('#res-bar .res-chip')].map((c) => c.getAttribute('data-k'));
-      assert.equal(chips.join(','), 'grain,wood,stone', `야영지 자원칸: ${chips.join(',')}`);
+      /* ★ §19-C — 금화는 점진 공개에서 빠졌다(B03-2): 교역이 열리기 전에도 건물 값·도구 값을
+         금으로 치르므로, 「가진 돈」은 1장부터 늘 보인다. 나머지 점진 공개는 그대로다. */
+      assert.equal(chips.join(','), 'grain,wood,stone,gold', `야영지 자원칸: ${chips.join(',')}`);
       assert.equal(doc.querySelector('#goal-card').hidden, false, '목표 카드가 보인다');
 
       const ch = S.chapter();

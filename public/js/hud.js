@@ -65,7 +65,9 @@
     if (S.uiOn('hud.population')) {
       out.push({ key: 'population', name: '사람', value: n.population || 0, digits: 0 });
     }
-    if (S.featOn('trade')) out.push({ key: 'gold', name: '금화', value: n.gold || 0, digits: 0 });
+    /* ★ §19-C — 금화는 늘 보인다. 교역이 열리기 전에도 금은 이미 들어오고 나간다
+       (건물 값·도구 값·유물). 「가진 돈」이 안 보이면 값을 치르는 창마다 셈이 막힌다. */
+    out.push({ key: 'gold', name: '금화', value: n.gold || 0, digits: 0 });
     if (S.uiOn('hud.population')) {
       out.push({ key: 'morale', name: '사기', value: n.morale || 0, digits: 2, isMorale: true });
     }
@@ -256,6 +258,7 @@
 
   function renderDayBadge(v) {
     /* 하루 — 며칠째 + 지금이 언제인가 */
+    wakeOnNewDay(v);
     var badge = U.qs('#badge-day');
     if (badge) {
       var ph = S.phaseMeta();
@@ -748,6 +751,22 @@
   var lastLevel = null;
   /* ★ §17-7 — 잠자기 표 상태(화면 쪽 기억) */
   var sleep = { on: false, slept: 0, need: 1 };
+  var lastSleepDay = null;
+
+  /**
+   * ★ §19-C — 날이 바뀌면 잠에서 깬다.
+   * 「왜」 화면에도 필요한가 — 잠자기 표는 ack 로만 돌아온다: 여럿이 하는 판에서 마지막 사람이
+   * 자면 하루는 넘어가지만 **먼저 잔 사람의 화면**에는 「잠듦」이 그대로 남았다(서버 표는
+   * tick.js 가 아침마다 비운다). 날짜가 바뀐 것을 보는 이 자리에서 같이 깨운다.
+   */
+  function wakeOnNewDay(v) {
+    var day = (v && v.day) || 0;
+    if (lastSleepDay === day) return;
+    lastSleepDay = day;
+    if (!sleep.on && !sleep.slept) return;
+    sleep.on = false; sleep.slept = 0;
+    renderMe();
+  }
 
   /* ★ §17-19 — 맞은 순간의 반응을 내는 자리. 수치는 전부 data/world.json render.hit 이 쥔다. */
   var lastHurtAt = 0;
@@ -1016,8 +1035,8 @@
   }
 
   /* ══════════ ★ §16-15 · §16-16 — 다가오는 것들 · 아침 안내판 ══════════
-     문명의 「한 턴만 더」에서 배웠다: 다음에 올 것들의 카운트다운이 눈앞에 있어야
-     "한 번만 더 보고 잔다"가 생긴다. 스타듀의 TV 예보처럼 아침(일 틱)마다 같은 내용을
+     턴제 전략물의 「한 턴만 더」에서 배웠다: 다음에 올 것들의 카운트다운이 눈앞에 있어야
+     "한 번만 더 보고 잔다"가 생긴다. 농장 생활물의 아침 일기예보처럼 아침(일 틱)마다 같은 내용을
      배너 한 줄로도 알린다. 전부 이미 서버가 주던 값이다 — 모아서 보여줄 뿐이다. */
   var lastMorning = null;
 

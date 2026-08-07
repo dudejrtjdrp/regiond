@@ -3,12 +3,12 @@
 // 진단(코드 실측): 배치(assignByMix)는 플레이어 명령 때만 돌았고, 유휴는 **흡수 상태**였다 —
 // 한 번 놀면 영원히 놀고, 새 주민도 집결지 없이는 영원히 유휴였다. 여기 있는 것 넷:
 //   ① autoPlaceIdle — 유휴(와 3티어 전 산출 0 인 죽은 직업)를 필요도순으로 빈 자리에 앉힌다
-//       · Manor Lords 「미배정 = 범용 노동 풀」 + RimWorld 「완료 시점 재선택」의 이식.
+//       · 정착지 경영물의 「미배정 = 범용 노동 풀」 + 「완료 시점 재선택」의 이식.
 //       · 수동 배치(u.manual — commandVillagers 가 찍는다)는 **절대** 건드리지 않는다.
 //   ② stepScouts — 정찰꾼이 진짜로 걷는다: 안개 경계의 가장 가까운 미탐험 지점이 목적지다.
 //       시야는 이미 있었다(fog.vision.scout=9) — 없던 것은 **걸음**이다.
 //   ③ battleStations / standDown — 전투가 열리면 수비는 깃발로, 영토 밖 일꾼은 마을로
-//       (RimWorld 위협 반응의 축소판 — 직업은 그대로, 발만 움직인다). 끝나면 제자리로.
+//       (콜로니 시뮬의 위협 반응을 줄인 것 — 직업은 그대로, 발만 움직인다). 끝나면 제자리로.
 //   ④ 전부 결정론이다: 난수 없음, id 정렬 순회 — 같은 씨앗은 같은 게임이다.
 import { townOf, territoryRadius, dist } from './world.js';
 import { targetsForJob, resolveTarget, place, syncNodeWorkers, vCfg } from './villagers.js';
@@ -147,7 +147,7 @@ export function stepAssignments(world, nation, data) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// 비상 — 전투의 발 (RimWorld 위협 반응의 축소판. 직업·자리는 그대로, 발만 움직인다)
+// 비상 — 전투의 발 (콜로니 시뮬의 위협 반응을 줄인 것. 직업·자리는 그대로, 발만 움직인다)
 // ────────────────────────────────────────────────────────────────
 /** 전투가 열렸다 — 수비는 깃발(없으면 모닥불)로, 영토 밖 일꾼은 마을로 몸을 피한다 */
 export function battleStations(world, nation, data) {

@@ -1,5 +1,5 @@
 /* 갈래말래 — 양피지 + 목재 픽셀 프레임 스타일시트
-   레퍼런스: 문명(정보 구조) + 스타듀밸리(감성). 이미지 에셋은 폰트 1개 외에 없다.
+   레퍼런스: 4X 전략물의 정보 구조 + 농장 생활물의 감성. 이미지 에셋은 폰트 1개 외에 없다.
    픽셀감은 계단형 그라디언트 / 하드스톱 / box-shadow 계단 보더로만 만든다.
 
    ★ 규칙 1 — 배경·장식 요소는 반드시 class="decor" 를 달고 pointer-events:none 이어야 한다.
@@ -618,6 +618,10 @@ button[data-tip],.res-chip[data-tip],.minister[data-tip]{cursor:pointer}
 .row-item:last-child{border-bottom:none}
 .row-item img{width:26px; height:26px; flex:0 0 auto}
 .row-name{flex:0 0 84px; font-size:14.5px}
+/* ★ §19-C — 행 안의 눈금은 남는 폭을 다 먹는다. 「왜」 — .gauge 의 속은 전부 절대배치라
+   콘텐츠 폭이 0이다: flex 자식으로 놓으면 테두리 6px 만 남은 **검은 기둥**이 되고,
+   그 안의 막대·숫자가 통째로 보이지 않는다(공장장 창 「−/+ 눌러도 무반응」의 정체). */
+.row-item > .gauge{flex:1 1 140px; min-width:120px}
 .row-cost{flex:1 1 130px; font-size:12px; color:var(--ink2)}
 .row-acts{margin-left:auto; display:flex; gap:6px}
 .pips{display:flex; gap:3px; flex:0 0 auto}
@@ -863,7 +867,7 @@ button[data-tip],.res-chip[data-tip],.minister[data-tip]{cursor:pointer}
 .tool-btn.ready{border-color:var(--gold-deep); box-shadow:inset 0 0 0 1px #fff8e2, 0 4px 0 #7a4d16, 0 0 0 3px rgba(232,163,61,.35)}
 
 /* 배치대 (하단 가운데) — ★ §17-19
-   「왜」 위에서 아래로 내렸나 — 짓는 손이 화면 아래에 모이게 하기 위해서다(스타크래프트식).
+   「왜」 위에서 아래로 내렸나 — 짓는 손이 화면 아래에 모이게 하기 위해서다(RTS 의 배치대 자리).
    위에 뜨던 시절에는 목록은 화면 꼭대기에, 놓을 자리는 화면 한복판에 있어 눈이 위아래로 계속 뛰었다.
    ★ 하단은 이미 붐빈다 — 각료 바(왼쪽 아래)·조작 단추 줄(그 위)·나의 상태 판과 잠자기 단추(가운데 아래).
    §17-3 에서 한 번 고친 겹침이라 같은 수법을 그대로 쓴다: 배치대는 **한 층 위**에 서고,
