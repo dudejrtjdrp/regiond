@@ -25,7 +25,9 @@
   var SOUND_OF = { lumber: 'chop', mining: 'mine', farm: 'dig', build: 'hammer', combat: 'slash' };
   var DEBRIS_COLOR = {
     forest: '#8a5e33', rock: '#9aa0a8', iron: '#b07050', oil: '#6f5aa8',
-    field: '#c8a94a', fertile: '#c8a94a', water: '#78aed6', ruin: '#b39ad6', site: '#c8a874'
+    field: '#c8a94a', fertile: '#c8a94a', water: '#78aed6', ruin: '#b39ad6', site: '#c8a874',
+    /* ★ Sprint 5 — 적 야영지(천막·말뚝) */
+    camp: '#8a5e33'
   };
 
   function now() { return (global.performance && performance.now) ? performance.now() : Date.now(); }
@@ -69,6 +71,12 @@
       if (w) return { kind: 'wild', id: w.c.id, x: w.x, y: w.y, obj: w.c, skill: 'combat', species: w.c.sp };
     }
 
+    /* ★ Sprint 5 — 적 야영지. 「언제 올지 모르는 무리를 기다리는」 시간을 **찾아가서 끝내는** 시간으로
+       바꾸는 갈래다. 웨이브가 열리기 전에는 이 갈래 자체가 없다(§11-1 — 잠긴 것은 부재다).
+       들짐승보다 뒤에 둔다: 야영지 곁에서 늑대에게 물리는데 검이 야영지만 향하면 안 된다. */
+    var cm = campTarget();
+    if (cm) return cm;
+
     var r = S.swingRange();
     var bestT = null, bestD = 1e9;
     S.sites().forEach(function (c) {
@@ -100,6 +108,28 @@
       }
     }
     return bestT;
+  }
+
+  /** ★ Sprint 5 — 손이 닿는 야영지 하나. 판정의 정본은 서버(strikeCamp)다 — 여기는 손잡이만 만든다. */
+  function campTarget() {
+    var wv = S.wave();
+    if (!S.featOn('waves') && !(wv && wv.unlocked)) return null;
+    if (!S.cmdOn('strikeCamp')) return null;
+    var list = S.camps();
+    if (!list.length) return null;
+    var me = GM.avatar && GM.avatar.pos();
+    if (!me) return null;
+    var cc = S.combatCfg();
+    var r = cc.campRangeTiles || cc.rangeTiles || 2.5;
+    var best = null, bd = 1e9;
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i];
+      if (!c || c.x == null || !(c.hp > 0)) continue;
+      var d = Math.hypot(c.x - me.x, c.y - me.y);
+      if (d <= r && d < bd) { bd = d; best = c; }
+    }
+    if (!best) return null;
+    return { kind: 'camp', id: best.id, x: best.x, y: best.y, obj: best, skill: 'combat' };
   }
 
   function nodeWorkable(n) {
@@ -150,7 +180,8 @@
 
     /* 서버 판정을 기다리지 않고 쿨타임을 먼저 건다 — 왕복 사이에 두 번 쏘지 않게 */
     var pv = preview(t);
-    var guessCd = (t.kind === 'enemy' || t.kind === 'wild') ? guessCombatCooldown() : ((pv && pv.cooldownMs) || 1200);
+    var guessCd = (t.kind === 'enemy' || t.kind === 'wild' || t.kind === 'camp')
+      ? guessCombatCooldown() : ((pv && pv.cooldownMs) || 1200);
     cdSpan = guessCd;
     cdUntil = now() + guessCd;
 
@@ -162,6 +193,10 @@
          지금 자리를 먼저 알린다(lordMove) — socket.io 는 순서를 지키므로 스윙 판정은 새 자리로 잰다. */
       if (GM.avatar && GM.avatar.report) GM.avatar.report();
       GM.net.send('combatSwing', { targetId: t.id }, function (res) { onAck(mine, res); });
+    } else if (t.kind === 'camp') {
+      /* ★ Sprint 5 — 야영지도 지금 자리로 판정한다(서버가 곁에 섰는지 다시 잰다) */
+      if (GM.avatar && GM.avatar.report) GM.avatar.report();
+      GM.net.send('strikeCamp', { campId: t.id }, function (res) { onAck(mine, res); });
     } else if (t.kind === 'site') {
       GM.net.send('actionSwing', { siteId: t.id }, function (res) { onAck(mine, res); });
     } else {
@@ -247,6 +282,8 @@
     if (t.kind === 'enemy') GM.fx.slash(t.x, t.y, ang, '#ffd06a');
     /* ★ §17-19 — 산 것을 때리면 그 자리가 하얗게 번쩍한다(나무·바위는 부스러기로 충분하다) */
     if (t.kind === 'enemy' || t.kind === 'wild') targetFlash(t);
+    /* ★ Sprint 5 — 야영지는 흔들 수 있는 자리(node)가 아니다. 그 자리에 고리를 하나 둘러 대신한다. */
+    if (t.kind === 'camp') GM.fx.ring(t.x, t.y, '#e05a2c', 0.15, 1.5, 0.4, 3);
 
     /* 명중 프레임 정지 — 한 박자 */
     GM.fx.hitStop(t.kind === 'enemy' ? 70 : 48);
@@ -282,6 +319,23 @@
         GM.sfx.play('kill');
         if (res.gained) popGains(t, res.gained, 1);
         U.toast((res.speciesName || '짐승') + '을(를) 잡았습니다.', 'good', 2600);
+      }
+      checkLevel(res);
+      stats.swings++;
+      return;
+    }
+    /* ★ Sprint 5 — 야영지 한 대. 다 무너뜨리면 그 무리는 오지 않는다(서버가 그렇게 답한다). */
+    if (t.kind === 'camp') {
+      GM.fx.floatText(t.x, t.y - 1.1, '-' + U.fmt(res.damage, res.damage < 10 ? 1 : 0), '#ffd06a', 14);
+      if (res.destroyed) {
+        GM.fx.debris(t.x, t.y, '#8a5e33', 18, 1.8);
+        GM.fx.sparkle(t.x, t.y, 20, '#ffcf6a');
+        GM.fx.ring(t.x, t.y, '#e05a2c', 0.1, 3.4, 1.0, 3);
+        GM.fx.hitStop(110);
+        GM.fx.shakeScreen(6.5, 0.4);
+        GM.sfx.play('kill');
+        U.banner({ icon: 'sword', kind: 'level', title: '야영지를 무너뜨렸다',
+                   sub: res.waveCancelled ? '그 무리는 오지 않는다' : '' });
       }
       checkLevel(res);
       stats.swings++;

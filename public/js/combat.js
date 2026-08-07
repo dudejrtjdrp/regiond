@@ -519,6 +519,10 @@
       host.appendChild(card);
     }
 
+    /* ★ Sprint 5 — 「침공 채비」. 기다리는 동안 무엇이 모자란지, 다 갖추면 무엇을 할 수 있는지를
+       한자리에 모은다. 판정의 정본은 서버(rushWave)다 — 화면은 서버가 준 표를 옮겨 적을 뿐이다. */
+    paintReadiness(host, w);
+
     var est = d.estimate || {};
     var g = U.makeGauge({ height: 24 });
     var ratio = est.secondsFenceHolds && est.secondsToClear
@@ -576,6 +580,55 @@
 
     host.appendChild(U.el('p', 'hint',
       '져도 정착지가 끝나지는 않습니다. 건물이 상하고 창고가 축날 뿐, 사람들은 다시 일어섭니다.'));
+  }
+
+  /**
+   * ★ Sprint 5 — 침공 채비 체크리스트와 [적을 불러들인다].
+   * 「왜」 여기에 두나 — 여태 「채비 끝」은 좌상단 한 줄로만 알렸고, 정작 누를 자리가 없었다.
+   * 조건 한 줄의 얼굴(✔/✕ · 현재값/필요값)은 화면 어디서나 같다(§12-3).
+   */
+  function paintReadiness(host, w) {
+    var rd = w.readiness;
+    var rows = (rd && rd.rows) || [];
+    if (!rows.length && !w.canRush && !w.rushed) return;
+    host.appendChild(U.el('h3', 'sec-title', '침공 채비'));
+    if (rows.length) {
+      var list = U.el('div', 'req-list');
+      rows.forEach(function (r) {
+        var row = U.el('div', 'req-row ' + (r.ok ? 'ok' : 'bad'));
+        row.setAttribute('data-ready', r.key || '');
+        row.appendChild(U.el('span', 'rq-mark', r.ok ? '✔' : '✕'));
+        row.appendChild(U.el('span', 'rq-t', r.label || ''));
+        row.appendChild(U.el('span', 'rq-v', U.fmt(r.have, 0) + '/' + U.fmt(r.need, 0)));
+        list.appendChild(row);
+      });
+      host.appendChild(list);
+    }
+
+    if (w.rushed) {
+      host.appendChild(U.el('p', 'state-warn', '북은 이미 울렸다 — 내일 온다.'));
+      return;
+    }
+    if (!w.canRush) {
+      host.appendChild(U.el('p', 'hint', '채비를 다 갖추면 먼저 부를 수 있습니다. 기다릴지 부를지는 그대의 몫입니다.'));
+      return;
+    }
+    var act = U.el('div', 'th-rush');
+    act.appendChild(U.btn('적을 불러들인다 — 내일 온다', 'btn-primary', function () {
+      GM.net.send('rushWave', {}, function (res) {
+        if (!res) return;
+        if (!res.ok) {
+          U.toast((res.error && res.error.message) || '지금은 부를 수 없습니다.', 'warn', 3400);
+          GM.sfx.play('deny');
+          return;
+        }
+        GM.sfx.play('unlock');
+        U.toast('북을 울렸습니다 — 내일 옵니다.', 'good', 3200);
+        updateThreat();
+      });
+    }));
+    host.appendChild(act);
+    host.appendChild(U.el('p', 'hint', '북을 울리면 남은 날을 기다리지 않습니다 — 채비가 끝났을 때만 열립니다.'));
   }
 
   function updateThreat() {

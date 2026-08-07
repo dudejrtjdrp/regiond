@@ -117,11 +117,16 @@ test('예언 — 성녀가 있으면 시점과 구성이 열리고, 없으면 �
   assert.ok(blind.daysUntilMin != null);
 });
 
-test('캠프 — D-2 에 가장자리에 선발대가 보이고, 정찰 전에는 규모를 모른다', () => {
+// ★ Sprint 5 — 「D-2」는 옛 값이다. 며칠 앞인가는 W.warn.campLeadDays(7) 하나가 쥐고,
+//   이 검사는 그 다이얼을 읽어 세운다 — 값을 손봐도 검사는 그대로 산다.
+test('캠프 — D-campLeadDays 에 가장자리에 선발대가 보이고, 정찰 전에는 규모를 모른다', () => {
   const { world, nation } = settlement(113);
   nation.wave.arrivalTick = world.tick + W.warn.campLeadDays;
   const created = ensureCamps(world, nation, data);
   assert.equal(created.length, 1);
+  // ★ Sprint 5 — 야영지는 이제 체력을 갖고 선다(선제 타격의 과녁)
+  assert.equal(created[0].maxHp, Math.round(created[0].power * W.strike.hpPerPower));
+  assert.equal(created[0].hp, created[0].maxHp);
   const views = campViews(world, nation, null, data);
   assert.equal(views[0].sizeHint, null, '정찰 전에는 규모가 없다');
   assert.equal(views[0].power, null, '정확한 병력은 국방부 전용');

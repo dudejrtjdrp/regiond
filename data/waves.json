@@ -173,9 +173,9 @@
     "_note": "적 종류. hp/powerCost 비(≈5.5)를 종류마다 같게 맞춰 두었다 — 파워가 곧 위협의 크기가 되도록 하기 위함이고, 종류의 개성은 속도·비행·건물 피해 배수·듣는 전술(weakTo)로 낸다."
   },
   "warn": {
-    "_note": "예고 — D-warnLeadDays 에 맵 가장자리에 선발대 캠프가 보인다(정찰 마커). 성녀가 있으면 도착일과 구성까지 정확히 열린다(예언), 없으면 '무언가 다가온다'는 흐린 경고만 온다.",
-    "campLeadDays": 2,
-    "hintLeadDays": 3,
+    "_note": "예고 — D-warnLeadDays 에 맵 가장자리에 선발대 캠프가 보인다(정찰 마커). 성녀가 있으면 도착일과 구성까지 정확히 열린다(예언), 없으면 '무언가 다가온다'는 흐린 경고만 온다. ★ Sprint 5 — 대기의 앞 3일이 카운트다운조차 없는 사각지대였다: firstDelayDays 6·intervalDays 5~7 인데 hintLeadDays 가 3이라, 예고가 잡힌 날부터 사흘은 화면이 아무 말도 하지 않았다. 그래서 hintLeadDays 3→7, campLeadDays 2→7 로 올린다 — 간격의 최대값(7)과 같게 잡아 **기다림의 첫날부터 끝날까지** 카운트다운이 붙고, 야영지는 예고와 함께 서서 기다리는 내내 그 자리에 있다(선제 타격 strike 의 문이 열려 있으려면 서 있어야 한다). 성녀의 가치는 정확한 날짜(saint.warnLeadDays 4)로 유지된다 — 흐릿함(withoutSaint.jitterDays ±2)의 차등은 그대로다. campLeadDays 가 야영지 등장 시점의 유일한 정본이다(world.json camps.leadDays 는 옛 세이브용 대비값).",
+    "campLeadDays": 7,
+    "hintLeadDays": 7,
     "saint": {
       "revealTiming": true,
       "revealComposition": true,
@@ -185,6 +185,15 @@
     "withoutSaint": {
       "jitterDays": 2
     }
+  },
+  "strike": {
+    "_note": "★ Sprint 5 야영지 선제 타격(strikeCamp) — 기다리는 동안 「할 수 있는 일」의 두 번째 문이다(첫째는 rush). 야영지는 이제 정찰 마커가 아니라 **때릴 수 있는 것**이다. 위험 보상 — 야영지는 사나운 띠에 있다: guards 마리의 guardSpecies 가 그 곁을 지키므로, 맨몸으로 걸어가면 야영지를 부수기 전에 제가 먼저 쓰러진다. 부순 만큼 그 웨이브의 병력이 줄고(체력 비율만큼 머릿수를 덜어 낸다 — 최소 하나는 남는다), 전부 부수면 웨이브가 아예 오지 않는다(막아낸 것으로 친다 — wavesHeld·wavesFaced 에 그대로 오른다). hpPerPower 0.5 의 근거: 웨이브1 파워 390 → 야영지 체력 195, 검 한 번이 9(damagePerSwing)이므로 도구·레벨 없이 스물두 번이다. 쿨타임은 전투 스윙과 같은 자(skills.json swing) — 손이 두 개인 사람에게 공짜로 열리는 문이 아니다. rangeTiles 는 전투 스윙 사거리(2.5)와 같게 맞췄다: 야영지 곁까지 걸어가야 한다. xpPerSwing 3 은 skills.json combat.xpPerHit 과 같은 값이다 — 야영지를 치는 손과 적을 치는 손이 다른 눈금을 쓰면 그것은 두 게임이다. 밸런스: 선제 타격은 **플레이어의 선택**이고 시뮬 봇은 쓰지 않는다 — 체크포인트 곡선은 그대로다(rush 와 같은 계약). 경비는 배회하지 않고 제 야영지에 머물며(생태 난수를 한 톨도 쓰지 않는다) 야영지가 사라질 때 함께 사라진다.",
+    "enabled": true,
+    "hpPerPower": 0.5,
+    "rangeTiles": 2.5,
+    "guards": 2,
+    "guardSpecies": "wolf",
+    "xpPerSwing": 3
   },
   "rush": {
     "_note": "★ §19-E(F04-4) 침공 앞당기기 — QA 1차 「적이 올 때까지 할 일 없이 기다린다」의 답. conditions 는 chapters.json 의 조건 문법 그대로다(progression.measure 가 잰다) — 조건 행의 계측기를 둘로 나누지 않기 위해서다(§13-A-1). 다 채우면 화면에 [적을 불러들인다]가 열리고, 누르면 도착일이 daysAhead 일 뒤로 당겨진다. 밸런스: 앞당김은 **플레이어의 선택**이고 시뮬 봇은 쓰지 않는다 — 체크포인트 곡선은 그대로다. 앞당기면 준비할 날이 줄어드는 만큼 위험도 본인 몫이다(적 파워는 그대로).",

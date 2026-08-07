@@ -1002,8 +1002,8 @@
     "maxFields": 60
   },
   "camps": {
-    "_note": "웨이브 예고(GDD3 §6) — D-leadDays 에 맵 가장자리에 선발대 캠프가 보인다. 정찰(주민·아바타 시야)이 닿으면 규모 힌트가 열리고, 국방부 정보면 정확한 수치가 열린다.",
-    "leadDays": 2,
+    "_note": "웨이브 예고(GDD3 §6) — D-leadDays 에 맵 가장자리에 선발대 캠프가 보인다. 정찰(주민·아바타 시야)이 닿으면 규모 힌트가 열리고, 국방부 정보면 정확한 수치가 열린다. ★ Sprint 5 — 야영지가 서는 날의 **정본은 data/waves.json warn.campLeadDays** 로 옮겼다(화면이 /api/config 로 받아 보는 값이 그것이고, 두 파일에 같은 숫자를 두면 반드시 어긋난다). 여기 leadDays 는 그 값이 없는 옛 자료용 대비값이라 같은 7로 맞춰 둔다 — 고칠 일이 있으면 waves.json 쪽을 고친다.",
+    "leadDays": 7,
     "edgeMargin": 10,
     "directionAngles": {
       "sea": 200,

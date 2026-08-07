@@ -6,6 +6,76 @@
 
 ---
 
+## 0-G. v3.3 안 델타 — **대기의 앞: 상시 예고와 야영지 선제 타격** (Sprint 5)
+
+**판번호를 올리지 않는다**(`world.schema` **6** 유지). **필드는 더하기만 했다.**
+야영지의 `hp`·`maxHp` 도, 경비 짐승도, `nation.wave.struckIndex` 도 **없으면 없는 것**으로 읽힌다 —
+옛 세이브의 야영지는 체력이 `null` 이라 `strikeCamp` 가 `NO_CAMP` 로 되돌아올 뿐, 그 밖의 것은 그대로 산다.
+
+「왜」. §19-E 가 앞당기기(`rushWave`)를 냈지만 그것은 「빨리 오게 하는」 한 갈래뿐이었다.
+대기 엿새 중 앞 사흘은 **카운트다운조차 없는 사각지대**였고, 지도 가장자리에 선 야영지는
+보이기만 하고 만질 수 없는 것이었다. 이 절이 그 둘을 고친다.
+
+### 0-G-1. 바뀐 다이얼 — 예고 리드 (`data/waves.json warn`)
+
+| 다이얼 | 옛값 | 새값 | 뜻 |
+|---|---|---|---|
+| `warn.hintLeadDays` | 3 | **7** | 흐린 카운트다운이 뜨는 날수. `firstDelayDays`(6)·`intervalDays[1]`(7) 이상이라 **대기 전체를 덮는다** — 사각지대가 없다 |
+| `warn.campLeadDays` | 2 | **7** | 야영지가 서는 날수. 예고와 **함께** 서서 기다리는 내내 그 자리에 있다(선제 타격의 문이 열려 있으려면 서 있어야 한다) |
+
+- 야영지가 서는 날의 **정본은 `waves.json warn.campLeadDays`** 다. `world.json camps.leadDays` 는 그 칸이
+  없는 옛 자료용 대비값으로만 남는다(같은 숫자를 두 파일에 두면 반드시 어긋난다).
+- 성녀의 값어치는 그대로다: `warn.saint.warnLeadDays`(4) 는 이제 **바닥**으로 읽힌다 —
+  성녀가 보는 리드는 `max(hintLeadDays, saint.warnLeadDays)` 다. 옛 식(`saint ? 4 : 3`)을 그대로 두면
+  성녀를 모신 나라가 D-6 에 아무것도 못 보는 뒤집힘이 난다. **차등은 날수가 아니라 정확함**이다
+  (`precise` · `daysUntil` · `enemy` 구성 — 이 계약은 한 톨도 안 바뀌었다).
+
+### 0-G-2. 신설 — 명령 (C→S)
+
+| 명령 | 페이로드 | 서버가 하는 일 | 거절 |
+|---|---|---|---|
+| `strikeCamp` | `{campId?, avatarId?, playerName?}` | ★ 야영지 선제 타격. `campId` 를 안 주면 **이번 웨이브의 야영지**를 집는다. 사거리(`waves.strike.rangeTiles`)·쿨타임(`combatSwing` 과 **같은** `skills.swing` 자)·피해(`swingDamage × 장비 배수`)를 서버가 다시 잰다 | `NO_CAMP` — 칠 야영지가 없다(옛 세이브·이미 무너짐·이미 싸움이 붙음) · `OUT_OF_RANGE` — 「야영지 곁까지 걸어가야 합니다」 · `COOLDOWN`(`waitMs`·`cooldownMs` 동봉) · `DOWNED` · `CHAPTER_LOCKED`(7장 `opens.commands`) |
+
+- **신원 명령**이다(`IDENTITY_COMMANDS`) — 누구의 손인지는 세션이 정한다. 남의 아바타 자리에서 칠 수 없다.
+- ack: `{ok:true, campId, hp, maxHp, destroyed, damage, waveCancelled, xp, cooldownMs, skill:'combat', level, leveled, gearDamage, events[]}`
+
+### 0-G-3. 신설 — 이벤트 (S→C)
+
+| 이벤트 | 언제 | 페이로드 | 클라가 할 일 |
+|---|---|---|---|
+| `camp_destroyed` | 마지막 한 대가 야영지를 무너뜨렸을 때 | `{waveIndex, name, x, y}` | 야영지 마커를 걷고 알림·연대기. `strikeCamp` ack 의 `events[]` 에 실려 온다 |
+
+### 0-G-4. 신설 — 뷰 필드 (더하기만)
+
+| 자리 | 필드 | 뜻 |
+|---|---|---|
+| `camps[]`(`campViews`·`campEventView`) | `hp` · `maxHp` | ★ **가리지 않는다.** 이것은 적의 비밀이 아니라 「내 손이 남긴 자국」이다 — 가려 두면 「때렸는데 아무 일도 안 일어난다」가 된다. `power`·`units` 는 지금처럼 국방부(`canSeeTacticHint`)의 몫이다. 체력이 없는 야영지(옛 세이브·`strike.enabled=false`)는 둘 다 `null` |
+| `/api/config` `waves.strike` | `{enabled, hpPerPower, rangeTiles, guards, guardSpecies}` | 규칙이지 정보가 아니다 — 화면은 이것으로 「얼마나 가까이 가야 하는가·경비가 몇인가」를 그린다 |
+
+`nation.wave` 에는 아무것도 늘지 않았다(카운트다운은 옛 필드 `daysUntil`·`daysUntilMin` 이 그대로 낸다).
+
+### 0-G-5. 신설 — 상태 칸(전부 기본값 있음)
+
+| 칸 | 기본값 | 뜻 |
+|---|---|---|
+| `world.camps[].hp` · `.maxHp` | `0` | 야영지 체력. `maxHp = round(waveSpec.power × waves.strike.hpPerPower)` |
+| `nation.wave.struckIndex` | `undefined` | 선제 타격으로 무너뜨린 마지막 웨이브 번호 |
+| `nation.wave.history[].struck` | `undefined` | 그 무리는 **오기 전에** 끝났다는 표식(`won:true`) |
+| `nation.wild.creatures[].camp` · `.campX` · `.campY` | `undefined` | 야영지 경비 표식. 배회하지 않고(생태 난수를 한 톨도 안 쓴다) 제 자리로 돌아오며, 띠 정원·리스폰 줄에 서지 않고, 야영지가 걷힐 때 함께 걷힌다 |
+
+### 0-G-6. 밸런스 계약 — 곡선은 그대로다
+
+- 부분 파괴는 그 웨이브의 머릿수를 `floor((1 − hp/maxHp) × units)` 만큼 덜어 낸다(**최소 하나는 남는다**).
+  뜨는 파워도 같은 비율로 줄어든다 — 화면과 서버가 다른 저울을 쓰지 않는다.
+- 전량 파괴는 웨이브를 취소하고 **막아 낸 무리로 적는다**(`wavesHeld`·`wavesFaced` 에 그대로 오른다).
+  까닭은 §19-E ③ 과 같다 — 잘한 사람이 7장에 갇히면 안 된다.
+- 야영지가 성하면 `startBattle` 은 옛 `spec` 을 **그대로** 쓴다: 난수의 뽑는 차례도 마릿수도 한 톨 다르지 않다.
+  선제 타격은 **플레이어의 선택**이고 시뮬 봇은 쓰지 않는다 — 체크포인트 곡선은 그대로다(`rush` 와 같은 계약).
+  실측(`--runs 20 --seed 42`): 4/4 통과, 웨이브별 생존율·파워·전투 시간까지 개정 전과 **한 글자도 같다**.
+- 경비 배치는 `statRng(seed:camp:waveIndex)` 다 — 월드 난수도 생태 난수도 축내지 않는다(§0-O-4 와 같은 규율).
+
+---
+
 ## 0-F4. v3.3 안 델타 — **연구 체계 개편 · 기차** (§19-F4 / QA-F4)
 
 **판번호를 올리지 않는다**(`world.schema` **6** 유지). **필드는 더하기만 했다.**

@@ -628,6 +628,8 @@ const CLIENT_COMMANDS = [
   'investigateTrail',
   // ★ §19-E(F04-4) — 침공 앞당기기. 준비를 끝낸 사람이 제 손으로 그날을 당긴다.
   'rushWave',
+  // ★ Sprint 5 — 야영지 선제 타격. 예고와 함께 선 야영지를 걸어가서 부순다.
+  'strikeCamp',
 ];
 
 /** ★ 신원(누구의 아바타인가)은 서버 세션이 정한다 — 클라가 보낸 avatarId·playerName 은 신뢰하지 않는다. */
@@ -647,6 +649,9 @@ const IDENTITY_COMMANDS = new Set([
   'visitNation',
   // ★ §18-D2 — 흔적에 손을 대는 것도 내 손이다(거리·우물물의 회복이 사람마다 따로다)
   'investigateTrail',
+  // ★ Sprint 5 — 야영지를 치는 것도 **내 손**이다. 사거리·쿨타임·눈금이 사람마다 따로라
+  //   combatSwing 과 같은 문을 지나야 한다(남의 아바타 자리에서 칠 수 없다).
+  'strikeCamp',
 ]);
 
 /** ★ 실시간 명령 — 처리 후 곧바로 결과를 돌려주고, 전투 중이면 스냅샷도 함께 흘린다 */

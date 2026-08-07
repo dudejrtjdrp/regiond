@@ -798,6 +798,60 @@
     });
   }
 
+  /* ══════════ ★ Sprint 5 — 본부의 [모집] 갈래를 바로 여는 문 ══════════
+     「다가오는 것」의 주민 줄과 목표 카드가 이 문을 쓴다. 여태 모집으로 가는 길은
+     본부를 찾아 누르고 갈래를 한 번 더 고르는 두 걸음뿐이었다 — 한 걸음으로 줄인다. */
+  function openRecruit() {
+    var list = S.structures(), hq = null;
+    for (var i = 0; i < list.length; i++) if (list[i].hq) { hq = list[i]; break; }
+    if (!hq) { U.toast('아직 본부가 없습니다.', 'warn'); return; }
+    if (S.recruitInfo()) hqTab = 'recruit';
+    S.selectTarget('structureId', hq.id);
+    openSettlement(hq);
+    GM.camera.moveTo(hq.x, hq.y);
+  }
+
+  /* ══════════ ★ Sprint 5 — 적 야영지 패널 ══════════
+     「왜」 여기서 치는 단추가 없나 — 야영지는 마을 밖 먼 자리다. 멀리서 눌러 무너뜨릴 수 있으면
+     걸어 나가 부딪히는 일 자체가 사라진다. 이 패널은 **무엇이 있는지**만 말하고,
+     치는 것은 곁에 선 손(E · 좌클릭 스윙)의 몫으로 남긴다. */
+  function openCamp(campId) {
+    var list = S.camps(), c = null;
+    for (var i = 0; i < list.length; i++) if (list[i].id === campId) c = list[i];
+    if (!c) { GM.hud.hideContext(); return; }
+
+    var facts = [{ k: '규모', v: c.scouted ? (c.sizeHint || '알 수 없습니다') : '아직 살피지 못했습니다' }];
+    if (c.direction) facts.push({ k: '자리', v: S.directionMeta(c.direction).name + ' 쪽' });
+    if (c.maxHp > 0) {
+      facts.push({ k: '남은 것', v: U.fmt(c.hp, 0) + ' / ' + U.fmt(c.maxHp, 0),
+                   tip: '두드릴수록 줄어듭니다.' });
+    }
+
+    var extra = U.el('div');
+    if (c.maxHp > 0) {
+      var g = U.makeGauge({ height: 16, color: '#bc4749' });
+      g.setValue(U.clamp((c.hp || 0) / c.maxHp, 0, 1),
+        U.fmt(c.hp, 0) + ' / ' + U.fmt(c.maxHp, 0), c.name || '적 야영지',
+        '천막과 말뚝이 남은 만큼입니다. 다 부수면 그 무리는 오지 않습니다.');
+      extra.appendChild(g);
+    }
+    extra.appendChild(U.el('p', 'hint', '가까이에서 E — 야영지를 친다'));
+    extra.appendChild(U.el('p', 'hint', '전부 부수면 그 무리는 오지 않는다'));
+
+    GM.hud.showContext({
+      icon: 'sword',
+      title: c.name || '적 야영지',
+      facts: facts, extra: extra,
+      actions: [
+        { label: '그 자리로 간다', cls: 'btn-primary', id: 'camp-go',
+          tip: '걸어가야 손이 닿습니다',
+          onClick: function () { GM.avatar.moveTo(c.x, c.y); GM.camera.moveTo(c.x, c.y); } },
+        { label: '닫는다', cls: 'btn-ghost', onClick: function () { S.clearSelection(); GM.hud.hideContext(); } }
+      ],
+      note: c.scouted ? null : '살피지 않은 자리입니다 — 가까이 가면 규모가 드러납니다.'
+    });
+  }
+
   /* ══════════ ★ §19-D(F03-6) 건물 손일을 한 문으로 ══════════
      「왜」 한 곳으로 모았나 — 여태 손일을 부르는 길은 건물 패널의 단추 하나뿐이었다.
      이제 E 키도 같은 일을 하므로, 두 길이 각자 셈을 베껴 쓰면 한쪽만 고쳐지는 날이 온다.
@@ -858,6 +912,8 @@
   GM.structure = { open: open, openSite: openSite, openFence: openFence, openNode: openNode,
                    openSettlement: openSettlement, reqRow: reqRow, reqRowOf: reqRowOf,
                    refreshOpen: refreshOpen,
+                   /* ★ Sprint 5 — 모집 갈래로 가는 지름길 · 적 야영지 패널 */
+                   openRecruit: openRecruit, openCamp: openCamp,
                    /* ★ §19-D(F03-6) — E 키가 쓰는 두 문 */
                    handWorkNear: handWorkNear, runHandWork: runHandWork };
 })(window);

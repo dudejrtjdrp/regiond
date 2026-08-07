@@ -2,9 +2,17 @@
 // ★ v3.1: 첫 위협은 '티어'가 아니라 **7장(낯선 발자국)에서 흔적을 살핀 뒤**에 잡힌다 — 진행 감독이 문을 쥔다.
 // 그 뒤로는 4~6게임일 간격으로 끝없이 온다.
 // 파워 = basePower × growth^n × 난이도 배수 × 변형 배수. 적은 로테이션으로 돌아오고 한 바퀴마다 강해진다.
-import { townOf, territoryRadius, dist, terrainAt } from './world.js';
+import { townOf, territoryRadius, dist, terrainAt, isWaterAt } from './world.js';
 import { isVisible } from './fog.js';
 import { canSeeTacticHint } from './tactics.js';
+// ★ Sprint 5 — 야영지를 치는 손은 **적을 치는 손과 같은 손**이다(쿨타임·피해·장비·눈금이 한 벌).
+import { ensurePlayer, swingDamage, canSwing, markSwing, grantXp, skillLevel } from './skills.js';
+import { equipEffects } from './equipment.js';
+// ★ Sprint 5 — 야영지 경비는 여느 짐승과 **같은 목록**에 앉는다(그리는 길도 베는 길도 하나다).
+import { ensureWild } from './ecology.js';
+// ★ Sprint 5 — 경비 배치는 세계 난수를 한 톨도 축내지 않는다(actions.js 의 은닉물과 같은 규율).
+import { statRng } from './traits.js';
+import { record } from './chronicle.js';
 // ★ §19-E(F04-4) — 침공 조건은 **장 목표와 같은 계측기**로 잰다(§13-A-1 조건 행의 단일 정본).
 import { featureUnlocked, measure } from './progression.js';
 import { warnBonusDays, turretList, militiaSlots, militiaBonus } from './structures.js';
@@ -14,6 +22,10 @@ import { round2, round3 } from './economy.js';
 export const wavesCfg = (data) => data.waves;
 export const battleCfg = (data) => data.waves.battle;
 export const warnCfg = (data) => data.waves.warn;
+/** ★ Sprint 5 — 야영지 선제 타격 다이얼(data/waves.json strike). 없으면 옛 자료 — 문이 닫힌 채로 돈다. */
+export const strikeCfg = (data) => wavesCfg(data).strike ?? null;
+
+const err = (code, message, extra = null) => ({ ok: false, error: { code, message, ...(extra || {}) } });
 
 /** 성녀의 예언 — 도착 시점과 구성이 정확히 열린다 */
 export function hasSaintSight(nation, data, hooks = {}) {
@@ -292,33 +304,97 @@ export function directionAngle(direction, data) {
   return data.world.camps.directionAngles[direction] ?? 0;
 }
 
-/** D-leadDays 에 맵 가장자리에 선발대 캠프가 선다 */
+/**
+ * D-campLeadDays 에 맵 가장자리에 선발대 캠프가 선다.
+ * ★ Sprint 5 — 며칠 앞인가의 정본은 **data/waves.json warn.campLeadDays** 다. 화면이 /api/config 로
+ *   받아 보는 값이 그것이고, 같은 숫자를 두 파일에 두면 반드시 어긋난다. world.json camps.leadDays 는
+ *   그 칸이 없는 옛 자료용 대비값으로만 남는다.
+ */
 export function ensureCamps(world, nation, data) {
   const cfg = data.world.camps;
   world.camps ||= [];
   const created = [];
   const days = daysUntilWave(world, nation);
   if (days == null) return created;
-  const lead = cfg.leadDays + warnBonusDays(nation, data);
+  const lead = (warnCfg(data).campLeadDays ?? cfg.leadDays) + warnBonusDays(nation, data);
   if (days > lead || days < 0) return created;
   const spec = nextWaveSpec(world, nation, data);
   const id = `camp_${nation.wave.index}`;
   if (world.camps.some((c) => c.id === id)) return created;
   const p = edgePoint(world, data, directionAngle(spec.direction, data));
+  /* ★ Sprint 5 — 야영지에 **체력**이 생겼다. 이제 이것은 정찰 마커가 아니라 때릴 수 있는 것이다.
+     체력은 그 무리의 파워에 비례한다(strike.hpPerPower) — 큰 무리의 야영지는 크게 짓는다. */
+  const st = strikeCfg(data);
+  const maxHp = st?.enabled ? Math.round(spec.power * (st.hpPerPower ?? 0)) : 0;
   const camp = {
     id, waveIndex: spec.index, type: spec.type, name: spec.name,
     x: p.x, y: p.y, direction: spec.direction,
     arrivalTick: nation.wave.arrivalTick,
     spottedTick: world.tick, scouted: false,
     power: spec.power, units: spec.units,
+    maxHp, hp: maxHp,
   };
   world.camps.push(camp);
+  spawnCampGuards(world, nation, data, camp);
   created.push(camp);
   return created;
 }
 
-export function clearCamps(world, waveIndex) {
+/**
+ * ★ Sprint 5 — 야영지 곁을 지키는 것들. 「위험 보상」의 위험 쪽이다: 맨몸으로 걸어가면
+ * 야영지를 부수기 전에 제가 먼저 쓰러진다.
+ *
+ * 규율 둘.
+ *   ① 난수는 statRng — 세계 난수도 생태 난수도 한 톨 축내지 않는다(같은 씨앗이면 같은 자리·같은 종).
+ *   ② 이름표(id)를 제 손으로 짓는다 — wild.nextId 를 건드리면 그 뒤에 태어나는 들짐승의 이름이 밀린다.
+ * 링(ring)은 없다(null): 야영지는 지도 가장자리에 서므로 어떤 띠에도 매이지 않는다
+ * (ecology.ensureCreatures 의 띠별 정원 셈에도 들지 않는다 — 경비가 들짐승의 자리를 뺏지 않는다).
+ */
+function spawnCampGuards(world, nation, data, camp) {
+  const cfg = strikeCfg(data);
+  const count = Math.max(0, Math.round(cfg?.guards ?? 0));
+  const def = data.creatures?.defs?.[cfg?.guardSpecies];
+  if (!cfg?.enabled || !count || !def) return [];
+  const w = ensureWild(nation);
+  const rng = statRng(`${world.seed}:camp:${camp.waveIndex}`);
+  const born = [];
+  for (let i = 0; i < count; i += 1) {
+    const a = rng.float(0, Math.PI * 2);
+    const r = rng.float(1.5, 3.5);
+    let x = Math.round(camp.x + Math.cos(a) * r);
+    let y = Math.round(camp.y + Math.sin(a) * r);
+    // 물이면 야영지 발치에 세운다 — 난수를 더 뽑지 않는다(결정론)
+    if (isWaterAt(world.map, x, y, data)) { x = camp.x; y = camp.y; }
+    const c = {
+      id: `${camp.id}_g${i}`, sp: cfg.guardSpecies,
+      x, y, tx: x, ty: y,
+      hp: def.hp, maxHp: def.hp,
+      ring: null,
+      /* ★ 이 세 칸이 「야영지의 것」이라는 표식이다: 배회하지 않고(생태 난수 불변) 제 자리로 돌아오며,
+         야영지가 사라질 때 함께 사라진다. */
+      camp: camp.id, campX: camp.x, campY: camp.y,
+      state: 'wander', retarget: 0, atkCd: 0, provoked: 0, seen: false,
+    };
+    w.creatures.push(c);
+    born.push(c);
+  }
+  return born;
+}
+
+/**
+ * 그 웨이브의 야영지를 걷는다 — ★ Sprint 5: 남은 경비도 함께 걷는다(야영지가 없으면 지킬 것도 없다).
+ * @param {object|null} nation 경비가 사는 나라. 없으면 이 세상의 사람 나라들을 훑는다(옛 호출부 호환).
+ */
+export function clearCamps(world, waveIndex, nation = null) {
+  const gone = new Set((world.camps || []).filter((c) => c.waveIndex === waveIndex).map((c) => c.id));
   world.camps = (world.camps || []).filter((c) => c.waveIndex !== waveIndex);
+  if (!gone.size) return;
+  const nations = nation ? [nation] : Object.values(world.nations || {}).filter((n) => n.isPlayer);
+  for (const n of nations) {
+    const list = n?.wild?.creatures;
+    if (!list?.length) continue;
+    n.wild.creatures = list.filter((c) => !c.camp || !gone.has(c.camp));
+  }
 }
 
 export function updateCampIntel(world, nation, data) {
@@ -355,6 +431,10 @@ export function campEventView(camp, data) {
     scouted: Boolean(camp.scouted),
     sizeHint: camp.scouted ? sizeLabel(camp.power, data) : null,
     power: null,
+    /* ★ Sprint 5 — 체력은 **내가 때린 만큼의 장부**다. 정보 비대칭 바깥이라 가리지 않는다
+       (가려 놓으면 「때렸는데 아무 일도 안 일어난다」가 된다). 병력·파워는 지금처럼 가려진다. */
+    hp: camp.maxHp > 0 ? round2(Math.max(0, camp.hp ?? 0)) : null,
+    maxHp: camp.maxHp > 0 ? camp.maxHp : null,
   };
 }
 
@@ -365,6 +445,10 @@ export function campViews(world, nation, viewerRole, data) {
       id: camp.id, waveIndex: camp.waveIndex, type: camp.type, name: camp.name,
       direction: camp.direction, x: camp.x, y: camp.y,
       spottedTick: camp.spottedTick, scouted: camp.scouted,
+      /* ★ Sprint 5 — 체력만은 가리지 않는다: 이것은 적의 비밀이 아니라 **내 손이 남긴 자국**이다.
+         파워·머릿수는 여전히 국방부의 몫이다(정보 비대칭 계약 불변). */
+      hp: camp.maxHp > 0 ? round2(Math.max(0, camp.hp ?? 0)) : null,
+      maxHp: camp.maxHp > 0 ? camp.maxHp : null,
     };
     if (!camp.scouted) return { ...base, sizeHint: null, power: null, units: null };
     return {
@@ -375,6 +459,139 @@ export function campViews(world, nation, viewerRole, data) {
       intel: canSee ? '국방부가 적의 머릿수를 헤아렸습니다.' : '정찰병이 멀리서 규모만 어림했습니다.',
     };
   });
+}
+
+// ────────────────────────────────────────────────────────────────
+// ★ Sprint 5 — 선제 타격. 「기다림」을 「고르는 일」로 바꾼다.
+//
+// 왜. §19-E 가 앞당기기를 냈지만, 그것은 「빨리 오게 하는」 한 갈래뿐이었다. 대기 엿새 동안
+// 지도 가장자리에 선 야영지는 **보이기만 하고 만질 수 없는 것**이었다. 이제 걸어가서 부술 수 있다:
+// 부순 만큼 그 무리가 줄고, 다 부수면 그 무리는 오지 않는다(막아 낸 것으로 친다).
+// 대신 그 자리는 사나운 띠다 — 경비가 지킨다. 얻는 것과 잃는 것을 사람이 저울질한다.
+// ────────────────────────────────────────────────────────────────
+/** 지금 웨이브의 야영지 하나 — id 를 주면 그것, 안 주면 이번 웨이브의 첫 야영지 */
+export function campForWave(world, nation, campId = null) {
+  const index = nation?.wave?.index ?? 0;
+  const list = (world.camps || []).filter((c) => c.waveIndex === index);
+  if (campId) return list.find((c) => c.id === campId) ?? null;
+  return list[0] ?? null;
+}
+
+/**
+ * strikeCamp — 야영지를 한 번 친다. 서버 권위(사거리·쿨타임·피해가 전부 여기서 난다).
+ * @returns {{ok:true, hp, maxHp, destroyed, damage, waveCancelled, xp, events}|{ok:false,error}}
+ */
+export function strikeCamp(world, nation, cmd, data, now = Date.now()) {
+  const cfg = strikeCfg(data);
+  if (!cfg?.enabled) return err('NO_CAMP', '칠 야영지가 없습니다.');
+  const w = ensureWaveState(nation);
+  const camp = campForWave(world, nation, cmd.campId ?? cmd.payload?.campId ?? null);
+  if (!camp || !(camp.maxHp > 0) || camp.hp <= 0) return err('NO_CAMP', '칠 야영지가 없습니다.');
+  if (nation.battle && !nation.battle.over) return err('NO_CAMP', '이미 싸움이 붙었습니다.');
+
+  const avatarId = cmd.avatarId ?? cmd.playerName ?? 'lord';
+  const player = ensurePlayer(nation, avatarId, data, cmd.playerName ?? null);
+  if ((player.downUntil || 0) > 0) return err('DOWNED', '아직 일어서지 못했습니다.');
+
+  const av = nation.avatars?.[avatarId];
+  const from = av ? { x: av.x, y: av.y } : townOf(world, nation.id);
+  if (!from || dist(from.x, from.y, camp.x, camp.y) > (cfg.rangeTiles ?? 2.5)) {
+    return err('OUT_OF_RANGE', '야영지 곁까지 걸어가야 합니다.');
+  }
+
+  /* 쿨타임은 전투 스윙과 **같은 자**를 쓴다(skills.canSwing/markSwing) — 야영지를 치는 동안
+     적을 치는 손이 따로 쉬고 있으면 그것은 두 개의 손이다. */
+  const cd = canSwing(nation, player, 'combat', data, now);
+  if (!cd.ok) return err('COOLDOWN', '아직 휘두를 수 없습니다.', { waitMs: cd.waitMs, cooldownMs: cd.cooldownMs });
+  markSwing(player, now, 'combat');
+
+  const gearFx = equipEffects(player, data);
+  const damage = round2(swingDamage(nation, player, data) * gearFx.damage);
+  camp.hp = round2(Math.max(0, camp.hp - damage));
+  const xp = grantXp(player, 'combat', cfg.xpPerSwing ?? 0, data);
+
+  const events = [];
+  let destroyed = false;
+  let waveCancelled = false;
+  if (camp.hp <= 0) {
+    destroyed = true;
+    waveCancelled = true;
+    const index = camp.waveIndex;
+    const units = camp.units ?? 0;
+    /* 「오지 않은 무리」를 **막아 낸 무리로 적는다.** 까닭: 7장은 wavesHeld/wavesFaced 로 흐르는데,
+       선제 타격이 이야기를 멈춰 세우면 「잘한 사람이 갇히는」 문이 된다(§19-E ③ 과 같은 규율). */
+    advanceWave(nation, {
+      index, number: index + 1, type: camp.type, name: camp.name, tick: world.tick,
+      won: true, enemiesKilled: units, enemiesTotal: units,
+      struck: true,
+    });
+    w.struckIndex = index;
+    record(world, {
+      kind: 'wave',
+      title: `제${index + 1}차 습격 — ${camp.name}`,
+      text: `${camp.name}의 야영지를 먼저 무너뜨렸다. 그 무리는 끝내 오지 않았다.`,
+      data: { won: true, struck: true, killed: units, total: units },
+    }, data);
+    events.push({
+      kind: 'camp_destroyed', nationId: nation.id,
+      data: { waveIndex: index, name: camp.name, x: camp.x, y: camp.y },
+    });
+    clearCamps(world, index, nation);
+  }
+
+  return {
+    ok: true,
+    campId: camp.id,
+    hp: Math.max(0, camp.hp),
+    maxHp: camp.maxHp,
+    destroyed,
+    damage,
+    waveCancelled,
+    xp: round2(player.skills.combat.xp),
+    cooldownMs: cd.cooldownMs,
+    skill: 'combat',
+    level: skillLevel(player, 'combat'),
+    leveled: xp.leveled,
+    gearDamage: gearFx.damage,
+    events,
+  };
+}
+
+/**
+ * ★ Sprint 5 — 부순 만큼 덜 온다. 야영지가 상한 채 남아 있으면 그 무리의 머릿수를 체력 비율만큼 덜어 낸다.
+ * 난수를 한 톨도 쓰지 않는다 — 봇이 치지 않는 시뮬에서는 이 함수가 spec 을 **그대로** 돌려주므로
+ * 전투 난수의 뽑는 차례도 마릿수도 옛것과 한 톨 다르지 않다(체크포인트 곡선 보존).
+ */
+export function campWeakenedSpec(world, spec, data) {
+  const cfg = strikeCfg(data);
+  if (!cfg?.enabled || !spec) return spec;
+  const camp = (world.camps || []).find((c) => c.waveIndex === spec.index && c.maxHp > 0);
+  if (!camp || !(camp.hp < camp.maxHp)) return spec;
+  const before = spec.units;
+  const ratio = Math.max(0, camp.hp) / camp.maxHp;
+  const cut = Math.floor((1 - ratio) * before);
+  if (cut <= 0) return spec;
+  const keep = Math.max(1, before - cut);           // 전부 부수지 못했으면 하나는 남는다
+  const groups = (spec.groups || []).map((g) => ({ ...g }));
+  if (!groups.length) return { ...spec, units: keep, power: round2(spec.power * (keep / before)) };
+  /* 무리마다 비례로 덜어 낸다 — 남은 몫은 본대가 진다(호위대만 남는 그림은 없다) */
+  let left = keep;
+  for (let i = groups.length - 1; i > 0; i -= 1) {
+    const n = Math.max(0, Math.min(left - 1, Math.floor((groups[i].units * keep) / before)));
+    groups[i].units = n;
+    left -= n;
+  }
+  groups[0].units = Math.max(1, left);
+  const kept = groups.filter((g) => g.units > 0);
+  const units = kept.reduce((a, g) => a + g.units, 0);
+  return {
+    ...spec,
+    groups: kept,
+    units,
+    power: round2(spec.power * (units / before)),   // 화면에 뜨는 파워도 함께 줄어든다(같은 저울)
+    escort: spec.escort && kept.length > 1 ? { ...spec.escort, units: kept[1].units } : null,
+    weakened: { campId: camp.id, hp: round2(Math.max(0, camp.hp)), maxHp: camp.maxHp, unitsBefore: before },
+  };
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -409,7 +626,13 @@ export function waveView(world, nation, viewerRole, data, hooks = {}) {
   }
   const days = w.arrivalTick - world.tick;
   const saint = hasSaintSight(nation, data, hooks);
-  const lead = (saint ? warnCfg(data).saint.warnLeadDays : warnCfg(data).hintLeadDays) + warnBonusDays(nation, data);
+  /* ★ Sprint 5 — 성녀의 리드는 **바닥**이지 뚜껑이 아니다.
+     옛 식은 둘 중 하나를 골랐다(saint ? 4 : 3). hintLeadDays 를 7로 올리자 그 식이 뒤집혔다 —
+     성녀를 모신 나라가 D-6 에 아무것도 못 보고, 성녀 없는 나라는 흐린 카운트다운을 보는 그림이다.
+     성녀가 보는 것은 언제나 「남들이 보는 것 + 정확함」이어야 한다. 그래서 둘 중 **큰 쪽**을 쓴다:
+     saint.warnLeadDays 는 흐린 리드가 그보다 짧을 때 성녀가 먼저 보는 날수로 그대로 산다. */
+  const lead = Math.max(warnCfg(data).hintLeadDays, saint ? warnCfg(data).saint.warnLeadDays : 0)
+    + warnBonusDays(nation, data);
   const visible = days <= lead;
   const spec = nextWaveSpec(world, nation, data);
   const jitter = difficultyPreset(world, data).hintJitterDays ?? warnCfg(data).withoutSaint.jitterDays;
@@ -467,6 +690,14 @@ export function publicWaves(data) {
       weakTo: v.weakTo, direction: v.direction, sprite: v.sprite ?? k, flying: Boolean(v.flying),
     }])),
     warn: { campLeadDays: cfg.warn.campLeadDays, hintLeadDays: cfg.warn.hintLeadDays, saint: { ...cfg.warn.saint } },
+    /* ★ Sprint 5 — 야영지 선제 타격의 **규칙**은 공개다(값표이지 정보가 아니다).
+       화면은 이것으로 「얼마나 가까이 가야 하는가·경비가 몇인가」를 그린다. */
+    strike: cfg.strike
+      ? {
+        enabled: Boolean(cfg.strike.enabled), hpPerPower: cfg.strike.hpPerPower,
+        rangeTiles: cfg.strike.rangeTiles, guards: cfg.strike.guards, guardSpecies: cfg.strike.guardSpecies,
+      }
+      : null,
     battle: {
       subtickSeconds: cfg.battle.subtickSeconds,
       maxSeconds: cfg.battle.maxSeconds,

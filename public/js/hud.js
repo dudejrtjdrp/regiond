@@ -1053,21 +1053,29 @@
      배너 한 줄로도 알린다. 전부 이미 서버가 주던 값이다 — 모아서 보여줄 뿐이다. */
   var lastMorning = null;
 
+  /* ★ Sprint 5 — 「다가오는 것」 줄은 이제 **문**이다.
+     여태 이 줄들은 「[울타리 앞]에서 …할 수 있습니다」라고 자리를 일러 주기만 했다 —
+     읽고 나서 그 자리를 다시 찾아가야 하는 한 줄은 안내가 아니라 숙제다.
+     길이 있는 줄은 눌리고(up-row-act), 없는 줄은 옛 모습 그대로다. */
+  function openThreatRow() { if (GM.combat && GM.combat.openThreat) GM.combat.openThreat(); }
+  function openRecruitRow() { if (GM.structure && GM.structure.openRecruit) GM.structure.openRecruit(); }
+
   function upcomingRows() {
     var rows = [];
     var v = S.S.view || {};
     var w = S.wave();
     if (w && w.unlocked && !w.active) {
-      if (w.daysUntil != null) rows.push({ icon: 'sword', text: '웨이브 D-' + U.fmt(w.daysUntil, w.daysUntil < 2 ? 1 : 0) + (w.enemy && w.enemy.name ? ' · ' + w.enemy.name : '') });
-      else if (w.daysUntilMin != null) rows.push({ icon: 'sword', text: '웨이브 D-' + U.fmt(w.daysUntilMin, 0) + '±' });
+      var threatOpen = S.uiOn('hud.threat') ? openThreatRow : null;
+      if (w.daysUntil != null) rows.push({ icon: 'sword', open: threatOpen, text: '웨이브 D-' + U.fmt(w.daysUntil, w.daysUntil < 2 ? 1 : 0) + (w.enemy && w.enemy.name ? ' · ' + w.enemy.name : '') });
+      else if (w.daysUntilMin != null) rows.push({ icon: 'sword', open: threatOpen, text: '웨이브 D-' + U.fmt(w.daysUntilMin, 0) + '±' });
       /* ★ §19-E(F04-4·F04-6) — 「무작정 대기」를 없애는 한 줄. 적을 기다리는 동안에도
          **다음에 무엇을 하면 되는지**가 늘 여기 적힌다. 다 갖췄으면 앞당기는 길을 알린다. */
       var rd = w.readiness;
       if (rd && !rd.ok) {
         var miss = rd.rows.filter(function (q) { return !q.ok; })[0];
-        if (miss) rows.push({ icon: 'shield', text: '침공 채비 — ' + miss.label + ' (' + U.fmt(miss.have, 0) + '/' + U.fmt(miss.need, 0) + ')' });
+        if (miss) rows.push({ icon: 'shield', open: threatOpen, text: '침공 채비 — ' + miss.label + ' (' + U.fmt(miss.have, 0) + '/' + U.fmt(miss.need, 0) + ')' });
       } else if (w.canRush) {
-        rows.push({ icon: 'shield', text: '채비 끝 — [울타리 앞]에서 적을 불러들일 수 있습니다' });
+        rows.push({ icon: 'shield', open: threatOpen, text: '채비 끝 — [울타리 앞]에서 적을 불러들일 수 있습니다' });
       }
     }
     var r = v.research;
@@ -1077,7 +1085,8 @@
     }
     var hz = v.nation && v.nation.housing && v.nation.housing.arrival;
     if (hz && hz.open && hz.daysUntil != null) {
-      rows.push({ icon: 'person', text: '다음 주민 D-' + U.fmt(hz.daysUntil, hz.daysUntil < 2 ? 1 : 0) });
+      rows.push({ icon: 'person', open: S.recruitInfo() ? openRecruitRow : null,
+                  text: '다음 주민 D-' + U.fmt(hz.daysUntil, hz.daysUntil < 2 ? 1 : 0) });
     }
     var tn = v.tier && v.tier.next;
     if (tn) {
@@ -1102,16 +1111,23 @@
        ★ 아침 안내판(morningBoard)은 **서명과 무관하게 늘** 부른다 — 날이 바뀐 순간을
        재는 일이라 한 번이라도 걸러 먹으면 그날 아침이 통째로 사라진다. */
     var sig = '';
-    for (var i = 0; i < rows.length; i += 1) sig += rows[i].icon + '' + rows[i].text + '';
+    /* ★ Sprint 5 — 서명에 「손잡이가 달렸는가」도 넣는다. 글자는 그대로인데 길만 새로 열리는 날
+       (모집이 열린 날)에도 줄이 눌리게 하려면 서명이 그 변화를 알아야 한다. */
+    for (var i = 0; i < rows.length; i += 1) sig += rows[i].icon + '' + rows[i].text + (rows[i].open ? '!' : '') + '';
     if (box.getAttribute('data-sig') !== sig) {
       box.setAttribute('data-sig', sig);
       U.clear(box);
       var head = U.el('div', 'up-head', '다가오는 것');
       box.appendChild(head);
       rows.forEach(function (r) {
-        var line = U.el('div', 'up-row');
+        var line = U.el('div', 'up-row' + (r.open ? ' up-row-act' : ''));
         line.appendChild(GM.icons.img(r.icon, 14));
         line.appendChild(U.el('span', null, r.text));
+        /* ★ Sprint 5 — 길이 있는 줄은 그 자리에서 열린다(서명이 같으면 줄도 손잡이도 그대로 남는다) */
+        if (r.open) {
+          line.onclick = function () { GM.sfx.play('tap'); r.open(); };
+          U.tipSet(line, r.text, '눌러서 바로 엽니다.');
+        }
         box.appendChild(line);
       });
     }

@@ -16,7 +16,11 @@ import {
 } from './social.js';
 import { normalizeBattlePlan } from './tactics.js';
 // ★ §19-E(F04-4) — 침공 앞당기기. 준비를 끝낸 사람이 제 손으로 그날을 당긴다.
-import { rushWave, canRushWave, nextWaveSpec, ensureCamps, campEventView, daysUntilWave } from './waves.js';
+import {
+  rushWave, canRushWave, nextWaveSpec, ensureCamps, campEventView, daysUntilWave,
+  // ★ Sprint 5 — 야영지 선제 타격. 기다리는 동안 「할 수 있는 일」의 둘째 문이다.
+  strikeCamp,
+} from './waves.js';
 import { adviceCommand } from './advisor.js';
 import {
   assignByAlloc, assignByMix, commandVillagers as placeVillagers, deriveLabor, mixFromAlloc,
@@ -1056,6 +1060,14 @@ function runCommand(world, nationId, cmd, data, rng) {
       events.push({ kind: 'wave_rushed', nationId: nation.id,
         data: { index: spec.index, number: spec.index + 1, name: spec.name, daysUntil: daysUntilWave(world, nation) } });
       return ok({ arrivalTick: at, daysUntil: daysUntilWave(world, nation), events });
+    }
+
+    /* ── ★ Sprint 5 야영지 선제 타격 ────────────────────────────
+       예고와 함께 선 야영지를 걸어가서 부순다. 부순 만큼 그 무리가 줄고, 다 부수면 오지 않는다.
+       사거리·쿨타임·피해는 전부 waves.strikeCamp 가 잰다 — 화면이 보낸 「닿았다」는 믿지 않는다. */
+    case 'strikeCamp': {
+      const res = strikeCamp(world, nation, cmd, data, now);
+      return res.ok ? ok(res) : res;
     }
 
     case 'setAutoAssist': {

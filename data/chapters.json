@@ -541,7 +541,8 @@
           "upgradeFence",
           "repairFence",
           "removeFence",
-          "setBattlePlan"
+          "setBattlePlan",
+          "strikeCamp"
         ]
       },
       "steps": [

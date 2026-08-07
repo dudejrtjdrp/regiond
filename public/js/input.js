@@ -224,6 +224,11 @@
     var f = fenceAt(w.x, w.y);
     if (f) { GM.structure.openFence(f.id); GM.sfx.play('tap'); return; }
 
+    /* ★ Sprint 5 — 적 야영지. 마을 밖 먼 자리라 건물·주민과 겹칠 일이 드물어
+       울타리 다음, 건물 앞에 둔다(닿는 것 중 가장 가까운 하나). */
+    var cp = campAt(w.x, w.y);
+    if (cp) { GM.structure.openCamp(cp.id); GM.sfx.play('tap'); return; }
+
     var b = structureAt(t.x, t.y);
     if (b) { GM.structure.open(b.id); GM.sfx.play('tap'); return; }
 
@@ -375,6 +380,20 @@
       var d = segDist(wx, wy, f.x1, f.y1, f.x2, f.y2);
       if (d < bd) { bd = d; best = f; }
     });
+    return best;
+  }
+
+  /* ★ Sprint 5 — 야영지 판정. 그려지는 스프라이트가 두 칸짜리라 중심에서 1.2칸까지 잡는다.
+     여러 개가 겹치면 가장 가까운 하나(울타리·주민과 같은 규칙). */
+  function campAt(wx, wy) {
+    var list = S.camps();
+    var best = null, bd = 1.2;
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i];
+      if (!c || c.x == null) continue;
+      var d = Math.hypot(c.x - wx, c.y - wy);
+      if (d <= bd) { bd = d; best = c; }
+    }
     return best;
   }
 

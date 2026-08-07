@@ -18,6 +18,8 @@ import { equipEffects } from './equipment.js';
 import { aliveFences, blockingFence, damageFence, fenceMid } from './fences.js';
 import {
   nextWaveSpec, battleCfg, warnCfg, hasSaintSight, directionAngle, advanceWave, clearCamps,
+  // ★ Sprint 5 — 야영지를 부순 만큼 덜 온다. 적을 세우기 **전에** 무리를 깎는다.
+  campWeakenedSpec,
 } from './waves.js';
 import {
   ensurePlayer, swingDamage, canSwing, markSwing, grantXp, combatSkillCfg, skillLevel,
@@ -111,7 +113,9 @@ function spawnEnemy(world, data, town, rng, mult, g, baseAngle, id) {
  */
 export function startBattle(world, nation, data, opts = {}) {
   const cfg = battleCfg(data);
-  const spec = opts.spec ?? nextWaveSpec(world, nation, data);
+  /* ★ Sprint 5 — 선제 타격이 남긴 자국을 여기서 갚는다. 야영지가 성하면(또는 옛 세이브라 체력이 없으면)
+     campWeakenedSpec 은 spec 을 **그대로** 돌려주므로, 아래 난수의 뽑는 차례도 마릿수도 옛것과 같다. */
+  const spec = campWeakenedSpec(world, opts.spec ?? nextWaveSpec(world, nation, data), data);
   const town = townOf(world, nation.id);
   if (!town) return null;
   const seed = ((world.seed >>> 0) ^ Math.imul(spec.index + 1, 2654435761)) >>> 0;
@@ -782,7 +786,8 @@ export function finishBattle(world, nation, data) {
     index: result.index, type: result.type, name: result.name, tick: result.tick,
     won: result.won, enemiesKilled: result.enemiesKilled, enemiesTotal: result.enemiesTotal,
   });
-  clearCamps(world, b.waveIndex);
+  // ★ Sprint 5 — 야영지와 함께 남은 경비도 걷는다(나라를 넘겨 줘야 그 나라의 짐승 목록을 훑는다)
+  clearCamps(world, b.waveIndex, nation);
   nation.battlePlan = null;
   nation.battle = null;
   /* ★ Sprint 3 — 세이브에 남기는 몫만 자른다. 타임라인은 웨이브 하나에 수백 줄이고

@@ -1258,6 +1258,15 @@
       var p = GM.camera.worldToScreen(c.x - 1, c.y - 1);
       try { ctx.drawImage(GM.atlas.camp(c.type), Math.round(p.x), Math.round(p.y), Math.ceil(t * 2), Math.ceil(t * 2)); } catch (e) {}
       label(c.name + (c.sizeHint ? ' · ' + c.sizeHint : ' · 규모 모름'), c.x, c.y - 1.3, '#f0a09c');
+      /* ★ Sprint 5 — 두드린 만큼 줄어드는 띠. 들짐승의 그것과 같은 말투다(drawWild). */
+      if (c.maxHp > 0 && c.hp < c.maxHp && t >= 18) {
+        var bw = t * 1.4;
+        var bx = p.x + t - bw / 2, by = p.y - 5;
+        ctx.fillStyle = 'rgba(20,14,8,.65)';
+        ctx.fillRect(bx, by, bw, 4);
+        ctx.fillStyle = '#bc4749';
+        ctx.fillRect(bx, by, bw * Math.max(0, c.hp / c.maxHp), 4);
+      }
       if (!c.scouted) {
         ctx.save();
         ctx.globalAlpha = 0.35 + 0.35 * Math.sin(animT / 320);

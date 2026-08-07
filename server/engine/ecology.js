@@ -720,6 +720,15 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
       const tx = clamp(c.x + Math.cos(away) * 4, 1, size - 2);
       const ty = clamp(c.y + Math.sin(away) * 4, 1, size - 2);
       if (moveToward(world, nation, data, c, tx, ty, speed * 1.15)) moved += 1;
+    } else if (c.camp) {
+      /* ★ Sprint 5 — 야영지 경비는 **떠돌지 않는다.** 제 야영지가 곧 제 목적지다.
+         두 가지를 한꺼번에 지키는 한 줄이다: ① 지키러 온 것이 지도를 배회하면 「야영지 곁의 위험」이라는
+         약속이 깨진다 ② 배회의 목적지는 생태 난수를 두 톨 뽑는다 — 그 두 톨이 같은 씨앗의 하루를 통째로
+         밀어(사냥 수확 → 봇의 건설 차례 → 웨이브 결과) 체크포인트 곡선을 흔든다. */
+      c.state = 'wander';
+      c.tx = c.campX ?? c.x;
+      c.ty = c.campY ?? c.y;
+      if (moveToward(world, nation, data, c, c.tx, c.ty, speed * 0.55)) moved += 1;
     } else {
       c.state = 'wander';
       if (c.retarget <= 0) {
@@ -971,7 +980,9 @@ function removeCreature(nation, c, data, tick) {
   const i = w.creatures.indexOf(c);
   if (i >= 0) w.creatures.splice(i, 1);
   // ★ §19-F2(F07-4) — 세계에 하나뿐인 것은 리스폰 줄에 서지 않는다. 한 번 잡히면 그것으로 끝이다.
-  if (!c.boss) w.respawnQueue.push({ ring: c.ring, at: tick + (spawnCfg(data).respawnDays ?? 1) });
+  // ★ Sprint 5 — 야영지 경비도 마찬가지다. 그것은 들의 것이 아니라 **그 무리가 데려온 것**이라
+  //   띠의 정원에도 리스폰 줄에도 서지 않는다(야영지가 사라지면 함께 사라진다).
+  if (!c.boss && !c.camp) w.respawnQueue.push({ ring: c.ring, at: tick + (spawnCfg(data).respawnDays ?? 1) });
   return c;
 }
 

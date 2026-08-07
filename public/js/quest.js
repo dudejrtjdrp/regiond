@@ -65,12 +65,68 @@
     var rest = (ch.remaining || []).map(function (r) { return r.title; });
     if (rest.length) card.appendChild(U.el('span', 'gc-rest', '이 장에 남은 것 — ' + rest.join(' · ')));
 
+    /* ★ Sprint 5 — 목표가 「사람 몇 명」이면 부르는 손도 여기 있어야 한다.
+       여태 이 칸의 답은 「기다리세요」뿐이었다 — 본부까지 찾아가 갈래를 고르는 길은 있었지만
+       카드를 읽은 사람에게는 보이지 않는 길이었다. 값을 치르고 하루를 앞당기는 선택을 여기 둔다. */
+    maybeRecruit(card, g);
+
     /* ② 카드를 누르면 목표로 시선이 뛴다 */
     card.classList.add('clickable');
     card.onclick = function () { jumpToGoal(); };
     U.tipSet(card, g.title, (g.sub || '') + '\n눌러서 그 자리로 시선을 옮깁니다.');
 
     maybeHint(g);
+  }
+
+  /* ══════════ ★ Sprint 5 — 목표 카드 위의 [사람을 부른다] ══════════ */
+  /** 조건 나무 어딘가에 사람 수를 세는 잎이 있는가 (any·all 은 갈래일 뿐 잎이 아니다) */
+  function needsPeople(cond) {
+    if (!cond) return false;
+    if (cond.type === 'any' || cond.type === 'all') {
+      var of = cond.of || [];
+      for (var i = 0; i < of.length; i++) if (needsPeople(of[i])) return true;
+      return false;
+    }
+    return cond.type === 'population';
+  }
+
+  function maybeRecruit(card, g) {
+    if (!needsPeople(g.condition)) return;
+    if (!S.cmdOn('recruitResident')) return;           // 잠긴 것은 부재다(§11-1)
+    var r = S.recruitInfo() || {};
+    var cost = Object.keys(r.cost || {}).map(function (k) {
+      return S.resourceMeta(k).name + ' ' + U.fmt(r.cost[k], 0);
+    }).join(' · ');
+    var box = U.el('div', 'gc-act');
+    var b = U.btn('사람을 부른다' + (cost ? ' — ' + cost : ''), 'btn-small btn-primary', function (ev) {
+      if (ev && ev.stopPropagation) ev.stopPropagation();   // 카드 전체의 「시선 옮기기」가 함께 일어나지 않게
+      sendRecruit();
+    });
+    b.id = 'gc-recruit';
+    if (r.open === false) {
+      b.disabled = true;
+      U.tipSet(b, '아직 부를 수 없습니다', r.reason || '조건이 아직 모자랍니다.');
+    } else {
+      U.tipSet(b, '지금 한 사람을 부릅니다', '값을 치르면 그 자리에서 한 사람이 옵니다.');
+    }
+    box.appendChild(b);
+    card.appendChild(box);
+    if (r.open === false && r.reason) card.appendChild(U.el('span', 'gc-rest', r.reason));
+    card.appendChild(U.el('span', 'gc-sub', '장식·사기·식량 잉여가 발걸음을 당깁니다.'));
+  }
+
+  function sendRecruit() {
+    GM.net.send('recruitResident', {}, function (res) {
+      if (!res) return;
+      if (!res.ok) {
+        U.toast((res.error && res.error.message) || '지금은 부를 수 없습니다.', 'warn', 3400);
+        GM.sfx.play('deny');
+        return;
+      }
+      GM.sfx.play('arrive');
+      var nm = (res.resident && res.resident.name) || '한 사람';
+      U.toast(nm + U.josa(nm, '이', '가') + ' 왔습니다.', 'good', 3200);
+    });
   }
 
   /** 카드 아래 한 줄 — 어디를 봐야 하는가 */
