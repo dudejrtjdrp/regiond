@@ -1,0 +1,203 @@
+{
+  "note": "배치 3 — 자원 노드·바이옴 나무·식생 소품 22장. 노드 이름은 world.json nodes.types.name 정본. 캔버스는 §8 규격(나무 128x192 · 노드 96x96 · 소품 64x64, 그루터기만 96x96)을 따른다.",
+  "assets": [
+    {
+      "id": "tree/forest_node",
+      "name": "숲 노드",
+      "category": "tree",
+      "subcategory": "node",
+      "size": "128x192",
+      "candidates": 4,
+      "desc": "a tight stand of three timber trees sharing one root mass, straight trunks of different thickness with rough furrowed bark and old branch scars, their canopies overlapping into a single broad crown of layered leaf clusters, two lower limbs breaking the silhouette, fallen leaves and one short cut log at the foot, trunk bases flush with the bottom edge"
+    },
+    {
+      "id": "plant/berry_bush",
+      "name": "딸기 들",
+      "category": "plant",
+      "subcategory": "node",
+      "size": "96x96",
+      "candidates": 4,
+      "desc": "a low round berry bush, dense small oval leaves massed in clusters with gaps showing the thin woody stems inside, bunches of ripe red berries hanging near the outer leaf tips, two fallen berries and a few dry twigs on the ground, base flush with the bottom edge"
+    },
+    {
+      "id": "mineral/iron_node",
+      "name": "철광맥",
+      "category": "mineral",
+      "subcategory": "node",
+      "size": "96x96",
+      "candidates": 4,
+      "desc": "a split boulder with an iron vein running through it, angular gray stone faces cracked open to expose a rust-brown ore band shot with dull metallic glints, chipped corners and orange staining running down the shaded face, broken ore chunks scattered at the foot, base flush with the bottom edge"
+    },
+    {
+      "id": "mineral/coal_node",
+      "name": "석탄 노두",
+      "category": "mineral",
+      "subcategory": "node",
+      "size": "96x96",
+      "candidates": 4,
+      "desc": "an exposed coal seam, a low gray rock shelf broken open to show a thick glossy black band with sharp shell-like fracture facets, loose coal lumps spilled at the base, black dust smudging the pale stone around the break, base flush with the bottom edge"
+    },
+    {
+      "id": "mineral/oil_seep",
+      "name": "유막",
+      "category": "mineral",
+      "subcategory": "node",
+      "size": "96x96",
+      "candidates": 4,
+      "desc": "an oil seep in the ground, a shallow depression ringed by dark stained earth holding a glossy black pool with slow iridescent sheen bands across it, a sticky tar crust cracking around the rim, two reed stalks and one half-sunken stone at the edge, base flush with the bottom edge"
+    },
+    {
+      "id": "mineral/ruin_block",
+      "name": "고대 유적",
+      "category": "mineral",
+      "subcategory": "node",
+      "size": "96x96",
+      "candidates": 4,
+      "desc": "the remains of an old stone structure, two toppled cut blocks and a broken pillar drum in pale gray granite, a worn geometric relief still legible on one face, thick moss along the shaded edges and grass sprouting from a joint, rubble chips heaped at the foot, base flush with the bottom edge"
+    },
+    {
+      "id": "mineral/cache_mound",
+      "name": "숨은 궤",
+      "category": "mineral",
+      "subcategory": "node",
+      "size": "96x96",
+      "candidates": 4,
+      "desc": "a buried supply cache half dug out of the earth, a low mound of loose soil with the rope-bound corner of a wooden chest and a canvas bundle pushing through, a rusted iron band and a broken plank beside it, a fresh shovel cut trenched at the front, base flush with the bottom edge"
+    },
+    {
+      "id": "plant/field_wild",
+      "name": "야생 밭",
+      "category": "plant",
+      "subcategory": "node",
+      "size": "96x96",
+      "candidates": 4,
+      "desc": "a patch of self-sown grain gone wild, uneven ranks of tall stalks with drooping seed heads rising from clumpy broken soil, thistles and broadleaf weeds mixed in among them, a few stalks flattened at the front, base flush with the bottom edge"
+    },
+    {
+      "id": "tree/pine_snow",
+      "name": "설산 침엽수",
+      "category": "tree",
+      "subcategory": "biome",
+      "size": "128x192",
+      "candidates": 4,
+      "desc": "a tall conifer laden with snow, a straight dark trunk with plated bark under a narrow conical crown of tiered needle branches, thick snow caps resting on every tier with dark needle tips showing through at the edges, a small drift and two fallen cones at the roots, trunk base flush with the bottom edge"
+    },
+    {
+      "id": "tree/jungle_canopy",
+      "name": "밀림 활엽수",
+      "category": "tree",
+      "subcategory": "biome",
+      "size": "128x192",
+      "candidates": 4,
+      "desc": "a broad tropical hardwood, a smooth pale trunk flaring into buttress fins at the ground, a wide flat canopy built from large deep green leaf clusters in overlapping tiers, hanging vines dropping from two lower limbs and one bromeliad clump wedged in a fork, ferns crowding the roots, trunk base flush with the bottom edge"
+    },
+    {
+      "id": "tree/cactus_desert",
+      "name": "사막 선인장",
+      "category": "tree",
+      "subcategory": "biome",
+      "size": "128x192",
+      "candidates": 4,
+      "desc": "a tall columnar desert cactus, a thick ribbed green trunk with two upraised arms of unequal height, evenly spaced spine clusters marching along every rib, one small waxy cream flower crowning the top, dry sand and a scatter of pebbles banked at the base, base flush with the bottom edge"
+    },
+    {
+      "id": "tree/dead_ash",
+      "name": "화산재 고사목",
+      "category": "tree",
+      "subcategory": "biome",
+      "size": "128x192",
+      "candidates": 4,
+      "desc": "a dead tree standing in volcanic ash, a bare charred trunk with peeling black bark and broken branch stubs reaching upward, gray ash dust settled into the bark crevices and coating the upper limbs, scorched cracked ground and fallen splinters at the base, trunk base flush with the bottom edge"
+    },
+    {
+      "id": "tree/mushroom_giant",
+      "name": "거대 버섯",
+      "category": "tree",
+      "subcategory": "biome",
+      "size": "128x192",
+      "candidates": 4,
+      "desc": "a mushroom grown to the size of a tree, a thick fibrous cream stalk with a ring skirt beneath a wide domed cap, the cap deep violet with pale raised warts on top and dense radiating gills underneath, a second smaller cap leaning against the stalk, moss and spore dust at the base, stalk base flush with the bottom edge"
+    },
+    {
+      "id": "tree/marsh_willow",
+      "name": "습지 버드나무",
+      "category": "tree",
+      "subcategory": "biome",
+      "size": "128x192",
+      "candidates": 4,
+      "desc": "a willow leaning out over marsh water, a twisted gray trunk with deep bark furrows and knuckled roots breaking the mud, long drooping branches hung with narrow silver-green leaf strands, a tuft of hanging moss and one snapped limb, root base flush with the bottom edge"
+    },
+    {
+      "id": "tree/dusk_tree",
+      "name": "황혼 나무",
+      "category": "tree",
+      "subcategory": "biome",
+      "size": "128x192",
+      "candidates": 4,
+      "desc": "a slender twilight valley tree, smooth dark bark banded with a few pale rings, an airy crown of small violet and dusty blue leaf clusters riding fine upswept branches, a scatter of faintly luminous pale petals near the branch tips, fallen violet leaves ringing the roots, trunk base flush with the bottom edge"
+    },
+    {
+      "id": "plant/reed",
+      "name": "갈대",
+      "category": "plant",
+      "subcategory": "prop",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a small clump of marsh reeds, tall narrow blades fanning upward from a wet muddy base, two brown seed spikes standing above the rest, one blade bent halfway down, thin pale stems visible near the ground, base flush with the bottom edge"
+    },
+    {
+      "id": "plant/bush_small",
+      "name": "작은 덤불",
+      "category": "plant",
+      "subcategory": "prop",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a small round shrub, compact rounded leaf clusters with gaps showing the dark inner twigs, two bare lower branches poking out at the side, a thin litter of fallen leaves at the foot, base flush with the bottom edge"
+    },
+    {
+      "id": "plant/flower_patch",
+      "name": "들꽃",
+      "category": "plant",
+      "subcategory": "prop",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a low patch of wildflowers, a spray of small white and yellow blooms with two violet ones on slender stems above a tuft of narrow leaves, a pair of unopened buds leaning outward, base flush with the bottom edge"
+    },
+    {
+      "id": "mineral/pebbles",
+      "name": "자갈",
+      "category": "mineral",
+      "subcategory": "prop",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a small scatter of loose stones, six rounded gray pebbles of differing size with one flat flake resting across another, chipped facets catching the light on the upper stones, fine grit and sand gathered around them, base flush with the bottom edge"
+    },
+    {
+      "id": "tree/stump",
+      "name": "그루터기",
+      "category": "tree",
+      "subcategory": "prop",
+      "size": "96x96",
+      "candidates": 4,
+      "desc": "a freshly cut tree stump, a broad pale sawn top showing concentric growth rings and one radial split, rough dark bark wrapping the sides, root flares spreading out into the ground, a few wood chips and a curled bark strip lying beside it, base flush with the bottom edge"
+    },
+    {
+      "id": "plant/crop_barley",
+      "name": "보리",
+      "category": "plant",
+      "subcategory": "crop",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a mature barley plant ready for harvest, an upright bundle of golden stalks with heavy bearded seed heads bowing at the tips, narrow dry leaves sheathing the stems, a small ridge of tilled soil at the foot, base flush with the bottom edge"
+    },
+    {
+      "id": "plant/crop_vegetable",
+      "name": "채소밭 작물",
+      "category": "plant",
+      "subcategory": "crop",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a full grown vegetable plant, a rosette of broad crinkled green leaves with pale ribs opening from a short stalk, one round root shoulder pushing up out of the tilled soil, two nibbled holes in the outer leaves, base flush with the bottom edge"
+    }
+  ]
+}

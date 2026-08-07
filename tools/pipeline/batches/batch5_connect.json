@@ -1,0 +1,131 @@
+{
+  "note": "배치 5 — 오토타일용 연결 조각 14장. 같은 계열끼리 이어 붙였을 때 톤·굵기가 맞아야 하므로 desc에 재질·두께·색을 계열별로 동일한 문구로 못 박았다(목책 = 8px 각재 소나무 · 석벽 = 12px 화강암 켜쌓기). 길·데칼 6종은 id는 tileset/ 유지(게임 코드 계약)이되 category를 furniture로 둔다 — tileset 템플릿의 edge-to-edge 강제와 충돌하면 투명 배경 오버레이가 나오지 않기 때문이다. generate.py가 id 접두 불일치 경고를 찍지만 종료 코드는 0이다(§10 예외).",
+  "assets": [
+    {
+      "id": "building/fence_post",
+      "name": "목책 기둥",
+      "category": "building",
+      "subcategory": "fence_wood",
+      "size": "64x96",
+      "candidates": 4,
+      "desc": "a single wooden palisade post standing alone, squared weathered pine timber eight pixels thick with a chamfered top cap, straight vertical grain and two dark knots in mid brown, two hemp rope lashing bands at the heights where rails would meet, a wedge stone at the foot, identical timber tone and post thickness to the other fence pieces, base flush with the bottom edge"
+    },
+    {
+      "id": "building/fence_h",
+      "name": "목책 가로",
+      "category": "building",
+      "subcategory": "fence_wood",
+      "size": "64x96",
+      "candidates": 4,
+      "desc": "one horizontal span of wooden palisade fence, two squared weathered pine posts eight pixels thick carrying two split rails four pixels thick that run dead straight and touch both the left frame edge and the right frame edge so identical spans join without a seam, hemp rope lashings at every joint, the same mid brown timber tone and grain as the other fence pieces, base flush with the bottom edge"
+    },
+    {
+      "id": "building/fence_v",
+      "name": "목책 세로",
+      "category": "building",
+      "subcategory": "fence_wood",
+      "size": "64x96",
+      "candidates": 4,
+      "desc": "a run of wooden palisade fence receding away from the viewer, three squared weathered pine posts eight pixels thick in a line front to back with two split rails four pixels thick between them, the rails reaching the bottom frame edge in front and the top frame edge behind so identical runs join without a seam, hemp rope lashings, the same mid brown timber tone and rail height as the other fence pieces"
+    },
+    {
+      "id": "building/gate_wood",
+      "name": "나무 문",
+      "category": "building",
+      "subcategory": "fence_wood",
+      "size": "64x96",
+      "candidates": 4,
+      "desc": "a wooden gate leaf hung between two palisade posts of the same squared weathered pine eight pixels thick, vertical planks with one diagonal brace and dark iron strap hinges, a rope latch loop over a peg, the two posts pushed out to the left and right frame edges so the gate lines up with the fence spans, the same mid brown timber tone and top height as the other fence pieces, base flush with the bottom edge"
+    },
+    {
+      "id": "building/wall_post",
+      "name": "석벽 기둥",
+      "category": "building",
+      "subcategory": "fence_stone",
+      "size": "64x96",
+      "candidates": 4,
+      "desc": "a single stone wall pillar of coursed gray granite blocks twelve pixels thick, squared courses with chipped corners under one flat capstone, pale lichen caught in the mortar joints, a rubble footing of small packed stones, identical granite tone and wall thickness to the other stone wall pieces, base flush with the bottom edge"
+    },
+    {
+      "id": "building/wall_h",
+      "name": "석벽 가로",
+      "category": "building",
+      "subcategory": "fence_stone",
+      "size": "64x96",
+      "candidates": 4,
+      "desc": "one horizontal run of gray granite wall, rectangular blocks laid in level courses twelve pixels thick under a continuous flat capstone that touches both the left frame edge and the right frame edge so identical runs join without a seam, chipped block corners and pale lichen in the joints, the same granite tone and wall height as the other stone wall pieces, base flush with the bottom edge"
+    },
+    {
+      "id": "building/wall_v",
+      "name": "석벽 세로",
+      "category": "building",
+      "subcategory": "fence_stone",
+      "size": "64x96",
+      "candidates": 4,
+      "desc": "a run of gray granite wall receding away from the viewer, level courses of rectangular blocks twelve pixels thick with the flat capstone reaching the bottom frame edge in front and the top frame edge behind so identical runs join without a seam, chipped corners and pale lichen in the joints, the same granite tone and wall height as the other stone wall pieces"
+    },
+    {
+      "id": "building/gate_stone",
+      "name": "돌문",
+      "category": "building",
+      "subcategory": "fence_stone",
+      "size": "64x96",
+      "candidates": 4,
+      "desc": "a heavy timber double door set in a gray granite gateway of the same coursed blocks twelve pixels thick, granite jambs with chipped corners under a flat capstone lintel, dark iron studs and strap hinges across the doors, a worn stone threshold below, the jambs pushed out to the left and right frame edges so the gateway lines up with the wall runs, the same granite tone and wall height as the other stone wall pieces, base flush with the bottom edge"
+    },
+    {
+      "id": "tileset/path_dirt",
+      "name": "흙길 직선",
+      "category": "furniture",
+      "subcategory": "path",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a straight dirt path segment drawn as a flat ground overlay decal seen directly from above with no perspective and no thickness, a band of packed tan earth about forty pixels wide with small pressed pebbles and two faint cart ruts, running from the left frame edge to the right frame edge, the long edges of the band irregular and softly broken into scattered dirt flecks, everything outside the band left completely empty so the piece layers over terrain, the same earth tone and band width as the other path pieces"
+    },
+    {
+      "id": "tileset/path_dirt_corner",
+      "name": "흙길 모서리",
+      "category": "furniture",
+      "subcategory": "path",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a right angle corner of dirt path drawn as a flat ground overlay decal seen directly from above with no perspective and no thickness, the same band of packed tan earth about forty pixels wide with pressed pebbles and faint ruts entering at the left frame edge and turning to leave at the bottom frame edge, the outside of the bend worn slightly wider, irregular softly broken band edges, everything outside the band left completely empty so the piece layers over terrain, the same earth tone and band width as the other path pieces"
+    },
+    {
+      "id": "tileset/path_dirt_cross",
+      "name": "흙길 사거리",
+      "category": "furniture",
+      "subcategory": "path",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a four way crossroads of dirt path drawn as a flat ground overlay decal seen directly from above with no perspective and no thickness, the same bands of packed tan earth about forty pixels wide reaching all four frame edges and meeting in a slightly wider trodden center, pressed pebbles and faint ruts crossing each other, irregular softly broken band edges, everything outside the bands left completely empty so the piece layers over terrain, the same earth tone and band width as the other path pieces"
+    },
+    {
+      "id": "tileset/path_dirt_end",
+      "name": "흙길 끝",
+      "category": "furniture",
+      "subcategory": "path",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "a dead end cap of dirt path drawn as a flat ground overlay decal seen directly from above with no perspective and no thickness, the same band of packed tan earth about forty pixels wide with pressed pebbles and faint ruts entering at the left frame edge and thinning into a rounded stub that scatters into loose dirt flecks before the right side, irregular softly broken band edges, everything outside the band left completely empty so the piece layers over terrain, the same earth tone and band width as the other path pieces"
+    },
+    {
+      "id": "tileset/apron_dirt",
+      "name": "다짐흙 기초",
+      "category": "furniture",
+      "subcategory": "apron",
+      "size": "128x128",
+      "candidates": 4,
+      "desc": "a round patch of packed bare earth drawn as a flat ground decal seen directly from above with no perspective and no thickness, trodden tan soil worn smooth toward the middle with scattered pebbles and a few boot scuffs, the rim ragged and irregular where it fades into loose dirt flecks, everything outside the patch left completely empty so the decal layers under a building, the same earth tone as the dirt path pieces"
+    },
+    {
+      "id": "tileset/apron_stone",
+      "name": "석재 기초",
+      "category": "furniture",
+      "subcategory": "apron",
+      "size": "128x128",
+      "candidates": 4,
+      "desc": "a round platform of fitted flagstones drawn as a flat ground decal seen directly from above with no perspective and no thickness, gray cut slabs of uneven size with narrow gritty joints and chipped corners, thin moss lines between a few of them, the rim ragged and irregular with two loose outlying slabs, everything outside the platform left completely empty so the decal layers under a building, the same granite tone as the stone wall pieces"
+    }
+  ]
+}

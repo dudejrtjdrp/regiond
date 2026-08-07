@@ -1,0 +1,383 @@
+{
+  "note": "배치 4 — data/buildings.json 43종 중 hut(배치1 완료)을 뺀 42종, 전부 1티어 외형. id는 게임 코드와의 계약이므로 buildings.json 키를 그대로 쓴다(building/<key>). name은 buildings.json의 한국어 name 정본, subcategory는 buildings.json categories. 캔버스 = 풋프린트(w×64) × (h×64 + 상부구조 여유 48~96), 1×1은 96x128(탑 계열만 96x160) · 2×2는 128x176 · 3×2는 192x224 · 세장형(lamp·banner·claim_flag)은 64x128, 상한 512x512.",
+  "assets": [
+    {
+      "id": "building/tent",
+      "name": "천막",
+      "category": "building",
+      "subcategory": "housing",
+      "size": "96x128",
+      "candidates": 4,
+      "desc": "a small settler tent pitched over a wooden ridge pole, coarse hemp canvas in weathered off-white with rope guy lines pegged into the dirt, one entrance flap tied back to show a rolled straw mat inside, a bundled pack and a water gourd set beside the opening, base flush with the bottom edge"
+    },
+    {
+      "id": "building/house",
+      "name": "가옥",
+      "category": "building",
+      "subcategory": "housing",
+      "size": "128x256",
+      "candidates": 4,
+      "desc": "a korean settler house under a deep thatched straw roof with a bundled ridge and an exposed timber ridge beam, mud-plaster walls whitewashed between dark wooden posts, a paper-paneled sliding door above a low stone step, a squat ondol chimney of stacked stone at the near corner with soot staining, a narrow raised wooden porch running the front, base flush with the bottom edge"
+    },
+    {
+      "id": "building/manor",
+      "name": "저택",
+      "category": "building",
+      "subcategory": "housing",
+      "size": "192x304",
+      "candidates": 4,
+      "desc": "a large korean manor with a sweeping curved clay tile roof, upturned eaves and carved end tiles, thick timber columns standing on cut stone footings, whitewashed walls broken by dark lattice window panels, a raised wooden veranda spanning the front with a short stone stair, a low stone wall closing the side yard, base flush with the bottom edge"
+    },
+    {
+      "id": "building/storage_crate",
+      "name": "저장 궤짝",
+      "category": "building",
+      "subcategory": "production",
+      "size": "96x128",
+      "candidates": 4,
+      "desc": "two rough plank crates stacked and lashed under a small oiled cloth cover, pale sawn timber with iron corner brackets and rope bindings, the upper lid ajar showing straw packing and a sack corner, a coiled rope and a wedge stone at the foot, base flush with the bottom edge"
+    },
+    {
+      "id": "building/well",
+      "name": "우물",
+      "category": "building",
+      "subcategory": "production",
+      "size": "128x176",
+      "candidates": 4,
+      "desc": "a village well ringed with fitted river stones and a mossy rim, two wooden posts carrying a small thatched cap above it, a rope winch on a wooden crank handle with an oak bucket hanging, a worn stone drain lip and a water-darkened flagstone at the front, base flush with the bottom edge"
+    },
+    {
+      "id": "building/woodpile",
+      "name": "장작더미",
+      "category": "building",
+      "subcategory": "production",
+      "size": "96x176",
+      "candidates": 4,
+      "desc": "a stack of split firewood under a slanted plank shelter, pale cut ends facing out in an even honeycomb stack with rough bark sides, two loose splits fallen at the front, an axe head buried in a chopping block beside the pile, base flush with the bottom edge"
+    },
+    {
+      "id": "building/granary",
+      "name": "곡창",
+      "category": "building",
+      "subcategory": "production",
+      "size": "128x256",
+      "candidates": 4,
+      "desc": "a raised korean granary standing on short stone pillars to keep the grain dry, a thick thatched roof with a bundled straw ridge, plank walls with a slatted vent panel and a hinged front hatch, a short wooden ladder up to the hatch, sheaves of straw leaning against the pillars, base flush with the bottom edge"
+    },
+    {
+      "id": "building/sawmill",
+      "name": "제재소",
+      "category": "building",
+      "subcategory": "production",
+      "size": "192x224",
+      "candidates": 4,
+      "desc": "an open timber sawmill shed, a long pit saw frame carrying a wide toothed blade under a roof of overlapping wooden shingles on heavy posts, sawn planks stacked in tiers along one side, a log cradle holding one trimmed trunk, sawdust drifts and a chopping stump on the packed ground, base flush with the bottom edge"
+    },
+    {
+      "id": "building/quarry_camp",
+      "name": "채석장",
+      "category": "building",
+      "subcategory": "production",
+      "size": "192x224",
+      "candidates": 4,
+      "desc": "a stone cutter's work camp, a plank lean-to roof over a heavy dressing bench with chisels and a mallet laid out, half-shaped blocks and squared slabs stacked in rows, a wooden sledge with a rope harness, gravel and pale stone dust trodden across the ground, base flush with the bottom edge"
+    },
+    {
+      "id": "building/hunter_hut",
+      "name": "사냥꾼 오두막",
+      "category": "building",
+      "subcategory": "production",
+      "size": "128x176",
+      "candidates": 4,
+      "desc": "a hunter's cabin of stacked logs under a low thatched roof, a drying rack of stretched hides and strips of meat beside the door, antlers mounted above the lintel, a bow and quiver leaning on the wall with coiled snares hung under the eaves, base flush with the bottom edge"
+    },
+    {
+      "id": "building/ranch",
+      "name": "목장",
+      "category": "building",
+      "subcategory": "production",
+      "size": "192x256",
+      "candidates": 4,
+      "desc": "a livestock ranch yard, a low open-sided timber barn with a thatched roof and a hay loft opening in the gable, split rail fencing enclosing a trodden dirt paddock, a water trough hollowed from a log and a slatted feed rack of hay, no animals present, base flush with the bottom edge"
+    },
+    {
+      "id": "building/storage",
+      "name": "저장고",
+      "category": "building",
+      "subcategory": "production",
+      "size": "192x256",
+      "candidates": 4,
+      "desc": "a large settlement warehouse, a long thatched roof over heavy timber framing, wide double plank doors standing open on iron straps, crates barrels and rope-tied sacks stacked inside the doorway and along the front wall, a loading ramp of packed earth and boards, base flush with the bottom edge"
+    },
+    {
+      "id": "building/bloomery",
+      "name": "무쇠 화로",
+      "category": "building",
+      "subcategory": "production",
+      "size": "128x176",
+      "candidates": 4,
+      "desc": "a small clay bloomery furnace, a tapered stack of packed clay bound with stone and iron hoops, a soot-blackened mouth with coals glowing at the tap hole, a leather bellows mounted on a wooden frame at the side, a charcoal basket and a heap of dark slag at the foot, base flush with the bottom edge"
+    },
+    {
+      "id": "building/smelter",
+      "name": "제련소",
+      "category": "building",
+      "subcategory": "production",
+      "size": "192x256",
+      "candidates": 4,
+      "desc": "a stone smelting works, a tall square furnace stack of fitted blocks with an arched fire mouth glowing orange, a timber gantry and rope hoist reaching over the charging opening at the top, ore piles and charcoal heaps banked against the wall, a rack of ingot molds cooling beside them, base flush with the bottom edge"
+    },
+    {
+      "id": "building/smithy",
+      "name": "대장간",
+      "category": "building",
+      "subcategory": "production",
+      "size": "192x256",
+      "candidates": 4,
+      "desc": "an open-fronted blacksmith forge, a brick hearth of glowing coals with a hanging bellows above it, a heavy anvil set on an oak stump, a quench trough and a wall rack of tongs and hammers, finished tool blanks standing in a barrel, thatched roof on stout posts with a soot-stained stone chimney, base flush with the bottom edge"
+    },
+    {
+      "id": "building/mine_shaft",
+      "name": "광산 갱도",
+      "category": "building",
+      "subcategory": "production",
+      "size": "192x256",
+      "candidates": 4,
+      "desc": "a mine entrance driven into a rocky bank, a squared timber portal frame with cross bracing and a hanging lantern, the shaft mouth dark behind it, narrow plank rails running out to a loaded ore cart, spoil heaps of broken rock and a windlass standing over a side hole, base flush with the bottom edge"
+    },
+    {
+      "id": "building/mill",
+      "name": "방앗간",
+      "category": "building",
+      "subcategory": "production",
+      "size": "192x256",
+      "candidates": 4,
+      "desc": "a grain mill with a large wooden water wheel turning in a stone race, plastered walls under a thatched roof, a sack hoist door open in the gable with a rope and pulley, grain sacks stacked by the entrance and a spare millstone leaning on the wall, spilled flour dusting the ground, base flush with the bottom edge"
+    },
+    {
+      "id": "building/fence",
+      "name": "울타리",
+      "category": "building",
+      "subcategory": "military",
+      "size": "96x128",
+      "candidates": 4,
+      "desc": "a single span of wooden paling fence, two squared posts driven into the ground carrying three split rails lashed across with hemp rope, rough bark-edged timber showing grain and two dark knots, one short stake wedged at the base of the near post, base flush with the bottom edge"
+    },
+    {
+      "id": "building/gate",
+      "name": "문",
+      "category": "building",
+      "subcategory": "military",
+      "size": "96x128",
+      "candidates": 4,
+      "desc": "a wooden gate hung between two thick fence posts, a vertical plank leaf with a diagonal brace and iron strap hinges, a rope latch loop over a peg, a carved cap on each post and a worn dirt threshold underneath, base flush with the bottom edge"
+    },
+    {
+      "id": "building/watchpost",
+      "name": "초소",
+      "category": "building",
+      "subcategory": "military",
+      "size": "96x160",
+      "candidates": 4,
+      "desc": "a small timber watch post, four braced legs carrying a railed lookout platform under a little thatched canopy, a short ladder nailed to the near leg, a bronze alarm bell hanging from the rail beside a rolled banner, base flush with the bottom edge"
+    },
+    {
+      "id": "building/arrow_tower",
+      "name": "화살탑",
+      "category": "building",
+      "subcategory": "military",
+      "size": "96x160",
+      "candidates": 4,
+      "desc": "a narrow wooden arrow tower, a lashed timber frame rising to a boarded upper stage with narrow arrow slits and a low plank parapet, a quiver of arrows and a leaning bow visible at the top, rungs nailed up one leg, stone packing wedged around the footings, base flush with the bottom edge"
+    },
+    {
+      "id": "building/barracks",
+      "name": "병영",
+      "category": "building",
+      "subcategory": "military",
+      "size": "192x304",
+      "candidates": 4,
+      "desc": "a militia barracks hall, a long low building under a heavy thatched roof with a timber-framed front porch, whitewashed walls with narrow shuttered windows, a rack of spears standing beside the door, a straw training dummy and a stack of round shields on the trodden yard ground, base flush with the bottom edge"
+    },
+    {
+      "id": "building/ballista",
+      "name": "노포",
+      "category": "building",
+      "subcategory": "military",
+      "size": "128x176",
+      "candidates": 4,
+      "desc": "a heavy timber ballista on a rotating wooden platform, thick torsion arms sprung from twisted sinew bundles, a long grooved firing rail with one giant iron-tipped bolt loaded, an iron winch crank at the rear, spare bolts standing in a rack against the platform, base flush with the bottom edge"
+    },
+    {
+      "id": "building/cannon",
+      "name": "화포",
+      "category": "building",
+      "subcategory": "military",
+      "size": "128x256",
+      "candidates": 4,
+      "desc": "a squat bronze cannon on a heavy timber carriage with iron-shod wooden wheels, a banded barrel with a flared muzzle and a soot-marked touch hole, a rammer leaning against the trail and a pyramid of stone shot beside it, a small powder keg strapped down at the rear, base flush with the bottom edge"
+    },
+    {
+      "id": "building/frost_tower",
+      "name": "서리탑",
+      "category": "building",
+      "subcategory": "military",
+      "size": "96x160",
+      "candidates": 4,
+      "desc": "a slender tower of pale fitted stone crowned with a cluster of blue ice crystals, frost rime creeping down the masonry joints, icicles hanging from a small stone canopy near the top, a ring of frost-whitened ground and two loose ice shards at the plinth, base flush with the bottom edge"
+    },
+    {
+      "id": "building/flame_tower",
+      "name": "화염탑",
+      "category": "building",
+      "subcategory": "military",
+      "size": "128x176",
+      "candidates": 4,
+      "desc": "a stout stone tower crowned with an open iron brazier, flames burning bright above a blackened grate, soot streaks running down the upper masonry, iron banding around the shaft and a short ladder bolted to one side, an oil jar and a bundle of pitch torches leaning at the base, base flush with the bottom edge"
+    },
+    {
+      "id": "building/campfire",
+      "name": "정착지 본부",
+      "category": "building",
+      "subcategory": "civic",
+      "size": "256x352",
+      "candidates": 4,
+      "desc": "the founding camp of the settlement, a large stacked-log bonfire burning inside a ring of stones with an iron cooking tripod and pot over it, two hemp canvas tents pitched on either side with rope guys and pegs, split log benches and a stack of supply crates and barrels around the fire, a tall wooden pole carrying a hanging lantern and a small banner, trodden bare earth underfoot, base flush with the bottom edge"
+    },
+    {
+      "id": "building/appraisal_post",
+      "name": "감정소",
+      "category": "building",
+      "subcategory": "civic",
+      "size": "128x176",
+      "candidates": 4,
+      "desc": "a land surveyor's post, a plank booth with an open counter shelf under a small thatched awning, rolled maps and sample stones and soil jars lined along the shelf, a brass sighting instrument on a wooden tripod set beside it, a marked measuring rod leaning at the corner, base flush with the bottom edge"
+    },
+    {
+      "id": "building/trading_post",
+      "name": "교역소",
+      "category": "building",
+      "subcategory": "civic",
+      "size": "192x256",
+      "candidates": 4,
+      "desc": "a frontier trading post, a timber shopfront with a wide shutter counter propped open under a patched cloth awning, hanging scales and a rack of goods behind the counter, a laden handcart parked at the side with roped bales and barrels, a hitching rail and a scatter of straw, no animals present, base flush with the bottom edge"
+    },
+    {
+      "id": "building/market",
+      "name": "시장",
+      "category": "building",
+      "subcategory": "civic",
+      "size": "192x304",
+      "candidates": 4,
+      "desc": "a row of open market stalls, plank booths under patched cloth canopies stretched on bamboo poles, baskets of grain vegetables and dried fish set out on display boards, paper lanterns and a small banner pole strung above, coin scales on the nearest counter, a trodden dirt lane running between the stalls, base flush with the bottom edge"
+    },
+    {
+      "id": "building/shrine",
+      "name": "성지",
+      "category": "building",
+      "subcategory": "civic",
+      "size": "256x352",
+      "candidates": 4,
+      "desc": "a korean village shrine, a small tile-roofed wooden hall with red-painted posts standing on a cut stone platform, a paved approach flanked by two carved jangseung guardian totem poles and a sotdae bird pole, stone offering bowls and a bronze bell hanging under the eave, a low stone wall enclosing the yard, base flush with the bottom edge"
+    },
+    {
+      "id": "building/consulate",
+      "name": "영사관",
+      "category": "building",
+      "subcategory": "civic",
+      "size": "256x352",
+      "candidates": 4,
+      "desc": "a foreign consulate compound, a two-storey tile-roofed hall with lattice windows and a broad entrance gate carrying its own small roof, whitewashed plaster panels between dark timber posts, two banner poles flanking the gate, a paved forecourt with a stone mounting block, a low boundary wall running around it, base flush with the bottom edge"
+    },
+    {
+      "id": "building/monument",
+      "name": "기념비",
+      "category": "building",
+      "subcategory": "civic",
+      "size": "192x256",
+      "candidates": 4,
+      "desc": "a commemorative stone stele, a tall carved granite slab with an inscribed face standing on a stepped plinth, a carved stone turtle forming the base, weathered edges with moss caught in the incised lettering, four short boundary posts joined by a rope around it, base flush with the bottom edge"
+    },
+    {
+      "id": "building/claim_flag",
+      "name": "개척 깃발",
+      "category": "building",
+      "subcategory": "civic",
+      "size": "64x128",
+      "candidates": 4,
+      "desc": "a tall claim pole driven into a mound of packed earth and stones, a long narrow deep red cloth banner hanging from a crossbar with a frayed lower edge, hemp rope lashings and a carved wooden finial at the top, one support stake wedged against the pole, base flush with the bottom edge"
+    },
+    {
+      "id": "building/lamp",
+      "name": "가로등",
+      "category": "building",
+      "subcategory": "decor",
+      "size": "64x128",
+      "candidates": 4,
+      "desc": "a wooden street lamp post set on a small stone footing, a square paper lantern in an iron frame glowing warm at the top under a little tiled cap, an iron hook and a coiled cord on the shaft, timber grain and two nail plates visible, base flush with the bottom edge"
+    },
+    {
+      "id": "building/banner",
+      "name": "깃발",
+      "category": "building",
+      "subcategory": "decor",
+      "size": "64x128",
+      "candidates": 4,
+      "desc": "a tall settlement banner on a timber pole, a vertical cloth flag bearing a simple painted emblem with a fringed lower hem, iron ring fittings and rope ties along the pole, a carved wooden crown at the top, a stone-weighted collar at the foot, base flush with the bottom edge"
+    },
+    {
+      "id": "building/garden",
+      "name": "정원",
+      "category": "building",
+      "subcategory": "decor",
+      "size": "96x128",
+      "candidates": 4,
+      "desc": "a small ornamental garden plot, a low stone border enclosing raked earth with clipped shrubs and flowering peonies, one gnarled dwarf pine leaning over them, a flat stepping stone and a squat stone lantern at the corner, base flush with the bottom edge"
+    },
+    {
+      "id": "building/fountain",
+      "name": "분수",
+      "category": "building",
+      "subcategory": "decor",
+      "size": "96x128",
+      "candidates": 4,
+      "desc": "a small stone fountain, a round carved basin with a mossy rim and a tiered central spout, water arcing from the spout and rippling in the basin, water-darkened stone below the rim and a wet paved apron around the foot, base flush with the bottom edge"
+    },
+    {
+      "id": "building/library",
+      "name": "서고",
+      "category": "building",
+      "subcategory": "research",
+      "size": "192x256",
+      "candidates": 4,
+      "desc": "a settlement library hall, a tile-roofed timber building with wide lattice window panels and a raised wooden floor on stone footings, a covered porch with scroll racks visible through the open door, stacked bound volumes and a low writing desk with an ink stone and brush jar, base flush with the bottom edge"
+    },
+    {
+      "id": "building/workshop",
+      "name": "공방",
+      "category": "building",
+      "subcategory": "research",
+      "size": "192x256",
+      "candidates": 4,
+      "desc": "an engineering workshop, a timber shed with a shingled roof and a wide open work bay, a treadle lathe and a workbench cluttered with gears clamps and hand tools, a rack of iron stock and coiled copper tubing on the wall, a small test rig of levers and pulleys standing outside, base flush with the bottom edge"
+    },
+    {
+      "id": "building/academy",
+      "name": "대학당",
+      "category": "building",
+      "subcategory": "research",
+      "size": "256x352",
+      "candidates": 4,
+      "desc": "a grand academy hall, a broad tile roof with upturned eaves carried on a colonnade of red timber posts, a cut stone stair rising to the entrance platform, latticed doors standing open, a side study pavilion and a courtyard with a stone plinth, a low wall running around the grounds, base flush with the bottom edge"
+    },
+    {
+      "id": "building/station",
+      "name": "정거장",
+      "category": "building",
+      "subcategory": "civic",
+      "size": "128x176",
+      "candidates": 4,
+      "desc": "a small rail halt, a plank boarding platform with a timber canopy on iron posts, a hanging schedule board and a lantern under the canopy, a short length of narrow gauge track on wooden sleepers running past the platform edge, a bench and a stack of freight crates, base flush with the bottom edge"
+    }
+  ]
+}
