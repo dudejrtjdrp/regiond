@@ -1,0 +1,46 @@
+{
+  "_note": "갈래말래 에셋 파이프라인 설정. 모델 파일명은 docs/에셋파이프라인_설치.md의 배치 경로와 반드시 일치해야 한다.",
+  "comfyUrl": "http://127.0.0.1:8188",
+  "projectRoot": "../..",
+
+  "checkpoint": "sd_xl_base_1.0.safetensors",
+  "vae": "sdxl_vae.safetensors",
+  "loras": [
+    { "name": "pixel-art-xl.safetensors", "strength": 1.0, "note": "nerijs/pixel-art-xl — 주력 픽셀아트 LoRA (SDXL 1.0 전용)" }
+  ],
+
+  "negative": "photo, photorealistic, 3d render, blurry, jpeg artifacts, antialiasing, soft edges, gradient background, drop shadow on background, text, watermark, signature, ui frame, border, multiple views, extra limbs, mutated hands, low contrast, washed out, neon, fluorescent colors, isometric grid, chibi cartoon outline, black outline, thick black border, dithering noise, checkerboard background, white background, transparent checkerboard",
+
+  "steps": 32,
+  "cfg": 7.0,
+  "sampler": "dpmpp_2m",
+  "scheduler": "karras",
+
+  "candidates": 4,
+  "quantizeStrength": 0.5,
+  "downscaleFilter": "nearest",
+  "keyColor": "#FF00FF",
+  "keyTolerance": 110,
+  "haloTolerance": 190,
+
+  "timeoutSeconds": 900,
+  "outDir": "tools/pipeline/out",
+
+  "workflowByCategory": {
+    "player": "character", "npc": "character", "monster": "character",
+    "animal": "character", "portrait": "character",
+    "tree": "prop", "building": "prop", "furniture": "prop",
+    "mineral": "prop", "plant": "prop", "effect": "prop",
+    "tileset": "tile",
+    "weapon": "icon", "armor": "icon", "food": "icon",
+    "consumable": "icon", "material": "icon", "ui": "icon"
+  },
+
+  "sources": {
+    "comfyApi": "https://docs.comfy.org/development/comfyui-server/api-examples",
+    "pixelArtXl": "https://huggingface.co/nerijs/pixel-art-xl",
+    "sdxlBase": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0",
+    "sdxlVaeFix": "https://huggingface.co/madebyollin/sdxl-vae-fp16-fix",
+    "fluxPixelAlt": "https://huggingface.co/UmeAiRT/FLUX.1-dev-LoRA-Modern_Pixel_art"
+  }
+}

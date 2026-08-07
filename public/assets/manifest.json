@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "palette": "assets/palette/master-v1.json",
+  "reference": "player/hero_base",
+  "assets": []
+}

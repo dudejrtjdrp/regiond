@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>갈래말래 · Asset Museum</title>
+<!-- 「왜」 완전 오프라인 동작이 요구사항이라 외부 CDN·폰트를 일절 링크하지 않는다. -->
+<link rel="stylesheet" href="css/museum.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">갈래말래 · Asset Museum</span>
+    <span class="brand-sub">개발 전용 검수 도구 · 아트바이블 v1.0</span>
+  </div>
+
+  <div class="tool-group">
+    <input id="search" class="search" type="search" placeholder="이름 · 태그 · ID 검색" autocomplete="off">
+    <label class="chk"><input type="checkbox" id="filter-fail"> FAIL만</label>
+    <label class="chk"><input type="checkbox" id="toggle-checker"> 체커보드</label>
+  </div>
+
+  <div class="tool-group" id="env-group"><span class="group-label">환경</span></div>
+  <div class="tool-group" id="zoom-group"><span class="group-label">배율</span></div>
+
+  <button id="btn-export" class="btn btn-accent" type="button">JSON 내보내기 <span id="export-count">(0)</span></button>
+</header>
+
+<div class="layout">
+  <nav id="sidebar" class="sidebar"></nav>
+  <main class="main">
+    <section id="reference-slot" class="reference"></section>
+    <div id="halls" class="halls"><p class="loading">에셋 분석 중…</p></div>
+  </main>
+</div>
+
+<!-- ================= 확대 뷰어 ================= -->
+<div id="viewer" class="viewer hidden" role="dialog" aria-modal="true" aria-label="에셋 확대 뷰어">
+  <div class="viewer-bar">
+    <h2 id="v-name">—</h2>
+    <span id="v-id" class="vid"></span>
+    <span id="v-badge" class="badge static PASS">PASS</span>
+    <span class="spacer"></span>
+    <div class="tool-group" id="v-env-group"><span class="group-label">환경</span></div>
+    <div class="tool-group" id="v-zoom-group"><span class="group-label">배율</span></div>
+    <button id="v-close" class="btn" type="button">닫기 (Esc)</button>
+  </div>
+
+  <div class="viewer-body">
+    <div class="viewer-left">
+      <div class="stage-row">
+        <div class="stage-box">
+          <div class="stage-label">nearest 강제 (정본 표시)</div>
+          <canvas id="stage-near" width="470" height="430"></canvas>
+        </div>
+        <div class="stage-box">
+          <div class="stage-label">브라우저 기본 (스무딩 허용)</div>
+          <canvas id="stage-smooth" class="smooth" width="470" height="430"></canvas>
+        </div>
+      </div>
+      <p class="stage-note">
+        1:1(100%)에서는 두 화면이 완전히 동일하다. 그 이상 배율에서는 오른쪽(브라우저 기본)이 보간을 넣어
+        가장자리가 물러지고, 특히 비정수배인 150%에서 픽셀 뭉침·계단 왜곡이 뚜렷하게 보인다.
+        검수·게임의 정본은 언제나 왼쪽(nearest, 정수배)이다.
+      </p>
+      <div class="panel" style="margin-top:16px">
+        <h3>스타일 비교 (나란히)</h3>
+        <div class="row">
+          <label for="cmp-select">비교 대상</label>
+          <select id="cmp-select" class="num"></select>
+        </div>
+        <canvas id="cmp-canvas" width="720" height="300"></canvas>
+        <table class="cmp-table" id="cmp-table"></table>
+      </div>
+    </div>
+
+    <div class="viewer-right">
+      <section class="panel">
+        <h3>정보</h3>
+        <dl class="kv" id="v-info"></dl>
+      </section>
+
+      <section class="panel">
+        <h3>자동 QA (아트바이블 §11)</h3>
+        <div id="v-qa"></div>
+      </section>
+
+      <section class="panel">
+        <h3>애니메이션</h3>
+        <div class="row" id="anim-buttons"></div>
+        <div class="row" id="anim-controls">
+          <button class="btn btn-sm" id="anim-play" type="button">일시정지</button>
+          <button class="btn btn-sm" id="anim-prev" type="button">◀ 프레임</button>
+          <button class="btn btn-sm" id="anim-next" type="button">프레임 ▶</button>
+          <span id="anim-info" class="vid"></span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>사이즈 조정 (게임 배치용)</h3>
+        <div class="row">
+          <label for="size-scale">scale</label>
+          <input type="range" id="size-scale" min="0.25" max="4" step="0.05" value="1">
+          <input type="number" id="size-scale-num" class="num" min="0.25" max="4" step="0.05" value="1">
+        </div>
+        <div class="row">
+          <label for="size-offx">offsetX</label>
+          <input type="number" id="size-offx" class="num" step="1" value="0">
+          <label for="size-offy">offsetY</label>
+          <input type="number" id="size-offy" class="num" step="1" value="0">
+          <button class="btn btn-sm" id="size-reset" type="button">초기화</button>
+        </div>
+        <canvas id="size-preview" width="368" height="300"></canvas>
+        <p class="vid" id="size-note">64px 타일 그리드 + 기준 캐릭터(반투명) 위 실시간 미리보기</p>
+        <div class="row">
+          <button class="btn btn-sm btn-accent" id="size-export" type="button">변경분 JSON 내보내기</button>
+          <span class="vid" id="size-changed"></span>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script type="module" src="js/museum.js"></script>
+</body>
+</html>
