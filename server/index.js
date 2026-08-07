@@ -26,7 +26,7 @@ import {
 import { buildRegencyReport, markSeen } from './engine/report.js';
 import { evaluateProgress } from './engine/progression.js';
 import { roleSummary } from './engine/npc.js';
-import { ensurePlayer } from './engine/skills.js';
+import { ensurePlayer, playerProgressView } from './engine/skills.js';
 import { stepBattle, finishBattle, battleSnapshot } from './engine/battle.js';
 // ★ GDD3 §13-C — 상시 생태계. 일 틱도 전투 서브틱도 아닌 제 박자로 돈다.
 import { stepEcology, ensureCreatures, creatureViews } from './engine/ecology.js';
@@ -164,7 +164,7 @@ class GameRuntime {
       const watching = [...sessions.values()].some((s) => s.gameId === this.gameId && s.nationId === nation.id);
       if (!watching) continue;
       ensureCreatures(this.world, nation, data);
-      const { events, shots, kills } = stepEcology(this.world, nation, data, dt);
+      const { events, shots, kills, healed } = stepEcology(this.world, nation, data, dt);
       const painful = events.filter((e) => e.kind === 'player_down' || e.kind === 'wild_hit' || e.kind === 'player_revived');
       if (painful.length) this.emitImmediate(nation.id, painful);
       /* ★ §19-A — 쓰러짐·부활은 **판(state)이 바뀐 사건**이다. 예전에는 알림(playerDown/playerRevived)만
@@ -200,7 +200,9 @@ class GameRuntime {
       /* ★ GDD3 §15-C — 동료의 한 걸음. 사람과 같은 함수(actionSwing·huntSwing·combatSwing)를 타므로
          화면이 받는 것도 사람의 스윙과 **같은 규약**이다: 자리는 avatars, 손맛은 swing 이 나른다. */
       const crew = stepCompanions(this.world, nation, data, dt);
-      if (crew.avatars) emitAvatars(this.gameId, nation);
+      /* ★ §19-C — 정착지에서 찬 체력도 아바타 채널로 그 자리에서 흐른다(avatars 는 hp 를 나른다).
+         동료가 걸을 때만 보내던 탓에, 가만히 서서 쉬면 회복이 화면에 한 방울도 안 비쳤다. */
+      if (crew.avatars || healed) emitAvatars(this.gameId, nation);
       for (const a of crew.actions) {
         io.to(this.gameId).emit('swing', { ...a, resources: liveResources(nation) });
       }
@@ -634,6 +636,17 @@ function liveResources(nation) {
   );
 }
 
+/**
+ * ★ §19-C — 실시간 ack 에 실어 보내는 **내 눈금표**(권위값).
+ * 「왜」 필요한가 — 스윙 ack 은 솜씨 하나의 xp 만 돌려줬다. 그런데 좌하단 눈금 바는 다섯 솜씨를
+ * 합친 단계·비율(progress)을 그린다: 그 값은 다음 일 틱(최대 10분)까지 낡은 채였고, 마침 틱이
+ * 끼면 오르고 아니면 안 오르는 것처럼 보였다(B04-2 「올랐다 안 올랐다」).
+ */
+function livePlayerProgress(nation, avatarId, data) {
+  const p = nation?.players?.[avatarId ?? 'lord'];
+  return p ? playerProgressView(p, data) : null;
+}
+
 /** 역할 갱신 통지 — pickRole/delegate 로 자리 배치가 바뀌면 방 전체가 자기 역할을 다시 파생한다 */
 function refreshRoles(rt, nationId, { actorSocketId = null, takenFrom = null } = {}) {
   const nation = rt.world.nations[nationId];
@@ -842,6 +855,8 @@ io.on('connection', (socket) => {
         // ★ 창고 잔고를 ack 에 실어 보낸다 — 화면의 자원칸이 다음 일 틱(최대 10분)을 기다리지 않는다.
         //   같은 방의 동료들도 'swing' 중계로 같은 잔고를 함께 받는다(창고는 나라 공용이다).
         out.resources = liveResources(rt.world.nations[s.nationId]);
+        // ★ §19-C — 눈금(경험치)도 잔고와 **같은 자리에** 싣는다(모든 행동이 이 문을 지난다)
+        out.progress = livePlayerProgress(rt.world.nations[s.nationId], identity?.avatarId, data);
         if (ack) ack(out);
         socket.to(s.gameId).emit('swing', { avatarId: identity.avatarId, type, ...out });
         /* ★ §19-A — 궤를 열면 그 자리는 세상에서 **지워진다**(그루터기가 아니다). 그런데 실시간 경로는

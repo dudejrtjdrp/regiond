@@ -73,7 +73,11 @@ export function step(state, inputs = [], rng = null, data = loadGameData(), opts
 
   // ── 0. 하루 시작 — 행동력 회복(이월 없음) ─────────────────────
   for (const nation of Object.values(world.nations)) {
-    if (nation.isPlayer) regenActionPoints(nation, data, tick);
+    if (!nation.isPlayer) continue;
+    regenActionPoints(nation, data, tick);
+    /* ★ §19-C — 잠은 하룻밤짜리다. 표를 남겨 두면 다음 날에도 「잠듦」이 붙어 있고,
+       한 사람이 자 둔 표만으로 이튿날 아침이 곧장 넘어간다(§17-7 다같이 잠자기). */
+    nation.sleepVotes = {};
   }
 
   // ── 1. 입력 반영 ────────────────────────────────────────────────

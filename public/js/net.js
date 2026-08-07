@@ -231,6 +231,7 @@
 
     socket.on('avatars', function (list) {
       S.set({ avatars: Array.isArray(list) ? list : [] });
+      S.syncMyVitals();          /* ★ §19-C — 이 목록이 나르는 내 체력을 좌하단 판에 옮긴다 */
       S.emit('avatars', S.S.avatars);
     });
     socket.on('chatHistory', function (list) {

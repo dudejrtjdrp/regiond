@@ -676,6 +676,8 @@ TrailView { id, key, kind:'chain'|'micro', x, y, name, art, verb, ready }
 | ack | `lordMove.revealedNodes[]` | ★ §13-B-4 걸어가서 드러난 은닉 유적 |
 | ack | `combatSwing.hunt / species / speciesName / gained` | ★ §13-C-8 사냥 결과(드롭 포함) |
 | ack | `actionSwing.respawnAt` | 방금 그루터기가 됐다면 언제 되살아나는지 |
+| ack | `actionSwing.progress` / `combatSwing.progress` | ★ §19-C 다섯 솜씨를 합친 내 눈금표(즉시 반영) |
+| ack | `setLabor.seated` / `setVillagerMix.seated` | ★ §19-C 나눔 직후 그 자리에서 일터에 앉힌 사람 수 |
 | 자료 | `data/creatures.json` | 생태계 정본 — 종 12(동물 6 · 야생 적 6) · 스폰 · 저빈도 시뮬 · 도감 문턱 · 사냥 |
 | 자료 | `world.nodes.clusters` | 군락 규칙 — `clearRadius` · `centerRadius` · `nearGuarantee[]` |
 | 자료 | `world.nodes.regrow` | 재생 날수 표 + `fadeAt`(옅어짐 문턱) |
@@ -1101,7 +1103,10 @@ ack / `joined` 이벤트 payload:
   "tool": { "key": "stone_axe", "name": "돌도끼", "multiplier": 1 },
   "level": 3, "leveled": false, "xp": 84,
   "ruin": null,                         // 유적이면 {gauge, threshold}
-  "resources": { "grain": 12, "wood": 17.2, "stone": 5 } }   // ★ 스윙 뒤의 창고 잔고(권위값)
+  "resources": { "grain": 12, "wood": 17.2, "stone": 5 },    // ★ 스윙 뒤의 창고 잔고(권위값)
+  "progress": { "level": 4, "xp": 210, "from": 180, "need": 260, "ratio": 0.37, "points": 1, "…": "…" } }
+  // ★ §19-C 추가 — 다섯 솜씨를 합친 **내 눈금표**(skills.playerProgressView 와 같은 모양).
+  //   솜씨 하나의 xp 만 주면 좌하단 눈금 바는 다음 일 틱(최대 10분)까지 낡는다(B04-2).
 ```
 **계약**: `config.skills.defs[*].nodeTypes` 에 적힌 노드는 **반드시** `config.skills.nodes` 에 규격이 있어야 한다.
 (둘이 어긋나면 그 노드를 칠 때 `NOT_WORKABLE` 로 튕긴다 — v3.0 에서 `water`(어로)가 그랬고, 지금은 규격이 있다.
@@ -1219,6 +1224,10 @@ ack / `joined` 이벤트 payload:
 | `setVillagerMix` | `{mix?}` 또는 `{alloc?, gather?, scout?}` | 비율 배치(각료 위임·봇) |
 | `setLabor` | `{alloc}` 또는 `{recommended:true}` | 부처 비율 → 배치로 환산 |
 
+★ §19-C — `setLabor` · `setVillagerMix` 는 나눈 **그 자리에서** 남은 유휴를 일터에 앉히고(`seated`),
+캐는 손은 도읍(hall)보다 자원 노드를 먼저 받는다. 예전에는 이 정리가 다음 일 틱에나 돌아,
+「알아서 나누기」 직후 사람들이 정착지 한복판에 뭉쳐 서 있었다.
+
 `laborAlloc` 은 여전히 **배치의 파생값**이다(슬라이더가 아니다). 티어 3 미만에서는 부처가 돌지 않으므로 배치는 '누가 어느 노드에서 캐는가'만 정한다.
 
 ### 3-5. 경제·역할 (v2.1 그대로, 해금 조건만 추가)
@@ -1228,7 +1237,7 @@ ack / `joined` 이벤트 payload:
 | `trade {nationId, side, resource, amount}` | 티어 3(교역소) | 아니면 `TRADE_LOCKED` |
 | `respondOffer {offerId, accept}` / `decide {decisionId, choice}` | — | |
 | `buyTool {tool, tier}` / `sellWeapon {}` | 티어 3(대장간) | 국가 단위 도구 — 개인 스킬 도구와 별개 |
-| `setQueue {factory:{steel,fuel,weapon}}` | 티어 3 | |
+| `setQueue {factory:{steel,fuel,weapon}}` | 티어 3 | `weapon` 은 **쓰이지 않는 칸**이다(공정이 만드는 것은 강재·연료뿐 — 무기는 `buyTool`). 계약 유지를 위해 필드는 남기고, 화면은 0을 실어 보낸다 (★ §19-C) |
 | `ordersSet {orders}` | 티어 4(국법) | |
 | `saintBuff {resource}` | 성녀 재임 | |
 | `useArtifact {key}` / `councilAck {councilId}` | 티어 4 | |

@@ -450,6 +450,7 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
   const cCfg = combatSkillCfg(data);
   const town0 = townOf(world, nation.id);
   const inBattle = Boolean(nation.battle && !nation.battle.over);
+  let healed = false;               // ★ §19-C — 이번 걸음에 누군가의 체력이 찼는가
   for (const p of Object.values(nation.players || {})) {
     if ((p.invulnUntil || 0) > 0) p.invulnUntil = Math.max(0, round2(p.invulnUntil - dt));
     /* ★ GDD3 §15-C — 모닥불 곁의 쉼. 본부 반경 안에 서 있고 웨이브 중이 아니면 기운이 돈다.
@@ -468,6 +469,9 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
       if (av0 && (p.hp ?? maxHp) < maxHp
         && dist(av0.x, av0.y, town0.x, town0.y) <= restR) {
         p.hp = round2(Math.min(maxHp, (p.hp ?? maxHp) + heal * dt));
+        /* ★ §19-C — 기운이 돈 사실을 밖으로 알린다. 서버에서는 늘 차고 있었지만 화면은
+           다음 방송(최대 10분)까지 옛 체력을 그렸다 — 「정착지에서 회복이 안 된다」의 정체다. */
+        healed = true;
       }
     }
     if ((p.downUntil || 0) <= 0) continue;
@@ -573,7 +577,7 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
   save();
   /* ★ §15-A-1 — 터렛은 웨이브만 기다리지 않는다. 들의 것이 사거리에 들면 그 자리에서 쏜다. */
   const guard = turretGuard(world, nation, data, dt);
-  return { events, moved, shots: guard.shots, kills: guard.kills };
+  return { events, moved, shots: guard.shots, kills: guard.kills, healed };
 }
 
 // ────────────────────────────────────────────────────────────────

@@ -380,7 +380,7 @@
     /* ★ §19-B — 아바타 자리는 이 문으로도 온다(일 틱의 worldDiff). 그때도 **받았다고 알린다** —
        화면의 지연 버퍼는 받은 시각을 기준으로 걸음을 잇는데, 조용히 값만 갈아 두면 그 한 장이
        버퍼에 안 실려 다음 방송까지 얼어붙었다가 통째로 건너뛴다(짐승의 creatures 와 같은 규칙). */
-    if (d.avatars) { S.avatars = d.avatars; emit('avatars', S.avatars); }
+    if (d.avatars) { S.avatars = d.avatars; syncMyVitals(); emit('avatars', S.avatars); }
     if (d.structures && d.structures.length) { m.structures = d.structures; bumpStructures(); }
     if (d.fences && d.fences.length) m.fences = d.fences;
     m.tick = d.tick;
@@ -497,6 +497,26 @@
     return true;
   }
 
+  /**
+   * ★ §19-C — 아바타 목록은 hp·maxHp 를 함께 나른다(view.avatarViews). 그중 **내 것**을
+   * 좌하단 체력 바로 옮긴다. 「왜」 — 정착지에서 차오르는 체력(ecology 의 쉼)은 초마다 서버에서
+   * 오르지만, 판(state) 방송은 일 틱에 한 번이라 화면은 「회복이 안 된다」로 보였다.
+   */
+  function syncMyVitals() {
+    var p = S.view && S.view.you && S.view.you.player;
+    var list = S.avatars || [];
+    if (!p || S.avatarId == null) return false;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].id !== S.avatarId || list[i].hp == null) continue;
+      if (list[i].hp === p.hp) return false;
+      p.hp = list[i].hp;
+      if (list[i].maxHp) p.maxHp = list[i].maxHp;
+      emit('live', S);
+      return true;
+    }
+    return false;
+  }
+
   function applyAck(evt, res, opts) {
     if (!res) return;
     /* 실패한 명령도 사실을 하나 알려 준다 — 「저 밭은 아직 아니다」 같은 것 */
@@ -552,6 +572,12 @@
         if (res.level != null) sk.level = res.level;
         touched = true;
       }
+    }
+    /* ★ §19-C — 다섯 솜씨를 합친 눈금표(단계·비율·남은 점수)는 서버가 ack 에 실어 준다.
+       솜씨 하나의 xp 만 고쳐 쓰면 좌하단 눈금 바는 다음 일 틱까지 낡은 값을 그린다. */
+    if (self && res.progress && v && v.you && v.you.player) {
+      v.you.player.progress = res.progress;
+      touched = true;
     }
     /* ★ 'live' — 일 틱을 기다리지 않고 화면을 고쳐 그리라는 신호(app.js 가 HUD·목표 카드를 새로 그린다).
        스윙은 초당 한 번꼴이라 이 주기로 다시 그려도 값이 싸다. */
@@ -1505,7 +1531,7 @@
     S: S, on: on, off: off, emit: emit, set: set, reset: reset, setBoot: setBoot,
     applyWorld: applyWorld, applyWorldDiff: applyWorldDiff, decodeRleInto: decodeRleInto,
     revealAround: revealAround, visionRadius: visionRadius, applyAck: applyAck,
-    applyLiveResources: applyLiveResources,
+    applyLiveResources: applyLiveResources, syncMyVitals: syncMyVitals,
 
     nation: nation, ap: ap,
     tier: tier, tierNo: tierNo, unlocked: unlocked, uiOn: uiOn, featOn: featOn, buildingOn: buildingOn,
