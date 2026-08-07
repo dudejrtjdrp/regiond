@@ -39,7 +39,7 @@ import { dist } from './world.js';
 import { revealAvatar } from './fog.js';
 import { combatSwing } from './battle.js';
 // ★ GDD3 §13-C-8 — 웨이브 밖의 검. 들에 사는 것들을 벤다.
-import { huntSwing } from './ecology.js';
+import { huntSwing, tameCreature } from './ecology.js';
 import { settlementTier, promoteSettlement, nextTierStatus, tierDef } from './tiers.js';
 // ★ GDD3 §13-D — RPG 계층: 모집 · 장비/인첸트 · 연구/철로
 import { recruitResident, recruitStatus } from './residents.js';
@@ -224,6 +224,13 @@ function runCommand(world, nationId, cmd, data, rng) {
       const res = (nation.battle && !nation.battle.over)
         ? combatSwing(world, nation, cmd, data, now)
         : huntSwing(world, nation, cmd, data, now);
+      return res.ok ? ok(res) : res;
+    }
+
+    /* ★ §19-F1(F08-4) — 잡는 대신 데려온다. 사냥(combatSwing)과 나란히 선 별개의 손짓이라
+       명령도 따로 둔다: 같은 짐승 앞에서 유저가 무엇을 고를지가 갈리기 때문이다. */
+    case 'tameCreature': {
+      const res = tameCreature(world, nation, cmd, data);
       return res.ok ? ok(res) : res;
     }
 

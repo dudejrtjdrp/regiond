@@ -419,6 +419,9 @@
         if (!eHeld) { eHeld = true; startInteract(); }
         e.preventDefault();
         break;
+      /* ★ §19-F1(F08-4) — Q 는 「키우기」다. 검을 든 손(E)과 나란히 선 다른 손짓이라 자리를 따로 준다:
+         같은 짐승 앞에서 잡을지 데려올지를 유저가 고른다. 판정은 전부 서버가 다시 한다. */
+      case 'q': startTame(); break;
       case 'b': GM.build.open(); break;
       case 'f': GM.build.openFence(); break;
       case 'p': GM.residents.openPanel(); break;
@@ -450,6 +453,29 @@
     var hw = handWorkTarget();
     if (hw) { GM.structure.runHandWork(hw); return; }
     GM.swing.startHold();
+  }
+
+  /** ★ §19-F1(F08-4) — 곁의 온순한 짐승을 목장으로 데려온다(사냥과 병존) */
+  function startTame() {
+    var t = tameTarget();
+    if (!t) { U.toast('곁에 기를 짐승이 없습니다.', 'warn'); return; }
+    GM.net.send('tameCreature', { targetId: t.c.id }, onTamed);
+  }
+
+  function onTamed(r) {
+    if (!r || !r.ok) { U.toast((r && r.error && r.error.message) || '기를 수 없습니다.', 'bad'); return; }
+    GM.sfx.play('build');
+    U.toast(r.speciesName + '을(를) 목장으로 데려왔습니다 (' + r.heads + '/' + r.capacity + ').', 'good');
+  }
+
+  /** 데려올 짐승 하나 — 사냥 사거리와 같은 잣대로 고른다(서버가 다시 잰다) */
+  function tameTarget() {
+    if (!GM.world || !GM.world.nearestWild) return null;
+    var me = GM.avatar && GM.avatar.pos();
+    if (!me) return null;
+    var w = GM.world.nearestWild(me.x, me.y, (S.combatCfg().huntRangeTiles) || 2.8);
+    if (!w || !w.c || w.c.tamed || w.c.kind !== 'animal') return null;
+    return w;
   }
 
   /** ★ §19-D(F03-6) — 건물 위에서 E 면 그 건물의 대표 행동(손수 제련한다 · 톱질을 거든다 …)을 곧바로.

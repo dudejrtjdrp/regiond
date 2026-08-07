@@ -51,7 +51,7 @@ import { deposit, spoilFloor } from './storage.js';
 import { stepResearch, productionBonus, gatherResearchBonus } from './research.js';
 // ★ GDD3 §13-B·C — 은닉 유적 발견 · 상시 생태계 · 사냥꾼 오두막
 import { revealConcealed } from './world.js';
-import { stepEcologyDay, huntYield, cullForHunters } from './ecology.js';
+import { stepEcologyDay, huntYield, cullForHunters, livestockOutputs } from './ecology.js';
 // ★ GDD3 §15-C — 동료 봇. 아무도 안 보는 시간만큼을 일 틱이 몰아 돌린다(이중 계산 없음).
 import { stepCompanionsDay } from './companions.js';
 import { recordRuinFound, discoverBiomes } from './codex.js';
@@ -517,6 +517,11 @@ export function produceNation(world, nation, data, hooks) {
      시뮬 봇은 연구를 하지 않으므로 체크포인트에는 닿지 않는다. */
   const techBonus = 1 + productionBonus(nation, data);
   const flatBuild = flatOutputs(nation, data);
+  /* ★ §19-F1(F08-4) — 우리에 든 짐승의 몫. 건물이 저 혼자 내는 몫과 같은 자리에 얹는다
+     (곳간 상한·연구 배수를 똑같이 지나야 한다 — 목장만 다른 문으로 들어오면 새는 자리가 생긴다). */
+  for (const [res, v] of Object.entries(livestockOutputs(nation, data))) {
+    flatBuild[res] = round2((flatBuild[res] || 0) + v);
+  }
   out.flatOutput = flatBuild;
   out.techBonus = round2(techBonus);
   for (const [res, amount] of Object.entries(flatBuild)) {

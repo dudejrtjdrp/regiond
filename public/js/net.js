@@ -11,6 +11,8 @@
     'join', 'requestWorld', 'requestChronicle',
     /* 실시간 — 스윙 */
     'actionSwing', 'combatSwing', 'lordMove',
+    /* ★ §19-F1(F08-4) — 잡는 대신 데려온다(목장) */
+    'tameCreature',
     /* 건설 · 울타리 */
     'placeBuilding', 'upgradeStructure', 'repairStructure', 'reclaimField',
     'placeFence', 'upgradeFence', 'repairFence', 'removeFence',

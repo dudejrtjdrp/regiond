@@ -564,6 +564,8 @@ app.post('/api/debug/seed', (req, res) => {
 const CLIENT_COMMANDS = [
   // 실시간 (GDD3 §3)
   'actionSwing', 'combatSwing', 'lordMove',
+  /* ★ §19-F1(F08-4) — 잡는 대신 데려온다(목장) */
+  'tameCreature',
   // 건설 (GDD3 §7)
   'placeBuilding', 'upgradeStructure', 'repairStructure', 'reclaimField',
   // ★ GDD3 §12-12 — 철거 · 이전 · 되돌리기

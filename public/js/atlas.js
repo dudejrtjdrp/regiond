@@ -269,6 +269,8 @@
     smithy:      { wall: '#9c8878', roof: '#5c4438', shape: 'shed',  mark: 'anvil' },
     mine_shaft:  { wall: '#8a8478', roof: '#4a4038', shape: 'mine',  mark: null },
     mill:        { wall: '#dcc9a0', roof: '#8a5e33', shape: 'mill',  mark: null },
+    /* ★ §19-F1(F08-4) — 목장은 집이 아니다. 낮은 울타리로 두른 우리와 짚가리·여물통이다. */
+    ranch:       { wall: '#c9a86e', roof: '#8a5e33', shape: 'ranch', mark: null },
     /* 군사 */
     watchpost:   { wall: '#a3703f', roof: '#6b4526', shape: 'tower', mark: 'eye' },
     arrow_tower: { wall: '#a3703f', roof: '#8a5e33', shape: 'tower', mark: 'arrow' },
@@ -515,6 +517,25 @@
           P(7, 13, 3, 3, roof); P(13, 13, 4, 3, roof);
           P(4, 0, 4, 2, '#e8a33d');
           break;
+        }
+        case 'ranch': {
+          /* 바닥 — 밟아 다져진 흙 마당 */
+          P(1, 6, 22, 16, '#8a7449'); P(1, 6, 22, 1, '#9c8556');
+          P(4, 10, 6, 4, '#7a6540'); P(14, 15, 6, 3, '#7a6540');
+          /* 울타리 — 기둥과 가로대 두 줄(사방을 두른다) */
+          for (var rp = 0; rp < 6; rp++) {
+            P(1 + rp * 4, 4, 2, 5, '#8a5e33');
+            P(1 + rp * 4, 19, 2, 5, '#8a5e33');
+          }
+          P(0, 4, 2, 20, '#8a5e33'); P(22, 4, 2, 20, '#8a5e33');
+          P(1, 5, 22, 1, wall); P(1, 7, 22, 1, U.shade(wall, -0.15));
+          P(1, 21, 22, 1, wall); P(1, 23, 22, 1, U.shade(wall, -0.15));
+          P(1, 5, 1, 19, wall); P(22, 5, 1, 19, U.shade(wall, -0.15));
+          /* 우리 한켠의 헛간 지붕과 짚가리·여물통 — 티어가 오르면 짚가리가 자란다 */
+          P(14, 4, 9, 6, roof); P(14, 4, 9, 1, U.shade(roof, 0.3));
+          P(15, 8 - grow, 7, 3 + grow, '#e8c96a'); P(15, 8 - grow, 7, 1, '#f6e6a8');
+          P(3, 16, 6, 3, '#6b4526'); P(3, 16, 6, 1, '#8a5e33');
+          break shapeAndMark;
         }
         case 'garden': {
           P(2, 16, 20, 6, '#7a5c30'); P(2, 16, 20, 1, '#8a6a3a');

@@ -579,6 +579,17 @@ TrailView { id, key, kind:'chain'|'micro', x, y, name, art, verb, ready }
   포식자는 목장이 있어도 못 든다. 목장 산출은 `buildings.ranch.tiers[].flatOutput`(고기·털·가죽)이 정본이다.
 * 웨이브 적은 이 규칙을 타지 않는다 — 그쪽은 `battle.js` 의 별도 계층이다.
 
+★ §19-F1(F08-4) **키우기** — `tameCreature {targetId?}` (C→S). 다 지어진 목장이 있고, 아바타 곁
+`creatures.ranch.tame.rangeTiles`(3) 안에 `kind:'animal'` 이 있으면 그 자리에서 가장 가까운 우리로
+옮겨 앉는다(사냥과 병존 — 같은 짐승 앞에서 유저가 고른다). 서버가 사거리·종류·정원을 판정한다.
+* 정원 = `activeRanches` 마다 `tame.capacityPerTier[티어−1]` 의 합. 넘치면 `RANCH_FULL`.
+* 기른 짐승은 `c.tamed = 목장 id` 를 지닌다: 사람을 피하지 않고, 우리 밖으로 목적지를 뽑지 않으며,
+  사냥꾼 오두막의 솎아냄(`cullForHunters`)이 집어 가지 않는다.
+* 산출은 머릿수 × `tame.perHeadPerDay` 이며 **건물 정액 산출과 같은 문**으로 들어간다(곳간 상한·연구 배수 동일).
+* ack: `{ ok, tamed:true, targetId, species, speciesName, ranchId, x, y, heads, capacity }`
+* 오류: `NO_RANCH` · `NO_TARGET` · `WILD_BEAST` · `OUT_OF_RANGE` · `RANCH_FULL` · `ALREADY_TAMED`
+* `creatures.list[]` 에 **필드 추가만**: `tamed:true`(기르는 것일 때만 실린다 — 옛 클라는 없는 칸으로 읽는다).
+
 ### 0-T-5. 플레이어 레벨 · 능력치 (§14-5)
 
 * **레벨은 새 숫자가 아니다.** 다섯 스킬 XP 의 **총합**이 `skills.player.xpCurve` 를 탄다.
