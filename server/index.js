@@ -25,6 +25,8 @@ import {
 } from './engine/view.js';
 import { buildRegencyReport, markSeen } from './engine/report.js';
 import { evaluateProgress } from './engine/progression.js';
+// ★ §세계관 W2 — 스토리 연출: 이벤트 묶음을 곁눈질해 이야기를 얹는다(판정 없음·1회 보장)
+import { storyEvents, gameStartedEvents } from './engine/story.js';
 import { roleSummary } from './engine/npc.js';
 import { ensurePlayer, playerProgressView } from './engine/skills.js';
 import { stepBattle, finishBattle, battleSnapshot } from './engine/battle.js';
@@ -296,6 +298,8 @@ class GameRuntime {
   }
 
   emitImmediate(nationId, raw) {
+    // ★ §세계관 W2 — 실시간 사건(첫 이웃·감정의 날)에도 이야기가 끼어든다
+    raw = [...raw, ...storyEvents(this.world, data, raw)];
     const decorated = raw.map((e) => this.expression.express(
       { tick: this.world.tick, nationId: e.nationId ?? nationId, ...e }, { nationId: e.nationId ?? nationId },
     ));
@@ -318,7 +322,9 @@ class GameRuntime {
     const { state, events } = step(this.world, inputs, this.rng, data, { liveBattle: true });
     this.world = state;
 
-    const decorated = events.map((e) => this.expression.express(e, { nationId: e.nationId }));
+    // ★ §세계관 W2 — 일 틱의 사건(장 진행·웨이브 예고)에 이야기를 얹는다. 시뮬은 이 길을 지나지 않는다.
+    const withStory = [...events, ...storyEvents(this.world, data, events)];
+    const decorated = withStory.map((e) => this.expression.express(e, { nationId: e.nationId }));
     saveSnapshot(this.world);
     appendEvents(this.gameId, decorated);
 
@@ -374,7 +380,10 @@ class GameRuntime {
     // ★ 첫 웨이브를 막아 내는 것이 7장의 마지막 칸이다 — 전투가 끝난 그 자리에서 장을 넘긴다.
     const progressed = evaluateProgress(this.world, nation, data)
       .map((e) => ({ tick: this.world.tick, ...e }));
-    const decorated = [ev, ...progressed].map((x) => this.expression.express(x, { nationId: nation.id }));
+    // ★ §세계관 W2 — 첫 결전의 승패가 이야기의 갈래(막음/무너짐)를 고른다
+    const waveBatch = [ev, ...progressed];
+    waveBatch.push(...storyEvents(this.world, data, waveBatch));
+    const decorated = waveBatch.map((x) => this.expression.express(x, { nationId: nation.id }));
     this.world.log = [...(this.world.log || []), ...decorated].slice(-400);
     saveSnapshot(this.world);
     appendEvents(this.gameId, decorated);
@@ -388,6 +397,8 @@ class GameRuntime {
   emitTypedEvent(e) {
     switch (e.kind) {
       case 'emotion_day': io.to(this.gameId).emit('emotionDay', e.data); break;
+      // ★ §세계관 W2 — 이야기 연출. 클라 story.js 가 대화창으로 흘린다(재접속자는 연대기로 회고)
+      case 'story_beat': io.to(this.gameId).emit('storyBeat', e.data); break;
       case 'mandate': io.to(this.gameId).emit('mandate', e.data); break;
       // ★ GDD3 §1 — 티어업은 큰 이벤트다(팡파레 + 영토 말뚝 + 도감 카드 공개)
       case 'tier_up': io.to(this.gameId).emit('tierUp', e.data); break;
@@ -895,6 +906,11 @@ io.on('connection', (socket) => {
     sock.emit('worldState', payloads.worldState);
     sock.emit('chronicle', chronicleView(rt.world, nation, data));
     if (nation.battle && !nation.battle.over) sock.emit('battleStart', battleSnapshot(nation, data));
+    // ★ §세계관 W2 — 갓 세운 세계의 첫 접속에서 도입(알현실)이 흐른다. storySeen 이 1회를 보장한다.
+    //   「왜」 맨 뒤인가 — 접속 절차(세계·상태·연대기)가 다 닿은 뒤에 이야기가 시작해야,
+    //   접속 시점의 연대기 스냅샷이 이야기 줄에 물들지 않는다(하니스 연대기 검사와의 정합).
+    const introEvs = gameStartedEvents(rt.world, data);
+    if (introEvs.length) rt.emitImmediate(rt.world.playerNationId, introEvs);
 
     if (rt.world.tick > (nation.lastSeenTick ?? 0)) {
       sock.emit('report', buildRegencyReport(rt.world, nation, data));

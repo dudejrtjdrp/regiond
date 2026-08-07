@@ -232,6 +232,8 @@
     });
 
     socket.on('emotionDay', function (p) { S.set({ emotionDay: p }); S.emit('emotionDay', p); });
+    /* ★ §세계관 W2 — 이야기 연출. story.js 가 대화창으로 흘린다 */
+    socket.on('storyBeat', function (p) { if (GM.story) GM.story.onBeat(p); S.emit('storyBeat', p); });
     socket.on('mandate', function (p) { S.set({ mandate: p }); S.emit('mandate', p); });
     socket.on('council', function (p) { S.set({ council: p }); S.emit('council', p); });
     socket.on('campSpotted', function (p) { S.emit('campSpotted', p); });

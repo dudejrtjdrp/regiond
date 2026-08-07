@@ -51,6 +51,8 @@ export function loadGameData({ reload = false } = {}) {
     companions: readJson('companions.json'),
     // ★ §18-D2 — 링0 앞마당의 흔적(단서 사슬 · 미시 발견). 배치·보상·문구를 전부 이 파일이 쥔다.
     trails: readJson('trails.json'),
+    // ★ §세계관 W2 — 스토리 연출 정본(beat·대사·방아쇠). 엔진은 story.js 만 이 표를 읽는다.
+    story: readJson('story.json'),
   };
   data.artifactsByKey = Object.fromEntries(data.artifacts.list.map((a) => [a.key, a]));
   cache = data;

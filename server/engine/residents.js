@@ -170,9 +170,12 @@ export function spawnResident(world, nation, data, rng) {
      「주민이 물 위를 걷는다」의 세 갈래 중 하나였다(스폰·목적지·걸음). */
   from = nearestWalkable(world, nation, data, from.x, from.y, 24)
     ?? (town ? { x: town.x, y: town.y } : from);
+  // ★ §세계관 W2 — 첫 이민자는 순례자 세라다(세계관기획 §5 — 성녀 후보이자 이야기의 화자).
+  //   이름만 정본으로 고정하고 능력치·외형은 여느 사람과 같은 규칙을 따른다(결정론 유지).
+  const isFirst = nation.isPlayer && (nation.villagers?.length ?? 0) === 0;
   const resident = {
     id: `r${nation.nextResidentId++}`,
-    name: pickName(rng, data),
+    name: isFirst ? '세라' : pickName(rng, data),
     appearance: randomAppearance(rng, data),
     /* ★ §13-D-1 — 태어날 때 한 번 굴리고 평생 바뀌지 않는다.
        ★ **세계 난수를 쓰지 않는다.** 씨앗·나라·사람 번호로 제 난수를 지어 굴린다(§13-C 와 같은 규칙).

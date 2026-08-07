@@ -83,7 +83,10 @@
       openingDone = true;
       setTimeout(function () {
         if (GM.opening.shouldPlay()) {
-          GM.opening.play(function () { GM.quest.update(); });
+          /* ★ §세계관 W2 — 이야기의 시간 순서: 알현실(도입)이 먼저, 마차(오프닝)는 그 뒤 */
+          var boot = function () { GM.opening.play(function () { GM.quest.update(); }); };
+          if (GM.story) GM.story.beforeOpening(boot);
+          else boot();
         } else {
           GM.avatar.reveal(true);
         }

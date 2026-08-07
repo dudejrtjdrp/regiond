@@ -246,3 +246,12 @@ opus 에이전트가 103장의 영문 프롬프트를 작성 — 전 항목 dry-
 이펙트 11종은 전부 애니메이션(variation 전략, 5~8프레임) 포함으로 63프레임이 함께 생성된다.
 에이전트가 발견한 품질 문제(등급 힌트 'plain worn materials'가 UI·이펙트에도 주입되어 채도·가독성 저하)를
 받아 fable이 build_prompt에 카테고리별 등급 제외(GRADE_SKIP_CATEGORIES)를 패치하고 재검증했다.
+
+## 부록 — 세계관 W2 스토리 연출 계층 (2026-08-07, fable 세션 · opus 한도로 fable 직접 구현)
+storyBeat 엔진 신설: `data/story.json`(대사 정본 8beat — 도입 알현실·첫 이웃 세라·감정 제안·탄생 선포·
+낯선 바람·첫 예감·첫 결전 승/패 분기) + `server/engine/story.js`(이벤트 곁눈질·1회 보장 storySeen·
+분기 상호 배타 excludes·{name}/{lord} 치환·옛 세이브 보호) + 클라 `story.js`(dialogue.js 재사용,
+Esc 스킵, 알현실→마차 순서 보장). 훅 3곳(advance·emitImmediate·resolveWave)+접속 말미 도입. 첫 이민자
+이름 세라 고정, 성녀 이름표 「성녀 세라」, 성녀 사람 점유 시 화자 「성녀의 직감」 전환. PROTOCOL 0-H.
+검증: 신규 story.test 11종 포함 npm test 513/513 · jsdom 하니스 52/52(도입을 접속 절차 맨 뒤로 옮겨
+연대기 스냅샷 오염 레이스 수정) · simulate 결정론 보존(웨이브5 55%는 베이스라인 동일 — W2 영향 0).

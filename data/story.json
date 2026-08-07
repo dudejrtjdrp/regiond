@@ -1,0 +1,105 @@
+{
+  "_note": "★ §세계관 W2 — 스토리 연출 정본. 대사·순서는 docs/세계관기획.md §7 이 정본이다. 「시간은 아무것도 열지 않는다」: 모든 beat 의 방아쇠(on)는 행동 이벤트다. once 는 세계 단위(storySeen) 1회 보장, excludes 는 분기 상호 배타(하나가 나가면 나머지도 본 것으로 친다). saintVoice 가 참인 beat 는 성녀 자리를 사람이 쥐고 있을 때 화자를 saintVoiceSpeaker 로 바꾼다(세계관기획 §5 세라 화자 규칙).",
+  "saintVoiceSpeaker": "성녀의 직감",
+  "lordFallback": "군주",
+  "beats": [
+    {
+      "id": "intro",
+      "on": "game_started",
+      "skippable": true,
+      "chronicle": "에르니아를 떠나, 서쪽 미지의 땅에 닿았다 — 새로운 시작.",
+      "scenes": [
+        { "speaker": "아르텐", "text": "그대들은 왕국의 영웅이다. 왕국에서 부와 명예, 그 모든 것을 누릴 수 있다. 그럼에도 불구하고… 떠나겠다는 것인가?" },
+        { "speaker": "일행", "text": "송구하옵니다, 폐하. 하오나 저희는 결정했습니다. 모든 것을 내려놓고, 처음부터 다시 시작해보고 싶습니다." },
+        { "speaker": "아르텐", "text": "그대들의 뜻은 알겠다. 그렇다면, 갈 곳은 있는 것인가?" },
+        { "speaker": "일행", "text": "서쪽, 미지의 땅을 발견했습니다. 저희는 그곳에서… 새로운 시작을 하려 합니다." },
+        { "speaker": "아르텐", "text": "언젠가 그대의 나라가 우리와 마주 앉을 날을 기대하겠다." },
+        { "speaker": "", "text": "마차를 타고, 배를 타고, 또다시 마차를 타고 — 마침내, 미지의 땅에 도착하였다." },
+        { "speaker": "", "text": "이상하리만치 고요한 땅. 이곳에서 우리는 처음부터 다시, 새로운 시작을 할 것이다." }
+      ]
+    },
+    {
+      "id": "first_neighbor",
+      "on": "resident_arrived",
+      "skippable": true,
+      "chronicle": "첫 이웃 — 순례자 세라가 걸어 들어왔다.",
+      "scenes": [
+        { "speaker": "세라", "text": "여기에… 사람이 있었네요? 다행이다. 한참을 걸었는데." },
+        { "speaker": "{lord}", "text": "…길을 잃은 건가?" },
+        { "speaker": "세라", "text": "아니요. 소문을 따라왔습니다. 서쪽에, 뭐든 다시 시작할 수 있는 땅이 있다고. …저, 늦은 건 아니죠?" }
+      ]
+    },
+    {
+      "id": "appraise_hint",
+      "on": "chapter_done",
+      "when": { "chapterId": 5 },
+      "skippable": true,
+      "chronicle": "세라의 제안 — 이 땅의 정체를 감정해 보기로 했다.",
+      "scenes": [
+        { "speaker": "세라", "text": "{lord}님, 아무래도 우리의 작은 시작이 생각보다 큰 걸음이 될 것 같아요." },
+        { "speaker": "세라", "text": "이만한 규모가 된 만큼, 이 땅의 정체를 한번 감정해 보는 게 어떨까요?" },
+        { "speaker": "{lord}", "text": "그러는 게 좋겠군." }
+      ]
+    },
+    {
+      "id": "appraisal_declare",
+      "on": "emotion_day",
+      "skippable": true,
+      "chronicle": "{name}의 탄생을 선포하다.",
+      "scenes": [
+        { "speaker": "", "text": "소소하게 시작했던 우리가, 어느새 이만큼 커졌다. 이 시간부로 — {name}의 탄생을 선포한다." }
+      ]
+    },
+    {
+      "id": "strange_wind",
+      "on": "chapter_open",
+      "when": { "chapterId": 7 },
+      "saintVoice": true,
+      "skippable": true,
+      "scenes": [
+        { "speaker": "세라", "text": "…이상하네요." },
+        { "speaker": "{lord}", "text": "무엇이 말인가?" },
+        { "speaker": "세라", "text": "아니요, 아무것도 아니에요. 그저… 바람의 흐름이 조금, 낯설어서요." }
+      ]
+    },
+    {
+      "id": "first_wave_omen",
+      "on": "wave_incoming",
+      "when": { "waveNumber": 1 },
+      "saintVoice": true,
+      "skippable": true,
+      "chronicle": "첫 예감 — 짐승들이 제 자리를 벗어나고 있다.",
+      "scenes": [
+        { "speaker": "세라", "text": "무언가 다가오고 있어요. 짐승들이 제 자리를 벗어나고 있습니다. 마치, 무언가에 쫓기듯이." },
+        { "speaker": "{lord}", "text": "쫓겨? …무엇에게." },
+        { "speaker": "세라", "text": "그건… 저도 모르겠습니다. 다만, 이 평온이 끝나간다는 것만은." }
+      ]
+    },
+    {
+      "id": "first_wave_won",
+      "on": "wave_held",
+      "excludes": ["first_wave_lost"],
+      "saintVoice": true,
+      "skippable": true,
+      "chronicle": "첫 웨이브를 막아냈다. 늑대들은 어딘가 이상했다.",
+      "scenes": [
+        { "speaker": "세라", "text": "…막아냈습니다. 모두 무사해요." },
+        { "speaker": "세라", "text": "그런데… 이상하네요. 늑대들이 이렇게 무리 지어 사람을 덮치다니. 원래 이들은 이토록 무모하지 않은데…" },
+        { "speaker": "", "text": "그저 굶주렸던 것이라면, 좋겠지만." }
+      ]
+    },
+    {
+      "id": "first_wave_lost",
+      "on": "wave_breached",
+      "excludes": ["first_wave_won"],
+      "saintVoice": true,
+      "skippable": true,
+      "chronicle": "첫 웨이브에 무너졌다. 그러나 끝은 아니다.",
+      "scenes": [
+        { "speaker": "세라", "text": "…다들, 괜찮으신가요? 피해가 커요." },
+        { "speaker": "세라", "text": "그런데… 이상하네요. 늑대들이 이렇게 무리 지어 사람을 덮치다니. 원래 이들은 이토록 무모하지 않은데…" },
+        { "speaker": "", "text": "그저 굶주렸던 것이라면, 좋겠지만." }
+      ]
+    }
+  ]
+}
