@@ -446,6 +446,9 @@
       (문 앞이나 발자국 위에서 허공을 도끼질하지 않게 — 화면의 말머리 상자도 같은 순서로 고른다.
        흔적을 도읍보다 뒤에 두는 까닭: 도읍 앞은 오직 한 자리뿐이고, 흔적은 어디에나 있다.) */
   function startInteract() {
+    /* ★ §19-F4(F09-2) — 기차가 먼저다. 승강장 앞은 오직 그 한 자리뿐이고(도읍 앞과 같은 이유),
+       타고 있는 동안에는 E 가 「내린다」가 된다 — 같은 손잡이로 타고 내린다. */
+    if (trainInteract()) return;
     var tw = GM.diplomacy && GM.diplomacy.nearTown();
     if (tw) { GM.diplomacy.visit(tw); return; }
     var tr = GM.trails && GM.trails.near();
@@ -453,6 +456,25 @@
     var hw = handWorkTarget();
     if (hw) { GM.structure.runHandWork(hw); return; }
     GM.swing.startHold();
+  }
+
+  /** 기차를 타거나 내린다 — 집을 것이 없으면 false 라 다음 손잡이로 넘어간다 */
+  function trainInteract() {
+    if (!GM.world || !GM.world.nearestTrain) return false;
+    if (S.riding()) { GM.net.send('leaveTrain', {}, onTrain); return true; }
+    var me = GM.avatar && GM.avatar.pos();
+    var info = S.trainInfo();
+    if (!me || !info || !info.open) return false;
+    var t = GM.world.nearestTrain(me.x, me.y, info.boardRadius || 3);
+    if (!t || !(t.dwell > 0)) return false;
+    GM.net.send('boardTrain', { trainId: t.id }, onTrain);
+    return true;
+  }
+
+  function onTrain(r) {
+    if (!r || !r.ok) { U.toast((r && r.error && r.error.message) || '기차를 탈 수 없습니다.', 'warn'); return; }
+    if (r.trains) S.set({ trainList: r.trains });
+    GM.sfx.play('build');
   }
 
   /** ★ §19-F1(F08-4) — 곁의 온순한 짐승을 목장으로 데려온다(사냥과 병존) */

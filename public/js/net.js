@@ -207,6 +207,9 @@
     /* ★ v3.2 — 상시 생태계(GDD3 §13-C). 1초에 한 번 들의 것들이 어디 있는지가 온다.
        화면은 이 좌표로 튀지 않는다 — world.js 가 그 사이를 보간해 걸어가게 만든다. */
     socket.on('creatures', function (p) { S.applyCreatures(p && p.list, p && p.shots); });
+    /* ★ §19-F4(F09-2) — 기차의 한 걸음. 짐승과 같은 박자(1초)로 오고, 화면은 그리로 다가간다.
+       탄 사람의 몸은 avatars 채널이 따로 나른다 — 기차만을 위한 새 규칙이 없다. */
+    socket.on('trains', function (p) { S.set({ trainList: (p && p.list) || [] }); });
     socket.on('wildHit', function (p) { S.emit('wildHit', p); });
     /* ★ GDD3 §15-A-2 — 터렛이 잡았다. 드롭은 서버가 이미 국고에 넣었다:
        화면은 그 값을 쓰러진 자리에 띄우고 자원칸을 곧바로 고쳐 쓴다(주민 사이클과 같은 문). */

@@ -33,6 +33,8 @@ import { companionViews, companionById, autoPlayView } from './companions.js';
 import { fogSnapshot, fogChunksSince, isExplored, exploredRatio, encodeChunk } from './fog.js';
 // ★ §18-D2 — 앞마당의 흔적. 안개가 유일한 문이다(가 본 적 없는 자리의 흔적은 **필드째** 빠진다).
 import { trailViews } from './trails.js';
+// ★ §19-F4(F09-2) — 기차 한 대와 그 노선
+import { trainViews, trainSummary } from './train.js';
 import {
   structureView, siteView, adjacencyDetail, isRuined, buildingKeys, maxTier, structureDef, footprint,
   effectSummary,
@@ -259,6 +261,9 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
         bridgeSummary: bridgeSummary(nation, data),
         fills: researchFeature(nation, 'landfill', data) ? fillViews(nation) : [],
         fillSummary: fillSummary(nation, data),
+        /* ★ §19-F4(F09-2) — 기차. 철로와 같은 계약이다: 연구 전에는 open:false 인 빈 노선. */
+        trains: trainViews(nation),
+        trainSummary: trainSummary(nation, data),
       } : {}),
     },
     // ★ GDD3 §13-C-3 — 도감(J). 조우·처치 수는 서버가 권위로 세고, 잠긴 층은 필드 자체가 없다.

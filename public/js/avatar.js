@@ -192,6 +192,9 @@
     if (!placed) snapToTown();
     if (frozen) return;
     if (downLocal || S.downed()) { me.frame = 0; return; }
+    /* ★ §19-F4(F09-2) — 기차에 탄 동안에는 몸을 서버가 쥔다. 키도 목적지도 읽지 않고
+       받은 자리로 다가가기만 한다(쓰러짐 빗장과 같은 결) — 자리 보고도 나가지 않는다. */
+    if (S.riding()) { rideStep(dt); return; }
     /* ★ §15-C — 자동 플레이가 도는 동안에는 키도 목적지도 읽지 않는다. 서버를 따라간다. */
     if (S.autoPlay().active) { dest = null; path = null; autoStep(dt); return; }
     var sp = speed() * dt;
@@ -262,6 +265,9 @@
     /* ★ Sprint 1 — 쓰러져 있는 동안에는 보고하지 않는다. 부활 좌표(모닥불)를
        죽은 자리 좌표로 되덮는 것이 「죽은 자리에서 일어난다」의 클라 쪽 절반이었다. */
     if (downLocal) return;
+    /* ★ §19-F4(F09-2) — 기차 위에서도 마찬가지다. 서버가 옮기는 자리를 클라가 되덮으면
+       몸만 승강장에 떨어져 남는다(서버는 RIDING 으로 물리치지만 헛걸음을 아낀다). */
+    if (S.riding()) return;
     /* ★ §16-7b — 마차에서 내리기 전에는 자리 보고를 보내지 않는다. 이 보고가 서버의 잠든
        동료들을 깨우는 신호라, 내리기 전에 새어 나가면 봇이 마차보다 먼저 일하기 시작한다. */
     if (GM.opening && GM.opening.busy && GM.opening.busy() && !GM.opening.dropped()) return;
@@ -334,6 +340,17 @@
     var dx = x - me.x, dy = y - me.y;
     me.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 2 : 1) : (dy > 0 ? 0 : 3);
   }
+  /** 기차 위의 한 걸음 — 받은 자리로 부드럽게 다가간다(튀지 않게) */
+  function rideStep(dt) {
+    var t = S.myTrain();
+    if (!t) return;
+    var k = Math.min(1, dt * 6);
+    me.x += (t.x - me.x) * k;
+    me.y += (t.y - me.y) * k;
+    dest = null; path = null; me.frame = 0;
+    reveal(false);
+  }
+
   function setPos(x, y) {
     me.x = x; me.y = y; placed = true;
     dest = null; path = null;

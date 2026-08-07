@@ -53,6 +53,8 @@ import {
   // ★ §19-F3(F07-5) — 금화로 궁리를 하루 앞당긴다(특산품 「지혜의 잎」도 같은 문으로 들어온다)
   hastenResearch, applyResearchDays,
 } from './research.js';
+// ★ §19-F4(F09-2) — 기차: 정거장에서 타고, 다음 정거장에서 내린다
+import { boardTrain, leaveTrain, riding, trainViews, trainSummary } from './train.js';
 // ★ §19-F3(F07-7) — 나라마다 다른 시세와 특산품 좌판
 import { foreignUnitPrice, tradeProfileView, specialtyList, specialtyStock, nationDef } from './trade.js';
 import {
@@ -548,6 +550,19 @@ function runCommand(world, nationId, cmd, data, rng) {
       return res.ok ? ok({ ...res, resources: { ...nation.resources } }) : res;
     }
 
+    /* ── ★ §19-F4(F09-2) 기차 — 정거장에 선 기차 곁에서 [E]. 탄 동안 자리는 서버가 쥔다 ── */
+    case 'boardTrain': {
+      const res = boardTrain(world, nation, cmd, data);
+      return res.ok ? ok({ ...res, trains: trainViews(nation) }) : res;
+    }
+    case 'leaveTrain': {
+      const res = leaveTrain(world, nation, cmd, data);
+      return res.ok ? ok({ ...res, trains: trainViews(nation) }) : res;
+    }
+    case 'trainSummary': {
+      return ok({ trainSummary: trainSummary(nation, data), trains: trainViews(nation) });
+    }
+
     // ── ★ §17-13 — 다리·매립: 물을 건너고(가교), 물을 덮는다(매립) ──
     case 'placeBridge': {
       const res = placeBridge(world, nation, cmd, data);
@@ -772,6 +787,9 @@ function runCommand(world, nationId, cmd, data, rng) {
       if (plDown && (plDown.downUntil || 0) > 0) {
         return err('DOWNED', '쓰러져 있는 동안에는 걸을 수 없습니다.');
       }
+      /* ★ §19-F4(F09-2) — 기차에 탄 동안에는 자리 보고를 받지 않는다. 쓰러짐(위)과 같은 빗장이다:
+         몸을 옮기는 쪽이 서버라, 클라가 옛 좌표를 다시 보고하면 기차에서 몸만 떨어져 나간다. */
+      if (riding(nation, who)) return err('RIDING', '기차에 타고 있는 동안에는 걸을 수 없습니다.');
       const avatars = (nation.avatars ||= {});
       const prev = avatars[who] ?? null;
       const look = normalizeAppearance(cmd.appearance, data, prev?.appearance ?? memberAppearance(nation, who, data));

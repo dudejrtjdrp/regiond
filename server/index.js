@@ -36,6 +36,8 @@ import { stepResidentWork } from './engine/residents.js';
 import { stepCompanions, syncCompanionSeats, bindCompanionRoles, isCompanionId } from './engine/companions.js';
 // ★ §17-14 — 깃발 점령. 동료가 자리 잡은 다음 같은 1초 박자에 판정한다.
 import { claimStep } from './engine/claims.js';
+// ★ §19-F4(F09-2) — 기차. 깃발과 같은 1초 박자에 한 걸음씩 굴린다.
+import { stepTrains, trainViews } from './engine/train.js';
 import { stampVisionDisc } from './engine/fog.js';
 import { chronicleView, record as chronicleRecord } from './engine/chronicle.js';
 import {
@@ -102,6 +104,14 @@ const io = new Server(http, { cors: { origin: '*' } });
  * 즉 화면은 **같은 이름의 두 소스**를 번갈아 받았다: 걸으면 날것이 와서 쓰러짐·동료 표시가 사라지고,
  * 다음 방송이 오면 되살아났다. 팀원의 쓰러짐이 안 보이던 것도, 외형이 흔들리던 것도 여기서 났다.
  */
+/** ★ §19-F4(F09-2) — 정거장에 닿았다는 알림 한 줄(연대기에는 싣지 않는다 — 나라의 사건이 아니다) */
+function arrivalEvents(nation, arrivals) {
+  return arrivals.map((a) => ({
+    kind: 'train_arrived', nationId: nation.id,
+    data: { trainId: a.trainId, stationId: a.stationId, x: a.x, y: a.y, dropped: a.dropped },
+  }));
+}
+
 function emitAvatars(gameId, nation, exceptSocket = null) {
   if (!nation) return;
   const to = exceptSocket ? exceptSocket.to(gameId) : io.to(gameId);
@@ -226,6 +236,12 @@ class GameRuntime {
       if (crew.events.length) this.emitImmediate(nation.id, crew.events);
       /* ★ §16-6 — 집사가 착공하거나 사람을 불렀으면(stateDirty) 화면도 그 자리에서 새 판을 받는다 */
       if (crew.actions.some((a) => a.buildingDone) || crew.stateDirty) this.broadcastState();
+      /* ★ §19-F4(F09-2) — 기차 한 걸음. 짐승과 **같은 박자**(1초)로 돈다: 화면은 받은 좌표로
+         튀지 않고 그리로 다가간다(§19-B 보간). 탄 사람의 몸은 서버가 옮기므로 아바타도 함께 흐른다. */
+      const rail = stepTrains(this.world, nation, data, dt);
+      if (rail.moved) io.to(this.gameId).emit('trains', { tick: this.world.tick, list: trainViews(nation) });
+      if (rail.avatars) emitAvatars(this.gameId, nation);
+      if (rail.arrivals.length) this.emitImmediate(nation.id, arrivalEvents(nation, rail.arrivals));
       /* ★ §17-14 — 깃발 점령 판정. 건축가·국방대신이 깃발 무리 곁에 서면 그 1초 안에 땅이 넓어진다.
          새 땅은 그 자리에서 밝힌다(안개) — 일 틱(최대 10분)의 recomputeFog 를 기다리지 않는다. */
       const claimed = claimStep(this.world, nation, data);
@@ -994,6 +1010,9 @@ io.on('connection', (socket) => {
         out.roles = roleSummary(rt.world.nations[s.nationId], data);
         out.you = { avatarId: s.avatarId ?? s.playerName, role: mine, roleName: out.roleName, takenFrom: res.takenFrom ?? null };
       }
+      /* ★ §19-F4(F09-2) — 타고 내리는 순간의 몸은 서버가 옮긴다. 그 자리에서 방에 흘려야
+         같이 접속한 사람의 화면에서 그가 승강장에 붙박여 있지 않다. */
+      if (type === 'boardTrain' || type === 'leaveTrain') emitAvatars(s.gameId, rt.world.nations[s.nationId]);
       if (type === 'setAppearance') emitAvatars(s.gameId, rt.world.nations[s.nationId]);
       /* ★ §17-11 — 동료의 새 이름·모양새도 setAppearance 처럼 그 자리에서 방 전체에 흐른다
          (다음 상태 방송을 기다리면 이름표가 잠깐 옛 사람으로 남는다). */

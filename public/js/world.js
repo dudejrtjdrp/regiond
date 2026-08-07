@@ -401,6 +401,62 @@
     }
   }
 
+  /* ══════════ ★ §19-F4(F09-2) 기차 ══════════
+     자리는 서버가 쥔다 — 화면은 받은 좌표를 그대로 그린다(제 셈으로 굴리지 않는다).
+     그림은 캔버스 도형 몇 개다: 몸통·차창·차대·바퀴. 에셋을 부르지 않는다. */
+  function drawTrains() {
+    var list = S.trains();
+    if (!list.length) return;
+    var t = GM.camera.cam.tile;
+    for (var i = 0; i < list.length; i++) {
+      var tr = list[i];
+      if (!GM.camera.onScreen(Math.round(tr.x), Math.round(tr.y), t)) continue;
+      if (S.fogAt(Math.round(tr.x), Math.round(tr.y)) < 1) continue;
+      paintTrain(tr, GM.camera.worldToScreen(tr.x - 1.1, tr.y - 0.75), t);
+    }
+  }
+
+  function paintTrain(tr, p, t) {
+    var w = Math.max(6, Math.round(t * 2.2));
+    var h = Math.max(4, Math.round(t * 1.15));
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.fillRect(Math.round(p.x), Math.round(p.y + h * 0.86), w, Math.max(2, Math.round(h * 0.22)));
+    ctx.fillStyle = '#4a5058';
+    ctx.fillRect(Math.round(p.x), Math.round(p.y + h * 0.2), w, Math.round(h * 0.7));
+    ctx.fillStyle = tr.dwell > 0 ? '#7d8892' : '#5e646c';
+    ctx.fillRect(Math.round(p.x), Math.round(p.y), Math.round(w * 0.34), Math.round(h * 0.55));
+    paintTrainTrim(tr, p, w, h);
+    ctx.restore();
+  }
+
+  /** 차창·굴뚝·바퀴 — 탄 사람이 있으면 창에 불이 든다 */
+  function paintTrainTrim(tr, p, w, h) {
+    ctx.fillStyle = (tr.riders && tr.riders.length) ? '#f6cf7a' : '#9fb4c6';
+    for (var k = 0; k < 3; k++) {
+      ctx.fillRect(Math.round(p.x + w * (0.42 + k * 0.18)), Math.round(p.y + h * 0.34),
+                   Math.max(2, Math.round(w * 0.11)), Math.max(2, Math.round(h * 0.3)));
+    }
+    ctx.fillStyle = '#2b3138';
+    ctx.fillRect(Math.round(p.x + w * 0.08), Math.round(p.y - h * 0.24), Math.max(2, Math.round(w * 0.1)), Math.round(h * 0.3));
+    for (var q = 0; q < 4; q++) {
+      ctx.fillRect(Math.round(p.x + w * (0.08 + q * 0.24)), Math.round(p.y + h * 0.86),
+                   Math.max(2, Math.round(w * 0.1)), Math.max(2, Math.round(h * 0.16)));
+    }
+  }
+
+  /** 곁에 선 기차 하나 — [E] 가 이것을 집는다(판정은 서버가 다시 한다) */
+  function nearestTrain(x, y, range) {
+    var list = S.trains();
+    var best = null;
+    var bd = range;
+    for (var i = 0; i < list.length; i++) {
+      var d = Math.hypot(list[i].x - x, list[i].y - y);
+      if (d <= bd) { bd = d; best = list[i]; }
+    }
+    return best;
+  }
+
   /* ══════════ 울타리 조각 ══════════ */
   /* ★ GDD3 §13-D-5 — 철로. 바닥에 깔린 것이라 건물·사람보다 먼저 그린다. */
   function drawRails() {
@@ -2396,6 +2452,7 @@
     drawStructures();
     drawCamps();
     drawMoveMarker();
+    drawTrains();                        /* ★ §19-F4(F09-2) — 기차는 사람보다 아래에 선다 */
     drawWild();
     drawResidents();
     if (GM.combat && GM.combat.drawUnits) GM.combat.drawUnits(ctx, tile, animT);
@@ -2541,6 +2598,8 @@
     /* ★ §16-12 — 동료·다른 사람의 화면 자리(보간) — 스윙 팝을 그 사람 곁에 띄울 때 쓴다 */
     matePos: function (id) { return mates[id] || null; },
     nearestWild: nearestWild, wildPos: wildPos, markWildHurt: markWildHurt,
+    /* ★ §19-F4(F09-2) — 곁에 선 기차(E 한 손잡이가 집는다) */
+    nearestTrain: nearestTrain,
     /* ★ Sprint 3 — 둘레의 자원 자리만 추린다(칸 바구니). 손 닿는 것 고르기가 쓴다. */
     nodesNear: nodesNear,
     /* ★ §17-19 — 건물 스프라이트 사각형의 정본. input.js 의 클릭 판정이 이것을 그대로 쓴다. */

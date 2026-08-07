@@ -27,6 +27,8 @@ export * from './events.js';
 export * from './emotion_day.js';
 export * from './council.js';
 export * from './ai_nation.js';
+// ★ §19-F4(F09-2) — 기차
+export * from './train.js';
 export * from './commands.js';
 export * from './report.js';
 export * from './view.js';
