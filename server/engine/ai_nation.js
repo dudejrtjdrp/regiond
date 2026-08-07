@@ -61,6 +61,7 @@ export function generateOffers(world, data, rng) {
       offerId: `of_${world.tick}_${nation.id}_${offers.length}`,
       nationId: nation.id,
       nationName: nation.name,
+      envoy: envoyOf(nation.id, data),
       // side 는 플레이어 관점: AI가 팔면 플레이어는 buy
       side: wantsToSell ? 'buy' : 'sell',
       resource,
@@ -72,6 +73,13 @@ export function generateOffers(world, data, rng) {
   // 최하위국 배려: 플레이어가 최하위면 오퍼 가격을 소폭 낮춘다
   if (isLastPlace(world, player)) for (const o of offers) if (o.side === 'buy') o.price = round2(o.price * 0.95);
   return offers;
+}
+
+/* ★ §세계관 W1(§5) — 제안을 들고 오는 것은 나라가 아니라 사람이다.
+   사절 이름은 데이터(ai_nations.json envoy)에 있고, 오퍼에 실려 템플릿의 {{envoy}} 로 흐른다. */
+function envoyOf(nationId, data) {
+  const def = data.aiNations?.nations?.find((n) => n.id === nationId);
+  return def?.envoy || '';
 }
 
 export function isLastPlace(world, nation) {

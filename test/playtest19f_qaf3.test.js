@@ -47,30 +47,30 @@ test('★ §19-F3(F07-7) 나라 성정이 곧 값 — 싸게 내주는 것과 �
     for (const v of ex) assert.ok(v < 1, `${def.id} 이 내주는 값은 헐하다 (${v})`);
     for (const v of de) assert.ok(v > 1, `${def.id} 이 쳐주는 값은 후하다 (${v})`);
   }
-  // 산유국의 석유는 헐값, 엘프는 석유를 후하게 산다 → 차익이 존재한다
-  assert.ok(tradeFactor('ai1', 'oil', 'buy', data) < 1);
-  assert.ok(tradeFactor('ai2', 'oil', 'sell', data) > 1);
+  // ★ §세계관 W1 — 유전이 엘라시아로 넘어갔다: 산유국(ai2)의 석유는 헐값, 큰손(ai3)은 석유를 후하게 산다 → 차익이 존재한다
+  assert.ok(tradeFactor('ai2', 'oil', 'buy', data) < 1);
+  assert.ok(tradeFactor('ai3', 'oil', 'sell', data) > 1);
   assert.equal(tradeFactor('ai1', 'stone', 'buy', data), 1, '표에 없는 재화는 배수 1');
 });
 
 test('★ §19-F3(F07-7) 차익 거래가 성립한다 — 싼 데서 사서 비싼 데 판다', () => {
   const world = tradeWorld(11);
-  const [a1, a2] = [world.nations.ai1, world.nations.ai2];
-  for (const n of [a1, a2]) n.resources.oil = 200;
-  const buyAt = foreignUnitPrice(a1, 'oil', 'buy', data);
-  const sellAt = foreignUnitPrice(a2, 'oil', 'sell', data);
-  assert.ok(sellAt > buyAt, `산유국에서 사서(${buyAt.toFixed(2)}) 엘프에 파는 값(${sellAt.toFixed(2)})이 더 크다`);
+  const [supplier, buyer] = [world.nations.ai2, world.nations.ai3];
+  for (const n of [supplier, buyer]) n.resources.oil = 200;
+  const buyAt = foreignUnitPrice(supplier, 'oil', 'buy', data);
+  const sellAt = foreignUnitPrice(buyer, 'oil', 'sell', data);
+  assert.ok(sellAt > buyAt, `산유국(엘라시아)에서 사서(${buyAt.toFixed(2)}) 큰손(에르니아)에 파는 값(${sellAt.toFixed(2)})이 더 크다`);
 });
 
 test('★ §19-F3(F07-7) trade 명령의 단가에 성정이 실린다 — 같은 재화, 다른 나라, 다른 값', () => {
   const world = tradeWorld(12);
   const rng = createRng(12);
+  world.nations.ai2.resources.oil = 300;
   world.nations.ai1.resources.oil = 300;
-  world.nations.ai3.resources.oil = 300;
-  const one = applyCommand(world, 'player', { type: 'trade', nationId: 'ai1', side: 'buy', resource: 'oil', amount: 5 }, data, rng);
-  const two = applyCommand(world, 'player', { type: 'trade', nationId: 'ai3', side: 'buy', resource: 'oil', amount: 5 }, data, rng);
+  const one = applyCommand(world, 'player', { type: 'trade', nationId: 'ai2', side: 'buy', resource: 'oil', amount: 5 }, data, rng);
+  const two = applyCommand(world, 'player', { type: 'trade', nationId: 'ai1', side: 'buy', resource: 'oil', amount: 5 }, data, rng);
   assert.ok(one.ok && two.ok, JSON.stringify([one, two]));
-  assert.ok(one.unitPrice < two.unitPrice, '산유국의 석유가 서방 왕국보다 싸다');
+  assert.ok(one.unitPrice < two.unitPrice, '산유국(엘라시아)의 석유가 청명보다 싸다');
 });
 
 test('★ §19-F3(F07-7) 오퍼는 한 톨도 안 바뀐다 — 성정 배수는 직접 흥정에만 붙는다', async () => {

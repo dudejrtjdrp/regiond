@@ -31,9 +31,10 @@
     ],
     "offer_received": [
       "{{nation}}에서 {{resource}} {{amount}} 제안이 왔습니다. 가격은 {{price}}입니다.",
-      "{{nation}}의 사절이 문서를 내밀었습니다 — {{resource}} {{amount}}, {{price}}.",
+      "{{nation}}의 {{envoy}}이(가) 문서를 내밀었습니다 — {{resource}} {{amount}}, {{price}}.",
       "{{nation}}이(가) {{resource}} 거래를 청해왔습니다. 답은 이틀 안에.",
-      "상관에서 전갈입니다. {{nation}}, {{resource}} {{amount}}."
+      "상관에서 전갈입니다. {{nation}}, {{resource}} {{amount}}.",
+      "{{envoy}}이(가) 값을 부릅니다 — {{resource}} {{amount}}, {{price}}."
     ],
     "invasion_warning": [
       "국경 너머가 시끄럽습니다. {{hint}}",

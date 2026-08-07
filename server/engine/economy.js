@@ -169,11 +169,20 @@ export function effectiveTariff(nation, data, { lastPlace = false, artifactDelta
   return Math.max(t.minTariff, raw);
 }
 
-export function freightRate(nation, data, { artifactDelta = 0, eventDelta = 0 } = {}) {
+/* ★ §세계관 W1(§2-3) — 나라마다 도읍이 멀다. 짐값에 국가별 계수를 곱해
+   「가까운 이웃(엘라시아 0.9)과 먼 전통국(청명 1.2)」이 시세로 체감되게 한다.
+   상대가 정해지지 않은 자리(장터 요약 줄)에는 붙지 않는다 — 그 값은 아직 어느 나라의 값도 아니다. */
+function freightFactor(nationId, data) {
+  if (!nationId) return 1;
+  const def = data.aiNations?.nations?.find((n) => n.id === nationId);
+  return def?.freightFactor ?? 1;
+}
+
+export function freightRate(nation, data, { artifactDelta = 0, eventDelta = 0, nationId = null } = {}) {
   const t = data.balance.trade;
   const tier = nation.buildings?.road || 0;
   const base = t.freightByRoadTier[Math.min(tier, t.freightByRoadTier.length - 1)];
-  return Math.max(0, base + artifactDelta + eventDelta);
+  return Math.max(0, (base + artifactDelta + eventDelta) * freightFactor(nationId, data));
 }
 
 export function hasDiplomat(nation) {

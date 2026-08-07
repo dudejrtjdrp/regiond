@@ -2,12 +2,14 @@
   "nations": [
     {
       "id": "ai1",
-      "name": "동방 제국",
-      "concept": "동양풍 · 전통 중시 · 희귀 자원 보유",
+      "name": "청명",
+      "concept": "동양 판타지 · 수인의 근원 · 고립주의, 강재 독점",
+      "_note": "★ §세계관 W1 — 임시명 「동방 제국」의 정식 개편. 원안의 청명은 「소량의 희귀재를 제값에만 내주는 고립국」이므로, 유전(oilfield)과 원유 수출을 엘라시아로 넘기고 그 자리에 강재(steel) 독점을 앉혔다 — 후반 산업(화포·노포·상급 개축)을 키우려면 반드시 이 문을 두드리게 된다. id 는 세이브 호환을 위해 ai1 그대로, persona 는 서버 로직 키(ai_nation.js 의 factoryFloor·factoryQueue)라 petro 를 유지한다. 도읍이 극동이라 운임이 가장 비싸다(freightFactor 1.2).",
       "persona": "petro",
+      "envoy": "장로 담선",
+      "freightFactor": 1.2,
       "diplomacyDifficulty": "hard",
       "tags": [
-        "oilfield",
         "ironvein",
         "barren"
       ],
@@ -20,7 +22,6 @@
         "priceManipulationChance": 0.15,
         "priceManipulationRange": 0.2,
         "preferredExports": [
-          "oil",
           "steel",
           "ironOre"
         ],
@@ -29,12 +30,11 @@
         ]
       },
       "tradeProfile": {
-        "_note": "★ §19-F3(F07-7) 무역 동기 — 나라마다 「싸게 내주는 것」과 「비싸게 쳐주는 것」이 다르다. exports 는 그 나라에서 살 때의 값 배수(1 미만이면 싸다), demands 는 그 나라에 팔 때의 값 배수(1 넘으면 후하다). 성정을 그대로 따른다: 산유국은 검은 것을 헐값에 내주고 먹을 것을 비싸게 산다. ★ 직접 흥정(trade 명령)에만 붙는다 — 저쪽에서 보내오는 제안(offers)은 저쪽이 부르는 값 그대로다.",
+        "_note": "★ §19-F3(F07-7)+§세계관 W1 — 성정 배수. 청명은 강재의 나라다: 검은 물(원유)은 엘라시아로 넘어갔고, 대를 이어온 장인의 쇠(steel·ironOre·coal)를 싸게 내준다. 먹을 것은 여전히 후하게 산다(barren 의 땅). ★ 직접 흥정(trade 명령)에만 붙는다 — 오퍼는 저쪽이 부르는 값 그대로.",
         "exports": {
-          "oil": 0.7,
-          "steel": 0.8,
+          "steel": 0.78,
           "ironOre": 0.82,
-          "fuel": 0.78
+          "coal": 0.85
         },
         "demands": {
           "grain": 1.45,
@@ -56,36 +56,41 @@
           }
         },
         {
-          "key": "east_oil_jar",
-          "name": "검은 물 항아리",
-          "desc": "유막이 없는 땅에서는 한 방울도 나지 않는 것. 항아리째 받아 온다.",
-          "gold": 420,
-          "stock": 1,
-          "restockDays": 4,
+          "key": "west_steel_ingot",
+          "name": "청명 강괴",
+          "desc": "대를 이어온 장인이 벼린 강재. 제련소를 세우기 전에도 쇠를 쥘 수 있다.",
+          "gold": 380,
+          "stock": 2,
+          "restockDays": 3,
           "grant": {
-            "resource": "oil",
-            "amount": 40
-          }
+            "resource": "steel",
+            "amount": 60
+          },
+          "_note": "★ §세계관 W1 — 강재의 나라는 이제 청명. key(west_steel_ingot)는 세이브 호환으로 유지."
         }
       ],
       "startingResources": {
         "grain": 120,
         "wood": 80,
         "stone": 40,
-        "oil": 20,
+        "oil": 0,
         "fuel": 10,
-        "steel": 10,
+        "steel": 40,
         "ironOre": 20
       }
     },
     {
       "id": "ai2",
-      "name": "엘프 연맹",
-      "concept": "엘프풍 · 목재와 희귀 약초",
+      "name": "엘라시아 연합국",
+      "concept": "엘프 3부족 연합 · 자원 공급국 · 목재·원유·약초",
+      "_note": "★ §세계관 W1 — 임시명 「엘프 연맹」의 정식 개편. 원안의 엘라시아는 「땅속의 기름을 가진 꾸준한 공급국」이라 유전(oilfield)과 원유 수출을 청명에서 넘겨받았다. 그 결과 화포 원료(원유)의 공급자가 hard 국가에서 easy 국가로 바뀌어, 무역 사슬이 「가까운 이웃과의 꾸준한 거래」가 된다(난이도 normal→easy, 도읍이 가장 가까워 운임 0.9). 덤핑(dumpingChance/Discount)은 값을 후려치는 큰손의 성정이므로 에르니아로 이관했다 — 공급국의 값은 흔들리지 않고 안정된다. 약초는 게임에 자원이 없어 concept 문구로만 남긴다(QA-F2 바이옴 확장 때 연결).",
       "persona": "mercantile",
-      "diplomacyDifficulty": "normal",
+      "envoy": "대변인 리엔",
+      "freightFactor": 0.9,
+      "diplomacyDifficulty": "easy",
       "tags": [
         "greatwood",
+        "oilfield",
         "holy"
       ],
       "startingPopulation": 50,
@@ -94,10 +99,9 @@
         "selfSufficiencyFirst": true,
         "exportSurplus": true,
         "importDeficit": true,
-        "dumpingChance": 0.2,
-        "dumpingDiscount": 0.15,
         "preferredExports": [
           "wood",
+          "oil",
           "stone"
         ],
         "criticalImports": [
@@ -106,15 +110,16 @@
         ]
       },
       "tradeProfile": {
+        "_note": "★ §세계관 W1 — 유전을 넘겨받은 자원 공급국. 숲과 땅속의 것(wood·oil·fuel·stone·hide)을 꾸준히 싸게 내주고, 만들어 쓰는 것(steel)을 후하게 산다 — 캐는 데는 능하나 벼리는 데는 힘쓰지 않는다. 덤핑(간헐 15% 할인)을 에르니아로 넘긴 대신 상시 저가로 환원했다(wood 0.68→0.65, oil 0.7→0.68, stone 0.85→0.82) — 공급국의 「안정적이고 싼 값」을 상시 배수로 표현. 웨이브5 생존율 하한 회복용, 시뮬 근거.",
         "exports": {
-          "wood": 0.68,
-          "stone": 0.85,
+          "wood": 0.65,
+          "oil": 0.68,
+          "fuel": 0.78,
+          "stone": 0.82,
           "hide": 0.84
         },
         "demands": {
-          "oil": 1.4,
-          "fuel": 1.38,
-          "steel": 1.22
+          "steel": 1.28
         }
       },
       "specialties": [
@@ -140,13 +145,26 @@
             "resource": "wool",
             "amount": 50
           }
+        },
+        {
+          "key": "east_oil_jar",
+          "name": "검은 물 항아리",
+          "desc": "유막이 없는 땅에서는 한 방울도 나지 않는 것. 연합의 땅이 내준 것을 항아리째 받아 온다.",
+          "gold": 420,
+          "stock": 1,
+          "restockDays": 4,
+          "grant": {
+            "resource": "oil",
+            "amount": 40
+          },
+          "_note": "★ §세계관 W1 — 유전이 엘라시아로 넘어가며 함께 이사. key(east_oil_jar)는 옛 세이브의 재고 상태와 이어지도록 그대로 둔다."
         }
       ],
       "startingResources": {
         "grain": 90,
         "wood": 140,
         "stone": 50,
-        "oil": 0,
+        "oil": 25,
         "fuel": 0,
         "steel": 5,
         "ironOre": 5
@@ -154,10 +172,13 @@
     },
     {
       "id": "ai3",
-      "name": "서방 왕국",
-      "concept": "유럽풍 · 자원 풍부 · 화폐 패권국",
+      "name": "에르니아 왕국",
+      "concept": "유럽 판타지 · 화폐 패권 · 중상주의 큰손",
+      "_note": "★ §세계관 W1 — 임시명 「서방 왕국」의 정식 개편. 원안의 에르니아는 「뭐든 사고팔되 값을 후려치는 중상주의 큰손」이라, 엘라시아에 있던 덤핑(dumpingChance 0.2 / dumpingDiscount 0.15)을 이리로 옮겼다 — 최다 골드(260)와 곡물 대량 수출이 「남는 물자를 싸게 풀어 시장을 장악하는」 결로 맞물린다. 게임에 공산품 자원이 없어 이것이 원안의 근사치다. 난이도는 easy→normal(재회의 상대는 위신을 쌓아야 대등해진다), criticalImports 에 steel 을 더해 플레이어의 중계무역(청명 강재 → 에르니아) 자리를 낸다. 도읍은 중거리라 운임 1.0.",
       "persona": "hegemon",
-      "diplomacyDifficulty": "easy",
+      "envoy": "사절 로웬",
+      "freightFactor": 1.0,
+      "diplomacyDifficulty": "normal",
       "tags": [
         "fertile",
         "greatwood"
@@ -168,6 +189,8 @@
         "selfSufficiencyFirst": true,
         "exportSurplus": true,
         "importDeficit": true,
+        "dumpingChance": 0.2,
+        "dumpingDiscount": 0.15,
         "preferredExports": [
           "grain",
           "wood"
@@ -178,12 +201,15 @@
         ]
       },
       "tradeProfile": {
+        "_note": "★ §세계관 W1 — 중상주의 큰손. 남는 곡물과 목재를 싸게 풀고(덤핑과 한 결), 희귀한 것이라면 무엇이든 후하게 사들인다 — criticalImports(oil·fuel·steel)와 짝. 강재를 싸게 내주던 옛 줄(steel 0.86)은 지운다: 쇠의 이문은 이제 청명의 것이고, 그 사이를 플레이어가 잇는다(중계무역 자리). 강재 후매입은 1.25→1.12 로 눌렀다 — 봇이 무기의 쇠까지 내다 팔아 웨이브5 생존율이 60%→55%로 밀렸던 것을 시뮬로 확인하고 되돌린 값.",
         "exports": {
           "grain": 0.72,
-          "wood": 0.8,
-          "steel": 0.86
+          "wood": 0.8
         },
         "demands": {
+          "oil": 1.35,
+          "fuel": 1.3,
+          "steel": 1.12,
           "hide": 1.42,
           "coal": 1.3,
           "ironOre": 1.24
@@ -202,16 +228,17 @@
           }
         },
         {
-          "key": "west_steel_ingot",
-          "name": "서방 강괴",
-          "desc": "왕국의 용광로가 뽑은 강재. 제련소를 세우기 전에도 쇠를 쥘 수 있다.",
-          "gold": 380,
+          "key": "west_grain_note",
+          "name": "왕국 곡창 어음",
+          "desc": "에르니아 곡창이 발행한 어음. 큰손의 창고는 언제나 남아돈다 — 어음을 내밀면 곡물이 실려 온다.",
+          "gold": 200,
           "stock": 2,
           "restockDays": 3,
           "grant": {
-            "resource": "steel",
-            "amount": 60
-          }
+            "resource": "grain",
+            "amount": 80
+          },
+          "_note": "★ §세계관 W1 — 강괴가 청명으로 떠난 자리. 큰손의 결(남는 물자를 푼다)에 맞는 새 특산품."
         }
       ],
       "startingResources": {
