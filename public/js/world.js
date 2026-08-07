@@ -984,11 +984,22 @@
    * 밑변(baseY)과 가로 한가운데는 붙박이다 — 커져도 건물은 제자리에 선 채 위로 자란다.
    * @param {object} b 건물 · @param {number} grow 준공 튀어오름 같은 덤 배율
    */
+  /* ★ §19-D(F03-9) — 건물별 덤 배율(data/buildings.json spriteScale).
+     「왜」 필요한가 — 분수·기념비·가로등처럼 **한 칸을 차지하지만 크게 보여야 하는 것**이 있다.
+     자리(풋프린트)를 키우면 충돌·배치 격자·비용 검증이 통째로 흔들리므로, 여기서는 그림만 키운다:
+     밑변과 가로 한가운데는 그대로라 건물은 제자리에 선 채 위로·옆으로만 자란다.
+     클릭 판정도 같은 사각형을 쓰므로(§17-19) 「보이는데 눌러지지 않는다」가 생기지 않는다. */
+  function spriteScaleOf(b) {
+    var key = b && (b.key || b.building);
+    var d = (key && S.buildingDef) ? S.buildingDef(key) : null;
+    return (d && d.spriteScale) || 1;
+  }
+
   function structureRect(b, grow) {
     var f = S.footprintOfThing(b);
     var c = S.centerOfThing(b);
     var cfg = spriteCfg();
-    var g = (cfg.scale || 1) * (grow || 1);
+    var g = (cfg.scale || 1) * (grow || 1) * spriteScaleOf(b);
     var w = (f.w + cfg.pad) * g, h = (f.h + cfg.pad) * g;
     var baseY = c.y + (f.h - 1) / 2 + cfg.baseDrop;
     return { x: c.x + cfg.shiftX - w / 2, y: baseY - h, w: w, h: h, baseY: baseY };
@@ -2206,10 +2217,19 @@
     if (tr) { promptBox(tr.verb, tr.x, tr.y, tr.ready); return; }
     if (!GM.swing || !GM.swing.target) return;
     var t = GM.swing.target();
-    if (!t) return;
+    if (!t) { promptHandWork(); return; }
     var txt = verbFor(t);
     if (!txt) return;
     promptBox(txt, t.x, t.y, GM.swing.ready && GM.swing.ready());
+  }
+
+  /** ★ §19-D(F03-6) — 휘두를 것이 없고 손일 건물 곁이면 그 건물의 대표 행동을 말머리에 건다.
+      input.js startInteract 와 **같은 차례**다 — 말머리와 E 가 갈리면 손이 헛나간다. */
+  function promptHandWork() {
+    var b = GM.structure && GM.structure.handWorkNear && GM.structure.handWorkNear();
+    if (!b) return;
+    var c = S.centerOfThing(b);
+    promptBox('E — ' + ((b.handWork && b.handWork.label) || '거든다'), c.x, c.y, true);
   }
 
   /** 말머리 상자 하나 — 대상 위에 떠서 까딱인다 */

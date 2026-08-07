@@ -447,7 +447,18 @@
     if (tw) { GM.diplomacy.visit(tw); return; }
     var tr = GM.trails && GM.trails.near();
     if (tr) { GM.trails.investigate(tr); return; }
+    var hw = handWorkTarget();
+    if (hw) { GM.structure.runHandWork(hw); return; }
     GM.swing.startHold();
+  }
+
+  /** ★ §19-D(F03-6) — 건물 위에서 E 면 그 건물의 대표 행동(손수 제련한다 · 톱질을 거든다 …)을 곧바로.
+      「왜」 휘두를 것이 있으면 비켜 주나 — 제련소 곁의 나무를 베려던 손을 건물이 가로채면
+      「E 가 엉뚱한 일을 한다」가 된다. 손에 잡히는 것이 없을 때만 건물 차례다. */
+  function handWorkTarget() {
+    if (!GM.structure || !GM.structure.handWorkNear) return null;
+    if (GM.swing && GM.swing.target()) return null;
+    return GM.structure.handWorkNear();
   }
 
   function onKeyUp(e) {
@@ -470,6 +481,14 @@
   function centerLord() {
     var p = GM.avatar.pos();
     if (p) { GM.camera.moveTo(p.x, p.y); followUntil = Date.now() + 8000; }
+  }
+  /** ★ §19-D(F03-5) — 밖에서 눈을 옮긴다(명부의 얼굴 누르기).
+      따라가기를 함께 풀지 않으면 걷는 몸이 카메라를 곧바로 제자리로 끌어당긴다. */
+  function focusAt(x, y) {
+    if (x == null || y == null) return;
+    GM.camera.moveTo(x, y);
+    manualPanAt = Date.now();
+    followUntil = 0;
   }
 
   /* ══════════ 매 프레임 ══════════ */
@@ -516,6 +535,8 @@
   }
 
   GM.input = { init: init, keys: keys, step: step, centerTown: centerTown, centerLord: centerLord,
+    /* ★ §19-D — 명부·패널이 눈을 옮길 때 쓰는 문 */
+    focusAt: focusAt,
     /* ★ §17-19 — 회귀 전용 문. 그려진 사각형과 클릭 판정이 정말 한 자로 재는지 밖에서 확인한다. */
     structureAtSprite: structureAtSprite };
 })(window);

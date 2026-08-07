@@ -41,6 +41,7 @@ creatures { tick, list:[…], shots?:[{id,key,x,y,tx,ty,targetId,damage,killed}]
 | 〃 | `keyFacts[]` | ★ §15-B-2 핵심 수치 1~2개 — 1단계 효과표의 앞 두 줄 |
 | `state.nation.structures[]` | `turret {dps,range}` | ★ §15-A-4 사거리 원의 재료. 지금 이 티어·이 내구도의 값 |
 | `/api/config` `buildings.defs[]` | `purpose` · `tiers[].turret` | 고스트 배치 중에도 원을 그려야 하므로 도감에 실린다 |
+| 〃 | `spriteScale` | ★ §19-D(F03-9) — **필드 추가만**. 그림만 키우는 덤 배율(없으면 `null` = 1배). 자리(footprint)·충돌·배치 격자·비용은 한 눈금도 달라지지 않고, 서버는 이 값을 한 번도 판정에 쓰지 않는다 — 화면(world.structureRect)만 읽는다 |
 
 ### 0-S-4. 터렛의 두 시각 (§15-A-1) — **한 발을 두 번 세지 않는다**
 

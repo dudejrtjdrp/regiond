@@ -134,9 +134,33 @@
         : m.name + (m.online ? ' — 함께 있습니다' : ' — 자리를 비웠습니다');
       var body = role ? S.roleMeta(role).name + '의 자리를 맡고 있습니다.' : '아직 자리를 고르지 않았습니다.';
       if (m.bot) body += ' 친구가 들어오면 이 자리를 비켜 줍니다.';
-      U.tipSet(row, head, body);
+      U.tipSet(row, head, body + '\n눌러 보면 그 사람이 선 자리로 눈을 옮깁니다.');
+      row.onclick = function () { focusMember(m); };
       rosterEl.appendChild(row);
     });
+  }
+
+  /* ★ §19-D(F03-5) — 명부의 얼굴을 누르면 그 사람(봇 포함)이 선 자리로 카메라가 간다.
+     「왜」 그려진 자리를 쓰나 — 봇의 서버 좌표는 보간보다 앞서 있어, 그대로 쓰면 눈이 몸보다
+     한 걸음 앞에 선다. 화면이 실제로 그린 자리(world.matePos)가 정본이다(input.crewAt 과 같은 규칙). */
+  function focusMember(m) {
+    var p = memberPos(m);
+    if (!p || p.x == null) { U.toast(m.name + '이(가) 어디 있는지 아직 보이지 않습니다.', 'warn'); return; }
+    GM.input.focusAt(p.x, p.y);
+    if (GM.world && GM.world.ping) GM.world.ping(p.x, p.y, m.bot ? '#8fe3b4' : '#f6cf7a');
+    GM.sfx.play('tap');
+  }
+  function memberPos(m) {
+    var id = m && m.avatarId;
+    if (!id) return null;
+    if (id === S.S.avatarId) return GM.avatar.pos();
+    var list = S.S.avatars || [];
+    for (var i = 0; i < list.length; i++) {
+      if (!list[i] || list[i].id !== id) continue;
+      var mp = (GM.world && GM.world.matePos) ? GM.world.matePos(id) : null;
+      return mp || list[i];
+    }
+    return null;
   }
 
   function paintLog() {

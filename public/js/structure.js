@@ -452,31 +452,9 @@
       acts.push({
         label: hw.label || '거든다', cls: 'btn-primary', id: 'st-handwork',
         tip: hw.desc || '건물 곁에서 직접 거듭니다.',
-        detail: parts.join(' · ') + (hw.cooldownDays ? ' · 하루 한 번' : (hw.cooldownSeconds ? ' · ' + hw.cooldownSeconds + '초마다' : '')),
-        onClick: function () {
-          GM.net.send('handWork', { structureId: b.id }, function (r) {
-            if (!r) return;
-            if (!r.ok) { U.toast((r.error && r.error.message) || '지금은 할 수 없습니다.', 'warn'); return; }
-            GM.sfx.play('build');
-            var px = r.x != null ? r.x : b.x, py = r.y != null ? r.y : b.y;
-            var shown = 0;
-            Object.keys(r.gained || {}).forEach(function (k) {
-              var v = r.gained[k];
-              if (!(v > 0.009)) return;
-              var meta = S.resourceMeta(k);
-              GM.fx.resourcePop(px + (shown * 0.4 - 0.2), py - 0.5, k,
-                '+' + U.fmt(v, v < 10 ? 1 : 0) + ' ' + meta.name, meta.color);
-              shown += 1;
-            });
-            if (r.gold) GM.fx.floatText(px, py - 0.9, '+' + r.gold + ' 골드', '#f6cf7a');
-            if (r.buildPoints) GM.fx.floatText(px, py - 0.9, '공사 +' + r.buildPoints, '#c8e6a0');
-            if (r.healed) GM.fx.floatText(px, py - 0.9, '+' + U.fmt(r.healed, 0) + ' 체력', '#8fd06a');
-            if (r.morale != null) U.toast('마을의 사기가 조금 올랐습니다.', 'good');
-            if (r.resources) S.applyLiveResources(r.resources);
-            GM.fx.sparkle(px, py, '#fff0c8');
-            open(b.id);   /* 패널 값 새로 고침 */
-          });
-        }
+        detail: parts.join(' · ') + (hw.cooldownDays ? ' · 하루 한 번' : (hw.cooldownSeconds ? ' · ' + hw.cooldownSeconds + '초마다' : ''))
+          + ' · 건물 곁에서 E 를 눌러도 곧바로 합니다',
+        onClick: function () { runHandWork(b, true); }
       });
     }
     if (b.nextTier) {
@@ -738,7 +716,66 @@
     });
   }
 
+  /* ══════════ ★ §19-D(F03-6) 건물 손일을 한 문으로 ══════════
+     「왜」 한 곳으로 모았나 — 여태 손일을 부르는 길은 건물 패널의 단추 하나뿐이었다.
+     이제 E 키도 같은 일을 하므로, 두 길이 각자 셈을 베껴 쓰면 한쪽만 고쳐지는 날이 온다.
+     서버 계약(handWork 명령·거리·쿨다운 판정)은 한 줄도 건드리지 않는다 — 부르는 길만 늘린다. */
+  function runHandWork(b, refresh) {
+    if (!b) return;
+    GM.net.send('handWork', { structureId: b.id }, function (r) {
+      if (!r) return;
+      if (!r.ok) { U.toast((r.error && r.error.message) || '지금은 할 수 없습니다.', 'warn'); return; }
+      GM.sfx.play('build');
+      paintHandWork(b, r);
+      if (refresh) open(b.id);   /* 패널이 열려 있을 때만 값을 새로 고친다 */
+    });
+  }
+  function paintHandWork(b, r) {
+    var px = r.x != null ? r.x : b.x, py = r.y != null ? r.y : b.y;
+    var shown = 0;
+    Object.keys(r.gained || {}).forEach(function (k) {
+      var v = r.gained[k];
+      if (!(v > 0.009)) return;
+      var meta = S.resourceMeta(k);
+      GM.fx.resourcePop(px + (shown * 0.4 - 0.2), py - 0.5, k,
+        '+' + U.fmt(v, v < 10 ? 1 : 0) + ' ' + meta.name, meta.color);
+      shown += 1;
+    });
+    paintHandWorkExtras(px, py, r);
+    if (r.resources) S.applyLiveResources(r.resources);
+    GM.fx.sparkle(px, py, 10, '#fff0c8');
+  }
+  function paintHandWorkExtras(px, py, r) {
+    if (r.gold) GM.fx.floatText(px, py - 0.9, '+' + r.gold + ' 골드', '#f6cf7a');
+    if (r.buildPoints) GM.fx.floatText(px, py - 0.9, '공사 +' + r.buildPoints, '#c8e6a0');
+    if (r.healed) GM.fx.floatText(px, py - 0.9, '+' + U.fmt(r.healed, 0) + ' 체력', '#8fd06a');
+    if (r.morale != null) U.toast('마을의 사기가 조금 올랐습니다.', 'good');
+  }
+
+  /** 손이 닿는 거리 — 서버(balance.handWork.reachTiles)와 **같은 자**를 쓴다. 다르면 「E 는 떴는데 멀다고 한다」가 된다. */
+  function handReach() {
+    var c = S.cfg();
+    var v = c && c.balance && c.balance.handWork && c.balance.handWork.reachTiles;
+    return v == null ? 3.2 : v;
+  }
+  /** ★ §19-D(F03-6) — 지금 서 있는 자리에서 손이 닿는, 손일이 있는 건물 하나(가장 가까운 것) */
+  function handWorkNear() {
+    var p = GM.avatar && GM.avatar.pos && GM.avatar.pos();
+    if (!p) return null;
+    var list = S.structures(), best = null, bd = 1e9;
+    for (var i = 0; i < list.length; i++) {
+      var b = list[i];
+      if (!b || !b.handWork || b.x == null || b.ruined || b.inactive || b.work) continue;
+      var f = S.footprintOfThing(b), c = S.centerOfThing(b);
+      var d = Math.hypot(c.x - p.x, c.y - p.y) - Math.max(f.w, f.h) / 2;
+      if (d < bd && d <= handReach()) { bd = d; best = b; }
+    }
+    return best;
+  }
+
   GM.structure = { open: open, openSite: openSite, openFence: openFence, openNode: openNode,
                    openSettlement: openSettlement, reqRow: reqRow, reqRowOf: reqRowOf,
-                   refreshOpen: refreshOpen };
+                   refreshOpen: refreshOpen,
+                   /* ★ §19-D(F03-6) — E 키가 쓰는 두 문 */
+                   handWorkNear: handWorkNear, runHandWork: runHandWork };
 })(window);

@@ -437,6 +437,47 @@
     clear(qs('#banner-root'));
   }
 
+  /* ── 화면 한가운데 큰 제목 ─────────────────────────────
+     ★ §19-D(F03-3·F03-4) — 새 땅에 들어서는 순간과 날이 바뀌는 순간은 「작은 알림」이 아니라 장면이다.
+     「왜」 배너를 안 쓰나 — 배너는 줄을 서고 구석에 뜬다. 그러면 지나온 땅 이름이 몇 초 뒤에
+     밀려 나와 "지금 여기"와 어긋난다. 이쪽은 줄을 세우지 않는다: 새것이 오면 앞의 것을 지운다.
+     판 위에 얹히지만 .decor 라 클릭은 그대로 아래로 흘러간다(연출이 손을 막지 않는다).
+     시간(홀드·페이드)은 data/world.json render.cinema 가 쥔다. */
+  var epicTimer = null;
+  function epicCfg() {
+    var w = GM.state && GM.state.worldCfg ? GM.state.worldCfg() : null;
+    return (w && w.render && w.render.cinema) || { holdMs: 2400, fadeMs: 520, veilAlpha: 0.5 };
+  }
+  function epic(opts) {
+    var root = qs('#epic-root');
+    if (!root || !opts) return null;
+    var d = epicCfg();
+    clear(root);
+    if (opts.veil) root.appendChild(epicVeil(d));
+    var card = el('div', 'epic epic-' + (opts.kind || 'land'));
+    card.appendChild(el('span', 'ep-t', opts.title || ''));
+    if (opts.sub) card.appendChild(el('span', 'ep-s', opts.sub));
+    root.appendChild(card);
+    void card.offsetWidth;
+    card.classList.add('in');
+    clearTimeout(epicTimer);
+    epicTimer = setTimeout(function () { epicOut(root, d.fadeMs || 520); }, opts.ms || d.holdMs || 2400);
+    return card;
+  }
+  /** 날이 바뀌는 전환 — 어둠이 한 번 덮었다 걷힌다(제목과 같은 박자로 사라진다) */
+  function epicVeil(d) {
+    var v = el('div', 'ep-veil decor');
+    v.style.setProperty('--ep-veil-a', d.veilAlpha == null ? 0.5 : d.veilAlpha);
+    setTimeout(function () { v.classList.add('in'); }, 0);
+    return v;
+  }
+  function epicOut(root, fadeMs) {
+    var kids = qsa('.epic, .ep-veil', root);
+    kids.forEach(function (n) { n.classList.remove('in'); n.classList.add('out'); });
+    setTimeout(function () { clear(root); }, fadeMs);
+  }
+  function epicClear() { clearTimeout(epicTimer); clear(qs('#epic-root')); }
+
   /* ── 코치마크 ────────────────────────────────────────── */
   var coachQueue = [], coachIdx = 0;
   function coach(steps, onDone) {
@@ -535,6 +576,8 @@
     modalOpen: modalOpen, anyModalOpen: anyModalOpen, confirmBox: confirmBox,
     px: px, sprite: sprite, fitCanvas: fitCanvas,
     coach: coach, coachClear: coachClear, hintAt: hintAt,
-    banner: banner, bannerClear: bannerClear
+    banner: banner, bannerClear: bannerClear,
+    /* ★ §19-D — 지형 진입·날짜 전환의 큰 제목 */
+    epic: epic, epicClear: epicClear
   };
 })(window);

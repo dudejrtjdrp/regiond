@@ -1216,8 +1216,32 @@
       "shrinkPerMs": 0.06,
       "clockMaxStepMs": 2000
     },
+    "cinema": {
+      "_note": "★ §19-D(F03-3·F03-4) — 화면 한가운데 큰 제목의 박자. holdMs 는 제목이 떠 있는 시간, fadeMs 는 스러지는 데 걸리는 시간(CSS .epic 전환과 짝이라 크게 어긋나면 지워지기 전에 멎는다). veilAlpha 는 날이 바뀔 때 한 번 덮었다 걷히는 어둠의 짙기다. landCooldownMs 는 같은 경고(사나운 땅)가 다시 뜨기까지의 최소 간격이다 — 경계선을 오가며 연타할 때 화면이 도배되는 것을 막는다(첫 발견 지형은 서버가 한 번만 알려 주므로 쿨다운이 필요 없다).",
+      "holdMs": 2400,
+      "fadeMs": 520,
+      "veilAlpha": 0.5,
+      "dayHoldMs": 2000,
+      "landCooldownMs": 25000,
+      "_titleNote": "화면 한가운데 크게 뜨는 이름. 경고 문구(rings.warnText)는 그 아래 한 줄로 남고, 날짜는 dayTitle 의 {n} 자리에 날수가 든다. 여기 낱말은 화면만 읽는다.",
+      "dangerTitle": "사나운 것들의 땅",
+      "dayTitle": "{n}일차"
+    },
+    "turretShot": {
+      "_note": "★ §19-D(F03-7) — 터렛의 한 발이 눈에 보이게. 옛 그림은 굵기 2의 실선 하나뿐이라 '쏘는지도 모르겠다'는 말이 나왔다. trailFrac 은 머리 뒤로 끌리는 꼬리의 길이(비행 구간에 대한 비율), glowWidth 는 그 뒤에 옅게 깔리는 빛의 굵기, width 는 심지의 굵기다. muzzleFrac 동안 쏜 자리에 총구 불티가 남고, 발이 닿는 순간 impactRadius 만큼의 테와 sparks 개의 불티가 튄다. 전부 렌더 계층이다 — 판정·피해는 한 눈금도 달라지지 않는다.",
+      "width": 3.4,
+      "glowWidth": 9,
+      "headRadius": 3.2,
+      "trailFrac": 0.42,
+      "muzzleFrac": 0.34,
+      "muzzleRadius": 0.42,
+      "impactRadius": 0.95,
+      "impactSeconds": 0.3,
+      "impactWidth": 2.5,
+      "sparks": 6
+    },
     "structureSprite": {
-      "_note": "건물 스프라이트 사각형의 정본 수치. 그림(world.drawStructures)과 클릭 판정(input.structureAtSprite)이 이 하나를 같이 쓴다 — 따로 두면 키우는 순간 「눌러도 안 잡히는 건물」이 된다. scale 은 발밑(밑변)과 가로 한가운데를 붙박아 둔 채 위로·옆으로만 키운다. pad·baseDrop·shiftX 는 §12-1 부터 쓰던 옛 값 그대로다.",
+      "_note": "건물 스프라이트 사각형의 정본 수치. 그림(world.drawStructures)과 클릭 판정(input.structureAtSprite)이 이 하나를 같이 쓴다 — 따로 두면 키우는 순간 「눌러도 안 잡히는 건물」이 된다. scale 은 발밑(밑변)과 가로 한가운데를 붙박아 둔 채 위로·옆으로만 키운다. pad·baseDrop·shiftX 는 §12-1 부터 쓰던 옛 값 그대로다. ★ §19-D(F03-9) — 건물 하나만 더 키우고 싶으면 data/buildings.json 의 spriteScale 을 쓴다(여기 scale 에 곱해진다). 자리(풋프린트)는 그대로라 충돌·배치 격자는 한 칸도 달라지지 않는다.",
       "scale": 1.18,
       "pad": 0.7,
       "baseDrop": 0.55,

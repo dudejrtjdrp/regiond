@@ -978,6 +978,9 @@ export function publicBuildings(data) {
       core: Boolean(def.core),
       // ★ §12-1 · §12-2
       footprint: [footprint(key, data).w, footprint(key, data).h],
+      /* ★ §19-D(F03-9) — 그림만 키우는 덤 배율. 자리(footprint)는 위 한 줄이 그대로 쥐고 있고,
+         이 값은 화면(world.structureRect)만 읽는다 — 서버 판정은 한 번도 보지 않는다. */
+      spriteScale: def.spriteScale ?? null,
       hq: Boolean(def.hq),
       autoTier: Boolean(def.autoTier),
       immovable: isImmovable(key, data),

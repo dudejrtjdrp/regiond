@@ -118,9 +118,9 @@
       /* ★ GDD3 §13-A-5 — 곳간이 찬 자원은 빨간 테두리 + 「가득」. 왜 안 늘어나는지가 한눈에 보여야 한다. */
       var full = S.storageFull(it.key);
       U.tipSet(d, it.name + ' — ' + (full ? '가득 참' : word.text),
-        full ? ('곳간 상한 ' + U.fmt(S.storageLimit(), 0) + '에 닿았습니다.\n'
+        withUses(it.key, full ? ('곳간 상한 ' + U.fmt(S.storageLimit(), 0) + '에 닿았습니다.\n'
                 + '더 캐도 들어가지 않습니다 — 저장 궤짝이나 저장고를 더 짓거나 키우세요.')
-             : word.detail);
+             : word.detail));
       d.classList.toggle('low', word.low && !full);
       d.classList.toggle('full', full);
     });
@@ -146,6 +146,19 @@
     chip.classList.remove('absorb');
     void chip.offsetWidth;
     chip.classList.add('absorb');
+  }
+
+  /* ★ §19-D(F03-10) — 「이 자원은 어디에 쓰나」. 문구는 data/resources.json 의 meta[].uses 가 정본이다:
+     화면이 제 낱말을 지어내면 실제 비용표와 어긋난 거짓말이 남는다. 사람·사기처럼 쓰임이 없는 칸은
+     그대로 지나간다(uses 가 없으면 한 글자도 붙지 않는다). */
+  function usesOf(key) {
+    var c = S.cfg();
+    var m = c && c.resources && c.resources.meta && c.resources.meta[key];
+    return (m && m.uses) || null;
+  }
+  function withUses(key, detail) {
+    var u = usesOf(key);
+    return u ? (detail + '\n\n' + u) : detail;
   }
 
   function stateWord(it, n) {
@@ -1105,7 +1118,18 @@
     lastMorning = day;
     if (S.battleLive()) return;                               // 싸움 중의 아침은 조용히 지나간다
     var sub = rows.map(function (r) { return r.text; }).join(' · ');
+    dayCurtain(day, sub);
     U.banner({ icon: 'sun', kind: 'good', title: day + '일째 아침', sub: sub || '고요한 하루가 시작됩니다', ms: 4200 });
+  }
+
+  /* ★ §19-D(F03-4) — 날이 바뀌는 순간의 전환. 어둠이 한 번 덮었다 걷히고 그 위에 「N일차」가 크게 뜬다.
+     「왜」 예보를 밑줄로 함께 다나 — 큰 글자만 뜨면 '무슨 날인지'가 빠진다. 아침 안내판(배너)은
+     그대로 두어 다시 읽을 수 있게 하고, 이 장면은 눈을 한 번 돌리게 하는 몫만 맡는다. */
+  function dayCurtain(day, sub) {
+    var w = S.worldCfg();
+    var c = (w && w.render && w.render.cinema) || {};
+    var title = (c.dayTitle || '{n}일차').replace('{n}', day);
+    U.epic({ title: title, sub: sub || null, kind: 'day', veil: true, ms: c.dayHoldMs });
   }
 
   GM.hud = {

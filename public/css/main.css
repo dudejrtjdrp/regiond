@@ -921,7 +921,9 @@ button[data-tip],.res-chip[data-tip],.minister[data-tip]{cursor:pointer}
 .sp-head{display:flex; align-items:center; gap:6px; margin-bottom:6px}
 .sp-head .sp-t{flex:1 1 auto; font-size:13.5px; color:var(--wood-dark)}
 .sp-roster{max-height:104px; overflow:auto; margin-bottom:6px}
-.sp-member{display:flex; align-items:center; gap:7px; padding:3px 2px; position:relative}
+/* ★ §19-D(F03-5) — 얼굴을 누르면 그 자리로 눈이 간다. 눌러도 되는 줄임을 손끝에 알린다. */
+.sp-member{display:flex; align-items:center; gap:7px; padding:3px 2px; position:relative; cursor:pointer}
+.sp-member:hover{background:rgba(246,231,180,.08)}
 .sp-member img{border:2px solid var(--wood); background:#e6d3a8}
 .sp-member .sm-col{display:flex; flex-direction:column; line-height:1.2; min-width:0; flex:1 1 auto}
 .sp-member .sm-n{font-size:12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -1054,6 +1056,27 @@ button[data-tip],.res-chip[data-tip],.minister[data-tip]{cursor:pointer}
 .banner-tier .bn-t{font-size:20px}
 .banner-danger{border-color:var(--red-deep); background:linear-gradient(180deg,#f8ddd6 0 6px,#f0cabf 6px 100%)}
 .banner-good{border-color:var(--green-deep)}
+
+/* ── ★ §19-D(F03-3·F03-4) 화면 한가운데 큰 제목 ──
+   새 땅에 들어설 때 지형 이름이, 날이 바뀔 때 「N일차」가 한가운데 크게 떴다 스러진다.
+   판 위에 얹히지만 통째로 장식이라 클릭·드래그는 그대로 아래 지도로 흘러간다. */
+.epic-root{position:fixed; inset:0; z-index:750; display:flex; align-items:center; justify-content:center}
+.ep-veil{position:fixed; inset:0; background:radial-gradient(120% 90% at 50% 45%, rgba(8,6,14,.25) 0%, #08060e 100%);
+  opacity:0; transition:opacity .55s ease}
+.ep-veil.in{opacity:var(--ep-veil-a,.5)}
+.ep-veil.out{opacity:0}
+.epic{position:relative; display:flex; flex-direction:column; align-items:center; gap:8px;
+  text-align:center; padding:0 18px; max-width:92vw;
+  opacity:0; transform:scale(.92) translateY(10px);
+  transition:opacity .5s ease-out, transform .8s cubic-bezier(.16,.9,.3,1)}
+.epic.in{opacity:1; transform:scale(1) translateY(0)}
+.epic.out{opacity:0; transform:scale(1.07) translateY(-8px)}
+.epic .ep-t{font-size:clamp(30px,6vw,68px); line-height:1.12; letter-spacing:.05em; color:#f7e9bd;
+  text-shadow:0 4px 0 rgba(0,0,0,.55), 0 0 34px rgba(246,207,122,.42), 0 0 90px rgba(0,0,0,.7)}
+.epic .ep-s{font-size:clamp(13px,1.7vw,20px); letter-spacing:.03em; color:#e2d7b6;
+  text-shadow:0 2px 0 rgba(0,0,0,.6), 0 0 22px rgba(0,0,0,.8)}
+.epic-land .ep-t{color:#dcefff; text-shadow:0 4px 0 rgba(0,0,0,.55), 0 0 34px rgba(140,200,255,.4), 0 0 90px rgba(0,0,0,.7)}
+.epic-danger .ep-t{color:#ffc9c2; text-shadow:0 4px 0 rgba(0,0,0,.55), 0 0 34px rgba(188,71,73,.55), 0 0 90px rgba(0,0,0,.7)}
 
 /* ── 한 줄 코치마크 (화면을 막지 않는다) ── */
 .coach-one{

@@ -1,5 +1,5 @@
 {
-  "_note": "건물 도감 — docs/GDD3.md §7. 전면 재구성본. 카테고리(주거·생산·군사·발전·장식)와 **개별 건물 티어**가 정본이다: 같은 건물을 여러 채 지을 수 있고 각각 따로 업그레이드한다(upgradeStructure). 효과는 동종 건물 합산이되 그 건물의 최고 티어 값이 상한이다(effectCap — 밸런스 보호). requiresTier 는 정착지 티어 해금 조건이다. hp 는 웨이브 전투에서 깎이는 내구도이며 repairStructure 로 되돌린다. multi:false 인 건물은 정착지에 한 채만 세운다. ★ GDD3 §12-1 — footprint:[w,h] 는 그 건물이 차지하는 칸 수다: 배치 충돌·영토 판정·스프라이트 크기가 전부 이 값을 따른다(앵커는 좌상단 칸, 중심은 x+(w-1)/2·y+(h-1)/2). ★ §12-2 — hq:true 인 건물(정착지 본부)은 4×4 대형이고 티어가 정착지 티어를 그대로 따라간다(autoTier): 손으로 개축하지 않고 [승격]이 함께 키운다. immovable:true 는 이전·철거 금지다.",
+  "_note": "건물 도감 — docs/GDD3.md §7. 전면 재구성본. 카테고리(주거·생산·군사·발전·장식)와 **개별 건물 티어**가 정본이다: 같은 건물을 여러 채 지을 수 있고 각각 따로 업그레이드한다(upgradeStructure). 효과는 동종 건물 합산이되 그 건물의 최고 티어 값이 상한이다(effectCap — 밸런스 보호). requiresTier 는 정착지 티어 해금 조건이다. hp 는 웨이브 전투에서 깎이는 내구도이며 repairStructure 로 되돌린다. multi:false 인 건물은 정착지에 한 채만 세운다. ★ GDD3 §12-1 — footprint:[w,h] 는 그 건물이 차지하는 칸 수다: 배치 충돌·영토 판정·스프라이트 크기가 전부 이 값을 따른다(앵커는 좌상단 칸, 중심은 x+(w-1)/2·y+(h-1)/2). ★ §12-2 — hq:true 인 건물(정착지 본부)은 4×4 대형이고 티어가 정착지 티어를 그대로 따라간다(autoTier): 손으로 개축하지 않고 [승격]이 함께 키운다. immovable:true 는 이전·철거 금지다. ★ §19-D(F03-9) — spriteScale 은 그림만 키우는 덤 배율이다(data/world.json render.structureSprite.scale 에 곱해진다). 자리(풋프린트)·충돌·배치 격자·비용은 한 눈금도 달라지지 않는다 — 밑변과 가로 한가운데를 붙박은 채 위로·옆으로만 자란다. 한 칸을 차지하지만 눈에는 커야 하는 것(분수·가로등·깃발)과 자리보다 높이 서야 하는 것(기념비·화살탑·초소)에만 준다. ★ §19-D(F03-6) — handWork.cooldownSeconds 0 은 「숨 고르기」 없이 곧바로 다시 할 수 있다는 뜻이다(서버 판정은 그대로 돈다 — cd 0 이면 언제나 통과다). 자재를 치르는 손일만 0 으로 열었다: 우물·모닥불처럼 **아무것도 치르지 않고 체력을 되돌리는** 손일은 쿨다운이 유일한 빗장이라 그대로 둔다.",
   "categories": {
     "housing": {
       "name": "주거",
@@ -476,7 +476,7 @@
         "wood": 3
       },
       "buildPoints": 2.5,
-      "cooldownSeconds": 6,
+      "cooldownSeconds": 0,
       "xp": {
         "skill": "build",
         "amount": 2
@@ -603,7 +603,7 @@
         "hide": 1,
         "wool": 1
       },
-      "cooldownSeconds": 6,
+      "cooldownSeconds": 0,
       "xp": {
         "skill": "farm",
         "amount": 2
@@ -773,7 +773,7 @@
       "yield": {
         "steel": 2
       },
-      "cooldownSeconds": 4,
+      "cooldownSeconds": 0,
       "xp": {
         "skill": "build",
         "amount": 3
@@ -838,7 +838,7 @@
         "wood": 1
       },
       "gold": 14,
-      "cooldownSeconds": 8,
+      "cooldownSeconds": 0,
       "xp": {
         "skill": "build",
         "amount": 2
@@ -1028,6 +1028,7 @@
     ]
   },
   "watchpost": {
+    "spriteScale": 1.15,
     "name": "초소",
     "purpose": "멀리 본다. 적이 오는 것을 하루 먼저 알 수 있다.",
     "category": "military",
@@ -1076,6 +1077,7 @@
     ]
   },
   "arrow_tower": {
+    "spriteScale": 1.22,
     "name": "화살탑",
     "purpose": "가까이 온 짐승과 적을 저절로 쏜다. 싸고 여러 기 세울 수 있다.",
     "category": "military",
@@ -1657,6 +1659,7 @@
     ]
   },
   "monument": {
+    "spriteScale": 1.2,
     "name": "기념비",
     "purpose": "마을의 자랑. 사람들의 기운이 오르고 나라의 이름값이 는다.",
     "category": "civic",
@@ -1708,6 +1711,7 @@
     ]
   },
   "claim_flag": {
+    "spriteScale": 1.22,
     "name": "개척 깃발",
     "purpose": "본영 밖에 세우는 영토의 씨앗. 셋을 모아 세우고 건축가·국방대신이 곁에 서면 그 땅이 우리 것이 된다.",
     "category": "civic",
@@ -1731,6 +1735,7 @@
     ]
   },
   "lamp": {
+    "spriteScale": 1.3,
     "name": "가로등",
     "purpose": "밤을 밝힌다. 어두운 골목이 환해지고 보기에 좋다.",
     "category": "decor",
@@ -1765,6 +1770,7 @@
     ]
   },
   "banner": {
+    "spriteScale": 1.25,
     "name": "깃발",
     "purpose": "마을의 깃발. 사람들이 힘을 낸다.",
     "category": "decor",
@@ -1835,6 +1841,7 @@
     ]
   },
   "fountain": {
+    "spriteScale": 1.45,
     "name": "분수",
     "purpose": "물이 솟는 자리. 마을이 눈에 띄게 예뻐진다.",
     "category": "decor",

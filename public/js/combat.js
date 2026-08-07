@@ -171,7 +171,7 @@
     bclock += Math.max(0, Math.min(typeof rawMs === 'number' ? rawMs : dt * 1000, d.clockMaxStepMs));
     for (var i = shots.length - 1; i >= 0; i--) {
       shots[i].t += dt;
-      if (shots[i].t > shots[i].dur) shots.splice(i, 1);
+      if (shots[i].t > shots[i].dur) { shotImpact(shots[i]); shots.splice(i, 1); }
     }
     /* 터렛이 쉬지 않고 쏘는 그림 — 서버 사건과 별개인 순수 연출 */
     var b = S.battleLive();
@@ -210,28 +210,80 @@
     return key === 'cannon' ? '#e08541' : (key === 'ballista' ? '#c6d6e2' : '#f6e6a8');
   }
 
+  /* ══════════ ★ §19-D(F03-7) 터렛의 한 발 ══════════
+     「왜」 손봤나 — 옛 그림은 총구에서 지금 자리까지 굵기 2의 실선 하나였다. 밝은 낮 화면에서는
+     그 선이 배경에 묻혀 "터렛이 공격하는지도 모르겠다"는 말이 나왔다. 이제 세 몫으로 나눈다:
+       ① 머리 뒤로 짧게 끌리는 **꼬리**(옅은 빛 + 심지) — 어디에서 어디로 가는지가 보인다
+       ② 쏜 자리에 잠깐 남는 **총구 불티** — 어느 터렛이 쐈는지가 보인다
+       ③ 닿는 순간의 **테와 불티** — 맞았다는 것이 보인다
+     전부 렌더 계층이다: 피해·판정·서버 사건은 한 눈금도 달라지지 않는다. 수치는 world.json render.turretShot. */
+  var SHOT_FALLBACK = { width: 3.4, glowWidth: 9, headRadius: 3.2, trailFrac: 0.42, muzzleFrac: 0.34,
+    muzzleRadius: 0.42, impactRadius: 0.95, impactSeconds: 0.3, impactWidth: 2.5, sparks: 6 };
+  function shotDials() {
+    var w = S.worldCfg();
+    return (w && w.render && w.render.turretShot) || SHOT_FALLBACK;
+  }
+  /** 발이 지금 있는 자리 — 곡선(포물선)은 옛 식 그대로다 */
+  function shotAt(sh, k) {
+    var kk = U.clamp(k, 0, 1);
+    return { x: sh.from.x + (sh.to.x - sh.from.x) * kk,
+             y: sh.from.y + (sh.to.y - sh.from.y) * kk - Math.sin(kk * Math.PI) * 1.1 };
+  }
+  function strokeLine(ctx, a, c, color, width, alpha) {
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(c.x, c.y);
+    ctx.stroke();
+  }
+
   /** 날아가는 것들 — 전투 중이든 아니든 늘 그린다 */
   function drawShots(ctx) {
     if (!shots.length) return;
+    var d = shotDials();
     ctx.save();
-    ctx.lineWidth = 2;
-    for (var i = 0; i < shots.length; i++) {
-      var sh = shots[i];
-      var kk = U.clamp(sh.t / sh.dur, 0, 1);
-      var cx = sh.from.x + (sh.to.x - sh.from.x) * kk;
-      var cy = sh.from.y + (sh.to.y - sh.from.y) * kk - Math.sin(kk * Math.PI) * 1.1;
-      var a = GM.camera.worldToScreen(sh.from.x, sh.from.y);
-      var c = GM.camera.worldToScreen(cx, cy);
-      ctx.globalAlpha = 0.8 * (1 - kk * 0.4);
-      ctx.strokeStyle = sh.color;
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(c.x, c.y);
-      ctx.stroke();
-      ctx.fillStyle = '#fff6dc';
-      ctx.fillRect(c.x - 2, c.y - 2, 4, 4);
-    }
+    ctx.lineCap = 'round';
+    for (var i = 0; i < shots.length; i++) drawOneShot(ctx, shots[i], d);
     ctx.restore();
+  }
+
+  function drawOneShot(ctx, sh, d) {
+    var kk = U.clamp(sh.t / sh.dur, 0, 1);
+    var a = GM.camera.worldToScreen(sh.from.x, sh.from.y);
+    var head = shotAt(sh, kk), tailW = shotAt(sh, kk - (d.trailFrac || 0.42));
+    var c = GM.camera.worldToScreen(head.x, head.y);
+    var tp = GM.camera.worldToScreen(tailW.x, tailW.y);
+    strokeLine(ctx, tp, c, sh.color, d.glowWidth || 9, 0.3 * (1 - kk * 0.35));
+    strokeLine(ctx, tp, c, sh.color, d.width || 3.4, 0.95);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#fff6dc';
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, d.headRadius || 3.2, 0, Math.PI * 2);
+    ctx.fill();
+    drawMuzzle(ctx, a, kk, sh.color, d);
+  }
+
+  /** 총구 불티 — 쏜 직후 잠깐만. 어느 터렛이 쐈는지가 이것으로 보인다 */
+  function drawMuzzle(ctx, a, kk, color, d) {
+    var span = d.muzzleFrac || 0.34;
+    if (kk > span) return;
+    var f = 1 - kk / span;
+    ctx.globalAlpha = 0.85 * f;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, (d.muzzleRadius || 0.42) * GM.camera.cam.tile * (0.5 + f), 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /** 닿는 순간 — 테 하나와 불티 몇 점. 「맞았다」가 보여야 방어가 일하는 줄 안다 */
+  function shotImpact(sh) {
+    if (!GM.fx || !sh || !sh.to) return;
+    var d = shotDials();
+    GM.fx.ring(sh.to.x, sh.to.y, sh.color, 0.1, d.impactRadius || 0.95,
+      d.impactSeconds || 0.3, d.impactWidth || 2.5);
+    GM.fx.sparkle(sh.to.x, sh.to.y, d.sparks || 6, '#fff6dc');
   }
 
   function drawUnits(ctx, tile, animT) {

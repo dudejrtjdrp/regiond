@@ -261,7 +261,7 @@
     GM.net.send('lordMove', { x: rx, y: ry }, function (res) {
       if (!res || !res.ok) return;
       if (res.ringEntered && GM.fx) {
-        U.toast(res.ringText || '여기서부터는 사나운 것들의 땅입니다.', 'bad', 5200);
+        announceLand(cinema().dangerTitle || '사나운 것들의 땅', res.ringText, 'danger', true);
         GM.fx.dangerEdge(1.6);
         if (GM.sfx) GM.sfx.play('deny');
       }
@@ -277,14 +277,30 @@
     });
   }
 
-  /** ★ §17-17 — 새 땅의 첫 발견. 한 지형에 한 번뿐이라 요란해도 된다(반짝임 + 한 줄). */
+  /** ★ §17-17 — 새 땅의 첫 발견. 한 지형에 한 번뿐이라 요란해도 된다(반짝임 + 큰 이름). */
   function announceBiomes(list) {
     for (var i = 0; i < list.length; i++) {
       var b = list[i];
-      U.toast(b.text || b.name, 'good', 5200);
+      announceLand(b.name || b.text, b.name ? b.text : null, 'land', false);
       if (GM.fx) GM.fx.sparkle(me.x, me.y, 18, '#eef2f6');
       if (GM.sfx) GM.sfx.play('open');
     }
+  }
+
+  /* ★ §19-D(F03-3) — 새 지형에 들어선 순간은 구석의 작은 알림이 아니라 **장면**이다.
+     화면 한가운데 이름을 크게 띄우고, 설명 한 줄을 그 밑에 둔다.
+     「왜」 쿨다운이 걸리나 — 첫 발견(biomes)은 서버가 한 지형에 한 번만 알려 주지만,
+     사나운 땅 경고는 경계선을 오갈 때마다 온다. 연타하면 화면이 제목으로 도배된다. */
+  var lastLandAt = 0;
+  function cinema() {
+    var w = S.worldCfg();
+    return (w && w.render && w.render.cinema) || {};
+  }
+  function announceLand(title, sub, kind, cooled) {
+    var gap = cinema().landCooldownMs;
+    if (cooled && Date.now() - lastLandAt < (gap == null ? 25000 : gap)) return;
+    lastLandAt = Date.now();
+    U.epic({ title: title, sub: sub, kind: kind });
   }
 
   function moveTo(x, y) {
