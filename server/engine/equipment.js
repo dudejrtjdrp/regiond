@@ -123,6 +123,18 @@ function costFor(spec, mult = 1) {
   return out;
 }
 
+/**
+ * ★ §20-R1 — 고대 용광로 설계도: 무기를 벼릴 때 드는 **강재**만 −10%(유물기획 §20-2).
+ * 「왜」 강재 한 칸만인가 — 설계도는 제련로의 도면이지 대장간 전체의 값이 아니다. 가죽·뼈로 짜는
+ * 사냥 갈래(§19-F2)는 이 도면과 무관해야 「무엇으로 벼릴까」의 갈림길이 살아 있다.
+ */
+function craftCost(spec, slot, hooks) {
+  const cost = costFor(spec);
+  const mult = hooks?.weaponSteelMultiplier ?? 1;
+  if (slot !== 'weapon' || mult === 1 || !cost.steel) return cost;
+  return { ...cost, steel: round2(cost.steel * mult) };
+}
+
 function checkAndPay(nation, cost, gold, data) {
   for (const [res, need] of Object.entries(cost)) {
     if ((nation.resources[res] || 0) < need - 0.001) {
@@ -145,7 +157,7 @@ function checkAndPay(nation, cost, gold, data) {
 // 제작 · 강화 · 인첸트
 // ────────────────────────────────────────────────────────────────
 /** craftEquipment {slot, key} — 대장간에서 한 자루 벼린다 */
-export function craftEquipment(nation, player, cmd, data) {
+export function craftEquipment(nation, player, cmd, data, hooks = {}) {
   const slot = String(cmd.slot ?? cmd.payload?.slot ?? '');
   if (!SLOTS(data).includes(slot)) return err('BAD_SLOT', '그런 자리가 없습니다.');
   if (!smithyOn(nation, data)) return err('NO_SMITHY', '대장간이 서야 벼릴 수 있습니다.');
@@ -161,7 +173,8 @@ export function craftEquipment(nation, player, cmd, data) {
   const cur = gear[slot];
   if (cur && cur.key === key) return err('SAME_TIER', '이미 그것을 들고 있습니다.');
 
-  const paid = checkAndPay(nation, costFor(spec), spec.gold || 0, data);
+  const cost = craftCost(spec, slot, hooks);
+  const paid = checkAndPay(nation, cost, spec.gold || 0, data);
   if (!paid.ok) return paid;
 
   /* ★ 새로 벼리면 강화와 인첸트는 함께 사라진다 — 옮겨 붙지 않는다.
@@ -169,7 +182,7 @@ export function craftEquipment(nation, player, cmd, data) {
   gear[slot] = { key, plus: 0, enchant: null, madeTick: cmd.tick ?? null };
   return {
     ok: true, slot, key, name: spec.name, grade: spec.grade,
-    cost: costFor(spec), gold: spec.gold || 0,
+    cost, gold: spec.gold || 0,
     replaced: cur ? { key: cur.key, plus: cur.plus || 0, enchant: cur.enchant ?? null } : null,
     gear: gearView(player, data),
   };
@@ -313,7 +326,7 @@ export function gearView(player, data) {
  * 캐릭터 창이 그리는 전부 — 지금 낀 것 · 벼릴 수 있는 것(조건 가시화) · 인첸트 확률.
  * ★ §12-3 전역 원칙: 못 만드는 까닭은 '왜'만이 아니라 **얼마나 모자란지**까지 낸다.
  */
-export function equipmentView(nation, player, data) {
+export function equipmentView(nation, player, data, hooks = {}) {
   if (!player) return null;
   const smithy = smithyOn(nation, data);
   const officer = officerOn(nation, data);
@@ -322,8 +335,10 @@ export function equipmentView(nation, player, data) {
   const catalog = {};
   for (const slot of SLOTS(data)) {
     catalog[slot] = tierList(slot, data).map((spec) => {
+      // ★ §20-R1 — 화면이 보는 값도 실제로 치를 값이어야 한다(고대 용광로 설계도의 강재 −10%)
+      const price = craftCost(spec, slot, hooks);
       const missing = [];
-      for (const [res, need] of Object.entries(spec.cost || {})) {
+      for (const [res, need] of Object.entries(price)) {
         const have = round2(nation.resources[res] || 0);
         if (have < need - 0.001) missing.push({ resource: res, name: data.resources.meta[res]?.name ?? res, have, need });
       }
@@ -333,7 +348,7 @@ export function equipmentView(nation, player, data) {
       return {
         key: spec.key, name: spec.name, grade: spec.grade, officer: Boolean(spec.officer),
         requiresTrophy: spec.requiresTrophy ?? null,
-        cost: { ...spec.cost }, gold: spec.gold || 0,
+        cost: price, gold: spec.gold || 0,
         damage: spec.damage ?? null, huntYield: spec.huntYield ?? null,
         reduction: spec.reduction ?? null, downResist: spec.downResist ?? null,
         equipped: gear[slot].key === spec.key,

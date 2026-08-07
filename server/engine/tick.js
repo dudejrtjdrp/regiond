@@ -11,7 +11,7 @@ import {
   cobbDouglas, departmentCapital, officerFactor, buildingFactor, clampedOfficerBuilding,
   tagFactor, producesResource, targetStock, applySpoilage, localPriceTable, round2, clamp, hasSkill,
 } from './economy.js';
-import { collectHooks } from './artifacts.js';
+import { collectHooks, artifactFoundEvent } from './artifacts.js';
 import { selectActions } from './orders.js';
 import { applyCommand, normalizeAlloc } from './commands.js';
 import { accrueXp, rolePerk } from './npc.js';
@@ -151,6 +151,10 @@ export function step(state, inputs = [], rng = null, data = loadGameData(), opts
   const production = {};
   for (const nation of Object.values(world.nations)) {
     const hooks = collectHooks(nation, data);
+    /* ★ §20-R1 — 유물이 얹는 인구 상한(왕관의 조각 +30 · 깨진 왕관 파편 +15)의 **거울**.
+       capacity() 는 주민 배치·도착 판정에서 수없이 불리는 자리라 그때마다 훅을 걷을 수 없다.
+       nation.storageBonus 와 같은 방식으로 매 틱 여기서 채운다(레거시 거울 규칙). */
+    nation.artifactCapDelta = hooks.populationCapDelta;
     production[nation.id] = produceNation(world, nation, data, hooks);
     for (const done of production[nation.id].completed || []) {
       events.push({ tick, kind: 'building_done', nationId: nation.id, data: done });
@@ -403,7 +407,8 @@ function openCouncilNow(world, nation, data, r, tick) {
   if (keep > 0 && world.councils.length > keep) world.councils.splice(0, world.councils.length - keep);
   out.push({ tick, kind: 'council_open', nationId: nation.id, data: { councilId: council.councilId, decisions: council.decisions.length, artifactDrop: council.artifactDrop } });
   if (council.artifactDrop?.key) {
-    out.push({ tick, kind: 'artifact_found', nationId: nation.id, data: { artifact: council.artifactDrop.name, grade: council.artifactDrop.grade, effect: council.artifactDrop.desc, role: '어전 회의' } });
+    // ★ §20-R1.5 — 세 획득 경로가 같은 모양의 발견 사실을 낸다(서사는 표현 계층이 얹는다)
+    out.push(artifactFoundEvent(world, nation, council.artifactDrop.key, 'chest', data));
     chronicle(world, { kind: 'artifact', title: council.artifactDrop.name, text: council.artifactDrop.desc, data: council.artifactDrop }, data);
   }
   return out;

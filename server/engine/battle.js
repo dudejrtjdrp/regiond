@@ -28,6 +28,8 @@ import {
 } from './skills.js';
 import { createRng, rngFromState } from './rng.js';
 import { round2, round3, clamp } from './economy.js';
+// ★ §20-R1 — 격퇴 보상(골드·사기)에 유물이 얹힌다. 결산 한 번에 한 번만 걷는다.
+import { collectHooks } from './artifacts.js';
 // ★ Sprint 2 — 전투의 발: 수비는 깃발로, 영토 밖 일꾼은 마을로. 끝나면 제 일터로.
 import { battleStations, standDown } from './assign.js';
 // ★ §19-C — 스폰 자리 검사(물에서 태어나 갇히는 사고를 막는다)
@@ -83,7 +85,19 @@ export function battleMultipliers(nation, spec, data, hooks = {}) {
   const morale = clamp(nation.morale ?? 1, data.balance.morale.min, data.balance.morale.max);
   defender *= morale;
   if (nation.rubberBandMultiplier) enemy *= nation.rubberBandMultiplier;
+  enemy *= artifactEnemyMultiplier(spec, hooks);
   return { defender: Math.max(0.3, defender), enemy: Math.max(0.3, enemy) };
+}
+
+/**
+ * ★ §20-R1 — 유물이 적의 팔심에 얹는 배수(유물기획 §20-2 전투 계열).
+ * 「왜」 이제서야 꽂나 — 옛 로지스틱 판정이 폐기되면서 enemyPowerMultipliers 는 걷히기만 하고
+ * 아무 데도 쓰이지 않았다. 그래서 탐욕의 반지의 「값」(전 침공 +15%)이 값이 아니었다(§20-6 위반).
+ * '*' 는 모든 침공에 붙는 별표다 — 종류별 배수와 곱해진다(§20-10 중첩 규칙: 같은 축은 곱연산).
+ */
+function artifactEnemyMultiplier(spec, hooks) {
+  const m = hooks.enemyPowerMultipliers || {};
+  return (m['*'] ?? 1) * (m[spec.type] ?? 1);
 }
 
 /** 적 하나를 세운다 — 무리(본대·호위대)의 규격을 그대로 몸에 새긴다 */
@@ -120,7 +134,12 @@ export function startBattle(world, nation, data, opts = {}) {
   if (!town) return null;
   const seed = ((world.seed >>> 0) ^ Math.imul(spec.index + 1, 2654435761)) >>> 0;
   const rng = createRng(seed);
-  const mult = battleMultipliers(nation, spec, data, opts.hooks || {});
+  const hooks = opts.hooks || {};
+  const mult = battleMultipliers(nation, spec, data, hooks);
+  /* ★ §20-R1 — 악마와의 계약서가 적어 둔 값(다음 침공 규모 +10%)을 여기서 치른다.
+     이 전투 하나에만 붙고 그 자리에서 지워진다 — 「다음 침공」이라는 말 그대로다. */
+  const bump = nation.artifactState?.artifactNextInvasionMultiplier ?? null;
+  if (bump) { mult.enemy *= bump; delete nation.artifactState.artifactNextInvasionMultiplier; }
   const baseAngle = (directionAngle(spec.direction, data) * Math.PI) / 180;
 
   /* ★ §19-F2(F07-3) — 무리마다 차례로 세운다. 호위대가 없으면 무리는 하나뿐이고, 그때는
@@ -159,6 +178,10 @@ export function startBattle(world, nation, data, opts = {}) {
     playersDowned: 0,
     playerDamage: {},
     multipliers: mult,
+    /* ★ §20-R1 — 불멸의 주춧돌의 「성벽 내구 +10%」. 조각마다 maxHp 를 다시 쓰는 대신 **맞는 피해**를
+       그 배수로 나눈다: 이미 서 있는 울타리와 앞으로 세울 울타리가 같은 규칙을 받고, 유물을 잃어도
+       조각의 체력표가 어긋나지 않는다. 옛 스냅샷에는 이 칸이 없으므로 stepBattle 은 1 로 물러선다. */
+    wallHpMultiplier: hooks.wallHpMultiplier ?? 1,
     virtualPlayers: opts.virtualPlayers ?? [],
     timeline: [{
       t: 0, kind: 'spawn', count: enemies.length, name: spec.name, type: spec.type,
@@ -388,7 +411,8 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
           /* ★ §19-F2(F07-3) 자폭 — 닿는 순간 제 몸과 함께 터진다. 한 번뿐이라 그 한 방이 굵고,
              터진 놈은 그 자리에서 사라진다(웨이브 총 마릿수 안에서 제 값을 다 쓴 셈이다). */
           const blast = e.detonate ? e.dps * e.detonate * e.structureDamageBonus : 0;
-          damageFence(f, blast || e.dps * e.structureDamageBonus * dt);
+          // ★ §20-R1 — 성벽이 두꺼워진 만큼 같은 매질이 덜 든다(b.wallHpMultiplier, 옛 전투는 1)
+          damageFence(f, (blast || e.dps * e.structureDamageBonus * dt) / (b.wallHpMultiplier || 1));
           if (before2 > 0 && f.hp <= 0) {
             b.fencesBroken += 1;
             push(b, { t: round2(b.t), kind: 'fenceBreak', fenceId: f.id, x: m.x, y: m.y }, data);
@@ -725,15 +749,19 @@ export function finishBattle(world, nation, data) {
   const cfg = battleCfg(data);
   const m = data.balance.morale;
 
+  /* ★ §20-R1 — 유물의 격퇴 보상(노획한 투구의 골드 +25%, 용맹의 깃발의 사기 +5%p)이 여기서 붙는다.
+     ★ §20-R1 미결: 「패배 시 인구 손실」 판정은 실시뮬 전환(GDD3 §6)으로 사라졌다. 용의 이빨·용맹의
+     깃발의 populationLossMultiplier 는 그래서 아직 수집만 된다 — 그 판정이 돌아오면 이 자리에 꽂는다. */
+  const hooks = collectHooks(nation, data);
   let moraleDelta = 0;
-  if (b.won) moraleDelta += cfg.moraleBonusOnHold;
+  if (b.won) moraleDelta += cfg.moraleBonusOnHold + (hooks.moraleDeltaOnVictory || 0);
   else moraleDelta -= cfg.moralePenaltyOnBreach;
   moraleDelta -= b.playersDowned * combatSkillCfg(data).downMoralePenalty;
   // ★ 사람 수 기준(militiaHurt). 옛 스냅샷에는 없는 값이라 없으면 횟수로 물러선다.
   moraleDelta -= (b.militiaHurt ?? b.militiaDowned) * cfg.militia.downMoralePenalty;
   nation.morale = clamp(round2((nation.morale ?? 1) + moraleDelta), m.min, m.max);
 
-  const gold = b.won ? Math.round(b.power * cfg.rewardGoldPerPower) : 0;
+  const gold = b.won ? Math.round(b.power * cfg.rewardGoldPerPower * (hooks.rewardGoldMultiplier ?? 1)) : 0;
   if (gold > 0) {
     nation.gold = round2(nation.gold + gold);
     nation.stats.goldEarned = round2((nation.stats.goldEarned || 0) + gold);

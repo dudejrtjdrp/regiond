@@ -116,6 +116,9 @@
         if (e.kind === 'artifact_found') {
           GM.hud.flash({ kind: 'good', icon: 'gem', title: '땅이 무언가를 내어주었다', sub: e.text,
                          open: function () { GM.artifacts.open(); } });
+          /* ★ §20-R1.5 — 발견 카드. 서사는 서버가 빚어 보낸 것을 그대로 읽는다(화면이 짓지 않는다).
+             나중에 LLM 개선본이 같은 유물로 한 번 더 오면 이미 열린 카드의 글만 갈아 끼운다. */
+          GM.artifacts.discovery(e.data);
         } else if (e.kind === 'disaster' || e.kind === 'starvation' || e.kind === 'famine_warning') {
           GM.hud.flash({ kind: 'danger', icon: 'warn', title: e.text.slice(0, 26), sub: '자세히 보기',
                          open: function () { GM.chronicle.open(); } });

@@ -160,9 +160,11 @@ export function applySpoilage(nation, data, floor = 0) {
 }
 
 /** 관세 = 기본 − 영사관 티어×감소폭, 최저 minTariff. 최하위국 면제. */
-export function effectiveTariff(nation, data, { lastPlace = false, artifactDelta = 0, exemptNationId = null, nationId = null } = {}) {
+export function effectiveTariff(nation, data, { lastPlace = false, artifactDelta = 0, exemptNationId = null, nationId = null, exemptAll = false } = {}) {
   const t = data.balance.trade;
   if (lastPlace && t.lastPlaceTariffExempt) return 0;
+  // ★ §20-R1 — 여행자의 인장(고유)은 한 나라가 아니라 **세 나라 전체**의 관세를 지운다(유물기획 §20-2).
+  if (exemptAll) return 0;
   if (exemptNationId && nationId && exemptNationId === nationId) return 0;
   const tier = nation.buildings?.consulate || 0;
   const raw = t.baseTariff - t.tariffReductionPerConsulateTier * tier + artifactDelta;
@@ -226,7 +228,8 @@ export function importPrice(foreignPrice, nation, data, opts = {}) {
   return foreignPrice * tradeMultiplier({
     tariff: effectiveTariff(nation, data, opts),
     freight: freightRate(nation, data, opts),
-    fxSpread: fxSpreadRate(nation, data),
+    // ★ §20-R1 — 상인의 저울이 환전대의 벌어진 폭을 좁힌다(−20%). 배수는 유물 훅에서 온다.
+    fxSpread: fxSpreadRate(nation, data) * (opts.fxSpreadMultiplier ?? 1),
     infoLoss: infoLossRate(nation, data),
   }) * (1 - tradeMarginBonus(nation, data));
 }

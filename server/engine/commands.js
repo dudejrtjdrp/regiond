@@ -2,7 +2,7 @@
 // ★ v3(GDD3): 스윙(actionSwing/combatSwing) · 개별 건물 업그레이드(upgradeStructure) · 수리(repairStructure)
 //   · 울타리 조각(placeFence/upgradeFence) 이 새로 들어왔고, 개척령(expand) · 자동 성곽(setWallFocus)
 //   · 터렛 전용 명령(placeTurret) · 몸소 일하기(apAction work) · 현장 가속(workSite) 은 폐기됐다.
-import { collectHooks, useArtifact } from './artifacts.js';
+import { collectHooks, useArtifact, artifactFoundEvent } from './artifacts.js';
 import { localPrice, importPrice, exportPrice, round2, clamp } from './economy.js';
 import { validateOrders } from './orders.js';
 import { reassign } from './npc.js';
@@ -308,6 +308,11 @@ function runCommand(world, nationId, cmd, data, rng) {
     // ── GDD3 §3 — 스윙 (실시간, 틱을 기다리지 않는다) ────────────
     case 'actionSwing': {
       const res = actionSwing(world, nation, cmd, data, now);
+      /* ★ §20-R1.5 — 숨은 궤가 유물을 내어준 순간. 조사 행동의 **직접 피드백**이므로
+         상자·유적과 똑같이 발견 사실을 띄운다(연출은 클라, 판정은 이미 끝났다). */
+      if (res.ok && res.cache?.artifact) {
+        res.events = [...(res.events || []), artifactFoundEvent(world, nation, res.cache.artifact.key, 'cache', data)];
+      }
       return res.ok ? ok(res) : res;
     }
     case 'combatSwing': {
@@ -515,21 +520,21 @@ function runCommand(world, nationId, cmd, data, rng) {
     // ── ★ GDD3 §13-D-3·4 — 대장간에서 벼리고, 더 벼리고, 깃들인다 ──
     case 'craftEquipment': {
       const player = ensurePlayer(nation, cmd.avatarId ?? cmd.playerName ?? 'lord', data, cmd.playerName ?? null);
-      const res = craftEquipment(nation, player, { ...cmd, tick: world.tick }, data);
+      const res = craftEquipment(nation, player, { ...cmd, tick: world.tick }, data, hooks);
       if (!res.ok) return res;
-      return ok({ ...res, equipment: equipmentView(nation, player, data), resources: { ...nation.resources }, gold: round2(nation.gold) });
+      return ok({ ...res, equipment: equipmentView(nation, player, data, hooks), resources: { ...nation.resources }, gold: round2(nation.gold) });
     }
     case 'enhanceEquipment': {
       const player = ensurePlayer(nation, cmd.avatarId ?? cmd.playerName ?? 'lord', data, cmd.playerName ?? null);
       const res = enhanceEquipment(nation, player, cmd, data);
       if (!res.ok) return res;
-      return ok({ ...res, equipment: equipmentView(nation, player, data), resources: { ...nation.resources }, gold: round2(nation.gold) });
+      return ok({ ...res, equipment: equipmentView(nation, player, data, hooks), resources: { ...nation.resources }, gold: round2(nation.gold) });
     }
     case 'enchantEquipment': {
       const player = ensurePlayer(nation, cmd.avatarId ?? cmd.playerName ?? 'lord', data, cmd.playerName ?? null);
       const res = enchantEquipment(nation, player, cmd, data, rng);
       if (!res.ok) return res;
-      return ok({ ...res, equipment: equipmentView(nation, player, data), resources: { ...nation.resources }, gold: round2(nation.gold) });
+      return ok({ ...res, equipment: equipmentView(nation, player, data, hooks), resources: { ...nation.resources }, gold: round2(nation.gold) });
     }
 
     // ── ★ GDD3 §13-D-5 — 기술 트리와 철로 ───────────────────────
@@ -630,7 +635,7 @@ function runCommand(world, nationId, cmd, data, rng) {
       return res.ok ? ok(res) : res;
     }
     case 'upgradeFence': {
-      const res = upgradeFence(world, nation, cmd, data);
+      const res = upgradeFence(world, nation, cmd, data, hooks);
       return res.ok ? ok(res) : res;
     }
     case 'repairFence': {
@@ -923,6 +928,9 @@ function runCommand(world, nationId, cmd, data, rng) {
         lastPlace: lastPlace || tariffZero,
         artifactDelta: hooks.tariffDelta,
         exemptNationId: hooks.exemptNationId,
+        // ★ §20-R1 — 여행자의 인장(전면 면제)·상인의 저울(환스프레드 −20%)이 여기로 들어간다
+        exemptAll: hooks.tariffExemptAll,
+        fxSpreadMultiplier: hooks.fxSpreadMultiplier,
         nationId: partnerId,
         eventDelta: freightEventDelta(nation),
       };
@@ -992,7 +1000,11 @@ function runCommand(world, nationId, cmd, data, rng) {
         const r = resolveRuinChoice(world, nation, decision, cmd.choice, data, rng);
         if (!r.ok) return r;
         decision.result = r.result;
-        return ok({ decision, ruin: r.result, events: [{ kind: 'ruin_resolved', nationId: nation.id, data: r.result }] });
+        // ★ §20-R1.5 — 유적 카드가 유물을 내면 상자와 같은 발견 사실을 함께 띄운다
+        const found = r.result.artifact
+          ? [artifactFoundEvent(world, nation, r.result.artifact.key, 'ruin', data)] : [];
+        return ok({ decision, ruin: r.result,
+          events: [{ kind: 'ruin_resolved', nationId: nation.id, data: r.result }, ...found] });
       }
       return ok({ decision });
     }
@@ -1025,7 +1037,9 @@ function runCommand(world, nationId, cmd, data, rng) {
     }
     case 'useArtifact': {
       const r = useArtifact(nation, cmd.key, world.tick, data);
-      return r.ok ? ok({ artifact: r.artifact.name, applied: r.applied }) : err(r.code, r.message);
+      // ★ §20-R1(PROTOCOL 0-R-2) — 남은 충전을 함께 돌려준다. 옛 화면은 이 칸을 몰라도 그대로 굴러간다.
+      return r.ok ? ok({ artifact: r.artifact.name, applied: r.applied, chargesLeft: r.chargesLeft, consumed: r.consumed })
+        : err(r.code, r.message);
     }
 
     // ── 왕의 하루 (AP) — 격려 순행 · 유적 탐사 · 조사 ─────────────

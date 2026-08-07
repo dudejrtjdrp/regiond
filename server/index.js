@@ -48,6 +48,8 @@ import {
 // ★ Sprint 3 — markDirty: 사건 경로의 동기 저장을 걷어낸 미룬 저장(persistence.js 주석 참고)
 import { saveSnapshot, markDirty, loadSnapshot, appendEvents, listGames, savesDir } from './persistence.js';
 import { ExpressionQueue } from './expression/index.js';
+// ★ §20-R1.5 — 언어의 돌(expressionQuality)이 표현 계층까지 닿게 하는 한 칸
+import { expressionQualityOf } from './engine/artifacts.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(here, '..', 'public');
@@ -297,12 +299,32 @@ class GameRuntime {
     return res;
   }
 
+  /**
+   * ★ §20-R1.5 — 나라마다 「표현 품질」을 한 번만 재서 이벤트 묶음에 나눠 준다.
+   * 「왜」 묶음마다 한 번인가 — 여기는 스윙마다 도는 길목이라 이벤트 하나하나에 유물을 훑으면
+   * 손맛이 상한다. LLM 이 꺼져 있으면 재지도 않는다(품질은 LLM 경로에서만 값이 된다).
+   */
+  #qualityOf(nationId) {
+    if (!this.expression.useLlm) return 1;
+    this.__quality ||= {};
+    this.__quality[nationId] ??= expressionQualityOf(this.world.nations[nationId], data);
+    return this.__quality[nationId];
+  }
+
+  #decorate(events, fallbackNationId = null) {
+    this.__quality = {};
+    return events.map((e) => {
+      const id = e.nationId ?? fallbackNationId;
+      return this.expression.express({ tick: this.world.tick, ...e, nationId: id },
+        { nationId: id, quality: this.#qualityOf(id) });
+    });
+  }
+
   emitImmediate(nationId, raw) {
     // ★ §세계관 W2 — 실시간 사건(첫 이웃·감정의 날)에도 이야기가 끼어든다
     raw = [...raw, ...storyEvents(this.world, data, raw)];
-    const decorated = raw.map((e) => this.expression.express(
-      { tick: this.world.tick, nationId: e.nationId ?? nationId, ...e }, { nationId: e.nationId ?? nationId },
-    ));
+    // ★ §20-R1.5 — 표현 품질(언어의 돌)을 태우는 유일한 문은 #decorate 다
+    const decorated = this.#decorate(raw, nationId);
     this.world.log = [...(this.world.log || []), ...decorated].slice(-400);
     /* ★ Sprint 3 — 여기가 가장 뜨거운 자리였다. 늑대가 물 때마다(초에 한두 번) 세상 전부를
        JSON 으로 굳혀 동기로 디스크에 썼고, 그 사이 이벤트 루프가 통째로 멎었다.
@@ -324,7 +346,7 @@ class GameRuntime {
 
     // ★ §세계관 W2 — 일 틱의 사건(장 진행·웨이브 예고)에 이야기를 얹는다. 시뮬은 이 길을 지나지 않는다.
     const withStory = [...events, ...storyEvents(this.world, data, events)];
-    const decorated = withStory.map((e) => this.expression.express(e, { nationId: e.nationId }));
+    const decorated = this.#decorate(withStory);
     saveSnapshot(this.world);
     appendEvents(this.gameId, decorated);
 
@@ -383,7 +405,7 @@ class GameRuntime {
     // ★ §세계관 W2 — 첫 결전의 승패가 이야기의 갈래(막음/무너짐)를 고른다
     const waveBatch = [ev, ...progressed];
     waveBatch.push(...storyEvents(this.world, data, waveBatch));
-    const decorated = waveBatch.map((x) => this.expression.express(x, { nationId: nation.id }));
+    const decorated = this.#decorate(waveBatch, nation.id);
     this.world.log = [...(this.world.log || []), ...decorated].slice(-400);
     saveSnapshot(this.world);
     appendEvents(this.gameId, decorated);

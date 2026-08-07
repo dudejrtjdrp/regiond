@@ -6,6 +6,85 @@
 
 ---
 
+## 0-U. v3.3 안 델타 — **유물 리워크 R1·R1.5: 상향·충전제·발견 서사** (docs/유물기획.md §20 + 팀 원안)
+
+**판번호를 올리지 않는다**(`world.schema` **6** 유지). **필드는 더하기만 했다.**
+옛 세이브의 유물에는 `chargesLeft` 가 없다 — `migrateWorld` 가 열 때 **1회분**으로 채운다
+(정의표가 2·3회로 늘었다고 저장분을 소급해 늘리면 「이미 써 버린 사람」만 손해를 본다).
+`state.js MIGRATION_REV` 는 2 → **3**.
+
+### 0-U-1. 등급 체계 — **팀 원안 그대로**, 수치만 상향 (★ R1.5)
+
+R1 이 상자 풀을 일반·레어로 좁혔던 것을 **되돌린다**. 등급 명단·상자 확률의 정본은 팀 원안이다.
+
+| 다이얼 | 값 | 뜻 |
+|---|---|---|
+| `gradeWeights` | **`{common .55, rare .32, unique .08, legendary .05}`** | 네 등급 모두 상자에서 나온다. 어전 회의 상자·유적 카드 `artifactRoll`·탐험 궤가 이 표 하나를 함께 읽는다 |
+| 등급 명단 | 일반 19 · 레어 17 · **유니크 6**(외형 5 + 언어의 돌) · **레전더리 7** · fixed 1 | `fixed`(왕관의 조각)만 상자 풀 밖이다 |
+| `discoverChanceCap` | 0.25 → **0.30** | 행운의 부적이 +5%p 로 오른 것을 받는다 (R1 유지) |
+| `luckyCharmBonus` | 0.03 → **0.05** | (R1 유지) |
+| `ringDropTable` | **신설** | 탐험 궤의 유물 확률을 본영 거리로 가른다: `ringRadii [12,60,140]`(탐험기획 §18-1) · `chanceByRing [0.30,0.30,0.35,0.40]` (R1 유지) |
+
+- `ruinGradeBoost` 는 예전처럼 `common→rare→unique→legendary` 차례로 민다.
+- `data/artifacts.json grades` 에서 `chance` 를 걷었다. 등급표에 남은 것은 **표기명**뿐이고
+  (`일반 / 레어 / 유니크 / 레전더리`), 상자 가중치의 정본은 위 `balance` 한 곳이다.
+- 엔트리 신규 필드: `acquireVia[]`(획득 경로) · `curse: true`(대가 계열 5종) · `charges`(충전 수).
+  `lore` · `hint` · `setKey` · `exclusive` · `fxTier` 는 아직 **없다**(R2~R4).
+- **효과 수치는 R1 상향판이 정본이다** — 등급이 레전더리로 돌아간 항목(여행자의 인장·예언의 구슬·
+  행운의 부적·봉인된 용의 비늘·용맹의 깃발·탐욕의 반지·악마와의 계약서)도 상향된 effects 를 그대로 쓴다.
+
+### 0-U-2. 뷰 — `nation.artifacts[]` 에 충전이 실린다
+
+```
+artifacts: [{ key, name, grade, desc, type, obtainedTick, consumed, chargesLeft, charges }]
+```
+
+- `chargesLeft` 는 **남은 횟수**, `charges` 는 그 유물의 정의상 총 횟수다. 옛 세이브는 `1`(쓴 것은 `0`)이 온다.
+- `consumed` 의 뜻은 그대로다 — **충전을 다 쓴 뒤에야** `true` 가 된다. `chargesLeft` 를 모르는 옛 화면은
+  예전과 똑같이 굴러간다(「쓴다」 단추가 남고, 다 쓰면 「이미 썼습니다」로 바뀐다). 표시 개선은 R2 몫.
+- `useArtifact {key}` ack 에 `chargesLeft` · `consumed` 가 늘었다. 남은 충전이 없으면 예전처럼 `ALREADY_USED`.
+
+### 0-U-3. 뷰 — `wave.enemy` 에 규모 등급 칸이 생긴다 (성녀가 없을 때)
+
+성녀가 없어도 유물이 여는 만큼만 열린다(§11-1 「잠긴 계층은 부재다」 그대로 — **연 만큼만 칸이 생긴다**).
+
+| 유물 | `wave.enemy` 에 실리는 것 |
+|---|---|
+| 없음 | `{type:null, name:null, units:null, power:null, direction, sprite:null}` (옛 계약 그대로) |
+| 정찰병의 망원경 | `type` · `name` · `sprite` 가 채워진다. 예고 리드 `+1일`(감시탑과 별개 소스, 중첩) |
+| + 별자리 지도 | 위에 더해 **`scaleGrade`**(`"소"|"중"|"대"`). 문턱의 정본은 `data/waves.json warn.scaleGrades` |
+
+- **마릿수(`units`)와 파워는 여전히 성녀의 몫이다.** 유물은 등급까지만 연다.
+- 성녀(또는 예언의 구슬)가 있으면 예전처럼 전부 열리므로 이 칸은 나오지 않는다.
+
+### 0-U-4. push `artifact_found` 확장 — 발견 사실 + 발견 서사 (★ R1.5)
+
+세 경로(**어전 회의 상자 · 유적 카드 · 숨은 궤**)가 **같은 모양**의 이벤트를 낸다. 용 전리품은 제 컷신을 쓴다.
+
+```
+{ tick, kind: "artifact_found", nationId,
+  data: { artifact, key, grade, category, effect, source, role,
+          narrativeSeed, narrative, narrativeSource } }
+```
+
+| 필드 | 뜻 |
+|---|---|
+| `key` · `category` | ★ 신설. 화면이 정의표를 다시 뒤지지 않고 등급색·계열 아이콘을 고른다 |
+| `source` | `"chest"` \| `"ruin"` \| `"cache"` — 어디서 나왔는가 |
+| `role` | 발견처의 한국어 이름(`data/templates.ko.json artifactNarrative.sourceNames`). 옛 토스트 문구가 쓰던 칸을 그대로 이어받았다 |
+| `narrativeSeed` | ★ 신설. 서사 뽑기의 씨앗 문자열. **엔진이 적고 표현 계층이 읽는다** — 월드 난수를 축내지 않는다 |
+| `narrative` | ★ 신설. 발견 서사 1~2문장. **표현 계층이 채운다**(엔진 이벤트에는 없다) |
+| `narrativeSource` | `"template"`(폴백) \| `"llm"` |
+
+- **판정과 서사는 분리한다.** 엔진(`artifactFoundEvent`)은 사실과 씨앗만 낸다 — 시뮬·검사가 도는 자리에는
+  난수도 LLM 도 끼어들지 않는다. 문장은 `server/expression` 이 push 직전에 얹는다.
+- **LLM 이 서면** 같은 이벤트가 한 번 더 온다(`narrativeSource:"llm"`). 화면은 **새 카드를 띄우지 말고**
+  이미 열린 카드의 서사 줄만 갈아 끼운다(`key` 가 같으면 같은 발견이다).
+- `text`(토스트 한 줄)의 계약은 **그대로**다. 옛 화면은 `narrative` 를 몰라도 예전과 똑같이 굴러간다.
+- 표현 품질(`언어의 돌`, `expressionQuality`)이 LLM 호출의 `quality` 로 전달된다 — 나라마다 이벤트 묶음당 한 번만 잰다.
+
+---
+
 ## 0-H. v3.3 안 델타 — **이야기 연출(storyBeat)** (§세계관 W2)
 
 **판번호를 올리지 않는다**(`world.schema` 유지). **필드는 더하기만 했다.**
@@ -570,7 +649,7 @@ event: { kind: "biome_found", nationId, data: {위와 같음} }
 
 `actionSwing` 이 뒤진 유적의 `gradeBoost` 를 `nation.ruinGradeBoost` 에 쌓아 두기만 하고,
 유적 카드를 여는 `decide` 경로가 그것을 **읽지 않았다**. 「죽은 자의 성채」를 스무 번 두드려도 나오는 물건의 급이
-「옛 자취」와 같았다. 이제 `artifactRoll` 이 그 값을 등급표 위에 얹고(common→rare→unique→legendary),
+「옛 자취」와 같았다. 이제 `artifactRoll` 이 그 값을 등급표 위에 얹고(common→rare — ★ §20-R1 이후 상자 풀이 두 등급뿐이라 천장이 레어다),
 **쓴 즉시 0 으로 되돌린다**. 규약 표면(ack 모양)은 그대로다 — 나오는 물건의 등급 분포만 스펙대로 움직인다.
 
 ---
@@ -1762,6 +1841,7 @@ ack / `joined` 이벤트 payload:
     "roles": {}, "buildings": { "_comment": "레거시 거울 — 가격·무역 공식용. 건물 표시는 structures 를 쓸 것" },
     "buildPoints": 2.4, "prestige": 0,
     "orders": [], "artifacts": [], "decisionQueue": [], "buffs": [], "sanctuary": {},
+    "_artifactsNote": "★ §20-R1 — 엔트리는 {key,name,grade,desc,type,obtainedTick,consumed,chargesLeft,charges} (0-U-2)",
     "rationing": false, "autoExport": true, "online": true, "members": [], "stats": {},
     "ap": { "current": 3, "max": 3,
             "actions": { "inspire": { "cost": 1 }, "explore": { "cost": 1 }, "survey": { "cost": 0 } },
@@ -2022,7 +2102,7 @@ v3.1 에서 월드가 256×256 이 되고 해금의 정본이 장(chapter)으로
 | `test/economy.test.js` | ★ 유지된 공식 — 콥더글러스 A값·O×B 클램프·태그·가격·부패 |
 | `test/trade.test.js` | ★ 유지된 공식 — 실효배수 1.17/1.46/2.25·관세·운임·환스프레드 |
 | `test/orders.test.js` | 국법 DSL |
-| `test/artifacts.test.js` | 유물 훅 |
+| `test/artifacts.test.js` | 유물 훅 · ★ §20-R1 등급 재편/스케일링/충전제/마이그레이션/상자 풀 |
 | `test/social.test.js` | 외형·채팅·멀티 역할 |
 | `test/server.test.js` | 저장/복원·표현 계층·연대기·REST·**config 누출 금지** |
 | `test/e2e.mjs` | 실서버 왕복: 개척→스윙→**1장→3장 사슬**→오두막→주민→티어업→울타리→업그레이드→웨이브 |

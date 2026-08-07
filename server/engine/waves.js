@@ -632,7 +632,8 @@ export function waveView(world, nation, viewerRole, data, hooks = {}) {
      성녀가 보는 것은 언제나 「남들이 보는 것 + 정확함」이어야 한다. 그래서 둘 중 **큰 쪽**을 쓴다:
      saint.warnLeadDays 는 흐린 리드가 그보다 짧을 때 성녀가 먼저 보는 날수로 그대로 산다. */
   const lead = Math.max(warnCfg(data).hintLeadDays, saint ? warnCfg(data).saint.warnLeadDays : 0)
-    + warnBonusDays(nation, data);
+    // ★ §20-R1 — 정찰병의 망원경이 감시탑과 **다른 소스**로 하루를 더 앞당긴다(중첩)
+    + warnBonusDays(nation, data) + (hooks.warnLeadDelta || 0);
   const visible = days <= lead;
   const spec = nextWaveSpec(world, nation, data);
   const jitter = difficultyPreset(world, data).hintJitterDays ?? warnCfg(data).withoutSaint.jitterDays;
@@ -666,9 +667,35 @@ export function waveView(world, nation, viewerRole, data, hooks = {}) {
     daysUntil: null,
     daysUntilMin: Math.max(0, days - jitter),
     precise: false,
-    enemy: { type: null, name: null, units: null, power: null, direction: spec.direction, sprite: null },
-    hint: `${lead}일 안에 무언가 다가옵니다. 성녀가 없어 시점이 흐립니다.`,
+    enemy: revealedEnemy(spec, hooks, data),
+    hint: `${lead}일 안에 무언가 다가옵니다. 성녀가 없어 시점이 흐립니다.`
+      + revealedHint(spec, hooks, data),
   };
+}
+
+/**
+ * ★ §20-R1 — 성녀가 없을 때 유물이 열어 주는 만큼만 연다(유물기획 §20-2 정찰병의 망원경·별자리 지도).
+ * 「왜」 층을 나누나 — §11-1 「잠긴 계층은 부재다」. 종류만 아는 나라에는 규모 칸이 **없어야** 한다.
+ */
+function revealedEnemy(spec, hooks, data) {
+  const type = hooks.flags?.revealInvasionType ? spec.type : null;
+  const base = { type, name: type ? spec.name : null, units: null, power: null,
+    direction: spec.direction, sprite: type ? spec.sprite : null };
+  if (!hooks.flags?.revealInvasionScale) return base;
+  return { ...base, scaleGrade: scaleGradeOf(spec, data) };
+}
+
+function revealedHint(spec, hooks, data) {
+  if (!hooks.flags?.revealInvasionType) return '';
+  const scale = hooks.flags?.revealInvasionScale ? ` 규모는 ${scaleGradeOf(spec, data)}입니다.` : '';
+  return ` 다만 오는 것이 ${spec.name}임은 압니다.${scale}`;
+}
+
+/** 규모 등급(소·중·대) — 문턱은 data/waves.json warn.scaleGrades 가 정본이다(매직넘버 금지). */
+export function scaleGradeOf(spec, data) {
+  const grades = warnCfg(data).scaleGrades || [];
+  const hit = grades.find((g) => (spec.units ?? 0) <= g.maxUnits);
+  return (hit ?? grades[grades.length - 1])?.name ?? '알 수 없음';
 }
 
 const DIRECTION_NAMES = { sea: '바다', north: '북쪽', east: '동쪽', west: '서쪽', south: '남쪽' };

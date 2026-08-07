@@ -1346,6 +1346,51 @@ test('구경 모드(?mock=1) — 서버 없이도 첫 화면이 돌고, 사슬�
 });
 
 // ────────────────────────────────────────────────────────────────
+// ★ §20-R1.5 — 유물 발견 카드. 서버가 빚은 서사를 화면이 그대로 읽는가.
+// ────────────────────────────────────────────────────────────────
+test('발견 카드 — 서사가 뜨고, 개선본이 와도 카드는 하나뿐이며, ESC 로 닫힌다', async () => {
+  const errors = [];
+  await new Promise((res) => http.listen(0, '127.0.0.1', res));
+  const port = http.address().port;
+  let dom = null;
+  try {
+    dom = await boot(`http://127.0.0.1:${port}/?mock=1&opening=0`, errors);
+    const { window } = dom;
+    const doc = window.document;
+    doc.querySelector('#btn-new').click();
+    await until(() => doc.querySelector('#scene-found').hidden === false, { what: '개척 화면' });
+    const name = doc.querySelector('#found-name');
+    name.value = '구경';
+    name.dispatchEvent(new window.Event('input', { bubbles: true }));
+    doc.querySelector('#found-start').click();
+    await until(() => !!(window.GM.state.S.view && window.GM.state.S.view.nation), { ms: 12000, what: '상태' });
+
+    const found = { artifact: '풍요의 뿔', key: 'horn_of_plenty', grade: 'rare', category: 'role',
+      effect: '즉시 곡물', source: 'ruin', narrative: '옛 자취에서 풍요의 뿔이(가) 나왔습니다.' };
+    window.GM.artifacts.discovery(found);
+    assert.ok(window.GM.ui.modalOpen('relic-found'), '발견 카드가 떴다');
+    assert.equal(doc.querySelectorAll('.art-found').length, 1);
+    assert.equal(doc.querySelector('.af-name').textContent, '풍요의 뿔');
+    assert.equal(doc.querySelector('.af-dot').style.imageRendering || '', '', '늘리기는 CSS 가 쥔다');
+
+    /* 궁정 서기의 개선본이 뒤늦게 와도 카드는 하나다 — 글줄만 갈린다 */
+    window.GM.artifacts.discovery({ ...found, narrative: '고쳐 적은 서사입니다.', narrativeSource: 'llm' });
+    assert.equal(doc.querySelectorAll('.art-found').length, 1, '카드가 두 장 뜨지 않는다');
+    doc.querySelector('.art-found').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    assert.equal(doc.querySelector('.af-tale').textContent, '고쳐 적은 서사입니다.');
+
+    doc.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert.equal(window.GM.ui.modalOpen('relic-found'), null, 'ESC 로 닫힌다');
+
+    const noisy = errors.filter((e) => !/AudioContext|Not implemented|Could not parse CSS/i.test(e));
+    assert.deepEqual(noisy, [], noisy.join(' / '));
+  } finally {
+    if (dom) dom.window.close();
+    await new Promise((res) => http.close(res));
+  }
+});
+
+// ────────────────────────────────────────────────────────────────
 // ★ GDD3 §14 — 플레이테스트 3차. 화면에서 실제로 무엇이 달라졌는가.
 //
 //   §14-1 주민 수치가 **몇 초 만에** 뜨는가 (옛 규칙은 154초였다)

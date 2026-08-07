@@ -16,7 +16,11 @@ const SYSTEM = [
   '결과 텍스트만 출력한다. 따옴표·머리말·설명을 붙이지 않는다.',
 ].join(' ');
 
-export async function expressWithClaude(eventSnapshot, { quality = 1 } = {}) {
+/**
+ * @param {object} opts.hint ★ §20-R1.5 — 그 자리에만 얹는 한 줄 지시(유물 발견 서사 등).
+ *   체계 문장은 그대로 두고 뒤에 붙인다 — 규칙(사실만·수치 창작 금지)은 어떤 부름에도 살아 있어야 한다.
+ */
+export async function expressWithClaude(eventSnapshot, { quality = 1, hint = '' } = {}) {
   if (!isEnabled()) return null;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -32,7 +36,7 @@ export async function expressWithClaude(eventSnapshot, { quality = 1 } = {}) {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: quality > 1 ? 200 : 120,
-        system: SYSTEM,
+        system: hint ? `${SYSTEM} ${hint}` : SYSTEM,
         messages: [{ role: 'user', content: JSON.stringify(eventSnapshot) }],
       }),
     });

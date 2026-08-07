@@ -420,6 +420,7 @@
     "requiresTier": 4
   },
   "artifacts": {
+    "_note": "★ §20-R1.5 — 상자 등급표는 **팀 원안 그대로**다(일반 55 · 레어 32 · 유니크 8 · 레전더리 5). 어전 회의 상자·유적 카드 artifactRoll·탐험 궤가 이 표 하나를 함께 읽는다 — 한 곳만 고치면 세 경로가 같이 움직인다. fixed(왕관의 조각)만 표에 없어 상자 밖이다. ruinGradeBoost 는 뽑힌 등급을 이 표의 차례대로 밀어 올린다(common→rare→unique→legendary).",
     "chestChancePerCouncil": 0.12,
     "gradeWeights": {
       "common": 0.55,
@@ -428,8 +429,14 @@
       "legendary": 0.05
     },
     "roleActivityWeightBonus": 2,
-    "luckyCharmBonus": 0.03,
-    "discoverChanceCap": 0.25
+    "luckyCharmBonus": 0.05,
+    "discoverChanceCap": 0.3,
+    "ringDropTable": {
+      "_note": "★ §20-R1(유물기획 §20-9) — 탐험 궤의 유물 확률을 본영에서 잰 거리로 가른다. 반경은 탐험기획 §18-1 링 구조(링0 0~12 · 링1 12~60 · 링2 60~140 · 링3 140+)를 그대로 데이터로 옮긴 것이다. 「왜」 멀수록 후한가 — 링3 은 귀환 자체가 도박이라 그 값을 유물로 치른다. 굴림은 노드 id 로 지은 statRng 이므로 월드 난수를 축내지 않는다(같은 지도의 같은 궤는 언제 열어도 같은 것을 낸다).",
+      "ringRadii": [12, 60, 140],
+      "chanceByRing": [0.3, 0.3, 0.35, 0.4],
+      "_reservedRing3UniqueChance": "R4 예약 — 링3 전용 고유 5%. ★ §20-R1.5: 지금 유니크 6종은 원안대로 상자·궤의 등급표(gradeWeights)에서 나오므로 별도 굴림이 필요 없다. R4 에서 **상자 밖 전용** 신규 고유 풀이 서면 그때 이 키가 쓰인다(밑줄 친 키는 엔진이 읽지 않는다)."
+    }
   },
   "emotionDay": {
     "_note": "★ v3.1(GDD3 §11-4) — 감정의 날은 시간도 티어도 열지 않는다. **감정소(측량소)를 세우고 [땅을 감정한다]를 누를 때**(commands.appraiseLand)만 열린다. 아래 tier 는 더 이상 조건이 아니고 옛 기록으로만 남긴다. 하는 일: 태그 확정 + 영토 안 지하 자원 공개 + 관제 선포(역할 선택 개방).",

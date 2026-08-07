@@ -779,6 +779,9 @@ function chargeCost(nation, priced, data, hooks, key) {
   for (const [r, v] of Object.entries(priced.cost)) nation.resources[r] -= v;
   if (gold > 0) { nation.gold -= gold; nation.stats.goldSpent += gold; }
   if (hooks.costDiscounts?.[key]) delete nation.artifactState.costDiscounts[key];
+  // ★ §20-R1 — 계열 할인(여문 씨앗 주머니)도 한 번 쓰면 그 자리에서 꺼진다.
+  const cat = data.buildings[key]?.category;
+  if (cat && hooks.costDiscountCategories?.[cat]) delete nation.artifactState.costDiscountCategories[cat];
   return { ok: true, free: false };
 }
 

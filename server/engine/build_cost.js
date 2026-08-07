@@ -16,7 +16,10 @@ export function buildingCost(nation, building, tier, data, hooks = {}) {
   if (architect) mult *= data.roles.defs.build.tenureBonus.buildCostMultiplier;
   if ((nation.tags || []).includes('fortress')) mult *= 1 + data.tags.fortress.effects.buildCost;
   mult *= hooks.buildCostMultiplier ?? 1;
-  const discount = hooks.costDiscounts?.[building];
+  // ★ §20-R1 — 국경의 인장: 무역로 거점(교역소·영사관)만 골라 깎는다. 어느 건물인지는 descriptor 가 안다.
+  mult *= hooks.buildingCostByKey?.[building] ?? 1;
+  // ★ §20-R1 — 여문 씨앗 주머니: 건물 하나가 아니라 「생산 계열 아무 것이나」 1회. 계열은 buildings.json category.
+  const discount = hooks.costDiscounts?.[building] ?? hooks.costDiscountCategories?.[def.category];
   if (discount) mult *= 1 - discount;
   const cost = {};
   for (const [r, v] of Object.entries(t.cost || {})) cost[r] = round2(v * mult);

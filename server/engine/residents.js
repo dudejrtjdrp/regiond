@@ -37,9 +37,12 @@ export const gatherCfg = (data) => data.balance.residents.gather;
 // ────────────────────────────────────────────────────────────────
 /** 주거 수용력 = 주거 건물 합(천막1/오두막2/가옥4/저택6 …). 성지가 있으면 그 상한에도 걸린다. */
 export function capacity(nation, data) {
-  const beds = housingCapacity(nation, data);
+  // ★ §20-R1 — 유물 몫(tick.js 가 매 틱 채우는 거울). 성지 상한과 잠자리 **양쪽**에 함께 얹는다:
+  //   한쪽에만 얹으면 성지가 선 나라에서 왕관의 조각이 아무 일도 하지 않는다.
+  const extra = nation.artifactCapDelta || 0;
+  const beds = housingCapacity(nation, data) + extra;
   const shrineCap = shrinePopulationCap(nation, data);
-  return shrineCap > 0 ? Math.min(beds, shrineCap) : beds;
+  return shrineCap > 0 ? Math.min(beds, shrineCap + extra) : beds;
 }
 
 export function freeBeds(nation, data) {

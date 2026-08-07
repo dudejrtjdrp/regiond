@@ -174,8 +174,11 @@ export function placeFence(world, nation, cmd, data) {
   };
 }
 
-/** upgradeFence {segmentIds:[...]} — 목책 → 석벽 */
-export function upgradeFence(world, nation, cmd, data) {
+/**
+ * upgradeFence {segmentIds:[...]} — 목책 → 석벽
+ * ★ §20-R1 — 불멸의 주춧돌이 남긴 「성벽 올림 1회 무료」를 여기서 쓴다(성벽은 건물표가 아니라 조각이다).
+ */
+export function upgradeFence(world, nation, cmd, data, hooks = {}) {
   const ids = cmd.segmentIds ?? cmd.payload?.segmentIds ?? (cmd.segmentId ? [cmd.segmentId] : null);
   const list = nation.fences || [];
   const targets = ids ? list.filter((f) => ids.includes(f.id)) : list.filter((f) => f.tier < 2);
@@ -190,17 +193,22 @@ export function upgradeFence(world, nation, cmd, data) {
     doable.push({ f, spec });
   }
   if (!doable.length) return err('MAX_TIER', '이미 석벽입니다.');
-  for (const [r, v] of Object.entries(cost)) {
-    if ((nation.resources[r] || 0) < v) return err('NO_RESOURCE', `${data.resources.meta[r]?.name ?? r}이(가) 부족합니다.`);
+  const free = (hooks.freeUpgrades?.wall || 0) > 0;
+  if (free) nation.artifactState.freeUpgrades.wall -= 1;
+  if (!free) {
+    for (const [r, v] of Object.entries(cost)) {
+      if ((nation.resources[r] || 0) < v) return err('NO_RESOURCE', `${data.resources.meta[r]?.name ?? r}이(가) 부족합니다.`);
+    }
+    for (const [r, v] of Object.entries(cost)) nation.resources[r] -= v;
   }
-  for (const [r, v] of Object.entries(cost)) nation.resources[r] -= v;
   for (const { f, spec } of doable) {
     const ratio = f.maxHp ? f.hp / f.maxHp : 1;
     f.tier = 2;
     f.maxHp = spec.hp;
     f.hp = round2(spec.hp * Math.max(0.5, ratio));
   }
-  return { ok: true, upgraded: doable.length, cost, segments: doable.map(({ f }) => fenceView(data, f)) };
+  return { ok: true, upgraded: doable.length, cost: free ? {} : cost, free,
+           segments: doable.map(({ f }) => fenceView(data, f)) };
 }
 
 /** repairFence {segmentIds?} — 없으면 파손된 조각 전부 */

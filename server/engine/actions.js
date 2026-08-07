@@ -232,6 +232,20 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
  *
  * 연 궤는 removeNode 로 지운다 — 그루터기(markDepleted)가 아니다. 다시 차는 궤는 궤가 아니다.
  */
+/**
+ * ★ §20-R1(유물기획 §20-9) — 궤가 앉은 자리의 **링**이 유물 확률을 가른다.
+ * 「왜」 본영에서 재나 — 링은 지도의 좌표가 아니라 「집에서 얼마나 멀리 나왔는가」다(탐험기획 §18-1).
+ * 반경·확률은 전부 balance.artifacts.ringDropTable 에 있다. 표가 없으면 옛 규칙(노드 표의 고정 확률).
+ */
+function cacheArtifactChance(world, nation, node, cfg, data) {
+  const table = data.balance.artifacts.ringDropTable;
+  const town = townOf(world, nation.id);
+  if (!table || !town) return cfg.artifactChance;
+  const d = dist(town.x, town.y, node.x, node.y);
+  const ring = table.ringRadii.filter((r) => d >= r).length;
+  return table.chanceByRing[ring] ?? cfg.artifactChance;
+}
+
 function openCache(world, nation, node, data) {
   const cfg = data.world.nodes.types[node.type]?.reward;
   if (!cfg) return null;
@@ -240,7 +254,7 @@ function openCache(world, nation, node, data) {
   nation.gold = round2((nation.gold || 0) + gold);
   nation.stats.goldEarned = round2((nation.stats.goldEarned || 0) + gold);
   let artifact = null;
-  if (rng.chance(cfg.artifactChance)) artifact = grantRandomArtifact(nation, data, rng, world.tick);
+  if (rng.chance(cacheArtifactChance(world, nation, node, cfg, data))) artifact = grantRandomArtifact(nation, data, rng, world.tick);
   removeNode(world, node.id);
   return { nodeId: node.id, gold, artifact, total: round2(nation.gold) };
 }

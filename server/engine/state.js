@@ -108,7 +108,7 @@ export function createNation(id, name, opts, data, rng) {
     rubberBandMultiplier: null,
     orders: [],
     artifacts: [],
-    artifactState: { immunities: {}, freeUpgrades: {}, costDiscounts: {}, tariffZeroCharges: 0 },
+    artifactState: { immunities: {}, freeUpgrades: {}, costDiscounts: {}, costDiscountCategories: {}, tariffZeroCharges: 0 },
     decisionQueue: [],
     reports: [],
     buffs: [],
@@ -262,7 +262,7 @@ export function isLegacySnapshot(world) {
  * ⚠ **아래 migrateWorld 에 줄을 더하면 이 숫자를 반드시 올려라.** 올리지 않으면 이미 표를 받은
  *   세이브가 새 줄을 건너뛴다 — 그것이 이 눈금이 지는 유일한 빚이다.
  */
-const MIGRATION_REV = 2;
+const MIGRATION_REV = 3;
 
 /**
  * ★ §19-F1(F08-1) — 옛 세이브의 건물에 체력을 붙인다.
@@ -276,6 +276,22 @@ function fillStructureHp(nation, data) {
     const max = tierSpec(s.key, s.tier, data)?.hp ?? 100;
     s.maxHp = max;
     s.hp = Math.min(s.hp ?? max, max);
+  }
+}
+
+/**
+ * ★ §20-R1 — 옛 세이브의 유물에 「충전」 칸을 붙인다(유물기획 §20-11).
+ * 「왜」 안 쓴 것은 1인가 — 옛 규칙에서 소모형은 한 번 쓰는 물건이었다. 정의표가 2·3회로 늘었다고
+ * 저장분을 소급해 늘리면 「이미 써 버린 사람」만 손해를 본다. 새로 얻는 것부터 새 값을 받는다.
+ * 계열 할인 칸(costDiscountCategories)도 여기서 열어 둔다 — 없으면 없는 대로 굴러가지만,
+ * 한 번 쓰고 지우는 자리라 미리 있어야 delete 가 헛돌지 않는다.
+ */
+function fillArtifactCharges(nation) {
+  (nation.artifactState ||= { immunities: {}, freeUpgrades: {}, costDiscounts: {}, tariffZeroCharges: 0 });
+  nation.artifactState.costDiscountCategories ||= {};
+  for (const owned of nation.artifacts || []) {
+    if (owned.chargesLeft != null) continue;
+    owned.chargesLeft = owned.consumed ? 0 : 1;
   }
 }
 
@@ -329,6 +345,7 @@ export function migrateWorld(world, data) {
     nation.nextClaimId ||= 1;
     nation.recruit ||= { readyTick: 0, count: 0 };
     fillStructureHp(nation, data);
+    fillArtifactCharges(nation);
     for (const u of nation.villagers || []) {
       if (!u.stats) u.stats = rollStats(statRng(`${world.seed}:${nation.id}:${u.id}`), data);
     }

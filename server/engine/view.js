@@ -144,7 +144,7 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
          장비는 **사람마다** 다르므로 you 아래에 둔다 — 같이 접속한 동료의 칼은 내 것이 아니다.
          ★ 대장간이 서는 장(9장) 전에는 필드 자체가 없다 — 잠긴 계층은 '비활성'이 아니라 부재다(§11-1). */
       ...(on('equipment') && avatarId
-        ? { equipment: equipmentView(nation, nation.players?.[avatarId] ?? null, data) } : {}),
+        ? { equipment: equipmentView(nation, nation.players?.[avatarId] ?? null, data, hooks) } : {}),
       /* ★ GDD3 §15-C — 자동 플레이. 켰는가 · 지금 실제로 몰고 있는가 · 손이 닿아 몇 초 쉬는가.
          서버가 정본이다: 화면은 이 값으로 「자동」 배지를 켜고 끈다. */
       autoPlay: avatarId ? autoPlayView(nation, avatarId, data) : null,
@@ -220,6 +220,10 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
           key: a.key, name: data.artifactsByKey[a.key]?.name, grade: data.artifactsByKey[a.key]?.grade,
           desc: data.artifactsByKey[a.key]?.desc, type: data.artifactsByKey[a.key]?.type,
           obtainedTick: a.obtainedTick, consumed: a.consumed,
+          /* ★ §20-R1 — 「N회 충전」 소모형이 몇 번 남았는가. 옛 화면은 consumed 만 보므로
+             이 칸을 몰라도 깨지지 않는다(표시 개선은 R2 몫). 옛 세이브면 null 이 아니라 1이 온다. */
+          chargesLeft: a.chargesLeft ?? (a.consumed ? 0 : 1),
+          charges: data.artifactsByKey[a.key]?.charges ?? 1,
         })),
         decisionQueue: nation.decisionQueue,
         ruinGauge: nation.ruinGauge || 0,
@@ -279,7 +283,7 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
         local: localPriceTable(nation, data),
         foreign: null,
         open: true,
-        tariff: round3(effectiveTariff(nation, data, { artifactDelta: hooks.tariffDelta })),
+        tariff: round3(effectiveTariff(nation, data, { artifactDelta: hooks.tariffDelta, exemptAll: hooks.tariffExemptAll })),
         freight: round3(freightRate(nation, data, { artifactDelta: hooks.freightDelta, eventDelta: freightEventDelta(nation) })),
       },
       offers: world.offers.filter((o) => o.nationId !== nation.id),
@@ -353,7 +357,9 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
  */
 function tradePartnerView(world, nation, other, data, hooks) {
   const buy = {}; const sell = {};
+  // ★ §20-R1 — 화면이 보는 값도 유물을 함께 셈한다(서버가 빚는 두 줄이 실제 체결가와 어긋나면 안 된다)
   const opts = { artifactDelta: hooks.tariffDelta, exemptNationId: hooks.exemptNationId,
+    exemptAll: hooks.tariffExemptAll, fxSpreadMultiplier: hooks.fxSpreadMultiplier,
     nationId: other.id, eventDelta: freightEventDelta(nation) };
   for (const r of data.resources.order) {
     buy[r] = round2(importPrice(foreignUnitPrice(other, r, 'buy', data), nation, data, opts));

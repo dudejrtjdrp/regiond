@@ -81,6 +81,75 @@
     return t || '—';
   }
 
+  /* ── 발견 카드 (★ §20-R1.5) ──────────────────────────
+     「왜」 여기만 창을 띄우나 — 「창은 저절로 뜨지 않는다」가 규칙이지만, 유물 발견은
+     내가 궤를 열거나 어전 회의를 연 **그 행동의 즉각 답**이다. 남의 화면을 빼앗는 알림이 아니라
+     내 손이 부른 장면이라 예외로 둔다. 아무 데나 눌러도, ESC 로도 닫힌다.
+     도트 일러 자리는 지금 카테고리 아이콘을 작게 그려 크게 늘린 것이다(에셋이 오면 그림만 갈아 끼운다). */
+  var CAT_ICON = { role: 'scroll', qol: 'gem', combat: 'sword', environment: 'leaf',
+                   resource: 'coin', diplomacy: 'flag', tradeoff: 'dice', cosmetic: 'crown' };
+
+  function discovery(found) {
+    if (!found || !found.artifact) return;
+    /* 궁정 서기가 글을 고쳐 보내오면(표현 계층) 카드를 새로 띄우지 않고 그 줄만 갈아 끼운다 */
+    var open = U.modalOpen('relic-found');
+    if (open && open.__relicKey === found.key) { type.start(open.__relicLine, taleOf(found)); return; }
+    var d = itemDef({ key: found.key, name: found.artifact, grade: found.grade,
+                      type: (defOf(found.key) || {}).type, desc: found.effect });
+    var color = gradeColor(d.grade);
+    var body = U.el('div', 'art-found');
+    body.appendChild(plate(found, color));
+    body.appendChild(U.el('div', 'af-name', d.name || found.key));
+    body.appendChild(U.el('div', 'af-grade', gradeName(d.grade) + ' · ' + typeName(d.type)));
+    var line = U.el('div', 'af-tale');
+    body.appendChild(line);
+    body.appendChild(U.el('div', 'af-effect', found.effect || d.desc || ''));
+    openFoundModal(body, line, found, color);
+  }
+
+  function taleOf(found) { return String(found.narrative || found.effect || ''); }
+
+  /** 도트 자리 — 작게 그려 크게 늘린다(pixelated). 에셋이 오면 이 함수만 갈아 끼운다. */
+  function plate(found, color) {
+    var wrap = U.el('div', 'af-plate');
+    wrap.style.borderColor = color;
+    var im = GM.icons.img(CAT_ICON[found.category] || 'gem', 24, '');
+    im.className = 'af-dot';
+    im.style.width = '96px';
+    im.style.height = '96px';
+    wrap.appendChild(im);
+    return wrap;
+  }
+
+  function openFoundModal(body, line, found, color) {
+    var foot = U.el('div');
+    foot.appendChild(U.btn('간직한다', 'btn-primary', function () { U.closeTopModal(); }));
+    var back = U.openModal({ title: '땅이 무언가를 내어주었다', body: body, footer: foot,
+                             width: '420px', key: 'relic-found', icon: GM.icons.img('gem', 22) });
+    body.addEventListener('click', function () { type.skip(); });
+    if (back) { back.style.setProperty('--relic', color); back.__relicKey = found.key; back.__relicLine = line; }
+    U.sparkle(body, color);
+    GM.sfx.play('fanfare');
+    type.start(line, taleOf(found));
+  }
+
+  /* 한 자씩 찍는다 — 다 적힌 글은 읽는 것이지만 찍히는 글은 듣는 것이다. 누르면 즉시 다 보여 준다. */
+  var type = (function () {
+    var timer = 0, node = null, text = '', shown = 0;
+    function stop() { if (timer) clearInterval(timer); timer = 0; }
+    function paint() { if (node) node.textContent = text.slice(0, shown); }
+    function step() { shown += 1; paint(); if (shown >= text.length) stop(); }
+    return {
+      start: function (el, t) {
+        stop(); node = el; text = t || ''; shown = 0; paint();
+        /* 한 글자가 찍히는 시간의 정본은 대화창과 같은 자다(data/world.json render.dialogue.typeMs) */
+        var ms = (S.dialogueCfg() || {}).typeMs;
+        if (ms > 0) timer = setInterval(step, ms); else this.skip();
+      },
+      skip: function () { stop(); shown = text.length; paint(); },
+    };
+  })();
+
   /* ── 상자 여는 연출 ────────────────────────────────── */
   function openChest(drop, host, onDone) {
     var empty = !drop || !drop.key;
@@ -158,6 +227,6 @@
 
   function update() { if (U.modalOpen('relic')) paint(); }
 
-  GM.artifacts = { open: open, update: update, openChest: openChest,
+  GM.artifacts = { open: open, update: update, openChest: openChest, discovery: discovery,
                    gradeColor: gradeColor, defOf: defOf, itemDef: itemDef };
 })(window);
