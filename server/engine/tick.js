@@ -46,7 +46,7 @@ import {
 } from './waves.js';
 import { startBattle, runBattle } from './battle.js';
 // ★ GDD3 §13-A-5 — 산출도 곳간 상한을 넘기지 못한다(서버 권위)
-import { deposit } from './storage.js';
+import { deposit, spoilFloor } from './storage.js';
 // ★ GDD3 §13-D-5 — 기술 트리. 값은 착수할 때 치르고, 날은 여기서 흐른다.
 import { stepResearch, productionBonus, gatherResearchBonus } from './research.js';
 // ★ GDD3 §13-B·C — 은닉 유적 발견 · 상시 생태계 · 사냥꾼 오두막
@@ -697,7 +697,8 @@ function consumeAndStock(world, nation, data) {
     }
   }
   nation.stats.consumption += need;
-  const spoiled = applySpoilage(nation, data);
+  // ★ §19-E(QA-A) — 곳간 상한 안의 재고는 썩지 않는다(496↔499 되튐 제거)
+  const spoiled = applySpoilage(nation, data, spoilFloor(nation, data));
   if (Object.keys(spoiled).length) events.push({ kind: 'spoilage', data: spoiled });
   return events;
 }

@@ -138,12 +138,17 @@ export function localPriceTable(nation, data) {
   return out;
 }
 
-/** 창고 초과분 부패 */
-export function applySpoilage(nation, data) {
+/**
+ * 창고 초과분 부패.
+ * @param {number} floor ★ §19-E(QA-A) — 부패가 물러설 자리(곳간 상한). storage.spoilFloor 가 준다.
+ *   무른 문턱(storageCapacity)이 단단한 상한보다 낮으면 그 사이가 「매일 깎이고 매일 다시 차는」
+ *   되튐 구간이 된다 — 그 구간을 부패에서 뺀다. 0이면 옛 규칙 그대로다.
+ */
+export function applySpoilage(nation, data, floor = 0) {
   const rate = data.balance.price.spoilagePerDay;
   const spoiled = {};
   for (const r of data.resources.order) {
-    const cap = storageCapacity(nation, r, data);
+    const cap = Math.max(storageCapacity(nation, r, data), floor);
     const now = nation.resources[r] ?? 0;
     if (cap > 0 && now > cap) {
       const loss = (now - cap) * rate;

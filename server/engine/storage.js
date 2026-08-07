@@ -69,6 +69,21 @@ export function storageLimit(nation, data) {
   return round2(total);
 }
 
+/**
+ * ★ §19-E(QA-A 창고 되튐) — 부패가 물러설 자리.
+ *
+ * 왜. 단단한 상한(여기)과 무른 문턱(economy.storageCapacity — 인구 비례의 재고 목표)은 서로 다른
+ * 다이얼이다. 그런데 상한이 문턱보다 높으면 그 사이는 **게임이 스스로 밀어 넣고 매일 깎는 구간**이 된다:
+ * 채집은 상한에서 멎으니 재고가 499 에 눌러앉고, 다음 일 틱의 부패가 3~4 를 덜어 내고, 그날 다시 499 로
+ * 찬다 — 자원칸이 496↔499 로 되튄다(실측: 상한 500 · 목재 무른 문턱 315 · 하루 −3.68).
+ * 손은 이미 멎었는데 독만 새는 자리다. 그래서 「곳간 안에 든 것은 썩지 않는다」로 바꾼다.
+ * 상한을 넘겨 받은 몫(교역·전리품·환급)은 그대로 서서히 덜린다 — PROTOCOL §0-Y-4 의 「넘친 재고」가 그것이다.
+ */
+export function spoilFloor(nation, data) {
+  if (storageCfg(data).spoilRespectsLimit === false) return 0;
+  return storageLimit(nation, data);
+}
+
 /** 지금 이 자원을 얼마나 더 받을 수 있는가 */
 export function spaceFor(nation, resource, data) {
   const have = Number(nation?.resources?.[resource]) || 0;
