@@ -94,12 +94,15 @@
     body.appendChild(head(brief));
     if (brief.concept) body.appendChild(U.el('p', 'hint', brief.concept));
     tagRow(body, brief.tagNames);
+    profileRow(body, brief.tradeProfile);
     priceTable(body, brief.prices);
 
     var foot = U.el('div');
     foot.appendChild(U.btn('물러난다', 'btn-ghost', function () { U.closeTopModal(); }));
     var deal = U.btn('교역한다', 'btn-primary', function () {
       U.closeTopModal();
+      /* ★ §19-F3(F07-7) — 문 앞에서 곧바로 그 나라의 좌판으로. 좌판이 아직 없으면 옛길(집무실)로 간다. */
+      if (GM.ministry.openPartner(brief.nationId)) return;
       GM.ministry.open('trade');
     });
     deal.id = 'nation-trade';
@@ -129,6 +132,22 @@
     var row = U.el('div', 'ctx-acts');
     names.forEach(function (nm) { row.appendChild(U.el('span', 'chip', nm)); });
     body.appendChild(row);
+  }
+
+  /* ★ §19-F3(F07-7) — 이 나라의 성정이 곧 값이다: 무엇을 헐값에 내주고 무엇을 후하게 사는가.
+     여기 한 줄이 「왜 여기까지 걸어왔는가」의 답이 된다. */
+  function profileRow(body, prof) {
+    if (!prof) return;
+    var rows = [['헐값에 내주는 것', prof.exports], ['후하게 사는 것', prof.demands]];
+    rows.forEach(function (pair) {
+      if (!pair[1] || !pair[1].length) return;
+      body.appendChild(U.el('h3', 'sec-title', pair[0]));
+      var row = U.el('div', 'ctx-acts');
+      pair[1].forEach(function (x) {
+        row.appendChild(U.el('span', 'chip', x.name + ' ×' + U.fmt(x.factor, 2)));
+      });
+      body.appendChild(row);
+    });
   }
 
   /** 그곳의 값 · 우리 값 — 두 줄을 나란히 두어야 어느 쪽이 이(利)인지 보인다 */

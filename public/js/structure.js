@@ -140,6 +140,7 @@
           '붙들고 있는 연구', '한 번에 하나만 붙듭니다. 값은 이미 치렀습니다.');
         body.appendChild(g);
       }
+      hasteRow(body, r, b);
     }
     var list = U.el('div', 'rs-list');
     (r.list || []).forEach(function (x) {
@@ -210,6 +211,66 @@
       body.appendChild(flBtn);
     }
     return body;
+  }
+
+  /* ★ §19-F3(F07-8) — 첫 감정을 마친 감정소의 두 번째 동사. 며칠에 한 번 「기운이 다시 고인다」:
+     태그 하나를 다시 뽑고, 그 사이 넓어진 영토의 지하를 마저 연다. 날수·값은 서버가 센다. */
+  function reappraiseAct(b) {
+    var st = (S.S.view && S.S.view.reappraisal) || {};
+    var wait = (st.daysLeft || 0) > 0 && !(st.charges > 0);
+    return {
+      label: b.postActionLabel || '다시 감정한다', cls: 'btn-primary', id: 'st-reappraise',
+      disabled: !st.open,
+      tip: wait ? '기운이 고이기까지 ' + st.daysLeft + '일 남았습니다'
+        : (st.charges > 0 ? '옛 지도 조각을 씁니다' : '금화 ' + U.fmt(st.gold || 0, 0) + '이 듭니다'),
+      detail: '땅의 됨됨이 하나를 다시 뽑고, 넓어진 영토의 지하를 마저 드러냅니다.',
+      onClick: function () { doReappraise(b); }
+    };
+  }
+
+  function doReappraise(b) {
+    GM.hud.hideContext();
+    GM.net.send('reappraiseLand', { structureId: b.id }, function (r) {
+      if (!r || !r.ok) {
+        U.toast((r && r.error && r.error.message) || '지금은 다시 감정할 수 없습니다.', 'warn', 3200);
+        return;
+      }
+      GM.sfx.play('unlock');
+      GM.fx.flash('#fff0c8', 0.2, 0.6);
+      GM.fx.ring(b.x, b.y, '#f6cf7a', 0.2, 5, 1.1, 4);
+      U.banner({ icon: 'research', kind: 'good', title: '땅을 다시 읽었다',
+                 sub: reappraiseLine(r), ms: 4200 });
+    });
+  }
+
+  function reappraiseLine(r) {
+    var parts = [];
+    if (r.swapped) parts.push(r.swapped.fromName + ' → ' + r.swapped.toName);
+    if (r.revealedNodes && r.revealedNodes.length) parts.push('지하 ' + r.revealedNodes.length + '자리');
+    return parts.length ? parts.join(' · ') : (r.tagNames || []).join(' · ');
+  }
+
+  /* ★ §19-F3(F07-5) — 붙들고 있는 궁리에 금화를 부어 하루를 앞당긴다.
+     값·가능 여부는 전부 서버가 셈해 보낸다(research.haste) — 화면은 단추만 그린다. */
+  function hasteRow(body, r, b) {
+    var h = r.haste;
+    if (!h) return;
+    var btn = U.btn('금화 ' + U.fmt(h.gold, 0) + '로 하루 앞당긴다', 'btn-small', function () {
+      GM.net.send('hastenResearch', {}, function (res) {
+        if (!res || !res.ok) {
+          U.toast((res && res.error && res.error.message) || '지금은 앞당길 수 없습니다.', 'warn');
+          return;
+        }
+        U.toast('사람을 더 붙였습니다 — 하루가 줄었습니다.', 'good', 2800);
+        GM.sfx.play('gain');
+        openSettlement(b);
+      });
+    });
+    btn.id = 'rs-haste';
+    btn.disabled = !h.ready;
+    U.tipSet(btn, '연구 가속', h.room ? (h.ready ? '금화 ' + U.fmt(h.gold, 0) + '을 치르고 하루를 줄입니다'
+      : '금화가 모자랍니다') : '내일이면 어차피 끝납니다');
+    body.appendChild(btn);
   }
 
   function doResearch(key, b) {
@@ -421,7 +482,8 @@
        감정의 날은 시간으로 오지 않는다. 이 단추가 유일한 문이다. */
     if (b.action === 'appraiseLand') {
       var done = !!(S.S.view && S.S.view.mandate && S.S.view.mandate.unlocked);
-      acts.push({
+      if (done && b.postAction === 'reappraiseLand') acts.push(reappraiseAct(b));
+      else acts.push({
         label: b.actionLabel || '땅을 감정한다', cls: 'btn-primary', id: 'st-appraise',
         disabled: done,
         tip: done ? '이 땅은 이미 감정했습니다' : '이 땅이 무엇을 품었는지 드러납니다',

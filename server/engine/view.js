@@ -1,7 +1,12 @@
 // NationView / world 스냅샷 생성 — 역할별 정보 비대칭을 서버에서 강제한다 (docs/PROTOCOL.md v3)
-import { localPriceTable, round2, hasDiplomat, effectiveTariff, freightRate, round3 } from './economy.js';
+import {
+  localPriceTable, round2, hasDiplomat, effectiveTariff, freightRate, round3, importPrice, exportPrice,
+} from './economy.js';
 import { collectHooks } from './artifacts.js';
 import { foreignPriceTable } from './ai_nation.js';
+import { reappraisalState } from './emotion_day.js';
+// ★ §19-F3(F07-7) — 나라마다 다른 값(성정 배수)과 특산품 좌판
+import { foreignUnitPrice, tradeProfileView, specialtyList } from './trade.js';
 // ★ §17-16 — hasMet: 직접 찾아가 본 나라인가(가격·태그 마스킹 완화의 정본)
 import { recommendedLabor, freightEventDelta, hasMet } from './commands.js';
 import { roleSummary } from './npc.js';
@@ -123,6 +128,9 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
         vacantDefault: data.world.roleTiming.defaultVacant,
       },
     } : {}),
+    /* ★ §19-F3(F07-8) — 감정소는 첫 감정 뒤에도 할 일이 있다. 「언제 다시 열리는가」는 서버가 센다
+       (화면이 날을 세면 옛 세이브·멀티에서 서로 다른 날을 가리킨다). 감정 전에는 필드가 없다. */
+    ...(world.emotionDayDone ? { reappraisal: reappraisalState(world, nation, data) } : {}),
     you: {
       avatarId,
       role: viewerRole ?? null,
@@ -270,6 +278,9 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
         freight: round3(freightRate(nation, data, { artifactDelta: hooks.freightDelta, eventDelta: freightEventDelta(nation) })),
       },
       offers: world.offers.filter((o) => o.nationId !== nation.id),
+      /* ★ §19-F3(F07-7) — 「어디에 팔면 더 받나」를 화면이 셈하지 않게 서버가 값을 다 빚어 보낸다.
+         만나 본 나라만 실린다(값은 발로 얻는다 — §17-16 규율 그대로). */
+      tradePartners: tradePartnerViews(world, nation, data, hooks),
     } : {}),
     ...(councilOn ? { councils: world.councils.filter((c) => c.nationId === nation.id).slice(-3) } : {}),
     // ★ GDD3 §5 — 시즌 결산 대신 연대기
@@ -328,6 +339,30 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
     view.nation.saintBrief = '성녀가 없어 습격 시점이 흐립니다.';
   }
   return view;
+}
+
+/**
+ * ★ §19-F3(F07-7) 교역 상대 한 곳의 첩 — 살 값 · 팔 값 · 성정 · 좌판.
+ * 「왜」 두 값을 따로 보내나 — 같은 재화라도 그 나라에서 사는 값과 그 나라에 파는 값이 다르다.
+ *   그 차이가 무역의 까닭이므로, 화면이 짐작하지 않도록 서버가 두 줄을 다 빚어 보낸다.
+ */
+function tradePartnerView(world, nation, other, data, hooks) {
+  const buy = {}; const sell = {};
+  const opts = { artifactDelta: hooks.tariffDelta, exemptNationId: hooks.exemptNationId,
+    nationId: other.id, eventDelta: freightEventDelta(nation) };
+  for (const r of data.resources.order) {
+    buy[r] = round2(importPrice(foreignUnitPrice(other, r, 'buy', data), nation, data, opts));
+    sell[r] = round2(exportPrice(foreignUnitPrice(other, r, 'sell', data), data, nation));
+  }
+  return { id: other.id, name: other.name, buy, sell,
+    profile: tradeProfileView(other.id, data), specialties: specialtyList(world, nation, other.id, data) };
+}
+
+/** 만나 본 나라만 좌판을 편다 — 이름만 아는 나라의 값은 아직 우리 것이 아니다. */
+function tradePartnerViews(world, nation, data, hooks) {
+  return Object.values(world.nations)
+    .filter((n) => !n.isPlayer && hasMet(nation, n.id))
+    .map((n) => tradePartnerView(world, nation, n, data, hooks));
 }
 
 /**

@@ -28,6 +28,46 @@
           "grain"
         ]
       },
+      "tradeProfile": {
+        "_note": "★ §19-F3(F07-7) 무역 동기 — 나라마다 「싸게 내주는 것」과 「비싸게 쳐주는 것」이 다르다. exports 는 그 나라에서 살 때의 값 배수(1 미만이면 싸다), demands 는 그 나라에 팔 때의 값 배수(1 넘으면 후하다). 성정을 그대로 따른다: 산유국은 검은 것을 헐값에 내주고 먹을 것을 비싸게 산다. ★ 직접 흥정(trade 명령)에만 붙는다 — 저쪽에서 보내오는 제안(offers)은 저쪽이 부르는 값 그대로다.",
+        "exports": {
+          "oil": 0.7,
+          "steel": 0.8,
+          "ironOre": 0.82,
+          "fuel": 0.78
+        },
+        "demands": {
+          "grain": 1.45,
+          "meat": 1.32,
+          "wool": 1.28
+        }
+      },
+      "specialties": [
+        {
+          "key": "east_coal_bale",
+          "name": "검은 흙 한 섬",
+          "desc": "오래 타는 검은 돌을 섬째 묶어 판다. 석탄 채굴을 아직 모르는 땅이 석탄을 얻는 유일한 길이다.",
+          "gold": 260,
+          "stock": 2,
+          "restockDays": 3,
+          "grant": {
+            "resource": "coal",
+            "amount": 60
+          }
+        },
+        {
+          "key": "east_oil_jar",
+          "name": "검은 물 항아리",
+          "desc": "유막이 없는 땅에서는 한 방울도 나지 않는 것. 항아리째 받아 온다.",
+          "gold": 420,
+          "stock": 1,
+          "restockDays": 4,
+          "grant": {
+            "resource": "oil",
+            "amount": 40
+          }
+        }
+      ],
       "startingResources": {
         "grain": 120,
         "wood": 80,
@@ -65,6 +105,43 @@
           "fuel"
         ]
       },
+      "tradeProfile": {
+        "exports": {
+          "wood": 0.68,
+          "stone": 0.85,
+          "hide": 0.84
+        },
+        "demands": {
+          "oil": 1.4,
+          "fuel": 1.38,
+          "steel": 1.22
+        }
+      },
+      "specialties": [
+        {
+          "key": "elf_wisdom_leaf",
+          "name": "지혜의 잎",
+          "desc": "숲이 천천히 기른 잎. 우려 마시면 붙들고 있던 궁리가 하루 앞당겨진다.",
+          "gold": 340,
+          "stock": 1,
+          "restockDays": 3,
+          "grant": {
+            "researchDays": 1
+          }
+        },
+        {
+          "key": "elf_dyed_yarn",
+          "name": "물들인 실타래",
+          "desc": "엘프의 물레가 자아낸 실. 대장간의 덧대개와 갑옷에 그대로 들어간다.",
+          "gold": 120,
+          "stock": 3,
+          "restockDays": 2,
+          "grant": {
+            "resource": "wool",
+            "amount": 50
+          }
+        }
+      ],
       "startingResources": {
         "grain": 90,
         "wood": 140,
@@ -100,6 +177,43 @@
           "fuel"
         ]
       },
+      "tradeProfile": {
+        "exports": {
+          "grain": 0.72,
+          "wood": 0.8,
+          "steel": 0.86
+        },
+        "demands": {
+          "hide": 1.42,
+          "coal": 1.3,
+          "ironOre": 1.24
+        }
+      },
+      "specialties": [
+        {
+          "key": "west_old_map",
+          "name": "옛 지도 조각",
+          "desc": "누군가 이 땅을 먼저 재고 갔다. 감정소에 펴 두면 기운이 다시 고인다 — 재감정 한 번.",
+          "gold": 300,
+          "stock": 1,
+          "restockDays": 5,
+          "grant": {
+            "reappraiseCharges": 1
+          }
+        },
+        {
+          "key": "west_steel_ingot",
+          "name": "서방 강괴",
+          "desc": "왕국의 용광로가 뽑은 강재. 제련소를 세우기 전에도 쇠를 쥘 수 있다.",
+          "gold": 380,
+          "stock": 2,
+          "restockDays": 3,
+          "grant": {
+            "resource": "steel",
+            "amount": 60
+          }
+        }
+      ],
       "startingResources": {
         "grain": 150,
         "wood": 120,

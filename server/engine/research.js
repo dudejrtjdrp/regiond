@@ -124,10 +124,66 @@ export function researchView(nation, data) {
     order: [...RESEARCH_KEYS(data)],
     list,
     active: r.active ? { ...r.active } : null,
+    // ★ §19-F3(F07-5) — 붙들고 있는 궁리를 금화로 앞당길 수 있는가. 화면이 이 칸만 보고 단추를 그린다.
+    haste: hasteView(nation, data),
     productionBonus: productionBonus(nation, data),
     railsOpen: researchFeature(nation, 'rails', data),
     doneCount: list.filter((x) => x.done).length,
   };
+}
+
+// ────────────────────────────────────────────────────────────────
+// ★ §19-F3(F07-5) 연구 가속 — 금화가 흘러갈 자리 하나
+//   「왜」 하루씩만 당기는가 — 한 번에 다 사 버리면 연구가 '기다림'이 아니라 '값'이 된다.
+//   하루치씩 사게 두면 급한 궁리에만 돈을 붓는 선택이 남는다.
+// ────────────────────────────────────────────────────────────────
+export const hasteCfg = (data) => researchCfg(data).haste ?? null;
+
+/** 하루를 당기는 값 = 그 연구가 들었던 금화의 goldRatio 배(최소 goldMin) */
+export function hasteCost(key, data) {
+  const h = hasteCfg(data);
+  if (!h) return 0;
+  const def = researchDef(key, data);
+  return Math.max(h.goldMin ?? 0, Math.round((def?.gold ?? 0) * (h.goldRatio ?? 0)));
+}
+
+/** 화면이 읽는 칸 — 지금 당길 수 있는가, 얼마인가 */
+export function hasteView(nation, data) {
+  const h = hasteCfg(data);
+  const active = ensureResearch(nation).active;
+  if (!h || !active) return null;
+  const gold = hasteCost(active.key, data);
+  const room = active.remainingDays > (h.minRemainingDays ?? 1);
+  return { key: active.key, gold, days: h.maxDaysPerUse ?? 1, ready: room && nation.gold >= gold, room };
+}
+
+/**
+ * 남은 날을 days 만큼 깎는다 — 금화든 특산품(지혜의 잎)이든 같은 문으로 들어온다.
+ * @returns {number} 실제로 깎인 날수(0 이면 깎을 자리가 없었다)
+ */
+export function applyResearchDays(nation, days, data) {
+  const h = hasteCfg(data);
+  const active = ensureResearch(nation).active;
+  if (!active || !(days > 0)) return 0;
+  const floor = h?.minRemainingDays ?? 1;
+  const cut = Math.min(days, Math.max(0, active.remainingDays - floor));
+  active.remainingDays = round2(active.remainingDays - cut);
+  return cut;
+}
+
+/** hastenResearch — 금화로 하루를 산다 */
+export function hastenResearch(world, nation, data) {
+  const h = hasteCfg(data);
+  const active = ensureResearch(nation).active;
+  if (!h) return err('NO_HASTE', '연구를 앞당기는 길이 없습니다.');
+  if (!active) return err('NO_RESEARCH', '붙들고 있는 연구가 없습니다.');
+  const gold = hasteCost(active.key, data);
+  if (nation.gold < gold) return err('NO_GOLD', `금화가 모자랍니다 — ${gold} 이 듭니다.`);
+  const cut = applyResearchDays(nation, h.maxDaysPerUse ?? 1, data);
+  if (!cut) return err('ALMOST_DONE', '내일이면 끝납니다 — 더 당길 자리가 없습니다.');
+  nation.gold = round2(nation.gold - gold);
+  nation.stats.goldSpent = round2((nation.stats.goldSpent || 0) + gold);
+  return { ok: true, key: active.key, days: cut, gold, remainingDays: active.remainingDays };
 }
 
 // ────────────────────────────────────────────────────────────────

@@ -42,6 +42,8 @@
     'commandVillagers', 'setVillagerMix', 'setLabor',
     /* 경제 · 역할 (티어 해금) */
     'trade', 'respondOffer', 'decide', 'buyTool', 'sellWeapon', 'setQueue',
+    /* ★ §19-F3 — 특산품 · 연구 가속 · 재감정 · 주민 꾸미기 */
+    'buySpecialty', 'hastenResearch', 'reappraiseLand', 'customizeResident',
     'ordersSet', 'saintBuff', 'useArtifact', 'councilAck',
     'setAutoExport', 'setExportFloor', 'pickRole', 'delegate',
     'adviceAct', 'setAutoAssist', 'apAction', 'harvestNode', 'setBattlePlan',

@@ -205,6 +205,7 @@
     if (!market.foreign) {
       body.appendChild(U.el('p', 'hint', '외교관이 자리에 있어야 이웃의 값이 보입니다.'));
     }
+    partnerRows(body);
     var offers = S.offers();
     if (offers.length) {
       body.appendChild(U.el('h3', 'sec-title', '들어온 제안'));
@@ -219,6 +220,137 @@
         body.appendChild(row);
       });
     }
+  }
+
+  /* ── ★ §19-F3(F07-7) 교역 상대 좌판 ────────────────────
+     「왜」 이 화면이 생겼나 — 여태 교역은 저쪽이 보내오는 제안을 받는 일뿐이었다. 값이 어디나 같으니
+     보낼 제안도 늘 비슷했고, 그래서 무역은 「가끔 뜨는 알림」이었다. 이제 나라마다 값이 다르다:
+     어디서 사고 어디에 파는가가 선택이 된다. 값은 전부 서버가 빚어 보낸다(view.tradePartners). */
+  function partnerRows(body) {
+    var list = S.tradePartners();
+    if (!list.length) {
+      body.appendChild(U.el('p', 'hint', '아직 찾아가 본 나라가 없습니다. 이웃의 도읍 앞까지 걸어가면 좌판이 열립니다.'));
+      return;
+    }
+    body.appendChild(U.el('h3', 'sec-title', '이웃의 좌판'));
+    list.forEach(function (p) {
+      var row = U.el('button', 'st-row');
+      row.type = 'button';
+      row.setAttribute('data-trade-partner', p.id);
+      row.appendChild(GM.icons.img('ship', 22));
+      row.appendChild(U.el('span', null, p.name + ' — ' + profileLine(p)));
+      row.onclick = function () { U.closeTopModal(); openPartner(p.id); };
+      body.appendChild(row);
+    });
+  }
+
+  /** 「싸게 내주는 것 / 비싸게 사는 것」 한 줄 — 성정이 곧 값이라는 것을 이 줄이 말한다 */
+  function profileLine(p) {
+    var pr = p.profile || {};
+    var cheap = (pr.exports || []).map(function (x) { return x.name; }).slice(0, 3).join('·');
+    var dear = (pr.demands || []).map(function (x) { return x.name; }).slice(0, 3).join('·');
+    return '헐값 ' + (cheap || '—') + ' / 후한값 ' + (dear || '—');
+  }
+
+  function partnerById(id) {
+    var list = S.tradePartners();
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+
+  /** 한 나라의 좌판 — 재화마다 살 값·팔 값을 나란히 두고, 아래에 특산품을 편다 */
+  function openPartner(id) {
+    var p = partnerById(id);
+    if (!p) { U.toast('그 나라의 좌판을 아직 못 봤습니다.', 'warn'); return null; }
+    var body = U.el('div');
+    body.appendChild(U.el('p', 'hint', profileLine(p) + ' — 값은 관세·운임까지 얹은 실제 값입니다.'));
+    var tbl = U.el('div', 'price-rows');
+    S.RESOURCES.forEach(function (r) { tbl.appendChild(dealRow(p, r)); });
+    body.appendChild(tbl);
+    specialtyRows(body, p);
+    var foot = U.el('div');
+    foot.appendChild(U.btn('물러난다', 'btn-ghost', function () { U.closeTopModal(); }));
+    return U.openModal({ title: p.name + ' 좌판', body: body, footer: foot, width: '640px',
+                         key: 'trade:' + p.id, icon: GM.icons.img('ship', 22) });
+  }
+
+  function dealRow(p, r) {
+    var row = U.row();
+    row.appendChild(GM.icons.img(GM.icons.resIcon(r.key), 18));
+    row.appendChild(U.el('span', 'row-name', r.name));
+    row.appendChild(U.el('span', 'row-cost', '삼 ' + U.fmt(p.buy[r.key], 2)));
+    row.appendChild(U.el('span', 'row-cost', '팜 ' + U.fmt(p.sell[r.key], 2)));
+    row.appendChild(U.btn('산다', 'btn-small', function () { askAmount(p, r, 'buy'); }));
+    row.appendChild(U.btn('판다', 'btn-small', function () { askAmount(p, r, 'sell'); }));
+    return row;
+  }
+
+  /** 수량을 묻는 작은 창 — 셈은 서버가 다시 한다(클라 신뢰 금지) */
+  function askAmount(p, r, side) {
+    var unit = side === 'buy' ? p.buy[r.key] : p.sell[r.key];
+    var body = U.el('div');
+    body.appendChild(U.el('p', null, r.name + ' 하나에 ' + U.fmt(unit, 2) + ' 금화입니다.'));
+    var input = document.createElement('input');
+    input.type = 'number';
+    input.id = 'trade-amount';
+    input.min = '1';
+    input.value = '10';
+    body.appendChild(input);
+    var foot = U.el('div');
+    foot.appendChild(U.btn('물러난다', 'btn-ghost', function () { U.closeTopModal(); }));
+    var go = U.btn(side === 'buy' ? '산다' : '판다', 'btn-primary', function () {
+      U.closeTopModal();
+      sendTrade(p, r, side, Math.floor(Number(input.value)));
+    });
+    go.id = 'trade-confirm';
+    foot.appendChild(go);
+    return U.openModal({ title: r.name + ' ' + (side === 'buy' ? '사기' : '팔기'), body: body,
+                         footer: foot, width: '420px', key: 'trade-amount',
+                         icon: GM.icons.img(GM.icons.resIcon(r.key), 22) });
+  }
+
+  function sendTrade(p, r, side, amount) {
+    if (!(amount > 0)) { U.toast('수량을 적어 주세요.', 'warn'); return; }
+    GM.net.send('trade', { nationId: p.id, side: side, resource: r.key, amount: amount }, function (res) {
+      if (!res || !res.ok) {
+        U.toast((res && res.error && res.error.message) || '거래하지 못했습니다.', 'warn', 3200);
+        return;
+      }
+      U.toast(r.name + ' ' + amount + ' — 금화 ' + U.fmt(res.gold, 1), 'good', 3000);
+      GM.sfx.play('gain');
+    });
+  }
+
+  /** 특산품 — 우리 땅에서 나지 않는 것. 재고가 있고 며칠에 걸쳐 다시 찬다. */
+  function specialtyRows(body, p) {
+    var items = p.specialties || [];
+    if (!items.length) return;
+    body.appendChild(U.el('h3', 'sec-title', '특산품'));
+    items.forEach(function (it) {
+      var card = U.el('div', 'scroll-card');
+      card.setAttribute('data-specialty', it.key);
+      card.appendChild(U.el('b', null, it.name + ' — 금화 ' + U.fmt(it.gold, 0)));
+      card.appendChild(U.el('p', null, it.desc || ''));
+      card.appendChild(U.el('span', 'hint', it.left > 0 ? ('남은 ' + it.left + '개')
+        : ('다 팔렸습니다 — ' + it.restockInDays + '일 뒤에 들어옵니다')));
+      var btn = U.btn('산다', 'btn-small btn-primary', function () { buySpecialty(p, it); });
+      btn.disabled = !(it.left > 0);
+      card.appendChild(btn);
+      body.appendChild(card);
+    });
+  }
+
+  function buySpecialty(p, it) {
+    GM.net.send('buySpecialty', { nationId: p.id, key: it.key }, function (res) {
+      if (!res || !res.ok) {
+        U.toast((res && res.error && res.error.message) || '사지 못했습니다.', 'warn', 3200);
+        return;
+      }
+      U.toast(it.name + '을(를) 들여왔습니다.', 'good', 3000);
+      GM.sfx.play('unlock');
+      U.closeTopModal();
+      openPartner(p.id);
+    });
   }
 
   /* ── 성녀 ─────────────────────────────────────────── */
@@ -279,5 +411,6 @@
                          key: 'offer', icon: GM.icons.img('ship', 22) });
   }
 
-  GM.ministry = { open: open, openOffer: openOffer };
+  GM.ministry = {
+    openPartner: openPartner, open: open, openOffer: openOffer };
 })(window);

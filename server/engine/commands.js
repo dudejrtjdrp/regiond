@@ -50,12 +50,16 @@ import {
   startResearch, researchView, placeRail, removeRail,
   // ★ §17-13 — 다리·매립: 철로와 같은 칸 배치, 다만 물 위에만 놓인다
   placeBridge, removeBridge, placeFill, removeFill,
+  // ★ §19-F3(F07-5) — 금화로 궁리를 하루 앞당긴다(특산품 「지혜의 잎」도 같은 문으로 들어온다)
+  hastenResearch, applyResearchDays,
 } from './research.js';
+// ★ §19-F3(F07-7) — 나라마다 다른 시세와 특산품 좌판
+import { foreignUnitPrice, tradeProfileView, specialtyList, specialtyStock, nationDef } from './trade.js';
 import {
   featureUnlocked, buildingUnlocked, departmentsActive, commandUnlocked, setFlag, checkTrace,
   evaluateProgress, currentChapter,
 } from './progression.js';
-import { runEmotionDay } from './emotion_day.js';
+import { runEmotionDay, reappraisalState, runReappraisal } from './emotion_day.js';
 // ★ GDD3 §15-C — 동료 봇(= 각료)과 자동 플레이 · ★ §17-11 — 동료 지시·꾸미기
 import { setAutoPlay, bindCompanionRoles, syncCompanionSeats, autoPlayView, companionById } from './companions.js';
 import { record as chronicle } from './chronicle.js';
@@ -157,6 +161,8 @@ function nationBrief(other, data) {
     concept: def?.concept ?? null,
     tagNames: (other.tags || []).map((t) => data.tags[t]?.name ?? t),
     prices: foreignPriceTable(other, data),
+    /* ★ §19-F3(F07-7) — 무엇을 헐값에 내주고 무엇을 후하게 사는가. 이 첩 하나가 무역의 까닭이다. */
+    tradeProfile: tradeProfileView(other.id, data),
   };
 }
 
@@ -173,7 +179,86 @@ export function visitNation(world, nation, cmd, data) {
   const met = (nation.metNations ||= {});
   const first = met[other.id] == null;
   met[other.id] = world.tick;
-  return ok({ ...nationBrief(other, data), first, tick: world.tick, x: town.x, y: town.y });
+  return ok({
+    ...nationBrief(other, data), first, tick: world.tick, x: town.x, y: town.y,
+    specialties: specialtyList(world, nation, other.id, data),
+  });
+}
+
+/**
+ * ★ §19-F3(F07-7) 특산품 구매 — 금화가 다시 물건이 되는 자리.
+ * 교역소가 서고(무역 해금) 그 나라를 만나 본 뒤에만 좌판이 열린다 — 값은 발로 얻는다는 규율 그대로다.
+ */
+function buySpecialty(world, nation, cmd, data) {
+  if (data.balance.trade.requiresTradingPost && !featureUnlocked(nation, 'trade', data)) {
+    return err('TRADE_LOCKED', '아직 바깥과 값을 주고받을 수 없습니다. 교역소를 세우십시오.');
+  }
+  const partnerId = String(cmd.nationId ?? cmd.payload?.nationId ?? '');
+  if (!hasMet(nation, partnerId)) return err('NOT_MET', '먼저 그 나라의 문 앞까지 걸어가야 합니다.');
+  const item = (nationDef(partnerId, data)?.specialties || [])
+    .find((s) => s.key === (cmd.key ?? cmd.payload?.key));
+  if (!item) return err('NO_ITEM', '그런 물건이 좌판에 없습니다.');
+  const st = specialtyStock(nation, partnerId, item);
+  if (!(st.left > 0)) return err('SOLD_OUT', '다 팔렸습니다 — 며칠 뒤에 다시 들어옵니다.');
+  if (nation.gold < item.gold) return err('NO_GOLD', `금화가 모자랍니다 — ${item.gold} 이 듭니다.`);
+  return payAndGrant(world, nation, { partnerId, item, st }, data);
+}
+
+/** 값을 치르고 물건을 안긴다 — 자원이든 연구 하루든 감정소 표든 같은 문으로 나간다. */
+function payAndGrant(world, nation, { partnerId, item, st }, data) {
+  nation.gold = round2(nation.gold - item.gold);
+  nation.stats.goldSpent = round2((nation.stats.goldSpent || 0) + item.gold);
+  st.left -= 1;
+  if (st.left <= 0) st.restockTick = world.tick + (item.restockDays ?? 3);
+  const granted = grantSpecialty(nation, item.grant || {}, data);
+  return ok({
+    nationId: partnerId, key: item.key, name: item.name, gold: item.gold, granted,
+    left: st.left, resources: { ...nation.resources }, research: researchView(nation, data),
+  });
+}
+
+/** 특산품이 안기는 것 — 자원 · 연구 하루 · 재감정 표. 새 낱말이 필요하면 여기만 는다. */
+function grantSpecialty(nation, grant, data) {
+  const out = {};
+  if (grant.resource && grant.amount > 0) {
+    nation.resources[grant.resource] = round2((nation.resources[grant.resource] || 0) + grant.amount);
+    out.resource = { key: grant.resource, amount: grant.amount };
+  }
+  if (grant.researchDays > 0) out.researchDays = applyResearchDays(nation, grant.researchDays, data);
+  if (grant.reappraiseCharges > 0) {
+    nation.reappraisalCharges = (nation.reappraisalCharges || 0) + grant.reappraiseCharges;
+    out.reappraiseCharges = nation.reappraisalCharges;
+  }
+  return out;
+}
+
+/**
+ * ★ §19-F3(F07-9) 꾸미기 값 — 소액 금화. 0 이면 공짜다(옛 세이브·시험이 그대로 돈다).
+ * @returns {{ok:true, cost:number}|{ok:false,error}}
+ */
+function chargeCustomize(nation, kind, data) {
+  const cost = data.balance.gold?.customize?.[kind] ?? 0;
+  if (!(cost > 0)) return { ok: true, cost: 0 };
+  if (nation.gold < cost) return err('NO_GOLD', `금화가 모자랍니다 — ${cost} 이 듭니다.`);
+  nation.gold = round2(nation.gold - cost);
+  nation.stats.goldSpent = round2((nation.stats.goldSpent || 0) + cost);
+  return { ok: true, cost };
+}
+
+/** 이름·외형 입력을 한 번에 검사한다 — 동료와 주민이 같은 자를 쓴다. */
+function readCustomize(cmd, target, data) {
+  const rawName = cmd.name ?? cmd.payload?.name;
+  const rawLook = cmd.appearance ?? cmd.payload?.appearance;
+  const max = data.world.appearance.nameMaxLength;
+  let name = null;
+  if (rawName != null) {
+    if (typeof rawName !== 'string') return err('BAD_NAME', '이름이 올바르지 않습니다.');
+    name = rawName.trim();
+    if (!name.length || name.length > max) return err('BAD_NAME', `이름은 1~${max}자여야 합니다.`);
+  }
+  const appearance = rawLook != null ? normalizeAppearance(rawLook, data, target.appearance).appearance : null;
+  if (name == null && appearance == null) return err('NOTHING_TO_CHANGE', '바꿀 것이 없습니다.');
+  return { ok: true, name, appearance };
 }
 
 /** ★ §17-16 — 이 나라를 만난 적이 있는가(가격 마스킹 완화의 정본) */
@@ -447,6 +532,13 @@ function runCommand(world, nationId, cmd, data, rng) {
       if (!res.ok) return res;
       return ok({ ...res, research: researchView(nation, data), resources: { ...nation.resources }, gold: round2(nation.gold) });
     }
+    /* ★ §19-F3(F07-5) — 붙들고 있는 궁리에 금화를 부어 하루를 앞당긴다.
+       무역으로 번 금화가 흘러갈 첫 자리다: 늦어질 연구를 웨이브 앞에 맞춰 끝내는 선택이 생긴다. */
+    case 'hastenResearch': {
+      const res = hastenResearch(world, nation, data);
+      if (!res.ok) return res;
+      return ok({ ...res, research: researchView(nation, data), gold: round2(nation.gold) });
+    }
     case 'placeRail': {
       const res = placeRail(world, nation, cmd, data);
       return res.ok ? ok({ ...res, resources: { ...nation.resources } }) : res;
@@ -552,6 +644,17 @@ function runCommand(world, nationId, cmd, data, rng) {
         tags: nation.tags, tagNames: nation.tags.map((t) => data.tags[t]?.name ?? t),
         events: evs,
       });
+    }
+
+    /* ── ★ §19-F3(F07-8) 재감정 — 감정소는 한 번 쓰고 마는 건물이 아니다 ─────
+       감정의 날로부터 며칠에 한 번 「기운이 다시 고인다」: 금화(또는 옛 지도 조각)를 들여
+       태그 하나를 다시 뽑고, 그 사이 넓어진 영토의 지하를 마저 연다. */
+    case 'reappraiseLand': {
+      if (!nation.isPlayer) return err('NO_NATION', '이 나라는 땅을 감정하지 않습니다.');
+      if (!world.emotionDayDone) return err('NOT_APPRAISED', '아직 이 땅을 처음 감정하지도 않았습니다.');
+      const res = runReappraisal(world, nation, data);
+      if (!res.ok) return res.error ? { ok: false, error: res.error } : res;
+      return ok({ ...res, gold: round2(nation.gold) });
     }
 
     // ── ★ §17-9 건물 손일 — 건물 곁에서 직접 거드는 상호작용(피드백: "제련소에서 직접 제련") ──
@@ -789,7 +892,9 @@ function runCommand(world, nationId, cmd, data, rng) {
       if (!partner || partner.isPlayer) return err('BAD_PARTNER', '거래 상대를 찾을 수 없습니다.');
       const amt = Number(amount);
       if (!(amt > 0)) return err('BAD_AMOUNT', '수량이 올바르지 않습니다.');
-      const foreign = localPrice(partner, resource, data) * (1 + (partner.priceBias || 0));
+      /* ★ §19-F3(F07-7) — 나라마다 싸게 내주는 것과 비싸게 쳐주는 것이 다르다.
+         살 때는 exports 배수가, 팔 때는 demands 배수가 붙는다(data/ai_nations.json tradeProfile). */
+      const foreign = foreignUnitPrice(partner, resource, side === 'sell' ? 'sell' : 'buy', data);
       const lastPlace = isLastPlace(world, nation);
       const tariffZero = (nation.artifactState?.tariffZeroCharges || 0) > 0;
       const opts = {
@@ -831,6 +936,12 @@ function runCommand(world, nationId, cmd, data, rng) {
       }
       return err('BAD_SIDE', 'side 는 buy 또는 sell 입니다.');
     }
+    /* ── ★ §19-F3(F07-7) 특산품 — 우리가 못 만드는 것 ─────────────
+       「왜」 자원을 금화로 살 수 있게 하나 — 시세 차만으로는 금화가 다시 물건이 되지 못한다.
+       유막 없는 땅의 석유, 석탄 채굴 이전의 석탄, 엘프의 실타래처럼 **우리 땅에서 나지 않는 것**만
+       좌판에 올린다. 재고가 있고 며칠에 걸쳐 다시 차므로 금화로 살림을 통째로 대신할 수는 없다. */
+    case 'buySpecialty': return buySpecialty(world, nation, cmd, data);
+
     case 'respondOffer': {
       const idx = world.offers.findIndex((o) => o.offerId === cmd.offerId);
       if (idx < 0) return err('NO_OFFER', '만료되었거나 없는 제안입니다.');
@@ -1001,6 +1112,8 @@ function runCommand(world, nationId, cmd, data, rng) {
         appearance = normalizeAppearance(rawLook, data, comp.appearance).appearance;
       }
       if (name == null && appearance == null) return err('NOTHING_TO_CHANGE', '바꿀 것이 없습니다.');
+      const bill = chargeCustomize(nation, 'companion', data);
+      if (!bill.ok) return bill;
       if (name != null) comp.name = name;
       if (appearance != null) comp.appearance = appearance;
       const av = nation.avatars?.[comp.id];
@@ -1014,7 +1127,28 @@ function runCommand(world, nationId, cmd, data, rng) {
         nation.roles[comp.role].name = comp.name;
       }
       upsertMember(nation, { avatarId: comp.id, name, appearance, bot: true }, data);
-      return ok({ companionId: comp.id, name: comp.name, appearance: { ...comp.appearance } });
+      return ok({ companionId: comp.id, name: comp.name, appearance: { ...comp.appearance },
+                  gold: round2(nation.gold), cost: bill.cost });
+    }
+
+    /* ── ★ §19-F3(F07-9) 주민 꾸미기 — 봇만이 아니라 **사는 사람**도 이름과 옷을 고른다 ──
+       동료 꾸미기(customizeCompanion)와 같은 규격이다: 이름은 명부의 nameMaxLength 를 지키고,
+       외형은 레이어 인덱스만 받아 범위를 벗어난 칸만 지금 모습으로 되돌린다.
+       값(소액 금화)은 balance.gold.customize 가 쥔다 — 옷감과 품삯이라는 뜻이고, 금화의 첫 쓸모이기도 하다.
+       주민은 nation.villagers 에 살고 그 목록이 그대로 모두에게 흘러가므로(residents.villagerViews)
+       멀티에서도 같은 이름·같은 옷이 보인다 — 따로 동기 경로를 파지 않는다. */
+    case 'customizeResident': {
+      const who = String(cmd.residentId ?? cmd.payload?.residentId ?? '');
+      const u = (nation.villagers || []).find((v) => v.id === who);
+      if (!u) return err('NO_RESIDENT', '그런 주민이 없습니다.');
+      const look = readCustomize(cmd, u, data);
+      if (!look.ok) return look;
+      const bill = chargeCustomize(nation, 'resident', data);
+      if (!bill.ok) return bill;
+      if (look.name != null) u.name = look.name;
+      if (look.appearance != null) u.appearance = look.appearance;
+      return ok({ residentId: u.id, name: u.name, appearance: { ...u.appearance },
+                  gold: round2(nation.gold), cost: bill.cost });
     }
 
     case 'adviceAct': {

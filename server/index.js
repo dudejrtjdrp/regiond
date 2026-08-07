@@ -589,6 +589,8 @@ const CLIENT_COMMANDS = [
   'commandVillagers', 'setVillagerMix', 'setLabor',
   // 경제·역할
   'setQueue', 'buyTool', 'sellWeapon', 'trade', 'respondOffer', 'decide',
+  // ★ §19-F3 — 금화가 흘러갈 자리들: 특산품 좌판 · 연구 가속 · 재감정 · 주민 꾸미기
+  'buySpecialty', 'hastenResearch', 'reappraiseLand', 'customizeResident',
   'ordersSet', 'saintBuff', 'useArtifact', 'councilAck', 'setAutoExport', 'setExportFloor',
   'pickRole', 'delegate', 'adviceAct', 'setAutoAssist',
   // ★ GDD3 §15-C — 자동 플레이(켜기·끄기, 수동 입력 시 일시 해제)

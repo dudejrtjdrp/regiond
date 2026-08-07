@@ -1488,6 +1488,12 @@
   }
   /* ★ §17-10 피드백("만료된 제안이 안 사라져") — 뷰(서버 정본)를 우선하고, 소켓으로 밀려온
      복사본(S.offers)은 뷰에 offers 칸이 아예 없을 때만 쓴다. 만료 표가 지난 것은 어디서 왔든 걸러낸다. */
+  /* ★ §19-F3(F07-7) — 만나 본 교역 상대들. 살 값·팔 값·성정·좌판이 이미 서버에서 빚어져 온다. */
+  function tradePartners() {
+    var v = S.view || {};
+    return Array.isArray(v.tradePartners) ? v.tradePartners : [];
+  }
+
   function offers() {
     var v = S.view || {};
     var tick = v.tick || 0;
@@ -1585,6 +1591,7 @@
     hasForeignPrices: hasForeignPrices, hasPreciseWave: hasPreciseWave,
     resourceMeta: resourceMeta, roleMeta: roleMeta, skillMeta: skillMeta,
     artifactDef: artifactDef, decisionQueue: decisionQueue, offers: offers, gradeInfo: gradeInfo,
+    tradePartners: tradePartners,
     wordFor: wordFor,
 
     cfg: cfg, worldCfg: worldCfg, tiersCfg: tiersCfg, skillsCfg: skillsCfg, wavesCfg: wavesCfg,

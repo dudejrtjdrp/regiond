@@ -121,6 +121,13 @@
       "unlocks": {}
     }
   },
+  "haste": {
+    "_note": "★ §19-F3(F07-5) 연구 가속 — 붙들고 있는 궁리에 금화를 부어 하루를 앞당긴다(hastenResearch). 값은 그 연구가 원래 들었던 금화의 goldRatio 배이고, 아무리 싼 연구라도 goldMin 아래로는 안 내려간다. 남은 날이 minRemainingDays 이하면 더 당길 수 없다 — 남은 날 1은 다음 날 아침이면 어차피 끝나므로 돈을 받으면 사기다. 특산품 「지혜의 잎」도 같은 문(grant.researchDays)으로 들어온다.",
+    "goldRatio": 0.35,
+    "goldMin": 120,
+    "minRemainingDays": 1,
+    "maxDaysPerUse": 1
+  },
   "rails": {
     "_note": "철로 조각 — 울타리와 같은 '끌어서 놓기'지만 선분이 아니라 **칸**이다. 위를 걷는 주민의 걸음이 speedMultiplier 배가 된다. 값은 칸마다 강재. 물 위에는 못 깐다.",
     "costPerTile": { "steel": 3 },
