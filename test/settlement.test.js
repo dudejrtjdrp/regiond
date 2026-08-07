@@ -153,11 +153,11 @@ test('효과 합산 — 동종은 더하되 그 건물 최고 티어 값이 상�
   const w = newWorld(19);
   const n = w.nations.player;
   const capValue = peakEffect('granary', 'output.grain', data);
-  assert.equal(capValue, 0.46, 'T3 곡창의 +46% 가 상한 (★ §15-B-3 로 2×3 이 되며 올랐다)');
+  assert.equal(capValue, 0.62, 'T3 곡창의 +62% 가 상한 (★ §19-E F06-1 로 산출률을 ×1.35 올렸다)');
   put(w, n, 'granary', 1, 3);
-  assert.ok(Math.abs(effectValue(n, 'output.grain', data) - 0.2) < 1e-9);
+  assert.ok(Math.abs(effectValue(n, 'output.grain', data) - 0.27) < 1e-9);
   put(w, n, 'granary', 1, 6);
-  assert.ok(Math.abs(effectValue(n, 'output.grain', data) - 0.4) < 1e-9, '두 채면 합산된다');
+  assert.ok(Math.abs(effectValue(n, 'output.grain', data) - 0.54) < 1e-9, '두 채면 합산된다');
   put(w, n, 'granary', 3, 9);
   put(w, n, 'granary', 3, 12);
   assert.ok(Math.abs(effectValue(n, 'output.grain', data) - capValue) < 1e-9, '상한을 넘지 않는다');

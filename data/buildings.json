@@ -290,7 +290,7 @@
         },
         "buildPoints": 6,
         "output": {
-          "grain": 0.06
+          "grain": 0.08
         },
         "attractiveness": 0.04,
         "hp": 70
@@ -302,7 +302,7 @@
         },
         "buildPoints": 12,
         "output": {
-          "grain": 0.12
+          "grain": 0.16
         },
         "attractiveness": 0.07,
         "hp": 110
@@ -334,7 +334,7 @@
         },
         "buildPoints": 5,
         "flatOutput": {
-          "wood": 2.0
+          "wood": 3.0
         },
         "hp": 40
       },
@@ -345,7 +345,7 @@
         },
         "buildPoints": 10,
         "flatOutput": {
-          "wood": 3.4
+          "wood": 7.5
         },
         "hp": 60
       }
@@ -375,7 +375,7 @@
         },
         "buildPoints": 14,
         "output": {
-          "grain": 0.2
+          "grain": 0.27
         },
         "storageBonus": 0.4,
         "hp": 130
@@ -387,7 +387,7 @@
         },
         "buildPoints": 24,
         "output": {
-          "grain": 0.32
+          "grain": 0.43
         },
         "storageBonus": 0.8,
         "hp": 200
@@ -399,7 +399,7 @@
         },
         "buildPoints": 36,
         "output": {
-          "grain": 0.46
+          "grain": 0.62
         },
         "storageBonus": 1.2,
         "hp": 290
@@ -431,7 +431,7 @@
           "wood": 0.2
         },
         "flatOutput": {
-          "wood": 3.0
+          "wood": 4.5
         },
         "hp": 140
       },
@@ -445,7 +445,7 @@
           "wood": 0.32
         },
         "flatOutput": {
-          "wood": 5.0
+          "wood": 11.0
         },
         "hp": 210
       },
@@ -460,7 +460,7 @@
           "wood": 0.46
         },
         "flatOutput": {
-          "wood": 7.5
+          "wood": 21.0
         },
         "hp": 300
       }
@@ -504,7 +504,7 @@
           "stone": 0.2
         },
         "flatOutput": {
-          "stone": 2.5
+          "stone": 3.8
         },
         "hp": 140
       },
@@ -518,7 +518,7 @@
           "stone": 0.32
         },
         "flatOutput": {
-          "stone": 4.2
+          "stone": 9.2
         },
         "hp": 210
       },
@@ -533,7 +533,7 @@
           "stone": 0.46
         },
         "flatOutput": {
-          "stone": 6.2
+          "stone": 17.4
         },
         "hp": 300
       }
@@ -561,7 +561,7 @@
         },
         "buildPoints": 12,
         "flatOutput": {
-          "grain": 3
+          "grain": 4.5
         },
         "hp": 100
       },
@@ -572,7 +572,7 @@
         },
         "buildPoints": 20,
         "flatOutput": {
-          "grain": 6
+          "grain": 13.2
         },
         "hp": 150
       },
@@ -584,7 +584,7 @@
         },
         "buildPoints": 30,
         "flatOutput": {
-          "grain": 10
+          "grain": 28.0
         },
         "hp": 220
       }
@@ -717,6 +717,61 @@
       3
     ]
   },
+  "bloomery": {
+    "name": "무쇠 화로",
+    "purpose": "늪철을 숯불에 녹여 강재를 조금씩 얻는다. 제련소가 서기 전의 느린 길이다.",
+    "category": "production",
+    "requiresTier": 2,
+    "maxTier": 2,
+    "multi": true,
+    "desc": "풀무 소리가 낮게 이어진다. 하루에 한 줌씩 쇠가 고인다.",
+    "_note": "★ §19-E(F04-7) 강재 병목 — 7장에서 막히면 8장(제련소)을 못 열어 강재를 한 톨도 못 얻었다. 6장에 이 화로를 내려 길을 뚫되, 산출은 제련소의 몇 분의 일로 둔다: 하루 정액은 한 줌이고, 손일(풀무)은 철광석 6+장작 3에 강재 1 — 제련소의 손일(철광석 4+장작 1.5 → 강재 2)보다 여섯 배 비싸다. 「막히지는 않되 서두를 수도 없는」 자리다.",
+    "tiers": [
+      {
+        "cost": {
+          "wood": 90,
+          "stone": 70
+        },
+        "buildPoints": 14,
+        "flatOutput": {
+          "steel": 0.8
+        },
+        "hp": 120
+      },
+      {
+        "cost": {
+          "wood": 170,
+          "stone": 140,
+          "ironOre": 30
+        },
+        "buildPoints": 22,
+        "flatOutput": {
+          "steel": 1.6
+        },
+        "hp": 180
+      }
+    ],
+    "footprint": [
+      2,
+      2
+    ],
+    "handWork": {
+      "label": "풀무를 밟는다",
+      "desc": "철광석 6과 장작 3을 넣어 강재 1을 뽑는다 — 제련소보다 더디고 더 든다.",
+      "cost": {
+        "ironOre": 6,
+        "wood": 3
+      },
+      "yield": {
+        "steel": 1
+      },
+      "cooldownSeconds": 0,
+      "xp": {
+        "skill": "build",
+        "amount": 2
+      }
+    }
+  },
   "smelter": {
     "name": "제련소",
     "purpose": "철광석을 강철로 녹인다. 좋은 무기와 큰 건물에 강철이 든다.",
@@ -735,7 +790,7 @@
           "stone": 120
         },
         "buildPoints": 24,
-        "factoryBonus": 0.22,
+        "factoryBonus": 0.29,
         "hp": 160
       },
       {
@@ -745,7 +800,7 @@
           "steel": 30
         },
         "buildPoints": 36,
-        "factoryBonus": 0.36,
+        "factoryBonus": 0.47,
         "hp": 240
       },
       {
@@ -755,7 +810,7 @@
           "steel": 90
         },
         "buildPoints": 52,
-        "factoryBonus": 0.52,
+        "factoryBonus": 0.68,
         "hp": 340
       }
     ],
@@ -863,7 +918,7 @@
         },
         "buildPoints": 24,
         "flatOutput": {
-          "ironOre": 2,
+          "ironOre": 3.0,
           "iron_ore": 3.0
         },
         "hp": 150
@@ -876,7 +931,7 @@
         },
         "buildPoints": 36,
         "flatOutput": {
-          "ironOre": 4.5,
+          "ironOre": 9.9,
           "iron_ore": 5.0
         },
         "hp": 220
@@ -889,7 +944,7 @@
         },
         "buildPoints": 52,
         "flatOutput": {
-          "ironOre": 8,
+          "ironOre": 22.4,
           "iron_ore": 7.5
         },
         "hp": 310
@@ -919,10 +974,10 @@
         },
         "buildPoints": 28,
         "output": {
-          "grain": 0.16
+          "grain": 0.22
         },
         "flatOutput": {
-          "grain": 5.5
+          "grain": 8.2
         },
         "hp": 170
       },
@@ -934,10 +989,10 @@
         },
         "buildPoints": 42,
         "output": {
-          "grain": 0.26
+          "grain": 0.35
         },
         "flatOutput": {
-          "grain": 9.0
+          "grain": 19.8
         },
         "hp": 250
       },
@@ -949,10 +1004,10 @@
         },
         "buildPoints": 60,
         "output": {
-          "grain": 0.38
+          "grain": 0.51
         },
         "flatOutput": {
-          "grain": 13.5
+          "grain": 37.8
         },
         "hp": 350
       }
