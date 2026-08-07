@@ -121,6 +121,12 @@ export function structureAtCell(nation, x, y, data) {
 export const isHq = (key, data) => Boolean(data.buildings?.[key]?.hq);
 export const isImmovable = (key, data) => Boolean(data.buildings?.[key]?.immovable || data.buildings?.[key]?.hq);
 
+/** ★ §19-F3(F07-8) — 왜 못 헐고 못 옮기는가. 건물마다 제 까닭을 자료가 쥔다(없으면 옛 문구). */
+export function immovableReason(key, data, verb) {
+  const def = data.buildings?.[key];
+  return def?.immovableReason ?? `정착지 본부는 ${verb} 수 없습니다.`;
+}
+
 // ────────────────────────────────────────────────────────────────
 // 효과 합산 (개별 티어 → 국가 효과)
 // ────────────────────────────────────────────────────────────────
@@ -555,7 +561,7 @@ export function startDemolish(world, nation, cmd, data, hooks = {}) {
   const id = cmd.structureId ?? cmd.id ?? cmd.payload?.structureId;
   const s = findStructure(nation, id);
   if (!s) return err('NO_STRUCTURE', '그런 건물이 없습니다.');
-  if (isImmovable(s.key, data)) return err('IMMOVABLE', '정착지 본부는 헐 수 없습니다.');
+  if (isImmovable(s.key, data)) return err('IMMOVABLE', immovableReason(s.key, data, '헐'));
   if (siteFor(nation, s.id)) return err('IN_PROGRESS', '이미 무언가 하고 있는 건물입니다.');
   const cfg = workCfg(data);
   const base = totalBuildPoints(nation, s.key, s.tier, data, hooks);
@@ -581,7 +587,7 @@ export function startRelocate(world, nation, cmd, data, hooks = {}) {
   const id = cmd.structureId ?? cmd.id ?? cmd.payload?.structureId;
   const s = findStructure(nation, id);
   if (!s) return err('NO_STRUCTURE', '그런 건물이 없습니다.');
-  if (isImmovable(s.key, data)) return err('IMMOVABLE', '정착지 본부는 옮길 수 없습니다.');
+  if (isImmovable(s.key, data)) return err('IMMOVABLE', immovableReason(s.key, data, '옮길'));
   if (siteFor(nation, s.id)) return err('IN_PROGRESS', '이미 무언가 하고 있는 건물입니다.');
   if (cmd.x == null || cmd.y == null) return err('BAD_POSITION', '옮길 자리를 골라야 합니다.');
   const a = anchorFromCell(s.key, Number(cmd.x), Number(cmd.y), data);
@@ -947,6 +953,10 @@ export function structureView(nation, s, data, { architect = false } = {}) {
     //   클라의 건물 정보 패널이 이 두 값이 있을 때만 그 단추를 그린다.
     action: def?.action ?? null,
     actionLabel: def?.actionLabel ?? null,
+    /* ★ §19-F3(F07-8) — 감정소는 첫 감정을 마친 뒤 [다시 감정한다]로 동사가 바뀐다.
+       화면이 언제 갈아 끼울지는 서버가 실어 주는 postAction 유무만 보면 된다. */
+    postAction: def?.postAction ?? null,
+    postActionLabel: def?.postActionLabel ?? null,
     // ★ §17-9 — 건물 손일(직접 상호작용). 설정 원본을 그대로 실어 패널이 값·설명을 그린다.
     handWork: def?.handWork ? { ...def.handWork } : null,
   };

@@ -548,6 +548,7 @@
   "hunter_hut": {
     "name": "사냥꾼 오두막",
     "purpose": "사냥꾼이 들에서 고기를 가져온다. 근처에 짐승이 있어야 난다.",
+    "_cookNote": "★ §19-F3(F07-6) 요리 — 고기는 여태 곡물이 떨어졌을 때 대신 먹는 것뿐이었다(foodValue 3). 오두막에서 손질하고 말리면 같은 한 점이 더 멀리 간다: foodValueBonus 는 곳간이 빌 때 고기가 메우는 몫을 그만큼 키운다(0.3 = 고기 1이 곡물 3.9). 고기가 남아돌던 사냥 살림에 쓸 곳이 하나 더 생긴다.",
     "category": "production",
     "requiresTier": 2,
     "maxTier": 3,
@@ -565,6 +566,7 @@
         "flatOutput": {
           "grain": 4.5
         },
+        "foodValueBonus": 0.2,
         "hp": 100
       },
       {
@@ -576,6 +578,7 @@
         "flatOutput": {
           "grain": 13.2
         },
+        "foodValueBonus": 0.3,
         "hp": 150
       },
       {
@@ -588,6 +591,7 @@
         "flatOutput": {
           "grain": 28.0
         },
+        "foodValueBonus": 0.4,
         "hp": 220
       }
     ],
@@ -1645,9 +1649,13 @@
     "maxTier": 1,
     "multi": false,
     "desc": "땅의 내력을 재는 곳. 다 세우고 나서 눌러 [땅을 감정한다]를 고르면 이 땅이 무엇을 품었는지 드러난다.",
-    "_note": "★ GDD3 §11-4 — 옛 '측량소' 개념의 복원. 감정의 날은 3일차 자동 발동이 아니라 이 건물을 세우고 손수 누르는 것으로만 열린다. 석재를 처음 요구하는 건물이라 '채석'이라는 새 동사를 자연스럽게 가르친다.",
+    "_note": "★ GDD3 §11-4 — 옛 '측량소' 개념의 복원. 감정의 날은 3일차 자동 발동이 아니라 이 건물을 세우고 손수 누르는 것으로만 열린다. 석재를 처음 요구하는 건물이라 '채석'이라는 새 동사를 자연스럽게 가르친다. ★ §19-F3(F07-8) — multi:false 에 immovable 을 더해 **한 채뿐이고 헐 수도 없는** 건물이 되었다. 헐었다 다시 세워 감정을 되풀이하는 길을 닫는 것이 첫째 까닭이고, 감정소가 마을의 붙박이 이정표라는 것이 둘째다. 이미 세워 둔 옛 세이브는 그대로 서 있다(뒤로 소급하는 일이 없다).",
+    "immovable": true,
+    "immovableReason": "감정소는 이 땅에 한 번 선 자리입니다 — 헐 수도, 옮길 수도 없습니다.",
     "action": "appraiseLand",
     "actionLabel": "땅을 감정한다",
+    "postAction": "reappraiseLand",
+    "postActionLabel": "다시 감정한다",
     "tiers": [
       {
         "cost": {
@@ -2174,6 +2182,7 @@
       "toolDiscount": 1,
       "tariffReduction": 1,
       "gatherBonus": 2,
+      "foodValueBonus": 1,
       "attractiveness": 4,
       "moraleBonus": 2,
       "warnBonusDays": 2

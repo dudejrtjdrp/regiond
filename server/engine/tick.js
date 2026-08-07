@@ -29,8 +29,11 @@ import {
 import { recomputeFog } from './fog.js';
 import {
   completeStructure, finishSite, syncLegacyBuildings, structureOutputBonus, storageBonus,
-  flatOutputs, goldPerDay, hasBuilding, moraleBonus, prestige as prestigeOf,
+  flatOutputs, goldPerDay, hasBuilding, moraleBonus, prestige as prestigeOf, effectValue,
 } from './structures.js';
+// ★ §19-F3(F07-6·7·8) — 방한(설산 곁 털 소비) · 특산품 재고 회복 · 재감정 알림
+import { restockSpecialties } from './trade.js';
+import { reappraisalState, reappraisalCfg } from './emotion_day.js';
 import {
   settlementTier, tierDef,
 } from './tiers.js';
@@ -43,6 +46,7 @@ import { capacity, stepArrivals, residentSettle, loseResidents, grainDays, house
 import { stepAssignments, autoPlaceIdle } from './assign.js';
 import {
   updateWaveSchedule, ensureCamps, updateCampIntel, campEventView, daysUntilWave, nextWaveSpec,
+  dominantBiome,
 } from './waves.js';
 import { startBattle, runBattle } from './battle.js';
 // ★ GDD3 §13-A-5 — 산출도 곳간 상한을 넘기지 못한다(서버 권위)
@@ -205,6 +209,9 @@ export function step(state, inputs = [], rng = null, data = loadGameData(), opts
         text: e.data.line ?? `${e.data.name} 연구가 끝났다.`, data: e.data,
       }, data);
     }
+    /* ★ §19-F3(F07-7·8) — 이웃 좌판의 재고가 다시 차고, 감정소에 기운이 고이면 한 번 알린다. */
+    restockSpecialties(world, nation, data);
+    events.push(...reappraisalNotice(world, nation, data).map((e) => ({ tick, ...e })));
   }
 
   // ── 4. 소비·재고 ───────────────────────────────────────────────
@@ -702,10 +709,43 @@ function consumeAndStock(world, nation, data) {
     }
   }
   nation.stats.consumption += need;
+  const warm = burnWarmth(world, nation, data);
+  if (warm) events.push({ kind: 'warmth', data: warm });
   // ★ §19-E(QA-A) — 곳간 상한 안의 재고는 썩지 않는다(496↔499 되튐 제거)
   const spoiled = applySpoilage(nation, data, spoilFloor(nation, data));
   if (Object.keys(spoiled).length) events.push({ kind: 'spoilage', data: spoiled });
   return events;
+}
+
+/**
+ * ★ §19-F3(F07-8) — 「기운이 다시 고인다」는 **한 주기에 한 번만** 알린다.
+ *   알린 뒤 다시 감정하지 않고 버티면 잔소리가 되므로, 고인 시점의 날을 적어 두고 그 뒤로는 잠잠하다.
+ */
+function reappraisalNotice(world, nation, data) {
+  const cfg = reappraisalCfg(data);
+  if (!cfg || !nation.isPlayer) return [];
+  const st = reappraisalState(world, nation, data);
+  const since = world.lastAppraisalTick ?? world.emotionDayTick ?? 0;
+  if (!st.open || st.daysLeft > 0 || nation.reappraisalNotifiedFor === since) return [];
+  nation.reappraisalNotifiedFor = since;
+  return [{ kind: cfg.readyEventKind, nationId: nation.id, data: { line: cfg.line, gold: cfg.gold } }];
+}
+
+/**
+ * ★ §19-F3(F07-6) 방한 — 설산 곁에 자리 잡으면 사람들이 털을 껴입는다.
+ * 「왜」 벌하지 않는가 — 털이 없다고 얼려 죽이면 옛 세이브가 하루아침에 손해를 본다.
+ *   있으면 하루치를 태워 사기가 오르고, 없으면 아무 일도 없다. **쓸 곳**이지 **족쇄**가 아니다.
+ * @returns {{wool:number, morale:number}|null}
+ */
+function burnWarmth(world, nation, data) {
+  const cfg = data.balance.warmth;
+  if (!cfg || !nation.isPlayer || !world.map) return null;
+  if (dominantBiome(world, nation, data) !== cfg.biome) return null;
+  const need = round2(nation.population * (cfg.woolPerPerson ?? 0));
+  if (!(need > 0) || (nation.resources.wool || 0) < need) return null;
+  nation.resources.wool = round2(nation.resources.wool - need);
+  nation.morale = Math.min(data.balance.morale.max, nation.morale + (cfg.moraleBonus ?? 0));
+  return { wool: need, morale: cfg.moraleBonus ?? 0 };
 }
 
 /**
@@ -720,15 +760,19 @@ function eatFallback(nation, shortfall, data) {
     .filter(([, m]) => (m.foodValue ?? 0) > 0)
     .sort((a, b) => (a[1].foodValue ?? 0) - (b[1].foodValue ?? 0));
   if (!foods.length) return false;
+  /* ★ §19-F3(F07-6) 요리 — 사냥꾼 오두막에서 손질하고 말리면 같은 고기 한 점이 더 멀리 간다.
+     곳간이 빌 때만 도는 길이라 곡물 살림에는 한 눈금도 영향이 없다(옛 세이브 그대로). */
+  const cook = 1 + effectValue(nation, 'foodValueBonus', data);
   let left = shortfall;
   const plan = [];
   for (const [res, meta] of foods) {
     if (left <= 0.0001) break;
     const stock = nation.resources[res] || 0;
     if (stock <= 0) continue;
-    const units = Math.min(stock, left / meta.foodValue);
+    const value = meta.foodValue * cook;
+    const units = Math.min(stock, left / value);
     plan.push([res, units]);
-    left = round2(left - units * meta.foodValue);
+    left = round2(left - units * value);
   }
   if (left > 0.0001) return false;                     // 다 못 메웠다 — 굶주림 판정으로 넘긴다
   for (const [res, units] of plan) nation.resources[res] = round2((nation.resources[res] || 0) - units);

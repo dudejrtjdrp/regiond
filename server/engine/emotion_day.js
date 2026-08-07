@@ -5,6 +5,7 @@
 // ★ WORLD.md §9: 감정의 날 직후 '관제 선포' — 여기서 비로소 역할을 고를 수 있게 된다.
 import { townOf, territoryRadius, dist, terrainNameAt } from './world.js';
 import { createRng } from './rng.js';
+import { round2 } from './economy.js';
 
 /**
  * 감정할 수 있는 상태인가 — **감정소가 서 있고 아직 감정하지 않았다**.
@@ -29,6 +30,8 @@ export function runEmotionDay(world, data, rng) {
   }
 
   world.emotionDayDone = true;
+  // ★ §19-F3(F07-8) — 재감정 주기를 세는 기준점. 옛 세이브에는 없어 0으로 읽히고, 그러면 곧바로 열린다.
+  world.emotionDayTick = world.tick;
   world.phase = 'act2';
 
   const tagNames = player.tags.map((t) => data.tags[t]?.name ?? t);
@@ -113,6 +116,78 @@ export function openMandate(world, nation, data) {
       warning: '성녀를 비우면 침공일이 흐려지고 서지 효율이 절반이 됩니다.',
     },
   }];
+}
+
+// ────────────────────────────────────────────────────────────────
+// ★ §19-F3(F07-8) 재감정 — 「한 번 쓰고 나면 서 있기만 하는 건물」이 아니게
+//   감정소는 이제 헐 수도 옮길 수도 없다(buildings.json immovable). 대신 며칠에 한 번
+//   「기운이 다시 고인다」: 금화를 들여 태그 하나를 다시 뽑고, 그 사이 넓어진 영토의
+//   지하 자원을 마저 드러낸다. 감정의 날의 코드(assignTags·revealSubsurface)를 그대로 쓴다.
+// ★ 난수는 세계 난수를 축내지 않는다 — 씨앗·나라·횟수로 제 흐름을 짓는다(§13-C 와 같은 규율).
+// ────────────────────────────────────────────────────────────────
+export const reappraisalCfg = (data) => data.balance.emotionDay.reappraisal ?? null;
+
+/** 지금 다시 감정할 수 있는가 — 감정소가 서 있고, 주기가 찼거나 표(옛 지도 조각)가 있다. */
+export function reappraisalState(world, nation, data) {
+  const cfg = reappraisalCfg(data);
+  const post = (nation.structures || []).some((s) => s.key === 'appraisal_post' && !s.inactive);
+  if (!cfg || !world.emotionDayDone || !post) return { open: false, post, daysLeft: null, charges: 0 };
+  const since = world.tick - (world.lastAppraisalTick ?? world.emotionDayTick ?? 0);
+  const daysLeft = Math.max(0, (cfg.intervalDays ?? 12) - since);
+  const charges = nation.reappraisalCharges || 0;
+  return { open: daysLeft <= 0 || charges > 0, post, daysLeft, charges, gold: cfg.gold ?? 0 };
+}
+
+/** 다시 감정한다 — 태그 하나를 갈아 끼우고, 넓어진 영토의 지하를 마저 연다. */
+export function runReappraisal(world, nation, data) {
+  const cfg = reappraisalCfg(data);
+  const st = reappraisalState(world, nation, data);
+  const paid = payReappraisal(nation, st, cfg);
+  if (!paid.ok) return paid;
+  const count = (nation.reappraisalCount = (nation.reappraisalCount || 0) + 1);
+  const rng = createRng(hashSeed(`${world.seed}:${nation.id}:reappraise:${count}`));
+  const swapped = swapOneTag(nation, data, rng, cfg);
+  const revealed = revealSubsurface(world, nation, data);
+  world.lastAppraisalTick = world.tick;
+  return { ok: true, ...paid, swapped, count,
+    tagKeys: [...nation.tags], tagNames: nation.tags.map((t) => data.tags[t]?.name ?? t),
+    tagStories: nation.tags.map((t) => tagStory(t, data)),
+    revealedNodes: revealed.map((n) => ({ id: n.id, type: n.type, x: n.x, y: n.y })) };
+}
+
+/** 표가 있으면 표를 쓰고, 없으면 주기가 찬 뒤 금화를 낸다. */
+function payReappraisal(nation, st, cfg) {
+  if (!st.post) return { ok: false, error: { code: 'NO_STRUCTURE', message: '감정소가 없습니다.' } };
+  if (st.charges > 0) { nation.reappraisalCharges -= 1; return { ok: true, usedCharge: true, gold: 0 }; }
+  if (st.daysLeft > 0) {
+    return { ok: false, error: { code: 'NOT_READY', message: `아직 기운이 고이지 않았습니다 — ${st.daysLeft}일 남았습니다.` } };
+  }
+  const gold = cfg.gold ?? 0;
+  if (nation.gold < gold) return { ok: false, error: { code: 'NO_GOLD', message: `금화가 모자랍니다 — ${gold} 이 듭니다.` } };
+  nation.gold = round2(nation.gold - gold);
+  nation.stats.goldSpent = round2((nation.stats.goldSpent || 0) + gold);
+  return { ok: true, usedCharge: false, gold };
+}
+
+/** 태그 한 자리를 다시 뽑는다 — 약점이 있으면 그 자리부터 간다(땅이 나아질 여지). */
+function swapOneTag(nation, data, rng, cfg) {
+  const tags = nation.tags || [];
+  if (!tags.length) return null;
+  const weak = tags.findIndex((t) => data.tags[t]?.kind === 'weakness');
+  const idx = weak >= 0 ? weak : rng.int(0, tags.length - 1);
+  const pool = tagKeysOfKind(data, cfg.rerollKind ?? 'strength').filter((k) => !tags.includes(k));
+  if (!pool.length) return null;
+  const from = tags[idx];
+  tags[idx] = rng.pick(pool);
+  return { from, fromName: data.tags[from]?.name ?? from,
+    to: tags[idx], toName: data.tags[tags[idx]]?.name ?? tags[idx] };
+}
+
+/** 문자열 → 32비트 씨앗. 세계 난수와 겹치지 않는 제 흐름을 짓는 데만 쓴다. */
+function hashSeed(text) {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i += 1) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
+  return h >>> 0;
 }
 
 /** 한 갈래(강점·약점·양날)의 태그 열쇠만 골라 낸다. */
