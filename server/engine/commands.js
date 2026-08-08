@@ -85,6 +85,15 @@ import { investigateTrail } from './trails.js';
 const err = (code, message) => ({ ok: false, error: { code, message } });
 const ok = (data = {}) => ({ ok: true, ...data });
 
+function structureBlocks(nation, data, x, y) {
+  for (const s of nation.structures || []) {
+    if ((s.key ?? s.building) === 'campfire') continue;
+    const { w, h } = footprint(s.key ?? s.building, data);
+    if (x >= s.x && x < s.x + w && y >= s.y && y < s.y + h) return true;
+  }
+  return false;
+}
+
 /**
  * ★ §12-2 — 본부는 정착지 티어를 그대로 입는다(모닥불→야영 본부→촌락 회관→…).
  *   손으로 개축하지 않는다(autoTier). 승격이 함께 키우고, 내구도도 새 티어 기준으로 되살아난다.
@@ -810,6 +819,9 @@ function runCommand(world, nationId, cmd, data, rng) {
       /* ★ §19-F4(F09-2) — 기차에 탄 동안에는 자리 보고를 받지 않는다. 쓰러짐(위)과 같은 빗장이다:
          몸을 옮기는 쪽이 서버라, 클라가 옛 좌표를 다시 보고하면 기차에서 몸만 떨어져 나간다. */
       if (riding(nation, who)) return err('RIDING', '기차에 타고 있는 동안에는 걸을 수 없습니다.');
+      if (structureBlocks(nation, data, x, y)) {
+        return err('STRUCTURE_BLOCKED', '건물이 있는 자리에는 들어갈 수 없습니다.');
+      }
       const avatars = (nation.avatars ||= {});
       const prev = avatars[who] ?? null;
       const look = normalizeAppearance(cmd.appearance, data, prev?.appearance ?? memberAppearance(nation, who, data));

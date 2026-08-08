@@ -19,6 +19,7 @@ import { applyCommand } from '../server/engine/commands.js';
 import { townOf, terrainNameAt } from '../server/engine/world.js';
 import { ensurePlayer } from '../server/engine/skills.js';
 import { walkableFor, nearestWalkable, findPath, advanceAlong } from '../server/engine/path.js';
+import { completeStructure } from '../server/engine/structures.js';
 import { stepVillagers } from '../server/engine/villagers.js';
 import { spawnResident } from '../server/engine/residents.js';
 
@@ -164,6 +165,19 @@ test('Sprint1 ④ lordMove — 쓰러져 있는 동안에는 거부되고, 일�
 // ────────────────────────────────────────────────────────────────
 // ⑤ 화면 길찾기 (public/js/path.js) — 합성 격자로 잰다
 // ────────────────────────────────────────────────────────────────
+test('building footprint blocks paths and lordMove on every occupied cell', () => {
+  const { world, nation, town, rng } = scene(31);
+  const x = town.x + 6;
+  const y = town.y + 6;
+  const s = completeStructure(world, nation, { building: 'hut', tier: 1, x, y, placed: true }, data);
+  assert.ok(s, 'test building was placed');
+  const denied = applyCommand(world, 'player',
+    { type: 'lordMove', avatarId: 'lord', x: x + 1, y: y + 1 }, data, rng);
+  assert.equal(denied.ok, false);
+  assert.equal(denied.error.code, 'STRUCTURE_BLOCKED');
+  assert.equal(nation.avatars.lord.x, town.x, 'server keeps the last valid position');
+});
+
 function clientPath() {
   const ctx = { window: {} };
   vm.runInNewContext(readFileSync('public/js/path.js', 'utf8'), ctx);
