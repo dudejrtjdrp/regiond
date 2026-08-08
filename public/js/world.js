@@ -20,6 +20,41 @@
      되돌아가는 걸음에도 다시 굽는 일이 거의 없다 — 한 장 굽는 값은 1ms 안쪽이다. */
   var CHUNK_CAP = 192;
 
+  /* ══════════ ★ 청크 굽기를 여러 프레임에 나눠 담는다 ══════════
+     「왜」 — 한 장을 굽는 값이 **1ms 가 아니다**. 위 주석의 1ms 는 지형 조각(terrainBlob)이
+     이미 곳간에 있을 때의 값이고, **처음 밟는 땅**에서는 256칸이 전부 곳간 밖이다.
+     조각 한 장은 캔버스를 새로 잡고 베지에 여덟 획으로 경계를 오려 붙인다 —
+     실측 0.35ms(느린 기계) 이고, 256칸이면 청크 한 장이 **70~140ms** 다.
+     걸어서 청크 경계를 넘으면 그런 장이 한 프레임에 두세 장씩 구워졌다:
+     이것이 「돌아다니면 특정 주기로 한 번씩 끊긴다」의 정체다(주기 = 청크 16칸을 걷는 시간).
+
+     고치는 법은 셋이고, 그림은 한 점도 바뀌지 않는다:
+       ① 굽기를 **줄 단위**로 쪼개 한 프레임에 BAKE_BUDGET_MS 만큼만 굽는다
+       ② 다 구워지기 전에는 그 자리에 **지형 바탕색**을 깔아 둔다(축소 지도와 같은 색이라 위화감이 없다)
+       ③ 화면 밖 한 겹(PREBAKE_RING)을 미리 구워 둔다 — 걸음이 닿기 훨씬 전에 끝나므로
+          ②의 밋밋한 한때는 사실상 눈에 띄지 않는다(처음 접속한 그 순간만 스친다). */
+  var BAKE_BUDGET_MS = 4;    // 한 프레임에 굽기에 내주는 시간(16.7ms 예산의 1/4)
+  var BAKE_URGENT_MS = 9;    // 지금 화면에 밋밋한 자리가 있으면 그만큼 더 낸다(처음 접속·순간이동)
+  var PREBAKE_RING = 1;      // 화면 밖으로 몇 겹을 미리 구울까
+  var PREBAKE_NEW_PER_FRAME = 2;   // 그 겹에서 한 프레임에 새로 잡을 장 수
+  var chunkPending = {};     // key → {c, g, cx, cy, row}
+  var bakeQueue = [];        // 구울 차례 (앞이 급한 것 — 보이는 청크가 먼저)
+  var visiblePending = 0;    // 이번 판에 화면에 든 청크 중 아직 다 안 구워진 수
+  var FLAT_COLOR = {};       // 지형 코드 → 바탕색 (②의 색)
+
+  function flatColorOf(code) {
+    var c = FLAT_COLOR[code];
+    if (c) return c;
+    var meta = S.terrainMeta && S.terrainMeta(code);
+    c = (meta && meta.color) || '#7d9b4e';
+    FLAT_COLOR[code] = c;
+    return c;
+  }
+
+  function dropChunks() {
+    chunkCache = {}; chunkOrder = []; chunkPending = {}; bakeQueue = [];
+  }
+
   var units = {};            // 주민 걷기 연출 (클라 권위)
   var walkIns = [];          // ★ §13-A-4 막 도착한 주민의 이름표 {id,name,t} — 몸이 아니라 표시다
   var lastT = 0, animT = 0;
@@ -87,7 +122,8 @@
     cv = U.qs('#world-canvas');
     if (!cv) return;
     resize();
-    S.on('world', function () { chunkCache = {}; chunkOrder = []; units = {}; recenter(); });
+    S.on('world', function () { dropChunks(); units = {}; recenter(); });
+    global.addEventListener('gm:terrain-assets-ready', function () { dropChunks(); });
   }
 
   function recenter() {
@@ -110,9 +146,121 @@
   }
 
   /* ══════════ 지형 청크 ══════════ */
-  function chunkCanvas(cx, cy) {
+  /* 두 바이옴의 경계는 선으로 긋지 않는다. 이웃 지형을 2~4px의 들쭉날쭉한
+     마스크로 현재 칸 안에 살짝 침범시켜, 레퍼런스처럼 풀·흙이 서로 물린다. */
+  function blendTerrainEdge(g, x, y, wx, wy, code, other, vertical) {
+    if (code === other) return;
+    var sprite = GM.atlas.terrain(other, GM.atlas.variantAt(wx + (vertical ? 1 : 0), wy + (vertical ? 0 : 1), 3));
+    var seed = ((wx * 92821) ^ (wy * 68917) ^ (vertical ? 71 : 37)) >>> 0;
+    /* 폭이 한 번에 튀지 않도록 저주파 곡선으로 바꾼다. 1px마다 찍어도
+       실루엣은 부드러운 둥근 가장자리, 확대하면 픽셀 결로 읽힌다. */
+    function depth(i) {
+      var wave = Math.sin((i + (seed & 15)) * 0.58) * 1.25 + Math.sin((i + (seed >>> 5)) * 0.22) * 1.1;
+      return Math.max(3, Math.min(7, Math.round(5 + wave)));
+    }
+    g.save();
+    g.beginPath();
+    if (vertical) {
+      g.moveTo(x + BASE, y);
+      for (var yy = 0; yy <= BASE; yy += 1) g.lineTo(x + BASE - depth(yy), y + yy);
+      g.lineTo(x + BASE, y + BASE);
+    } else {
+      g.moveTo(x, y + BASE);
+      for (var xx = 0; xx <= BASE; xx += 1) g.lineTo(x + xx, y + BASE - depth(xx));
+      g.lineTo(x + BASE, y + BASE);
+    }
+    g.closePath();
+    g.clip();
+    try { g.drawImage(sprite, x, y, BASE, BASE); } catch (e) {}
+    g.restore();
+  }
+
+  /* 8방향 동일 지형 마스크. 47-blob의 기본 키이며, 변환 타일을 별도 파일로
+     늘리지 않아도 외곽·내각·모서리의 조합을 청크별로 결정할 수 있다. */
+  function terrainMask(m, codes, wx, wy, code) {
+    var bits = [[0, -1, 1], [1, 0, 2], [0, 1, 4], [-1, 0, 8], [1, -1, 16], [1, 1, 32], [-1, 1, 64], [-1, -1, 128]];
+    var mask = 0;
+    for (var i = 0; i < bits.length; i += 1) {
+      var nx = wx + bits[i][0], ny = wy + bits[i][1];
+      if (nx >= 0 && ny >= 0 && nx < m.size && ny < m.size && codes[m.terrain[ny * m.size + nx]] === code) mask |= bits[i][2];
+    }
+    return mask;
+  }
+
+  function terrainBackdrop(m, codes, wx, wy, code) {
+    /* A single blob can only reveal one backing terrain correctly.  At a
+       three-way junction, choosing the "most common" neighbour leaks water
+       into an unrelated land-to-land edge.  Blend only unambiguous cardinal
+       borders; the junction itself remains its real terrain tile. */
+    var dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+    var backdrop = null;
+    for (var i = 0; i < dirs.length; i += 1) {
+      var nx = wx + dirs[i][0], ny = wy + dirs[i][1];
+      if (nx < 0 || ny < 0 || nx >= m.size || ny >= m.size) continue;
+      var other = codes[m.terrain[ny * m.size + nx]] || code;
+      if (other === code) continue;
+      if (backdrop && backdrop !== other) return code;
+      backdrop = other;
+    }
+    return backdrop || code;
+  }
+
+  /** 한 줄(16칸)을 진짜 도트로 굽는다 — 다 구웠으면 true */
+  function bakeRow(p) {
+    var m = S.S.map;
+    if (!m) return true;
+    var codes = m.codes;
+    var y = p.row;
+    for (var x = 0; x < CH; x++) {
+      var wx = p.cx * CH + x, wy = p.cy * CH + y;
+      if (wx >= m.size || wy >= m.size) continue;
+      var code = codes[m.terrain[wy * m.size + wx]] || 'grass';
+      var mask = terrainMask(m, codes, wx, wy, code);
+      /* 47-blob 마스크도 변주 seed에 넣어, 같은 지형의 외곽/내각이 같은
+         결로 반복되지 않도록 한다. */
+      var v = (GM.atlas.variantAt(wx, wy, 4) + (mask & 3)) % 4;
+      var backdrop = terrainBackdrop(m, codes, wx, wy, code);
+      try { p.g.drawImage(GM.atlas.terrainBlob(code, backdrop, mask, v, wx, wy), x * BASE, y * BASE); } catch (e) {}
+    }
+    p.row += 1;
+    return p.row >= CH;
+  }
+
+  /** ★ 다 구워지기 전의 한때 — 지형 바탕색을 깔아 둔다(축소 지도와 같은 색). 줄 단위로 묶어 칠한다. */
+  function prefillChunk(p, m) {
+    var codes = m.codes;
+    var g = p.g;
+    for (var y = 0; y < CH; y++) {
+      var runStart = 0, runCol = null;
+      for (var x = 0; x <= CH; x++) {
+        var col = null;
+        if (x < CH) {
+          var wx = p.cx * CH + x, wy = p.cy * CH + y;
+          if (wx < m.size && wy < m.size) col = flatColorOf(codes[m.terrain[wy * m.size + wx]] || 'grass');
+        }
+        if (col === runCol) continue;
+        if (runCol) { g.fillStyle = runCol; g.fillRect(runStart * BASE, y * BASE, (x - runStart) * BASE, BASE); }
+        runStart = x; runCol = col;
+      }
+    }
+  }
+
+  /**
+   * 청크 한 장을 **얻는다**(굽기를 기다리지 않는다).
+   * @param urgent 지금 화면에 드는 자리인가 — 그렇다면 굽는 줄에 새치기한다.
+   */
+  function chunkCanvas(cx, cy, urgent) {
     var key = cx + ',' + cy;
-    if (chunkCache[key]) return chunkCache[key];
+    var hit = chunkCache[key];
+    if (hit) { touchChunk(key); return hit; }
+    var p = chunkPending[key];
+    if (p) {
+      if (urgent && bakeQueue[0] !== key) {
+        var at = bakeQueue.indexOf(key);
+        if (at > 0) { bakeQueue.splice(at, 1); bakeQueue.unshift(key); }
+      }
+      return p.c;
+    }
     var m = S.S.map;
     if (!m) return null;
     var c = document.createElement('canvas');
@@ -120,23 +268,59 @@
     var g = c.getContext('2d');
     if (!g) return null;
     g.imageSmoothingEnabled = false;
-    var codes = m.codes;
-    for (var y = 0; y < CH; y++) {
-      for (var x = 0; x < CH; x++) {
-        var wx = cx * CH + x, wy = cy * CH + y;
-        if (wx >= m.size || wy >= m.size) continue;
-        var code = codes[m.terrain[wy * m.size + wx]] || 'grass';
-        var v = GM.atlas.variantAt(wx, wy, 3);
-        try { g.drawImage(GM.atlas.terrain(code, v), x * BASE, y * BASE); } catch (e) {}
-      }
-    }
-    chunkCache[key] = c;
-    chunkOrder.push(key);
-    if (chunkOrder.length > CHUNK_CAP) evictChunk();
+    p = { c: c, g: g, cx: cx, cy: cy, row: 0 };
+    prefillChunk(p, m);
+    chunkPending[key] = p;
+    if (urgent) bakeQueue.unshift(key); else bakeQueue.push(key);
     return c;
   }
 
-  /** ★ §17-17 — 가장 오래 전에 구운 청크 한 장을 버린다(상한 초과분만). */
+  /** 한 프레임의 굽기 몫. 시간이 남으면 다음 장으로 넘어간다(줄 하나가 최소 단위다). */
+  function bakeStep(budgetMs) {
+    if (!bakeQueue.length) return;
+    var t0 = nowMs();
+    do {
+      var key = bakeQueue[0];
+      var p = chunkPending[key];
+      if (!p) { bakeQueue.shift(); continue; }
+      if (bakeRow(p)) {
+        delete chunkPending[key];
+        bakeQueue.shift();
+        chunkCache[key] = p.c;
+        chunkOrder.push(key);
+        if (chunkOrder.length > CHUNK_CAP) evictChunk();
+      }
+    } while (bakeQueue.length && nowMs() - t0 < budgetMs);
+  }
+
+  /** 화면 밖 한 겹을 미리 굽는 줄에 세운다 — 걸음이 닿기 전에 끝나라고.
+      한 프레임에 새로 잡는 장 수를 묶어 둔다: 카메라가 멀리 뛰면 스물다섯 장이 한 번에 서고,
+      그 자리 잡기(캔버스 + 바탕색)만으로도 한 프레임이 부푼다. 급할 것 없는 겹이다. */
+  function queuePrebake(cx0, cx1, cy0, cy1) {
+    if (bakeQueue.length > 24) return;              // 이미 밀려 있으면 더 얹지 않는다
+    var m = S.S.map;
+    if (!m) return;
+    var per = Math.ceil(m.size / CH);
+    var room = PREBAKE_NEW_PER_FRAME;
+    for (var cy = cy0 - PREBAKE_RING; cy <= cy1 + PREBAKE_RING; cy++) {
+      for (var cx = cx0 - PREBAKE_RING; cx <= cx1 + PREBAKE_RING; cx++) {
+        if (cx < 0 || cy < 0 || cx >= per || cy >= per) continue;
+        if (cx >= cx0 && cx <= cx1 && cy >= cy0 && cy <= cy1) continue;   // 보이는 자리는 이미 섰다
+        var key = cx + ',' + cy;
+        if (chunkCache[key] || chunkPending[key]) continue;
+        if (room-- <= 0) return;
+        chunkCanvas(cx, cy, false);
+      }
+    }
+  }
+
+  /** ★ 최근에 쓴 것을 뒤로 — 눈앞의 청크가 상한에 밀려 버려지지 않게 한다(옛 셈은 구운 순서였다). */
+  function touchChunk(key) {
+    var i = chunkOrder.indexOf(key);
+    if (i >= 0 && i < chunkOrder.length - 1) { chunkOrder.splice(i, 1); chunkOrder.push(key); }
+  }
+
+  /** ★ §17-17 — 가장 오래 전에 쓴 청크 한 장을 버린다(상한 초과분만). */
   function evictChunk() {
     var old = chunkOrder.shift();
     if (old != null) delete chunkCache[old];
@@ -150,10 +334,12 @@
     var cx0 = Math.floor(vis.x0 / CH), cx1 = Math.floor(vis.x1 / CH);
     var cy0 = Math.floor(vis.y0 / CH), cy1 = Math.floor(vis.y1 / CH);
     var scale = cam.tile / BASE;
+    visiblePending = 0;
     for (var cy = cy0; cy <= cy1; cy++) {
       for (var cx = cx0; cx <= cx1; cx++) {
-        var c = chunkCanvas(cx, cy);
+        var c = chunkCanvas(cx, cy, true);
         if (!c) continue;
+        if (chunkPending[cx + ',' + cy]) visiblePending += 1;
         var p = GM.camera.worldToScreen(cx * CH - 0.5, cy * CH - 0.5);
         try {
           ctx.drawImage(c, Math.round(p.x), Math.round(p.y),
@@ -161,6 +347,8 @@
         } catch (e) {}
       }
     }
+    /* ★ 보이는 자리를 다 세운 뒤에 화면 밖 한 겹을 세운다(급한 것이 줄 앞에 서게) */
+    queuePrebake(cx0, cx1, cy0, cy1);
   }
 
   /* ══════════ 자원 군락 바닥 (GDD3 §13-B-1) ══════════
@@ -943,9 +1131,17 @@
       var mx = pos.x - a.x, my = pos.y - a.y;
       a.x = pos.x; a.y = pos.y;
       if (Math.hypot(mx, my) > 0.0015) {
-        a.dir = Math.abs(mx) > Math.abs(my) ? (mx > 0 ? 2 : 1) : (my > 0 ? 0 : 3);
+        var ax = Math.abs(mx), ay = Math.abs(my);
+        if (!v.role) a.dir = ax > ay ? (mx > 0 ? 2 : 1) : (my > 0 ? 0 : 3);
+        else if (ax > ay * 2) a.dir = mx > 0 ? 6 : 2;
+        else if (ay > ax * 2) a.dir = my > 0 ? 0 : 4;
+        else if (mx > 0) a.dir = my > 0 ? 7 : 5;
+        else a.dir = my > 0 ? 1 : 3;
         a.ft += dt;
-        if (a.ft > 0.18) { a.ft = 0; a.frame = a.frame ? 0 : 1; }
+        if (a.ft > (v.role ? 0.1 : 0.18)) {
+          a.ft = 0;
+          a.frame = v.role ? (a.frame + 1) % 9 : (a.frame ? 0 : 1);
+        }
       } else a.frame = 0;
     }
     for (var id in mates) if (Object.prototype.hasOwnProperty.call(mates, id) && !seen[id]) delete mates[id];
@@ -1037,7 +1233,7 @@
    * 「왜」 한 곳으로 모았나 — 그림(drawStructures)과 「얼굴을 눌러도 잡힌다」 판정(§16-20
    *   input.structureAtSprite)이 같은 식을 각자 베껴 쓰고 있었다. 스프라이트를 키우는 순간
    *   둘이 어긋나 눌러도 안 잡히는 건물이 생긴다. 이제 키우는 일도 여기 한 줄(scale)이 한다.
-   * 밑변(baseY)과 가로 한가운데는 붙박이다 — 커져도 건물은 제자리에 선 채 위로 자란다.
+   * 에셋의 고유 비율을 보존하고, 지정 풋프린트의 가로·세로 한가운데에 둔다.
    * @param {object} b 건물 · @param {number} grow 준공 튀어오름 같은 덤 배율
    */
   /* ★ §19-D(F03-9) — 건물별 덤 배율(data/buildings.json spriteScale).
@@ -1051,14 +1247,83 @@
     return (d && d.spriteScale) || 1;
   }
 
+  /* 수작업 PNG의 최신 자리 계약. 이미 실행 중인 서버가 예전 fw/fh를 보내도
+     새 칸 수로 화면·고스트·클릭 영역을 일관되게 보여 준다. */
+  var HANDMADE_FOOTPRINTS = { campfire: [2, 2], tent: [3, 3], hut: [4, 4], house: [6, 5], manor: [6, 7], well: [3, 3], woodpile: [2, 2], granary: [4, 4], sawmill: [4, 4], quarry_camp: [4, 4], hunter_hut: [4, 4], storage: [4, 4], bloomery: [3, 3], trading_post: [4, 4], market: [4, 5], watchpost: [3, 4], arrow_tower: [3, 4], barracks: [6, 5], ballista: [3, 3], cannon: [4, 4], frost_tower: [4, 4], flame_tower: [4, 4], fence: [2, 2], gate: [3, 3], appraisal_post: [4, 4], consulate: [6, 6], claim_flag: [2, 2], lamp: [2, 2], banner: [2, 2], garden: [4, 4], fountain: [6, 6], library: [4, 4], workshop: [4, 4], academy: [5, 5], station: [5, 5], smelter: [3, 4], smithy: [4, 4], mill: [4, 4], ranch: [4, 4], mine_shaft: [3, 3] };
+  var HQ_STAGE_FOOTPRINTS = [[2, 2], [4, 4], [5, 5], [7, 7], [9, 9], [11, 9]];
+  function renderFootprint(key, fallback) {
+    var f = HANDMADE_FOOTPRINTS[key];
+    return f ? { w: f[0], h: f[1] } : fallback;
+  }
+  function structureRenderFootprint(b) {
+    if (b && b.hq) {
+      var hqDef = S.buildingDef(b.key || b.building) || {};
+      var hqSizes = hqDef.tierFootprints || HQ_STAGE_FOOTPRINTS;
+      var hqSize = hqSizes[Math.max(0, Math.min(hqSizes.length - 1, (b.tier || 1) - 1))];
+      if (hqSize) return { w: hqSize[0], h: hqSize[1] };
+    }
+    return renderFootprint(b && (b.key || b.building), S.footprintOfThing(b));
+  }
+  function structureRenderCenter(b, f) {
+    /* 본부는 처음의 2×2 중심에 고정한 채, 승급할수록 사방으로 자란다. */
+    if (b && b.hq) return S.centerOfThing(b);
+    if (b && b.x != null && b.y != null) return { x: b.x + (f.w - 1) / 2, y: b.y + (f.h - 1) / 2 };
+    return S.centerOfThing(b);
+  }
+
   function structureRect(b, grow) {
-    var f = S.footprintOfThing(b);
-    var c = S.centerOfThing(b);
+    var f = structureRenderFootprint(b);
+    var c = structureRenderCenter(b, f);
     var cfg = spriteCfg();
-    var g = (cfg.scale || 1) * (grow || 1) * spriteScaleOf(b);
-    var w = (f.w + cfg.pad) * g, h = (f.h + cfg.pad) * g;
+    var layoutG = (cfg.scale || 1) * (grow || 1);
+    /* 풋프린트 자체를 정렬 상자로 쓴다. 옛 렌더 여백은 넣지 않아 가로 중앙이
+       실제 지정 칸의 중앙과 정확히 맞는다. */
+    var slotW = f.w * layoutG, slotH = f.h * layoutG;
+    var w = slotW, h = slotH;
+    /* 지정한 칸 수가 최종 가로·세로를 결정한다. 모든 에셋은 이 상자를 정확히 채운다. */
     var baseY = c.y + (f.h - 1) / 2 + cfg.baseDrop;
     return { x: c.x + cfg.shiftX - w / 2, y: baseY - h, w: w, h: h, baseY: baseY };
+  }
+
+  /* 건물 footprint 주변의 시각 전환층. 충돌·배치 규칙은 바꾸지 않는다. */
+  function drawBuildingApron(b, c, f, t) {
+    var key = b.key || b.building || '';
+    var dirt = /farm|field|lumber|camp/.test(key);
+    var fill = dirt ? 'rgba(126,89,47,.18)' : 'rgba(112,106,94,.12)';
+    var pad = 0.18;
+    var p = GM.camera.worldToScreen(c.x - f.w / 2 - pad, c.y - f.h / 2 - pad);
+    var w = (f.w + pad * 2) * t, h = (f.h + pad * 2) * t;
+    var step = Math.max(2, Math.round(t * 0.16));
+    var seed = String(b.id || key).length * 37 + Math.round(c.x * 17 + c.y * 29);
+    function inset(i) { return ((seed + i * 31) % 3) * step; }
+    ctx.save();
+    /* 픽셀식 들쭉날쭉한 개간지 외곽. 테두리 선을 쓰지 않아 잔디와 녹아든다. */
+    ctx.beginPath();
+    ctx.moveTo(p.x + step, p.y - inset(0));
+    for (var xx = step; xx < w; xx += step) ctx.lineTo(p.x + xx, p.y - inset(xx));
+    for (var yy = 0; yy < h; yy += step) ctx.lineTo(p.x + w + inset(yy), p.y + yy);
+    for (var rx = w; rx > 0; rx -= step) ctx.lineTo(p.x + rx, p.y + h + inset(rx));
+    for (var ry = h; ry > 0; ry -= step) ctx.lineTo(p.x - inset(ry), p.y + ry);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.globalAlpha = 0.32;
+    ctx.fillStyle = dirt ? '#c69b5a' : '#bdb59b';
+    /* Broken tufts around the base keep the original terrain visible. */
+    for (var dot = 0; dot < 16; dot += 1) {
+      var edge = dot % 4;
+      var q = (seed * (dot + 3) * 17) % 997;
+      var dx = edge < 2 ? (q % Math.max(1, Math.round(w))) : (edge === 2 ? -step + (q % step) : w - (q % step));
+      var dy = edge < 2 ? (edge === 0 ? -step + (q % step) : h - (q % step)) : (q % Math.max(1, Math.round(h)));
+      ctx.fillRect(Math.round(p.x + dx), Math.round(p.y + dy), Math.max(1, Math.round(step * 0.65)), Math.max(1, Math.round(step * 0.4)));
+    }
+    /* A compact entry strip gives farms and camps a grounded exit, without a square pad. */
+    if (dirt) {
+      ctx.globalAlpha = 0.24;
+      ctx.fillStyle = '#9c7340';
+      ctx.fillRect(Math.round(p.x + w * 0.42), Math.round(p.y + h - step), Math.max(2, Math.round(w * 0.16)), Math.round(t * 0.42));
+    }
+    ctx.restore();
   }
 
   function drawStructures() {
@@ -1094,8 +1359,8 @@
     list.forEach(function (b) {
       if (b.x == null) return;
       /* ★ §12-1 — 풋프린트 기준 렌더. 1×1 이면 옛 값과 정확히 같다(1.7칸). */
-      var f = S.footprintOfThing(b);
-      var c = S.centerOfThing(b);
+      var f = structureRenderFootprint(b);
+      var c = structureRenderCenter(b, f);
       if (!GM.camera.onScreen(c.x, c.y, t * (Math.max(f.w, f.h) + 2))) return;
       var scale = 1;
       var bd = doneBounce[b.id];
@@ -1112,6 +1377,7 @@
       p.y = GM.camera.worldToScreenY(r.y);
       /* 본부 둘레의 광장 — 티어에 비례해 넓어진다 (§12-2) */
       if (b.hq) drawPlaza(c, t);
+      else drawBuildingApron(b, c, f, t);
       /* 그림자 */
       ctx.save();
       ctx.globalAlpha = 0.24;
@@ -1124,9 +1390,25 @@
       /* 이전·철거 중이면 반투명 — 효과가 멎었다는 표시 (§12-12) */
       if (b.inactive) ctx.globalAlpha = 0.55;
       try {
-        var sprite = b.hq ? GM.atlas.hall(S.tierNo(), { ruined: b.ruined })
-                          : GM.atlas.building(b.key, b.tier, { ruined: b.ruined });
-        ctx.drawImage(sprite, Math.round(p.x), Math.round(p.y), Math.ceil(w), Math.ceil(h));
+        /* 본부 1단계는 실제 모닥불 PNG를 우선한다. 이후 단계는 기존 본부 외형으로
+           자연스럽게 성장한다. */
+        /* 정착지 단계는 0부터지만, 시작 본부 구조물은 tier 1이다. 화면의
+           정착지 단계가 아니라 구조물 티어를 기준으로 골라야 첫 장면부터 새
+           모닥불이 나온다. */
+        var hqKey = b.key || b.building || '';
+        var hqStages = ['campfire', 'hq_camp', 'hq_village', 'hq_town', 'hq_city', 'hq_royal'];
+        var handmadeHq = b.hq && GM.atlas.handmadeBuilding
+          ? GM.atlas.handmadeBuilding(hqStages[Math.max(0, Math.min(5, (b.tier || 1) - 1))]) : null;
+        var sprite = handmadeHq || (b.hq ? GM.atlas.hall(S.tierNo(), { ruined: b.ruined })
+                          : GM.atlas.building(b.key, b.tier, { ruined: b.ruined }));
+        var campfireSheet = handmadeHq && hqKey === 'campfire' && GM.atlas.buildingAnimation
+          ? GM.atlas.buildingAnimation(hqKey) : null;
+        if (campfireSheet && campfireSheet.complete && campfireSheet.naturalWidth && !campfireSheet.failed) {
+          var frameW = campfireSheet.naturalWidth / 4;
+          var frame = Math.floor(animT / 135) % 4;
+          ctx.drawImage(campfireSheet, frame * frameW, 0, frameW, campfireSheet.naturalHeight,
+            Math.round(p.x), Math.round(p.y), Math.ceil(w), Math.ceil(h));
+        } else ctx.drawImage(sprite, Math.round(p.x), Math.round(p.y), Math.ceil(w), Math.ceil(h));
       } catch (e2) {}
       ctx.restore();
       /* 개축 중 — 황금 반짝 */
@@ -1380,11 +1662,23 @@
     return walkTable.map;
   }
 
+  function waterMargin(x, y) {
+    var m = S.S.map;
+    if (!m || !m.codes) return false;
+    var cx = Math.round(x), cy = Math.round(y);
+    for (var dy = -1; dy <= 1; dy += 1) for (var dx = -1; dx <= 1; dx += 1) {
+      var nx = cx + dx, ny = cy + dy;
+      if (nx >= 0 && ny >= 0 && nx < m.size && ny < m.size && m.codes[m.terrain[ny * m.size + nx]] === 'water') return true;
+    }
+    return false;
+  }
+
   function unitWalkable(x, y) {
     var code = S.terrainKey(Math.round(x), Math.round(y));
     if (!code) return false;
-    if (walkableCodes()[code] === 1) return true;
-    return code === 'water' && (S.onBridge(x, y) || S.onFill(x, y));
+    if (code === 'water') return S.onBridge(x, y) || S.onFill(x, y);
+    if (waterMargin(x, y)) return false;
+    return walkableCodes()[code] === 1;
   }
 
   /**
@@ -1744,7 +2038,7 @@
       if (!GM.camera.onScreen(m.x, m.y, t * 2)) return;
       /* 이름표 색이 사람과 동료를 가른다: 같이 온 사람은 푸른빛, 동료는 저마다의 빛깔이다. */
       var color = a.bot ? (a.color || '#8fe3b4') : '#a8c8ff';
-      drawLord(m.x, m.y, a.appearance, m.dir, m.frame, a.name || '개척자', color, a.id, 0, null, a.down);
+      drawLord(m.x, m.y, a.appearance, m.dir, m.frame, a.name || '개척자', color, a.id, a.role, 0, null, a.down);
       if (!a.bot) return;
       var doing = a.down ? CREW_DOING.down : (CREW_DOING[a.state] || '');
       var sub = a.roleName ? (a.roleName + (doing ? ' · ' + doing : '')) : doing;
@@ -1757,7 +2051,7 @@
       /* ★ §19-A — 이름표는 **제가 적어 넣은 이름**이다. '그대'로 못 박아 두었더니 여럿이 함께 있을 때
          내 머리 위만 2인칭이 떠서, 팀원 화면의 내 이름과도 어긋났다(2인칭은 문장에서만 쓴다). */
       drawLord(me.x, me.y, S.S.you.appearance, me.dir, me.frame, S.myName(), '#f6cf7a', mine,
-        sw.phase, sw.tool, S.downed());
+        S.myRole(), sw.phase, sw.tool, S.downed());
     }
   }
 
@@ -1783,10 +2077,14 @@
     ctx.restore();
   }
 
-  function drawLord(x, y, app, dir, frame, name, nameColor, avatarId, swingPhase, tool, down) {
+  function drawLord(x, y, app, dir, frame, name, nameColor, avatarId, role, swingPhase, tool, down) {
     var t = GM.camera.cam.tile;
     var p = GM.camera.worldToScreen(x - 0.42, y - 1.05);
     var w = t * 0.88, h = t * 1.14;
+    var roleW = t * 1.45, roleH = t * 1.85;
+    var roleX = p.x - (roleW - w) / 2;
+    // 원본 도트 프레임의 발 아래 투명 여백을 상쇄해 실제 발과 그림자가 맞닿게 한다.
+    var roleY = p.y - (roleH - h) + t * 0.12;
     ctx.save();
     ctx.globalAlpha = 0.28;
     ctx.fillStyle = '#000';
@@ -1795,26 +2093,34 @@
     ctx.fill();
     ctx.restore();
     ctx.save();
+    var mine = GM.avatar && avatarId === (S.you() && S.you().avatarId);
+    var roleSprite = role && GM.roleSprites ? GM.roleSprites.get(role, dir, frame) : null;
     if (down) {
       ctx.translate(p.x + w / 2, p.y + h);
       ctx.rotate(-Math.PI / 2.2);
       ctx.globalAlpha = 0.75;
-      try { ctx.drawImage(GM.atlas.avatar(app, dir, 0), 0, -w / 2, Math.ceil(w), Math.ceil(h)); } catch (e1) {}
+      try {
+        if (roleSprite) ctx.drawImage(roleSprite, 50, 55, 144, 135, 0, -roleW / 2, Math.ceil(roleW), Math.ceil(roleH));
+        else ctx.drawImage(GM.atlas.avatar(app, dir, 0), 0, -w / 2, Math.ceil(w), Math.ceil(h));
+      } catch (e1) {}
       ctx.restore();
-      label(name + ' — 쓰러짐', x, y - 1.35, '#ff9d99');
+      label(name + ' — 쓰러짐', x, y - 2.05, '#ff9d99');
       return;
     }
     try {
       /* ★ GDD3 §13-D-3 — 내 아바타에는 벼린 것이 그대로 실린다(동료의 장비는 서로 보이지 않는다) */
-      var mine = GM.avatar && avatarId === (S.you() && S.you().avatarId);
       var gear = mine && GM.avatar.gear ? GM.avatar.gear() : null;
-      ctx.drawImage(GM.atlas.avatar(app, dir, frame, { swing: swingPhase, tool: tool, gear: gear }),
-        Math.round(p.x), Math.round(p.y), Math.ceil(w), Math.ceil(h));
+      if (roleSprite) {
+        ctx.drawImage(roleSprite, 50, 55, 144, 135, Math.round(roleX), Math.round(roleY), Math.ceil(roleW), Math.ceil(roleH));
+      } else {
+        ctx.drawImage(GM.atlas.avatar(app, dir, frame, { swing: swingPhase, tool: tool, gear: gear }),
+          Math.round(p.x), Math.round(p.y), Math.ceil(w), Math.ceil(h));
+      }
     } catch (e2) {}
     ctx.restore();
-    if (name && t >= 16) label(name, x, y - 1.35, nameColor || '#f4e4bc');
+    if (name && t >= 16) label(name, x, y - 2.05, nameColor || '#f4e4bc');
     var bub = GM.social && avatarId ? GM.social.bubbleFor(avatarId) : null;
-    if (bub) label(bub, x, y - 2.15, '#fff6dc');
+    if (bub) label(bub, x, y - 2.85, '#fff6dc');
   }
 
   /** 스윙 쿨타임 링 — 내 발밑에 남은 시간을 그린다 */
@@ -1861,8 +2167,11 @@
     var v = GM.build ? GM.build.validate(pl, hoverTile.x, hoverTile.y) : { ok: true };
     /* ★ §12-1 — 고스트도 풋프린트 사각형 전체를 보여 준다 (놓기 전에 "얼마나 큰지"가 보여야 한다) */
     var key = pl.kind === 'build' ? pl.key : (pl.kind === 'relocate' ? pl.key : null);
-    var f = key ? S.footprintOf(key) : { w: 1, h: 1 };
-    var a0 = key ? S.anchorFromCell(key, hoverTile.x, hoverTile.y) : { x: hoverTile.x, y: hoverTile.y };
+    var previewDef = key ? (S.buildingDef(key) || {}) : {};
+    var previewStages = previewDef.tierFootprints || HQ_STAGE_FOOTPRINTS;
+    var previewSize = previewDef.hq ? previewStages[Math.max(0, Math.min(previewStages.length - 1, S.tierNo()))] : null;
+    var f = previewSize ? { w: previewSize[0], h: previewSize[1] } : (key ? renderFootprint(key, S.footprintOf(key)) : { w: 1, h: 1 });
+    var a0 = key ? { x: Math.round(hoverTile.x) - Math.floor((f.w - 1) / 2), y: Math.round(hoverTile.y) - Math.floor((f.h - 1) / 2) } : { x: hoverTile.x, y: hoverTile.y };
     var cxy = { x: a0.x + (f.w - 1) / 2, y: a0.y + (f.h - 1) / 2 };
     var p = GM.camera.worldToScreen(a0.x - 0.5, a0.y - 0.5);
     ctx.save();
@@ -1872,7 +2181,11 @@
       var gbase = cxy.y + (f.h - 1) / 2 + 0.55;
       var gp = GM.camera.worldToScreen(cxy.x - (f.w + 0.7) / 2 + 0.1, gbase - (f.h + 0.7));
       try {
-        var gs = (S.buildingDef(key) || {}).hq ? GM.atlas.hall(S.tierNo()) : GM.atlas.building(key, 1);
+        var hqPreview = previewDef.hq;
+        var previewStagesKeys = ['campfire', 'hq_camp', 'hq_village', 'hq_town', 'hq_city', 'hq_royal'];
+        var handmadePreview = hqPreview && GM.atlas.handmadeBuilding
+          ? GM.atlas.handmadeBuilding(previewStagesKeys[Math.max(0, Math.min(5, S.tierNo()))]) : null;
+        var gs = handmadePreview || (hqPreview ? GM.atlas.hall(S.tierNo()) : GM.atlas.building(key, 1));
         ctx.drawImage(gs, Math.round(gp.x), Math.round(gp.y), Math.ceil(gw), Math.ceil(gh));
       } catch (e) {}
     }
@@ -2522,6 +2835,10 @@
       minimapMs += nowMs() - m0;
     }
 
+    /* ★ 남은 지형 청크를 이 프레임의 몫만큼만 굽는다 — 그리기가 끝난 뒤에 한다
+       (이번 판에 필요한 것은 이미 바탕색으로라도 화면에 올라가 있다). */
+    bakeStep(visiblePending ? BAKE_URGENT_MS : BAKE_BUDGET_MS);
+
     var w1 = nowMs();
     workTimes.push(w1 - w0);
     if (workTimes.length > 240) workTimes.shift();
@@ -2568,7 +2885,7 @@
   function hover() { return hoverTile; }
   function setDragBox(b) { dragBox = b; }
   function reset() {
-    chunkCache = {}; chunkOrder = []; units = {}; walkIns = []; doneBounce = {}; territoryAnim = null;
+    dropChunks(); units = {}; walkIns = []; doneBounce = {}; territoryAnim = null;
     structSort = { src: null, n: -1, rev: -2, list: [] };
     /* ★ Sprint 3 — 세워 둔 색인·띠도 함께 버린다(판이 바뀌면 옛 표는 거짓말이 된다) */
     nodeIndex = { src: null, n: -1, cells: null, w: 0 };

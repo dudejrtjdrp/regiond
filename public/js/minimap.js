@@ -233,8 +233,14 @@
     return statics;
   }
 
-  function draw() {
+  function draw(t) {
     if (!ctx) return;
+    /* ★ Sprint 3 — 위 ③(초당 minimapHz 번만 그린다)이 **쓰이지 않고 있었다**. lastDraw·minimapHz·
+       buildStatics 셋 다 선언만 되고 draw 가 옛길 그대로 매 프레임을 다 그렸다. 여기서 잇는다:
+       판은 눈이 좇는 그림이 아니라 곁눈으로 보는 그림이고, 안 그린 프레임은 지난 판이 그대로 남는다. */
+    var now = (typeof t === 'number' && t > 0) ? t : nowMs();
+    if (lastDraw && now - lastDraw < 1000 / minimapHz()) return;
+    lastDraw = now;
     var m = S.S.map;
     animT += 16;
     ctx.fillStyle = '#0a0710';
@@ -273,19 +279,12 @@
       ctx.fillRect(tw.x * k - 2, tw.y * k - 2, 5, 5);
     });
 
-    /* ★ GDD3 §13-D-5 — 철로. 축소 지도에서도 길이 보여야 어디에 더 깔지 알 수 있다. */
-    ctx.fillStyle = '#9aa4ae';
-    S.rails().forEach(function (r) { ctx.fillRect(r.x * k - 0.5, r.y * k - 0.5, 2, 2); });
+    /* ★ Sprint 3 — 철로 · 울타리를 구워 둔 한 겹으로 얹는다(그리는 차례도 명령도 옛것과 같다).
+       울타리 400조각이면 프레임마다 캔버스 명령 1,600개였다 — 이제 바뀔 때만 굽는다. */
+    if (staticsDirty || !statics) buildStatics(m, k);
+    if (statics) { try { ctx.drawImage(statics, 0, 0); } catch (e) {} }
 
-    /* 울타리 · 주민 · 건물 · 아바타 */
-    ctx.strokeStyle = '#a3703f';
-    ctx.lineWidth = 1.5;
-    S.fences().forEach(function (f) {
-      ctx.beginPath();
-      ctx.moveTo(f.x1 * k, f.y1 * k);
-      ctx.lineTo(f.x2 * k, f.y2 * k);
-      ctx.stroke();
-    });
+    /* 주민 · 건물 · 아바타 */
     ctx.fillStyle = '#8dbb6d';
     S.residents().forEach(function (v) { ctx.fillRect(v.x * k - 0.5, v.y * k - 0.5, 2, 2); });
     S.structures().forEach(function (b) {
