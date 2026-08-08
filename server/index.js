@@ -94,11 +94,42 @@ function debugApiEnabled() {
   return process.env.NODE_ENV !== 'production';
 }
 
+/* ══════════ ★ 배포 D-1 — 알려진 출처만 연다 (docs/DEPLOY2.md §4-3) ══════════
+   GitHub Pages 사본(정적 클라)이 이 서버의 `/api/*` 와 소켓을 부른다 — 그러니 크로스 오리진이다.
+   「왜 화이트리스트인가」 — 소켓은 이미 `origin:'*'` 로 열려 있었지만 express REST 에는 CORS 머리글이
+   아예 없어서 Pages 에서 `/api/config` 가 막힌다(그 한 줄 때문에 화면이 부팅에서 멎는다).
+   여는 김에 소켓 쪽도 같은 자로 좁힌다 — 아무나 우리 방에 붙을 이유는 없다.
+
+   ★ 개발·검사 자리는 반드시 통과시킨다: origin 이 아예 없는 호출(도구·서버끼리·같은 출처 fetch)과
+   localhost/127.0.0.1 의 **아무 포트나**. 하니스와 e2e 는 매번 다른 포트를 잡는다.
+   추가 주소는 환경 변수 GALLAEMALLAE_ORIGINS 에 쉼표로 얹는다(코드를 안 고치고 늘린다). */
+const ORIGIN_ALLOW = new Set([
+  'https://dudejrtjdrp.github.io',
+  ...String(process.env.GALLAEMALLAE_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean),
+]);
+const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+function originAllowed(origin) {
+  if (!origin) return true;                       // origin 없는 호출 = 같은 출처이거나 도구다
+  return ORIGIN_ALLOW.has(origin) || LOCAL_ORIGIN.test(origin);
+}
+
 const app = express();
 app.disable('x-powered-by');      // 서버가 무엇으로 지어졌는지 굳이 알릴 이유가 없다
 // ★ Render·대부분의 PaaS 는 프록시 뒤에 둔다 — 원래 프로토콜/주소를 프록시 머리글에서 읽는다.
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '256kb' }));
+/* ★ D-1 — Pages 사본이 /api/* 를 부를 수 있게. `cors` 꾸러미를 들이지 않는다(package.json 무변경 대원칙). */
+app.use('/api', (req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && originAllowed(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');              // 캐시가 한 출처의 답을 다른 출처에 주지 않게
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  }
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  return next();
+});
 app.use(express.static(PUBLIC_DIR, {
   etag: true,
   setHeaders(res) { res.setHeader('Cache-Control', 'no-cache'); },
@@ -107,7 +138,49 @@ const http = createServer(app);
 // ★ 프록시 뒤(Render 등)에서도 그대로 돈다 — 소켓은 같은 출처(`/socket.io`)로 붙고,
 //   폴링으로 먼저 손을 잡은 뒤 웹소켓으로 갈아탄다(플랫폼이 업그레이드를 통과시킨다).
 //   갈아타지 못하는 망에서는 폴링으로 계속 논다 — 그래서 transports 를 좁히지 않는다.
-const io = new Server(http, { cors: { origin: '*' } });
+/* ★ 배포 D-1 — 압축을 켠다 (docs/DEPLOY2.md §1). socket.io v4 는 압축이 **기본 꺼짐**이라
+   world·state 가 생 JSON 으로 나갔다. 세이브 스냅샷이 게임당 1.6MB 급이니 접속 한 번에 메가가 흐른다 —
+   Render 월 5GB 가 터진 진짜 원인이 플랫폼이 아니라 이 한 줄의 부재였다. JSON 은 8~10배 줄어든다.
+   threshold 1024 인 까닭: 그보다 작은 쪽지(ack·스윙)는 압축해 봐야 CPU 만 쓰고 크기가 안 준다. */
+const io = new Server(http, {
+  cors: { origin: (origin, cb) => cb(null, originAllowed(origin)), credentials: false },
+  perMessageDeflate: { threshold: 1024 },
+  /* ★ cors 는 **폴링 악수**에만 걸린다 — 웹소켓에는 브라우저가 CORS 를 걸지 않기 때문이다.
+     우리 클라는 폴링으로 먼저 손을 잡으니 그것만으로도 브라우저는 막힌다. 여기서 한 겹 더 두는 까닭은
+     웹소켓으로 곧장 붙는 경우까지 같은 자로 재기 위해서다(도구·서버끼리는 origin 이 없어 그대로 통과한다). */
+  allowRequest: (req, cb) => {
+    const origin = req.headers.origin;
+    if (originAllowed(origin)) return cb(null, true);
+    console.warn(`[막음] 낯선 출처의 소켓: ${origin}`);
+    return cb('origin not allowed', false);
+  },
+});
+
+/* ★ 배포 D-1 — 세션당 전송량 계측 (docs/DEPLOY2.md §1-3).
+   「압축만으로 충분한가, 정말 옮겨야 하는가」는 말이 아니라 숫자로 갈린다. 소켓 하나가 닫힐 때
+   한 줄만 찍는다. 재는 값은 **압축 전 바이트**다 — 실제로 선을 타는 양의 상한이라 읽기 쉽고,
+   압축이 켜졌는지는 이 값과 플랫폼 대역폭 지표를 견주면 그대로 드러난다.
+   끄고 싶으면 GALLAEMALLAE_METER=0. 이 수치는 나중에 텔레메트리(§5-5)로 그대로 넘어간다. */
+const METER = process.env.GALLAEMALLAE_METER !== '0';
+function packetBytes(d) {
+  if (typeof d === 'string') return Buffer.byteLength(d);
+  if (d && typeof d.length === 'number') return d.length;
+  if (d && typeof d.byteLength === 'number') return d.byteLength;
+  return 0;
+}
+if (METER) {
+  io.engine.on('connection', (raw) => {
+    let sent = 0, got = 0;
+    const t0 = Date.now();
+    raw.on('packetCreate', (p) => { sent += packetBytes(p.data); });
+    raw.on('packet', (p) => { got += packetBytes(p.data); });
+    raw.on('close', () => {
+      const kb = (n) => (n / 1024).toFixed(n > 1024 * 1024 ? 0 : 1);
+      console.log(`[전송] ${raw.id} · ${Math.round((Date.now() - t0) / 1000)}초 `
+        + `· 보냄 ${kb(sent)}KB · 받음 ${kb(got)}KB (압축 전)`);
+    });
+  });
+}
 
 /**
  * ★ §19-A — 아바타 목록 방송의 **단 하나의 문**.

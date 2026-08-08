@@ -124,7 +124,9 @@
       S.set({ connected: false });
       return null;
     }
-    socket = global.io();
+    /* ★ 배포 D-1 — Pages 사본은 딴 데 있는 서버로 붙는다(GM.SERVER, index.html 한 줄).
+       서버가 직접 내려준 사본에서는 빈 문자열이라 io() 와 똑같이 같은 출처로 붙는다. */
+    socket = GM.SERVER ? global.io(GM.SERVER) : global.io();
     socket.on('connect', function () {
       var wasIn = !!S.S.gameId;
       S.set({ connected: true });
@@ -319,7 +321,10 @@
     if (isMock()) return Promise.resolve(socket.rest(path, body || {}));
     var opt = { method: method, headers: { 'Content-Type': 'application/json' } };
     if (body) opt.body = JSON.stringify(body);
-    return fetch(path, opt).then(function (r) {
+    /* ★ 배포 D-1 — REST 도 같은 주소를 쓴다. `/api/...` 로 시작하는 길만 서버로 보낸다
+       (제 자리에 있는 정적 파일까지 남의 도메인으로 부르지 않게). */
+    var url = (GM.SERVER && path.charAt(0) === '/') ? GM.SERVER + path : path;
+    return fetch(url, opt).then(function (r) {
       if (!r.ok) {
         /* ★ 호출한 쪽이 상태 코드로 갈래를 탈 수 있게 실어 준다
            (운영 서버는 개발 뒷문 /api/debug/* 를 404 로 닫아 둔다 — 개발 패널이 이걸 보고 조용히 접는다) */

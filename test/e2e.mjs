@@ -55,6 +55,17 @@ function connect(base) {
     const timer = setTimeout(() => reject(new Error(`timeout: ${evt}`)), timeout);
     socket.once(evt, (payload) => { clearTimeout(timer); resolve(payload); });
   });
+  /* ★ 배포 D-1 — 「앞선 방송이 다 닿았다」를 기다린다.
+     압축(perMessageDeflate)을 켜자 방송이 **비동기**가 됐다: 접속 직후의 world·state 가
+     zlib 을 거쳐 한 박자 늦게 도착한다. 그래서 세상을 손으로 주무른 뒤 곧바로 next('state') 를
+     걸면 그 **낡은** 방송을 붙잡는다(값은 맞고 시점만 이르다 — 화면은 늘 마지막 것을 쓰므로 무해하다).
+     quiet 만큼 조용해질 때까지 흘려보내고 나서 다음 방송을 기다린다. */
+  socket.drain = (evt, quiet = 250) => new Promise((resolve) => {
+    let timer = setTimeout(done, quiet);
+    const onEvt = () => { clearTimeout(timer); timer = setTimeout(done, quiet); };
+    function done() { socket.off(evt, onEvt); resolve(); }
+    socket.on(evt, onEvt);
+  });
   return socket;
 }
 
@@ -313,6 +324,7 @@ test('E2E — 정보 비대칭: 성녀가 없으면 어디에도 정확한 습�
     const config = await (await fetch(`${base}/api/config`)).json();
     assert.ok(!JSON.stringify(config).includes('arrivalTick'), 'config 에 도착 틱이 없다');
 
+    await socket.drain('state');          /* ★ D-1 — 접속 직후의 방송을 먼저 흘려보낸다 */
     const stateP = socket.next('state');
     await post(base, '/api/debug/step', { gameId });
     const state = await stateP;
