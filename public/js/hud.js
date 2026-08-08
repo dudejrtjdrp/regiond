@@ -468,24 +468,43 @@
     });
 
     flashes.forEach(function (f) { out.push(f); });
-    warnings(n, v).forEach(function (w) { if (!S.S.dismissed[w.id]) out.push(w); });
+    liveWarnings(n, v).forEach(function (w) { out.push(w); });
     return out;
+  }
+
+  /* ══════════ ★ §21-C1(D) 경고의 「알겠다」는 하루살이가 아니다 ══════════
+     「왜」 고쳤나 — 경고 id 에 **게임 날짜가 박혀** 있었다(`w:grain:37`). 그래서 접어 둔 경고가
+     이튿날 id 째로 새것이 되어 되살아났다. 게임 하루는 두 틱이라, 사실상 「닫아도 곧 다시 뜬다」였다.
+     되살아나야 할 때는 날이 바뀔 때가 아니라 **① 문제가 풀렸다가 다시 생겼을 때**(곳간 알림의
+     clearStorageNotice 와 같은 규율)와 **② 더 나빠졌을 때**다. 그래서 id 는 날짜 없이 붙박이로 두고,
+     접은 자국에 그때의 **심각도(sev)** 를 적어 둔다 — 지금 심각도가 그보다 크면 다시 편다.
+     ★ 상황이 사라지면 자국도 지운다: 그러지 않으면 「풀렸다가 다시 생긴」 경고가 영영 안 뜬다. */
+  function liveWarnings(n, v) {
+    var all = warnings(n, v);
+    var live = {};
+    all.forEach(function (w) { live[w.id] = 1; });
+    for (var k in S.S.dismissed) {
+      if (k.indexOf('w:') === 0 && !live[k]) delete S.S.dismissed[k];
+    }
+    return all.filter(function (w) {
+      var seen = S.S.dismissed[w.id];
+      return !seen || (w.sev || 1) > seen;
+    });
   }
 
   function warnings(n, v) {
     var out = [];
-    var day = Math.floor((v.tick || 0) / 2);
     if (n.population > 0) {
       var days = (n.resources.grain || 0) / n.population;
       if (days < 3) {
-        out.push({ id: 'w:grain:' + day, kind: 'danger', icon: 'warn',
+        out.push({ id: 'w:grain', kind: 'danger', icon: 'warn', sev: Math.max(1, Math.ceil(3 - days)),
           title: '곳간이 비어 갑니다', sub: '식량 ' + U.fmt(days, 1) + '일치뿐입니다',
           open: function () { GM.input.centerTown(); } });
       }
     }
     var ruined = S.structures().filter(function (b) { return b.ruined || (b.condition || 1) < 0.6; });
     if (ruined.length) {
-      out.push({ id: 'w:repair:' + day + ':' + ruined.length, kind: 'warn', icon: 'repair',
+      out.push({ id: 'w:repair', kind: 'warn', icon: 'repair', sev: ruined.length,
         title: '상한 건물이 ' + ruined.length + '채 있습니다', sub: '눌러서 수리하세요',
         open: function () {
           var b = ruined[0];
@@ -496,7 +515,7 @@
     }
     var fs = S.fenceSummary();
     if (fs && (fs.broken > 0 || fs.damaged > 2)) {
-      out.push({ id: 'w:fence:' + day, kind: 'warn', icon: 'fence',
+      out.push({ id: 'w:fence', kind: 'warn', icon: 'fence', sev: (fs.broken || 0) + (fs.damaged || 0),
         title: '울타리가 상했습니다', sub: (fs.broken ? fs.broken + '조각이 부서졌습니다' : fs.damaged + '조각이 상했습니다'),
         open: function () { GM.build.repairAllFence(); } });
     }
@@ -505,14 +524,14 @@
     if (S.uiOn('hud.threat') && w && w.enemy && d && d.estimate && !d.estimate.comfortable) {
       var du = w.precise ? w.daysUntil : w.daysUntilMin;
       if (du !== null && du !== undefined && du <= 3) {
-        out.push({ id: 'w:def:' + day, kind: 'danger', icon: 'shield',
+        out.push({ id: 'w:def', kind: 'danger', icon: 'shield', sev: 4 - du,
           title: '울타리 앞이 위태롭습니다', sub: '터렛을 세우거나 울타리를 두르세요',
           open: function () { GM.combat.openThreat(); } });
       }
     }
     var idle = S.residents().filter(function (u) { return u.job === 'idle'; }).length;
     if (idle >= 5) {
-      out.push({ id: 'w:idle:' + day, kind: 'warn', icon: 'folk',
+      out.push({ id: 'w:idle', kind: 'warn', icon: 'folk', sev: idle,
         title: '노는 사람이 ' + idle + '명입니다', sub: '일터를 정해 주세요',
         open: function () { GM.residents.selectAllIdle(); GM.residents.openPanel(); } });
     }
@@ -569,7 +588,8 @@
       b.appendChild(col);
       b.onclick = function () {
         var cur = noticeById(it.id, it);     // ★ Sprint 3 — 헌 닫힘을 잡지 않는다
-        if (cur.kind === 'warn' || cur.kind === 'good') S.S.dismissed[cur.id] = 1;
+        /* ★ §21-C1(D) — 접은 자국에 그때의 심각도를 적는다(1 이 아니라). 더 나빠지면 다시 편다. */
+        if (cur.kind === 'warn' || cur.kind === 'good') S.S.dismissed[cur.id] = cur.sev || 1;
         if (cur.open) cur.open();
         renderNotices();
       };

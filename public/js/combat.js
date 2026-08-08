@@ -7,7 +7,6 @@
   var GM = global.GM = global.GM || {};
   var S = GM.state, U = GM.ui;
 
-  var seenEvents = 0;
   var shots = [];
   var interp = {};
   var bclock = 0;          // 전투 연출 시계(ms) — step(dt) 이 굴린다
@@ -31,7 +30,6 @@
 
   /* ══════════ 전투 ══════════ */
   function onStart(p) {
-    seenEvents = 0;
     shots = [];
     interp = {};
     if (GM.dialogue) GM.dialogue.close();      /* ★ §17-19(D-5) — 싸움이 붙으면 말은 끊긴다 */
@@ -89,10 +87,14 @@
     return a;
   }
 
+  /* ★ §21-C1(D) — 서브틱이 실어 오는 events 는 **그 서브틱에 새로 생긴 것만**이다
+     (battle.js `b.timeline.slice(before)`). 그런데 여기는 누적 커서(seenEvents)로 읽고 있었다:
+     첫 장에서 커서가 8까지 오르면, 새 사건 3개가 온 두 번째 장은 `for (i = 8; i < 3; …)` 이 되어
+     **한 개도 재생되지 않는다**. 화살·파편·비명이 첫 장 이후로 통째로 사라지던 까닭이다.
+     보내 준 것은 이미 새것뿐이니, 커서 없이 전부 재생하는 것이 맞다(판정과는 무관 — 연출만). */
   function playEvents(p) {
     var evs = p.events || [];
-    for (var i = seenEvents; i < evs.length; i++) handleEvent(evs[i], p);
-    seenEvents = evs.length;
+    for (var i = 0; i < evs.length; i++) handleEvent(evs[i], p);
   }
 
   function findEnemy(p, id) {
@@ -405,7 +407,7 @@
   /* ══════════ 결과 ══════════ */
   function onResult(r) {
     clearBattleBar();
-    interp = {}; shots = []; seenEvents = 0;
+    interp = {}; shots = [];
     var vg = U.qs('#vignette');
     if (vg) vg.classList.remove('on');
     if (!r) return;
@@ -641,7 +643,7 @@
     if (host && U.modalOpen('threat')) paintThreat(host);
   }
 
-  function reset() { seenEvents = 0; shots = []; interp = {}; clearBattleBar(); }
+  function reset() { shots = []; interp = {}; clearBattleBar(); }
 
   GM.combat = {
     onIncoming: onIncoming, onStart: onStart, onTick: onTick, onResult: onResult,
