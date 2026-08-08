@@ -16,7 +16,7 @@ import { createRng } from '../server/engine/rng.js';
 import { applyCommand } from '../server/engine/commands.js';
 import { townOf, dist, generateWorldMap, terrainIndex, terrainAt } from '../server/engine/world.js';
 import { ensurePlayer } from '../server/engine/skills.js';
-import { isExplored, stampVisionDisc } from '../server/engine/fog.js';
+import { isExplored, stampVisionDisc, bumpGen } from '../server/engine/fog.js';
 import { trailsOf, trailViews } from '../server/engine/trails.js';
 import { buildWorldSnapshot } from '../server/engine/view.js';
 
@@ -66,17 +66,17 @@ function sceneWithMicro(key) {
  */
 function darken(nation, cx, cy, r) {
   const fog = nation.fog;
-  const arr = fog.mask.split('');
   const per = Math.ceil(fog.size / fog.chunk);
   for (let y = Math.max(0, cy - r); y <= Math.min(fog.size - 1, cy + r); y += 1) {
     for (let x = Math.max(0, cx - r); x <= Math.min(fog.size - 1, cx + r); x += 1) {
       if ((x - cx) ** 2 + (y - cy) ** 2 > r * r) continue;
-      arr[y * fog.size + x] = '0';
+      fog.mask[y * fog.size + x] = 0;   // ★ §21-A3 — 마스크는 이제 Uint8Array 다(제자리 쓰기)
       // 손으로 덮었으니 청크 지문도 함께 무르게 한다(안 그러면 도로 밝혀도 「안 바뀌었다」로 읽힌다)
       fog.chunkHash[Math.floor(y / fog.chunk) * per + Math.floor(x / fog.chunk)] = -1;
     }
   }
-  fog.mask = arr.join('');
+  // ★ §21-A3 — 손으로 주물렀으니 세대도 올린다(exploredRatio 캐시가 옛 값을 붙들지 않게)
+  bumpGen(fog);
 }
 
 // ────────────────────────────────────────────────────────────────

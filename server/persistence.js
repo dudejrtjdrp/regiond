@@ -8,6 +8,10 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // ★ Sprint 3 — 매직넘버 금지. 저장 다이얼도 data/world.json(simulation) 이 정본이다.
 import { loadGameData } from './engine/data.js';
+/* ★ §21-A3 — 안개 마스크는 런타임에서 Uint8Array 다. JSON 은 그것을 {"0":0,"1":0,…} 로 굳혀
+   파일을 열 배로 부풀리므로, **파일 경계에서만** 옛 문자열 포맷으로 갈아 끼운다.
+   덕분에 세이브 파일의 생김새는 이 작업 전과 한 글자도 다르지 않다(옛 세이브도 그대로 열린다). */
+import { packFogMasks, toRuntimeFog } from './engine/fog.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 /**
@@ -63,7 +67,7 @@ export function saveSnapshot(state, { historyEveryTicks = 7 } = {}) {
   const dir = ensureGameDir(state.gameId);
   const tmp = join(dir, 'snapshot.tmp.json');
   const target = join(dir, 'snapshot.json');
-  const json = JSON.stringify(state);
+  const json = JSON.stringify(packFogMasks(state));
   writeFileSync(tmp, json, 'utf8');
   renameSync(tmp, target);
   const hist = historyPath(dir, state, historyEveryTicks);
@@ -100,7 +104,7 @@ export async function saveSnapshotAsync(state, { historyEveryTicks = 7 } = {}) {
   const dir = ensureGameDir(state.gameId);
   const tmp = join(dir, 'snapshot.async.tmp.json');
   const target = join(dir, 'snapshot.json');
-  const json = JSON.stringify(state);
+  const json = JSON.stringify(packFogMasks(state));
   await writeFile(tmp, json, 'utf8');
   await rename(tmp, target);
   const hist = historyPath(dir, state, historyEveryTicks);
@@ -142,7 +146,14 @@ export const isDirty = (gameId) => pending.has(gameId);
 export function loadSnapshot(gameId) {
   const f = join(gameDir(gameId), 'snapshot.json');
   if (!existsSync(f)) return null;
-  try { return JSON.parse(readFileSync(f, 'utf8')); } catch { return null; }
+  try { return unpackFog(JSON.parse(readFileSync(f, 'utf8'))); } catch { return null; }
+}
+
+/** ★ §21-A3 — 읽기 쪽 짝. migrateWorld 도 같은 일을 하지만, 그쪽은 migrationRev 표를 보고
+ *  건너뛸 수 있다 — 파일에서 막 꺼낸 세상은 여기서 확실히 런타임 모양이 된다. */
+function unpackFog(state) {
+  for (const nation of Object.values(state?.nations || {})) toRuntimeFog(nation.fog);
+  return state;
 }
 
 /**
