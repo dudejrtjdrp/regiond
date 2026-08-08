@@ -26,6 +26,26 @@
    *   컷신이 끝나고 돌아오는 자리도 전부 이 식이 낸다. 세 곳이 달라서 "내렸는데 딴 데 있다"가 났었다.
    *   본부가 4×4 라 그 사각형 바깥(오른쪽 아래 모서리 옆)에 선다.
    */
+  function animateWalk(dt) {
+    var role = S.myRole && S.myRole();
+    var frameCount = role ? 9 : 2;
+    var running = GM.input && GM.input.keys && GM.input.keys.run;
+    /* 달리기는 같은 8방향 도트 시퀀스를 더 빠르게 재생해 기존 그림체를 유지한다. */
+    var interval = role ? (running ? 0.055 : 0.1) : (running ? 0.11 : 0.17);
+    me.ft += dt;
+    if (me.ft > interval) { me.ft = 0; me.frame = (me.frame + 1) % frameCount; }
+  }
+
+  function facing(dx, dy) {
+    var role = S.myRole && S.myRole();
+    if (!role) return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 2 : 1) : (dy > 0 ? 0 : 3);
+    var ax = Math.abs(dx), ay = Math.abs(dy);
+    if (ax > ay * 2) return dx > 0 ? 6 : 2;
+    if (ay > ax * 2) return dy > 0 ? 0 : 4;
+    if (dx > 0) return dy > 0 ? 7 : 5;
+    return dy > 0 ? 1 : 3;
+  }
+
   function startPos(town) {
     var t = town || S.myTown();
     if (!t) return null;
@@ -94,12 +114,38 @@
     return walkTable.map;
   }
 
+  function waterMargin(x, y) {
+    var m = S.S.map;
+    if (!m || !m.codes) return false;
+    var cx = Math.round(x), cy = Math.round(y);
+    for (var dy = -1; dy <= 1; dy += 1) for (var dx = -1; dx <= 1; dx += 1) {
+      var nx = cx + dx, ny = cy + dy;
+      if (nx >= 0 && ny >= 0 && nx < m.size && ny < m.size && m.codes[m.terrain[ny * m.size + nx]] === 'water') return true;
+    }
+    return false;
+  }
+
+  /* Buildings use their full placement footprint for movement as well as drawing. */
+  function structureBlocks(x, y) {
+    var cx = Math.round(x), cy = Math.round(y);
+    var list = S.structures ? S.structures() : [];
+    for (var i = 0; i < list.length; i++) {
+      var b = list[i];
+      if ((b.key || b.building) === 'campfire') continue;
+      var f = S.footprintOfThing ? S.footprintOfThing(b) : { w: 1, h: 1 };
+      if (cx >= b.x && cx < b.x + f.w && cy >= b.y && cy < b.y + f.h) return true;
+    }
+    return false;
+  }
+
   function walkable(x, y) {
+    if (structureBlocks(x, y)) return false;
     var code = S.terrainKey(Math.round(x), Math.round(y));
     if (!code) return false;
-    if (walkableCodes()[code] === 1) return true;
+    if (code === 'water') return S.onBridge(x, y) || S.onFill(x, y);
+    if (waterMargin(x, y)) return false;
     /* ★ §17-13 — 다리·매립 위의 물은 길이다. 사람만 — 짐승과 적은 서버가 그대로 막는다. */
-    return code === 'water' && (S.onBridge(x, y) || S.onFill(x, y));
+    return walkableCodes()[code] === 1;
   }
 
   /* ★ §19-F2(F07-1) 땅의 무게 — 진창은 발을 물고 소금 판은 미끄럽다.
@@ -122,7 +168,15 @@
     var charm = (e && e.effects && e.effects.moveSpeed) || 0;
     /* ★ GDD3 §14-5 — 민첩 한 점이 걸음을 3% 빠르게 한다(서버가 낸 값을 그대로 쓴다) */
     var agility = (p && p.progress && p.progress.effects && p.progress.effects.moveSpeed) || 1;
-    return 4.6 * (1 + bonus * 0.6) * (1 + charm) * agility * ground();
+    var running = GM.input && GM.input.keys && GM.input.keys.run;
+    /* ★ §20-R4b — 유물의 걸음(폭풍의 망토·바람의 깃). 서버가 you.clientStats 에 이미 얹어 두었는데
+       아무도 안 읽고 있었다. state.js 에 접근자가 없어 여기서 방어적으로 읽는다(그 파일은 다른 트랙 몫).
+       웨이브 중에는 망토가 한 겹 더 붙는다 — 최전선 스윙이 이 유물이 파는 값이다.
+       유물이 없으면 move 가 0 이라 (1+move)=1 — 곱해도 지금 걸음이 한 톨도 달라지지 않는다. */
+    var relic = ((S.you && S.you()) || {}).clientStats || {};
+    var w = S.wave ? S.wave() : null;
+    var move = (relic.moveSpeed || 0) + ((w && w.active) ? (relic.moveSpeedWave || 0) : 0);
+    return 4.6 * (1 + bonus * 0.6) * (1 + charm) * agility * ground() * (running ? 1.55 : 1) * (1 + move);
   }
 
   /**
@@ -149,9 +203,8 @@
     if (d > 12) { me.x = srv.x; me.y = srv.y; reveal(true); return; }   // 부활 등으로 멀리 옮겨졌다
     var k = Math.min(1, (speed() * 1.25 * dt) / d);
     me.x += dx * k; me.y += dy * k;
-    me.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 2 : 1) : (dy > 0 ? 0 : 3);
-    me.ft += dt;
-    if (me.ft > 0.17) { me.ft = 0; me.frame = me.frame ? 0 : 1; }
+    me.dir = facing(dx, dy);
+    animateWalk(dt);
     reveal(false);
   }
 
@@ -229,12 +282,11 @@
       else if (dest) repath();
       me.x = U.clamp(me.x, 0, S.mapSize() - 1);
       me.y = U.clamp(me.y, 0, S.mapSize() - 1);
-      me.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 2 : 1) : (dy > 0 ? 0 : 3);
+      me.dir = facing(dx, dy);
     }
     var moving = (me.x !== px0 || me.y !== py0);
     if (moving) {
-      me.ft += dt;
-      if (me.ft > 0.17) { me.ft = 0; me.frame = me.frame ? 0 : 1; }
+      animateWalk(dt);
     } else if (!GM.swing || !GM.swing.busy()) {
       me.frame = 0;
     }
@@ -257,7 +309,10 @@
       지나온 칸의 안개도 함께 건너뛴다(revealAvatar 가 보고받은 칸에만 도장을 찍는다). */
   function reportEveryMs() {
     var w = S.worldCfg();
-    return (w && w.avatar && w.avatar.moveReportMs) || 220;
+    var base = (w && w.avatar && w.avatar.moveReportMs) || 220;
+    var running = GM.input && GM.input.keys && GM.input.keys.run;
+    /* 달릴 때도 한 번에 보내는 타일 간격은 걷기와 비슷하게 유지한다. */
+    return running ? Math.round(base / 1.55) : base;
   }
 
   /** 저빈도 위치 보고 — 걸음마다 보내지 않는다 */
@@ -338,7 +393,7 @@
   }
   function faceTo(x, y) {
     var dx = x - me.x, dy = y - me.y;
-    me.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 2 : 1) : (dy > 0 ? 0 : 3);
+    me.dir = facing(dx, dy);
   }
   /** 기차 위의 한 걸음 — 받은 자리로 부드럽게 다가간다(튀지 않게) */
   function rideStep(dt) {

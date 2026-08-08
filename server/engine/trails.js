@@ -17,6 +17,8 @@ import { deposit } from './storage.js';
 import { ensurePlayer, playerMaxHp } from './skills.js';
 import { spawnResident } from './residents.js';
 import { round2 } from './economy.js';
+// ★ §20-R4b — 사슬의 끝에서 유물이 나온다(유물기획 §20-9 「단서 사슬 결말」). 지급 규칙은 저쪽 한 벌.
+import { grantVia, artifactFoundEvent } from './artifacts.js';
 
 export const trailsCfg = (data) => data.trails ?? null;
 
@@ -224,6 +226,7 @@ function growRing(world, data, ring) {
   return ctx.out.length;
 }
 
+
 /** 이어 붙일 번호 — 옛 목록의 가장 큰 번호 다음. 같은 id 가 둘이면 조사가 엉뚱한 것을 연다. */
 function nextTrailId(list) {
   const max = list.reduce((m, t) => Math.max(m, Number(String(t.id).slice(2)) || 0), 0);
@@ -428,8 +431,25 @@ function applyReward(a, reward) {
   const healed = heal(a.nation, a.data, a.who, reward.heal ?? 0) - hurt(a, reward.damage ?? 0);
   const node = spawn(a.world, a.t, a.data, reward.spawnNode);
   const joined = join(a, reward.villager ?? 0);
+  const artifact = grantTrailArtifact(a, reward.artifact);
   if (reward.chronicle) chronicle(a.world, { ...reward.chronicle, data: { trail: a.t.key } }, a.data);
-  return { gained, morale, healed, node: node ? { id: node.id, type: node.type } : null, joined };
+  return { gained, morale, healed, node: node ? { id: node.id, type: node.type } : null, joined, artifact };
+}
+
+/**
+ * ★ §20-R4b — 결말이 내주는 유물. 「왜」 굴림을 여기서 짓나 — 이 파일의 규율 ②(월드 난수 불침범)다.
+ * 흔적마다 제 수열을 쓰므로(`씨앗:trail:artifact:<흔적id>`) 같은 지도의 같은 결말은 언제 열어도
+ * 같은 것을 낸다. 확정 지급(전설)은 확률을 안 굴리므로 난수를 아예 건드리지 않는다.
+ * 발견 이벤트(연출·기록)는 여기서 만들어 ack 에 실어 보낸다 — 궤·유적 카드와 같은 모양이다.
+ */
+function grantTrailArtifact(a, spec) {
+  if (!spec) return null;
+  const rng = statRng(`${a.world.seed}:trail:artifact:${a.t.id}`);
+  const def = grantVia(a.world, a.nation, a.data, rng, spec, a.world.tick);
+  if (!def) return null;
+  const found = artifactFoundEvent(a.world, a.nation, def.key, 'trail', a.data,
+    { avatarId: a.who ?? null, pos: { x: a.t.x, y: a.t.y } });
+  return { key: def.key, name: def.name, grade: def.grade, desc: def.desc, event: found };
 }
 
 /**
@@ -507,5 +527,16 @@ function talk(a, lines, choices, extra = {}) {
     done: Boolean(a.t.done),
     ready: trailReady(a.world, a.data, a.t),
     ...extra,
+    /* ★ §20-R4b — 유물이 나왔으면 발견 이벤트를 **명령 결과의 events 로** 올린다. 화면 연출(빛기둥·
+       카드)과 전역 알림이 궤·유적 카드와 같은 길을 타야 한다 — 사슬만 다른 문으로 들어오면
+       연출 계층이 갈래마다 갈라진다. artifact 안의 event 는 빼고 사실만 남긴다. */
+    ...artifactAck(extra.artifact),
   };
+}
+
+/** 발견 이벤트를 ack 의 events 로 옮긴다(사실은 artifact 에, 알림은 events 에). */
+function artifactAck(found) {
+  if (!found) return {};
+  const { event, ...fact } = found;
+  return { artifact: fact, ...(event ? { events: [event] } : {}) };
 }

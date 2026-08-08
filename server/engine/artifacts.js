@@ -668,3 +668,41 @@ export function speciesDamageMultiplier(nation, speciesKey) {
   const kills = nation.codex?.species?.[speciesKey]?.kills || 0;
   return 1 + Math.min(s.cap || 0, (s.perKill || 0) * kills);
 }
+
+/**
+ * ★ §20-R4b — 「경로가 유물을 낸다」의 공용 문. 사슬 결말·유적 카드·고대 신전·국가 이벤트가
+ * 전부 이 하나를 지난다. 두 가지를 받는다:
+ *   · `key` — 확정 지급(전설이 여기로 온다: §20-4 「판정도 확정이다」)
+ *   · `via` — 그 태그를 적은 것 중에서 하나(dropPool 이 이미 방 유일·보유분을 걸러 준다)
+ * 「왜」 여기 두나 — 부르는 자리가 넷인데 각자 dropPool 을 조립하면 「이미 가진 것을 또 준다」
+ * 「이 방에서 나온 전설이 또 나온다」 같은 어긋남이 한 자리에서만 고쳐지지 않는다.
+ * 난수는 부른 쪽이 쥔다(사슬은 statRng, 유적 카드는 월드 rng) — 여기서 새로 짓지 않는다.
+ * @returns {object|null} 지급된 정의(def). 못 주면 null.
+ */
+export function grantVia(world, nation, data, rng, spec, tick) {
+  if (!spec) return null;
+  const chance = spec.chance ?? 1;
+  if (chance < 1 && !rng.chance(chance)) return null;
+  let key = spec.key ?? null;
+  if (!key) {
+    /* 등급표(55/32/8/5)의 **모양은 지키되**, 후보가 없는 등급은 셈에서 뺀다.
+       「왜」 그냥 한 줄로 섞지 않나 — 신전 풀은 고유 2·전설 2 뿐이라 고르게 섞으면 전설이 절반이
+       된다. 등급표를 다시 정규화하면 「전설은 드물다」가 풀이 좁아져도 살아남는다.
+       「왜」 grantRandomArtifact 를 안 쓰나 — 그쪽은 등급을 먼저 굴리고 나서 거르기 때문에
+       그 등급에 후보가 없으면 빈손으로 끝난다(신전이 그래서 열 번에 여덟 번 비었다). */
+    const cfg = data.balance.artifacts.gradeWeights;
+    const byGrade = Object.keys(cfg)
+      .map((grade) => ({ grade, pool: dropPool(world, nation, data, grade, spec.via) }))
+      .filter((g) => g.pool.length);
+    if (!byGrade.length) return null;
+    const grade = byGrade.length === 1 ? byGrade[0].grade
+      : rng.weighted(byGrade.map((g) => ({ value: g.grade, weight: cfg[g.grade] ?? 1 })));
+    key = rng.pick(byGrade.find((g) => g.grade === grade).pool).key;
+  }
+  const def = data.artifactsByKey[key];
+  if (!def) return null;
+  // 확정 지급이라도 이미 가졌거나 이 방에서 나온 전설이면 조용히 접는다 — 두 번 주지 않는다.
+  if ((nation.artifacts || []).some((a) => a.key === key)) return null;
+  if (def.exclusive === 'room' && world?.artifactRegistry?.[key]) return null;
+  return grantArtifact(nation, key, tick, data) ? def : null;
+}

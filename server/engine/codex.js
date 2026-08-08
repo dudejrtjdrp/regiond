@@ -143,12 +143,20 @@ export function artifactCodexView(world, nation, data) {
 function artifactCard(def, reg, own, data) {
   const tier = own ? (own.foundDate ? 3 : 2) : (reg ? 1 : 0);
   const g = data.artifacts.grades[def.grade] ?? {};
+  /* ★ §20-R4b — 저주와 세트는 **0층에서도** 보인다. 「몰래 나쁜 것 금지」(§20-6)는 가지기 전에도
+     지켜야 하고, 세트는 「몇 조각짜리를 모으는 중인가」가 곧 목표라 실루엣에도 붙어야 한다.
+     이름·효과·이야기는 여전히 층이 열려야 나온다 — 새는 것은 없다. */
   const card = { key: def.key, grade: def.grade, category: def.category, type: def.type,
-                 color: g.color ?? null, tier };
+                 color: g.color ?? null, tier,
+                 curse: Boolean(def.curse),
+                 setKey: def.setKey ?? null,
+                 setName: def.setKey ? (data.artifacts.sets?.[def.setKey]?.name ?? null) : null,
+                 exclusive: def.exclusive ?? null };
   if (tier === 0) return { ...card, hint: def.hint ?? null };
   card.name = def.name;
   if (own) Object.assign(card, { desc: def.desc, lore: def.lore ?? null, owned: true,
-    consumed: Boolean(own.consumed), chargesLeft: own.chargesLeft ?? null });
+    consumed: Boolean(own.consumed), chargesLeft: own.chargesLeft ?? null,
+    sealed: Boolean(own.sealed), planted: own.planted ?? null });
   if (reg) card.record = artifactRecord(reg, own);
   return card;
 }

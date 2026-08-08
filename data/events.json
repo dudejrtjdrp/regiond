@@ -90,7 +90,9 @@
         "followUp": {
           "afterTicks": 2,
           "text": "새 국왕이 조약을 청했다 — 옛 인연을 기려, 곡물을 후한 값에 사들이겠다 한다.",
-          "specialOffer": { "nationId": "ai3", "side": "sell", "resource": "grain", "amount": 60, "premium": 0.3, "relBonus": 15, "expiryTicks": 2 }
+          "specialOffer": { "nationId": "ai3", "side": "sell", "resource": "grain", "amount": 60, "premium": 0.3, "relBonus": 15, "expiryTicks": 2 },
+          "_artifactNote": "★ §20-R4b — 이 조약에 응한 나라가 기관장의 인장을 받는다(유물기획 §20-9 「국가 이벤트 보상」). 「이벤트가 났다」가 아니라 **손을 보탰다**가 조건이라 특가 성사 자리에서 준다 — relations.onSpecialOfferDone.",
+          "artifact": { "key": "stationmasters_sigil" }
         }
       },
       {

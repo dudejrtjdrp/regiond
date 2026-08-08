@@ -7,6 +7,8 @@ import {
   // ★ §20-R4(유물기획 §20-11) — 유물이 세계에 손을 대는 세 가지. 판정은 전부 저쪽에 있고
   //   여기는 인자를 재고 넘길 뿐이다(명령 계층은 얇게, 규칙은 도메인에).
   sealArtifact, plantArtifact, pickTyrantRole,
+  // ★ §20-R4b — 국가 이벤트 보상도 같은 문을 쓴다
+  grantVia,
 } from './artifacts.js';
 import { resolveTempleChoice } from './temple.js';   // ★ §20-R4b — 고대 신전의 세 단
 import { localPrice, importPrice, exportPrice, round2, clamp } from './economy.js';
@@ -1024,7 +1026,17 @@ function runCommand(world, nationId, cmd, data, rng) {
         // ★ §세계관 W4 — 특수 제안의 단가 보정·관계 웃돈은 서버 내부에서만 채워진다
         _offerAdj: offer.special?.adj || 0, _relBonus: offer.special?.relBonus || 0,
       }, data, rng);
-      return res.ok ? ok({ accepted: true, offerId: offer.offerId, ...res }) : res;
+      if (!res.ok) return res;
+      /* ★ §20-R4b — 거들었으면 몫이 있다(유물기획 §20-9 「국가 이벤트 보상」). 「이벤트가 났다」가
+         아니라 **손을 보탰다**가 조건이다 — 기관장의 인장의 hint 가 「손을 보태 준 나라의 몫」이라
+         적었으므로 성사 자리에서만 준다. 이미 가졌거나 이 방에서 나온 전설이면 grantVia 가 접는다. */
+      const relic = offer.special?.artifact
+        ? grantVia(world, nation, data, rng, offer.special.artifact, world.tick) : null;
+      const relicEvents = relic
+        ? [artifactFoundEvent(world, nation, relic.key, 'event', data, { avatarId: cmd.avatarId ?? null })] : [];
+      return ok({ accepted: true, offerId: offer.offerId, ...res,
+        artifact: relic ? { key: relic.key, name: relic.name, grade: relic.grade } : null,
+        events: [...(res.events || []), ...relicEvents] });
     }
     /* ── ★ §세계관 W3 — 초대장을 연다(매듭형 엔딩). 이야기(엔딩·크레딧·쿠키)는 ending_started
        사건을 본 story.js 가 얹는다. 웨이브 당일·중복 열기는 ending.js 가 막는다. */

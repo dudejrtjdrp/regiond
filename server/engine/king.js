@@ -2,9 +2,9 @@
 // ★ v2: 대상이 타일 인덱스가 아니라 월드의 노드/일자리 id 다. 계약(AP 비용·쿨다운·효과)은 그대로 재사용한다.
 // 섭정(오프라인)은 AP를 쓰지 않는다: AP는 '접속한 사람만 얻는 보너스'이고,
 // 시뮬 체크포인트는 AP 미사용 기준으로 유지된다(§C-1).
-import { grantArtifact, dropPool } from './artifacts.js';
+import { grantArtifact, dropPool, grantVia } from './artifacts.js';
 import { round2 } from './economy.js';
-import { nodeById, townOf, territoryRadius, dist } from './world.js';
+import { nodeById, townOf, territoryRadius, dist, terrainNameAt } from './world.js';
 import { templeCard } from './temple.js';   // ★ §20-R4b — 자취가 신전이면 게이지 대신 신전이 선다
 import {
   resolveTarget, isHarvestReady, markHarvestCycle, fieldStage, fieldStageView,
@@ -97,7 +97,7 @@ export function performApAction(world, nation, cmd, data, rng) {
         (nation.decisionQueue ||= []).push({ ...card, createdTick: world.tick });
       } else if (nation.ruinGauge >= data.ruins.gaugeThreshold) {
         nation.ruinGauge = 0;
-        card = openRuinCard(world, nation, data, rng);   // 이 문이 제 손으로 큐에 넣는다
+        card = openRuinCard(world, nation, data, rng, target.node ?? null);   // 이 문이 제 손으로 큐에 넣는다
       }
       if (card) events.push({ kind: 'ruin_event', nationId: nation.id, data: { card } });
       return { ok: true, ap: { ...ap }, action: 'explore', nodeId: target.id, ruinGauge: nation.ruinGauge, card, events };
@@ -161,8 +161,12 @@ export { isHarvestReady, markHarvestCycle, fieldStage, fieldStageView };
 // ────────────────────────────────────────────────────────────────
 // 유적 카드 (§C-4) — 규칙 그대로
 // ────────────────────────────────────────────────────────────────
-export function openRuinCard(world, nation, data, rng) {
-  const def = rng.pick(data.ruins.cards);
+export function openRuinCard(world, nation, data, rng, node = null) {
+  /* ★ §20-R4b — 땅이 카드를 바꾼다(설산 유적 → 「얼음 밑 돌무지」, ruin:snow 풀이 열린다).
+     ⚠ 뽑기는 **언제나** 한다. `?? rng.pick(...)` 로 쓰면 단락 평가 때문에 난수를 한 톨 덜 쓰고,
+     설산 유적을 한 번 연 판은 그 뒤 모든 굴림이 밀린다(회귀로 붙들었다). 뽑은 뒤에 덮어쓴다. */
+  const picked = rng.pick(data.ruins.cards);
+  const def = biomeCardFor(world, data, node) ?? picked;
   const decisionId = `ruin_${nation.id}_${world.tick}_${def.id}`;
   const card = {
     decisionId,
@@ -201,7 +205,13 @@ export function resolveRuinChoice(world, nation, decision, choice, data, rng) {
              카드를 여는 이 자리가 그것을 읽지 않았다: 「죽은 자의 성채」를 스무 번 두드려도
              나오는 물건의 급이 「옛 자취」와 똑같았다. 여기서 넘겨 쓰고 **쓴 즉시 0 으로 되돌린다**
              (한 번 쌓은 보정은 한 번의 굴림에만 얹힌다 — 안 그러면 성채 하나로 영영 후해진다). */
-          artifact = grantRandomArtifact(nation, data, rng, world.tick, consumeRuinGradeBoost(nation), { world, via: 'ruin' });
+          /* ★ §20-R4b — 카드가 제 풀을 적었으면 그것으로 굴린다(봉분의 금기·제단의 이름 부르기·
+             얼음 밑 돌무지). 안 적은 카드는 예전 그대로 'ruin' 이라 열두 장의 옛 굴림은 안 바뀐다.
+             제 풀에는 등급 보정을 얹지 않는다 — 그 풀은 등급이 아니라 **경로**로 좁힌 명단이라
+             거기에 보정을 또 밀면 「금기 한 번에 전설」이 된다. */
+          artifact = out.via
+            ? grantVia(world, nation, data, rng, { via: out.via }, world.tick)
+            : grantRandomArtifact(nation, data, rng, world.tick, consumeRuinGradeBoost(nation), { world, via: 'ruin' });
           lines.push(artifact ? `${out.successText} (${artifact.name})` : out.successText);
           applied.push(artifact ? `artifact:${artifact.key}` : 'artifact:none');
         } else {
@@ -280,4 +290,18 @@ export function grantRandomArtifact(nation, data, rng, tick, gradeBoost = 0, opt
   if (!entry) return null;
   const def = data.artifactsByKey[pickKey];
   return { key: def.key, name: def.name, grade: def.grade };
+}
+
+
+/**
+ * ★ §20-R4b — 땅이 카드를 바꾼다. 설산 위 유적은 「얼음 밑 돌무지」가 되고 그 카드만 ruin:snow
+ * 풀(테라의 주춧돌)을 연다. 변주가 없는 땅이면 null 이라 옛 뽑기가 그대로 굴러간다.
+ * 「왜」 굴림에 후보를 안 늘리나 — 늘리면 같은 씨앗이 다른 카드를 뽑아 옛 판이 통째로 밀린다.
+ * 땅은 이미 정해진 사실이라 굴릴 것이 없다.
+ */
+function biomeCardFor(world, data, node) {
+  const table = data.ruins.biomeCards;
+  if (!table || !node || node.x == null) return null;
+  const code = terrainNameAt(world.map, Math.round(node.x), Math.round(node.y), data);
+  return table[code] ?? null;
 }

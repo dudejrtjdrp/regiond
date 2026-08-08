@@ -175,10 +175,27 @@
     box.appendChild(U.el('div', 'relic-name', r.tier === 0 ? '？？？' : r.name));
     box.appendChild(U.el('div', 'relic-grade', S.gradeInfo(r.grade).name + ' · ' + catName(r.category)));
     if (r.tier === 0) box.appendChild(U.el('p', 'relic-hint', r.hint || '이 세계 어딘가에 있습니다.'));
+    /* ★ §20-R4b — 세트 뱃지(§20-5). 「왜」 도감에 다나 — 조각을 모으는 일은 하나를 얻은 뒤에
+       시작되는 목표라, 「이것이 어느 벌의 한 짝인가」를 카드가 스스로 말해야 한다.
+       서버가 아직 이 칸을 안 실을 수 있으므로 **오면 그리고 안 오면 아무것도 그리지 않는다**(§11-1). */
+    if (r.setName || r.setKey) box.appendChild(U.el('div', 'relic-grade', '세트: ' + (r.setName || r.setKey)));
+    /* ★ §20-R4b — 저주는 도감에서도 유물함과 같은 시각 언어로 보인다(§20-6 「몰래 나쁜 것 금지」).
+       main.css 는 다른 트랙의 몫이라 클래스만 얹고 검은 균열은 인라인으로 그린다. */
+    if (r.curse || r.cursed) markCursed(box);
     if (r.desc) box.appendChild(U.el('div', 'relic-desc', r.desc));
     if (r.lore) box.appendChild(U.el('p', 'relic-lore', r.lore));
     if (r.record) box.appendChild(relicRecord(r));
     return box;
+  }
+
+  /** ★ §20-R4b — 저주 표기. 유물함(artifacts.js curseOverlay)과 같은 균열·같은 붉은 글씨를 쓴다:
+      두 화면이 다른 말을 하면 「이것이 나쁜 것인가」를 다시 판단하게 된다. */
+  function markCursed(box) {
+    box.classList.add('cursed');
+    box.style.boxShadow = 'inset 0 0 0 2px rgba(18,8,22,.6), inset 0 -18px 24px -16px #120816';
+    var w = U.el('div', 'relic-desc cursed-note', '저주 — 값을 치르는 힘입니다.');
+    w.style.color = '#7c2b34';
+    box.appendChild(w);
   }
 
   /** 도트 자리 — 미발견은 실루엣(등급색으로만 보인다). 에셋이 오면 그림만 갈아 끼운다. */

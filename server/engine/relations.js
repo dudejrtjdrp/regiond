@@ -173,7 +173,10 @@ function pushSpecialOffer(world, data, spec) {
     side: spec.side, resource: spec.resource, amount: spec.amount,
     price: round2(base * (1 + adj)),
     expiresTick: world.tick + (spec.expiryTicks ?? 2),
-    special: { adj, relBonus: spec.relBonus ?? 0 },
+    /* ★ §20-R4b — 이 제안에 **응한** 나라가 받는 것(유물기획 §20-9 「국가 이벤트 보상」).
+       「왜」 이벤트가 났을 때가 아니라 성사될 때인가 — 기관장의 인장의 hint 가 「손을 보태 준
+       나라의 몫」이라고 적었다. 사건을 구경한 값이 아니라 **거든 값**이어야 그 문장이 참이 된다. */
+    special: { adj, relBonus: spec.relBonus ?? 0, artifact: spec.artifact ?? null },
   });
 }
 
@@ -239,6 +242,8 @@ function scheduleFollowUp(world, def) {
   const f = def.followUp;
   (world.natEvState ||= { queue: [], fired: {} }).queue.push({
     fireTick: world.tick + (f.afterTicks ?? 1),
-    def: { id: `${def.id}_after`, name: def.name, text: f.text, effects: f.effects, specialOffer: f.specialOffer },
+    def: { id: `${def.id}_after`, name: def.name, text: f.text, effects: f.effects,
+      // ★ §20-R4b — 뒷일에 걸린 유물은 그 뒷일의 제안에 실어 보낸다(성사 자리에서 준다)
+      specialOffer: f.specialOffer ? { ...f.specialOffer, artifact: f.artifact ?? null } : undefined },
   });
 }

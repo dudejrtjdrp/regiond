@@ -291,8 +291,11 @@ export function publicArtifacts(d = loadGameData()) {
   const a = d.artifacts;
   return {
     grades: structuredClone(a.grades),
+    /* ★ §20-R4b — `curse` 를 한 칸 연다. 「몰래 나쁜 것 금지」(§20-6)를 지키려면 화면이 **가지기 전에도**
+       저주 표기를 그릴 수 있어야 한다 — 도감 0층의 실루엣에도 검은 균열이 서야 「값을 치르는 힘」이
+       목표가 된다. 이름·효과·lore·hint 는 여전히 잠겨 있다(그것이 도감이 여는 것이다). */
     list: a.list.map((x) => ({ key: x.key, grade: x.grade, category: x.category,
-                               type: x.type, role: x.role ?? null })),
+                               type: x.type, role: x.role ?? null, curse: Boolean(x.curse) })),
   };
 }
 

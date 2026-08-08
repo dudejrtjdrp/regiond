@@ -382,6 +382,40 @@ codex.artifacts = { crownGrade: "legendary", totals:{found,owned,total},
 `artifact_global`(§20-R2) · 도감 4단(§20-R3) · `publicArtifacts()` 의 정보 비대칭(이름·효과·lore·hint 비공개).
 
 
+### 0-U-15. R4d — **나머지 길**: 사슬 결말 · 땅의 변주 · 국가 이벤트 보상 (docs/유물기획.md §20-9)
+
+§0-U-13(고대 신전)이 `temple` 계열을 열었지만, 그때까지도 신규 21종 중 **열셋은 갈 길이 없었다**.
+이 절이 그 나머지를 연다. **판번호·세이브 포맷·명령 모두 무변경** — 자료 낱말 하나와 기존 명령의
+ack 확장뿐이다.
+
+| 자리 | 계약 |
+|---|---|
+| `data/trails.json` 결말 보상 | 낱말 **`artifact`** 신설 — `{key}`(확정, 전설이 이리로) 또는 `{via, chance?}`(풀 뽑기) |
+| `investigateTrail` ack | `artifact:{key,name,grade,desc}` 가 실릴 수 있고, 그때 `events` 에 `artifact_found` 가 함께 온다 |
+| `data/ruins.json` 카드 | `outcomes[].via` — 그 선택지만 여는 풀(봉분의 금기 → `ruin:barrow`, 제단의 이름 부르기 → `ruin:altar`) |
+| `data/ruins.json` **`biomeCards`** | 땅별 카드 변주. 설산 유적은 「얼음 밑 돌무지」가 되고 `ruin:snow` 를 연다 |
+| `data/events.json` | 국가 이벤트 `followUp.artifact` — 그 **특가 제안에 응한** 나라가 받는다 |
+| `acceptOffer` ack | 같은 모양으로 `artifact` + `events` 가 실릴 수 있다 |
+| 뷰 | `nation.artifacts[]` 에 `curse`·`setKey`, `planted.max`(총 단계) |
+| 도감 카드 | `curse`·`setKey`·`setName`·`exclusive` 가 **0층에서도** 실린다 — 가지기 전에도 저주 표기·세트 진행이 보여야 목표가 된다. 이름·효과·이야기는 여전히 층이 열려야 나온다 |
+| `/api/config` | `artifacts.list[].curse` 한 칸만 열었다(§20-6 「몰래 나쁜 것 금지」는 가지기 전에도 지켜야 한다) |
+| `public/js/avatar.js` | `you.clientStats.moveSpeed`/`moveSpeedWave` 를 **드디어 읽는다**(§0-U-11 이 실어만 두었던 칸) |
+
+**공용 문 `grantVia(world, nation, data, rng, spec, tick)`** — 사슬·유적 카드·신전·국가 이벤트가 전부
+이 하나를 지난다. 이미 가진 것·이 방에서 나온 전설(`exclusive:"room"`)은 조용히 접는다.
+후보가 있는 등급만 남겨 **등급표(55/32/8/5)를 다시 정규화**한다 — 풀이 좁아져도 「전설은 드물다」가 산다
+(등급을 먼저 굴리고 거르면 좁은 풀은 열 번에 여덟 번 빈손으로 끝난다).
+
+**결정론 — 이 절에서 지킨 것**
+- 유적 카드 뽑기는 **언제나 한 번**. 땅의 변주는 뽑은 **뒤에** 바꿔치기한다 — `?? rng.pick(...)` 로 쓰면
+  단락 평가 때문에 난수를 한 톨 덜 쓰고, 설산 유적을 한 번 연 판은 그 뒤 모든 굴림이 밀린다(회귀가 잡았다).
+- `cards` 는 **12장 붙박이**, 모든 카드의 **마지막 옵션은 `leave`** — 시뮬 봇이 늘 `reject` 를 보내고
+  엔진이 마지막 옵션으로 물러서기 때문이다. 새 선택지는 반드시 그 앞에 낀다.
+- `data/trails.json` 의 `micro` 배열은 **한 항목도 못 늘린다**(가중 순서 뽑기라 목록 길이가 차례를 바꾼다).
+  그래서 `micro:jungle`(아쿠아의 물방울)은 `chain:jungle` 로 옮겼다.
+- 사슬의 유물 굴림은 statRng `` `<seed>:trail:artifact:<흔적id>` `` — 월드 난수 불침범.
+- 실측: 시드42 시뮬 출력이 이 절 이전과 **완전 동일**.
+
 ### 0-U-13. R4b·R4c — **고대 신전**과 유물함의 손잡이들 (docs/유물기획.md §20-9 · §20-3·6)
 
 **판번호를 올리지 않는다. 필드는 더하기만 했다.** 정본은 `data/ruins.json temple` + `server/engine/temple.js`.
