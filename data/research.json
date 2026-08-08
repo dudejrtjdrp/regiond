@@ -1,8 +1,35 @@
 {
   "_note": "★ GDD3 §13-D-5 — 기술 트리. 본부 [연구] 탭에서 하나씩 붙든다. 여는 문은 셋: ① 정착지 티어 ② 선행 연구 ③ 값(골드+자원). 값은 착수할 때 한 번에 치르고, 그날부터 days 게임일이 지나야 끝난다 — 한 번에 하나만 붙든다. 잠긴 연구도 **목록에서 사라지지 않는다**: 조건 가시화 원칙(§12-3)대로 빨강으로 무엇이 얼마나 모자란지 적어 둔다. 티어 문턱은 tiers.json 의 인구 조건과 맞물린다(4=읍 25명 · 5=도시 45명 · 6=왕도 70명).",
-  "order": ["coal_mining", "steam_engine", "railway", "refining", "bridgeworks", "landfill", "agronomy", "masonry", "city_planning", "internal_combustion"],
+  "order": ["coal_mining", "steam_engine", "railway", "refining", "bridgeworks", "landfill", "agronomy", "masonry", "city_planning", "internal_combustion", "tidy_stores", "whetstone"],
   "_orderNote": "★ Sprint 4 — 외길 2줄이던 트리에 갈래를 넣었다: 농정술·석공술은 선행 없는 **병렬 선택지**(산업이냐 살림이냐), 도시 계획은 「기술이 땅을 넓힌다」(territoryBonus — 6티어 이후 영토 성장이 완만해진 몫을 기술이 잇는다), 내연기관은 7티어+ 엔드리스의 첫 목표다. order 는 자동 플레이의 우선순위이기도 하다(playtest15c 계약) — 새 갈래는 산업 사슬 뒤에 둔다.",
+  "_earlyNote": "★ §21-C2 — 연구가 4장(개척촌)부터 열린다. 그전까지 연구표의 첫 문(석탄 채굴)은 티어 4 였고, 그래서 주민을 기다리는 4~5장의 손이 완전히 비어 있었다. 곳간 정리·숫돌은 **금화 없이 손에 있는 것만으로** 붙드는 티어 1~2 가지다 — 값이 아니라 하루를 치르고, 소소한 채집 %로 그 기다림을 메운다. 산업 사슬 앞에 끼워 넣지 않고 order 맨 뒤에 둔 까닭: order 는 자동 플레이의 우선순위이므로, 앞에 넣으면 후반 자동 플레이가 다 끝난 잔가지를 먼저 붙들려 든다.",
   "defs": {
+    "tidy_stores": {
+      "name": "곳간 정리",
+      "line": "쌓는 자리를 정하니 흘리는 것이 준다.",
+      "desc": "주민의 곡물 채집이 8% 는다.",
+      "requiresTier": 1,
+      "requires": [],
+      "field": "land",
+      "days": 1,
+      "gold": 0,
+      "cost": { "wood": 40 },
+      "effects": { "gatherBonus": { "grain": 0.08 } },
+      "unlocks": {}
+    },
+    "whetstone": {
+      "name": "숫돌",
+      "line": "날을 세우고 나면 같은 팔로 두 번 벤다.",
+      "desc": "주민의 목재·석재 채집이 각각 8% 는다.",
+      "requiresTier": 2,
+      "requires": [],
+      "field": "land",
+      "days": 1,
+      "gold": 0,
+      "cost": { "stone": 40, "wood": 20 },
+      "effects": { "gatherBonus": { "wood": 0.08, "stone": 0.08 } },
+      "unlocks": {}
+    },
     "coal_mining": {
       "name": "석탄 채굴",
       "line": "검은 돌이 오래 탄다는 것을 알아냈다.",

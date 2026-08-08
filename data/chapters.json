@@ -243,6 +243,7 @@
       "key": "first_neighbor",
       "name": "첫 이웃",
       "subtitle": "혼자가 아니다",
+      "_opensNote": "★ §21-C2 — 연구를 여기서 연다. 첫 주민을 기다리는 동안 사람의 손이 완전히 비어 있었다(빈 잠자리와 식량만 갖추면 기다리는 것 말고 할 일이 없다). 연구는 **기다림을 채우는 일**이다 — 티어 1~2 가지(곳간 정리·숫돌)는 금화 없이 손에 있는 목재·석재만 치르고 하루면 끝난다. 「시간은 아무것도 열지 않는다」는 그대로다: 연구는 저절로 뜨지 않고 본부 [연구] 탭에서 손으로 붙들어야 시작된다.",
       "opens": {
         "buildings": [
           "tent",
@@ -251,14 +252,17 @@
         ],
         "features": [
           "residentArrival",
-          "recruit"
+          "recruit",
+          "research"
         ],
         "ui": [
           "hud.population",
-          "panel.residents"
+          "panel.residents",
+          "panel.research"
         ],
         "commands": [
-          "recruitResident"
+          "recruitResident",
+          "startResearch"
         ]
       },
       "steps": [
@@ -839,8 +843,46 @@
           "removeFill"
         ]
       },
-      "steps": [],
-      "reward": null
+      "_cycleNote": "★ §21-C2 매듭 — 마지막 장에는 다음 장이 없어 steps 가 비어 있었고, 그래서 목표 카드가 **영원히 공백**이었다(끝없는 길에 들어선 순간 화면이 가리키는 것을 잃는다). 칸을 다 지나면 장을 넘기는 대신 매듭 하나를 짓고 첫 칸으로 돌아온다. 칸의 조건은 `since: true` — 「지금까지 얼마나」가 아니라 **「이 매듭에 들어와서 얼마나」**를 센다(매듭을 지을 때마다 눈금을 다시 찍는다). 그래서 뒤늦게 들어와도 첫 매듭이 저절로 채워져 있지 않다. `grow` 는 매듭마다 높아지는 몫이고 `growMax` 가 그 천장이다 — 천장이 없으면 언젠가 아무도 못 짓는 매듭이 온다.",
+      "cycle": true,
+      "steps": [
+        {
+          "key": "knot_folk",
+          "title": "사람 여섯이 더 깃들게 하세요",
+          "short": "새 주민",
+          "sub": "끝없는 길에서는 사람이 곧 힘입니다. 잠자리를 늘리면 사람이 또 걸어 들어옵니다.",
+          "condition": {
+            "type": "population",
+            "count": 6,
+            "since": true,
+            "grow": 2,
+            "growMax": 6
+          },
+          "target": {
+            "type": "housing"
+          }
+        },
+        {
+          "key": "knot_hold",
+          "title": "무리를 두 번 막아 내세요",
+          "short": "무리 막기",
+          "sub": "이 매듭 안에서 이긴 것만 셉니다. 울타리와 터렛을 다시 봐 두세요.",
+          "condition": {
+            "type": "wavesHeld",
+            "count": 2,
+            "since": true,
+            "grow": 1,
+            "growMax": 4
+          },
+          "target": {
+            "type": "camp"
+          }
+        }
+      ],
+      "reward": {
+        "fanfare": "tier",
+        "line": "매듭 하나를 지었다 — 길은 여전히 끝이 없다."
+      }
     }
   ]
 }

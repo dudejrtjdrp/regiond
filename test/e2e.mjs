@@ -406,6 +406,13 @@ test('E2E — 멀티 왕복 (초대 코드 · 외형 · 채팅 · 스윙 중계 
     const rt = games.get(gameId);
     rt.stop();
 
+    /* ★ §21-C2 — 접속 무렵의 방송 무더기를 **다 받고 나서** 귀를 연다.
+       왜. 들어오는 순간 joined·chatHistory·avatars·world·state·worldState 가 줄지어 나간다.
+       그 줄이 끝나기 전에 `once('avatars')` 를 걸면, 우리가 방금 일으킨 외형 변경이 아니라
+       **접속 무렵의 늦은 판**을 집는다(위 connect() 주석이 world·state 를 두고 적어 둔 것과 같은
+       사고다 — 규약이 자라 payload 가 커질 때마다 되살아난다. 실제로 장 사슬에 칸이 늘자 났다).
+       worldState 는 그 줄의 끝이므로, 그것이 닿았으면 다음 'avatars' 는 우리 것이다. */
+    await b.awaitLatest('worldState');
     const avatarsP = once(b, 'avatars');
     const look = await send(a, 'setAppearance', { appearance: { skin: 2, hair: 3, hairColor: 4, outfit: 1, outfitColor: 5 } });
     assert.equal(look.ok, true);

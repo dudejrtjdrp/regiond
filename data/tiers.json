@@ -55,6 +55,9 @@
         "ui": [
           "hud.population",
           "panel.residents"
+        ],
+        "research": [
+          "tidy_stores"
         ]
       },
       "line": "굴뚝이 하나 늘었다. 사람이 찾아오기 시작한다."
@@ -88,6 +91,9 @@
           "hud.threat",
           "panel.build",
           "panel.fence"
+        ],
+        "research": [
+          "whetstone"
         ]
       },
       "line": "울타리를 두를 만큼은 되었다. 바깥이 우리를 알아본다."

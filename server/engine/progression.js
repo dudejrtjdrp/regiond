@@ -39,6 +39,11 @@ export function ensureProgress(nation) {
   p.flags ||= {};
   p.trace ??= null;
   p.log ||= [];
+  /* ★ §21-C2 — 끝없는 장의 매듭. cycle 은 지금까지 지은 매듭 수, mark 는 **이번 매듭이 시작될 때의
+     눈금**이다. 옛 세이브에는 둘 다 없다 — null 로 두고 evaluateProgress 가 그 자리에서 찍는다
+     (시간이 아니라 '끝없는 장에 서 있다'는 사실이 눈금을 만든다). */
+  p.cycle ??= 0;
+  p.mark ??= null;
   return p;
 }
 
@@ -199,6 +204,28 @@ function totalSwings(nation, skill) {
 }
 
 /**
+ * ★ §21-C2 — 이 매듭에 들어와서 얼마나.
+ *
+ * 왜. 끝없는 장의 순환 목표를 「지금까지 겪은 무리 20회」처럼 절대값으로 적으면, 매듭을 지을 때마다
+ * 숫자를 어디서부터 세는지 사람이 알 수 없고 첫 매듭은 들어서자마자 저절로 채워져 있다.
+ * 눈금(mark)을 빼고 나면 카드에 「2/2 무리」가 그대로 남는다 — 이번 매듭에 한 일만.
+ * since 가 없는 옛 칸(1~9장)은 한 톨도 달라지지 않는다.
+ */
+function sinceMark(nation, cond, have, key) {
+  if (!cond.since) return have;
+  const m = ensureProgress(nation).mark;
+  return Math.max(0, have - (m?.[key] ?? 0));
+}
+
+/** 매듭이 거듭될수록 높아지는 문턱 — growMax 가 천장이다(없으면 언젠가 못 짓는 매듭이 온다) */
+function needOf(nation, cond, base) {
+  const grow = cond.grow ?? 0;
+  if (!grow) return base;
+  const add = grow * (ensureProgress(nation).cycle ?? 0);
+  return base + Math.min(add, cond.growMax ?? add);
+}
+
+/**
  * 조건 하나를 재어 {ok, have, need} 로 돌려준다.
  * 목표 카드의 진행바가 이 값을 그대로 쓴다.
  */
@@ -218,23 +245,28 @@ export function measure(world, nation, cond, data) {
       return { ok: have >= (cond.count ?? 1), have, need: cond.count ?? 1 };
     }
     case 'population': {
-      const have = havePopulation(nation);
-      return { ok: have >= cond.count, have, need: cond.count };
+      const have = sinceMark(nation, cond, havePopulation(nation), 'population');
+      const need = needOf(nation, cond, cond.count);
+      return { ok: have >= need, have, need };
     }
     case 'fenceSegments': {
       const have = (nation.fences || []).length;
       return { ok: have >= cond.count, have, need: cond.count };
     }
     case 'wavesHeld': {
-      const have = (nation.wave?.history || []).filter((h) => h.won).length;
-      return { ok: have >= cond.count, have, need: cond.count };
+      const won = (nation.wave?.history || []).filter((h) => h.won).length;
+      const have = sinceMark(nation, cond, won, 'wavesHeld');
+      const need = needOf(nation, cond, cond.count);
+      return { ok: have >= need, have, need };
     }
     /* ★ §19-E(F04-5) — 「겪은 무리」. 이긴 것만 세면, 첫 무리를 못 막은 사람은 영원히 7장에 갇힌다.
        졌으면 곳간을 헤집히고 건물이 상하는 **벌은 이미 받았다**(battle.js 전리품·구조물 피해).
        그 위에 '장을 못 넘긴다'를 얹을 까닭이 없다 — 두 번째 무리를 겪으면 이야기는 흐른다. */
     case 'wavesFaced': {
-      const have = (nation.wave?.history || []).length;
-      return { ok: have >= cond.count, have, need: cond.count };
+      const faced = (nation.wave?.history || []).length;
+      const have = sinceMark(nation, cond, faced, 'wavesFaced');
+      const need = needOf(nation, cond, cond.count);
+      return { ok: have >= need, have, need };
     }
     case 'tier': {
       const have = settlementTier(nation);
@@ -260,6 +292,43 @@ export function measure(world, nation, cond, data) {
 }
 
 // ────────────────────────────────────────────────────────────────
+// ★ §21-C2 매듭 — 끝없는 장의 순환 목표
+//
+// 왜 필요했나. 마지막 장(ch10 엔드리스)은 steps 가 비어 있어서, 들어서는 순간 목표 카드가
+// **영원히 공백**이 되었다. 「뭘 해야 할지 모르는 순간 제로」(§13-A)가 게임의 마지막 국면에서만
+// 깨져 있던 셈이다. 그렇다고 장을 하나 더 붙이면 '끝없는'이 아니게 된다 — 그래서 칸을 다 지나면
+// 장을 넘기는 대신 **매듭 하나를 짓고 첫 칸으로 돌아온다**. 매듭 수가 곧 그 나라의 위신 기록이다.
+// ────────────────────────────────────────────────────────────────
+/** 이번 매듭의 눈금 — 여기서부터 센다 */
+function markEndless(nation, p) {
+  p.mark = {
+    population: havePopulation(nation),
+    wavesFaced: (nation.wave?.history || []).length,
+    wavesHeld: (nation.wave?.history || []).filter((h) => h.won).length,
+  };
+}
+
+/** 순환 장에 서 있는데 눈금이 없으면 그 자리에서 찍는다(옛 세이브 이관) */
+function markEndlessIfNeeded(nation, p, data) {
+  if (p.mark) return;
+  if (!chapterDef(p.chapter, data)?.cycle) return;
+  markEndless(nation, p);
+}
+
+/** 매듭 하나 — 눈금을 다시 찍고 첫 칸으로. 카드는 없다(매듭마다 모달이 뜨면 잔소리가 된다) */
+function tieKnot(nation, p, ch) {
+  p.cycle = (p.cycle ?? 0) + 1;
+  p.step = 0;
+  markEndless(nation, p);
+  const line = ch.reward?.line ?? null;
+  return {
+    kind: 'chapter_done', nationId: nation.id,
+    data: { id: ch.id, key: ch.key, name: ch.name, cycle: p.cycle, line,
+            fanfare: ch.reward?.fanfare ?? null, card: null, opened: null, openCouncil: false },
+  };
+}
+
+// ────────────────────────────────────────────────────────────────
 // 진행 — 이 함수가 장을 넘긴다. 시간은 인자로도 받지 않는다.
 // ────────────────────────────────────────────────────────────────
 /**
@@ -271,6 +340,7 @@ export function evaluateProgress(world, nation, data) {
   const p = ensureProgress(nation);
   const out = [];
   let guard = 0;
+  markEndlessIfNeeded(nation, p, data);
   while (guard++ < 32) {
     const ch = chapterDef(p.chapter, data);
     if (!ch) break;
@@ -278,7 +348,12 @@ export function evaluateProgress(world, nation, data) {
     if (p.step >= steps.length) {
       // 장 완료 — 보상 연출 + 다음 장
       const next = chapterDef(ch.id + 1, data);
-      if (!next) break;
+      if (!next) {
+        // ★ §21-C2 — 다음 장이 없다. 순환 장이면 매듭을 짓고 첫 칸으로 돌아온다.
+        if (!ch.cycle || !steps.length) break;
+        out.push(tieKnot(nation, p, ch));
+        continue;
+      }
       out.push({
         kind: 'chapter_done', nationId: nation.id,
         data: {
@@ -333,6 +408,9 @@ function onChapterOpen(world, nation, ch, data) {
      「이제 저기까지 갈 수 있다」와 「저기에 뭔가 있다」는 같은 순간에 와야 한다. 규칙은 이 한 줄뿐이고
      어느 장이 어느 링을 여는지는 자료가 쥔다 — 코드에 장 번호를 적지 않는다. */
   if (nation.isPlayer) growTrailsFor(world, data, ch.id);
+  /* ★ §21-C2 — 순환 장에 들어선 그 순간이 첫 매듭의 눈금이다. 여기서 찍지 않으면 들어서자마자
+     「지금까지 겪은 무리」가 통째로 들어와 첫 매듭이 저절로 채워진다. */
+  if (ch.cycle) markEndless(nation, ensureProgress(nation));
 }
 
 /**
@@ -471,6 +549,8 @@ export function chapterView(world, nation, data) {
     subtitle: ch.subtitle ?? null,
     total,
     endless: Boolean(ch.endless),
+    /* ★ §21-C2 — 지금까지 지은 매듭 수. 목표 카드가 「세 번째 매듭」을 적는다(순환 장에서만 0 이 아니다). */
+    cycle: p.cycle ?? 0,
     stepIndex: p.step,
     stepCount: steps.length,
     /* ★ §19-E(F04-6) — 이 장에 남은 칸들. 목표 카드가 「그다음엔 무엇이」를 한 줄로 미리 보인다.

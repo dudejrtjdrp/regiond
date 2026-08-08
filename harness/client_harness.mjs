@@ -1232,6 +1232,12 @@ test('클라이언트 하니스 — §13-D RPG 계층 (모집·능력치·장비
       for (const k of ['stone', 'ironOre', 'steel']) nation().resources[k] = 1200;
       await step();
       await until(() => !!S.research(), { ms: 6000, what: '연구 해금' });
+      /* ★ §21-C2 — 연구는 이제 **4장**부터 열려 있다. 그래서 「연구 칸이 생겼는가」만 기다리면
+         앞 칸에서 이미 받아 둔 **낡은 판**이 그대로 통과한다(예전에는 이 자리에서 연구가 처음
+         생겨서, 기다림이 곧 최신 보장이었다). 기다릴 것은 해금이 아니라 방금 올린 단계와 값이
+         판에 닿았는가다 — 이 줄이 없으면 단추의 잠김이 아니라 판의 늦음을 재게 된다. */
+      await until(() => ((S.researchOf('coal_mining') || {}).reqs || []).every((q) => q.ok),
+                  { ms: 6000, what: '올린 단계·값이 판에 닿기' });
 
       let panel = openHq();
       const tab = panel.querySelector('[data-hqtab="research"]');

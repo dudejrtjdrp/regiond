@@ -6,6 +6,56 @@
 
 ---
 
+## 0-C. v3.3 안 델타 — **연구 조기 분기와 끝없는 장의 매듭** (§21-C2)
+
+**판번호를 올리지 않는다**(`world.schema` **6** 유지, `MIGRATION_REV` 그대로).
+소켓 이벤트도 새로 나지 않는다 — 이미 있던 `state.chapter` 에 칸 하나(`cycle`)가 더해지고,
+`chapterDone` 이 실어 오는 것이 한 칸(`cycle`) 늘 뿐이다. 옛 세이브도 그대로 열린다.
+
+### 0-C-1. 연구가 **4장**에 열린다
+
+`data/chapters.json` 4장 「첫 이웃」의 `opens` 에 `features:['research']` · `ui:['panel.research']` ·
+`commands:['startResearch']` 가 들어갔다. 계약은 한 톨도 안 바뀌었다 — 여는 문은 여전히
+`progression.unlockedList` 하나이고, 연구를 시작하는 것도 여전히 사람의 손(`startResearch`)이다.
+
+새 연구 둘(`tidy_stores` 곳간 정리 · `whetstone` 숫돌)은 **금화 0 · 하루 · 티어 1~2 · 선행 없음**이다.
+`research.order` 의 **맨 뒤**에 놓았다 — `order` 는 자동 플레이의 우선순위이기도 해서(playtest15c 계약)
+앞에 끼우면 후반 자동 플레이가 잔가지부터 붙든다. `data/tiers.json` 의 `unlocks.research` 거울도 따라간다.
+
+> **왜 4장인가.** 첫 주민을 기다리는 4~5장은 손이 완전히 비어 있었다(잠자리와 식량을 갖추면 남는 일이 없다).
+> 연구는 값이 아니라 **하루**를 치르는 일이라 그 빈칸에 정확히 들어맞는다. 시작 금화가 20 이고 교역소
+> 전에는 수입이 없으므로 **금화를 받지 않는 것**이 이 가지의 핵심이다.
+
+### 0-C-2. 마지막 장은 끝나지 않고 **매듭**을 짓는다
+
+`data/chapters.json` 10장에 `cycle: true` 와 칸 둘(`knot_folk` · `knot_hold`)이 생겼다.
+`progression.evaluateProgress` 는 칸을 다 지났는데 다음 장이 없고 `cycle` 이 참이면,
+장을 넘기는 대신 **매듭 하나를 짓고 첫 칸으로 돌아온다**.
+
+| 자리 | 뜻 |
+|---|---|
+| `nation.progress.cycle: number` | 지금까지 지은 매듭 수. 옛 세이브에 없으면 0 |
+| `nation.progress.mark: {population, wavesFaced, wavesHeld} \| null` | **이번 매듭이 시작될 때의 눈금**. 순환 장에 서 있는데 없으면 그 자리에서 찍는다(옛 세이브 이관) |
+| `state.chapter.cycle: number` | 위 `cycle` 의 거울. 화면은 「(cycle+1)번째 매듭」을 적는다 — 다 지어야 한 매듭으로 센다 |
+| `chapterDone.cycle?: number` | **있으면 매듭**이다(장이 끝난 것이 아니다). 이때 `card` 는 언제나 `null` 이고 `chapterOpen` 이 뒤따르지 않는다 |
+
+### 0-C-3. 칸 조건의 두 칸 — `since` · `grow`/`growMax`
+
+`condition` 에 붙는 선택 칸이다. **적지 않으면 예전 그대로**라서 1~9장의 셈은 한 톨도 달라지지 않는다.
+
+- `since: true` — 「지금까지 얼마나」가 아니라 **「이 매듭에 들어와서 얼마나」**. `have = max(0, 현재 − 눈금)`.
+  지금 받는 곳은 `population` · `wavesFaced` · `wavesHeld` 셋이다.
+- `grow: n` — 매듭마다 높아지는 문턱(`need = count + n × cycle`). `growMax` 가 그 천장이다.
+  **천장을 반드시 둘 것** — 없으면 언젠가 아무도 못 짓는 매듭이 온다.
+
+### 0-C-4. 바뀌지 않은 것
+
+- 「시간은 아무것도 열지 않는다」 — 매듭도 사람의 행동(사람이 깃들고 무리를 막는 일)이 짓는다.
+- 해금 셈(`unlockedList`)·캐시 열쇠·`declaredCommands` 무변경. 매듭 칸에는 `opens` 가 없다.
+- 월드 난수 무접촉. 매듭은 난수를 한 톨도 쓰지 않는다.
+
+---
+
 ## 0-L. v3.3 안 델타 — **흔적의 링1~3: 세계가 장마다 한 겹 자란다** (§21-C1 / docs/탐험기획.md §18-1·§18-4)
 
 **판번호를 올리지 않는다**(`world.schema` **6** 유지, `MIGRATION_REV` 그대로).
@@ -181,14 +231,14 @@ artifacts: [{ key, name, grade, desc, type, obtainedTick, consumed, chargesLeft,
 
 ---
 
-## 0-J. v3.3 안 델타 — **관계 결·살아있는 세 나라** (§세계관 W4)
+## 0-E. v3.3 안 델타 — **관계 결·살아있는 세 나라** (§세계관 W4)
 
 **판번호를 올리지 않는다. 필드는 더하기만 했다.** 정본은 `data/ai_nations.json relation` + `data/events.json nations` + `docs/세계관기획.md §3·§4`.
 단순 호감도는 없다 — 같은 0~100 게이지를 쓰되 **오르내리는 규칙이 나라마다 다르다**:
 에르니아(재회)=거래 금화+위신 사건(티어업·격퇴·유물), 청명(신의)=계약 이행 건수만(거절 3연속이면 쇄국),
 엘라시아(세 부족)=가장 쉽게 열림. 모든 평가는 서버(advance·commands)에서만 — **시뮬 봇 경로·세계 난수 불가침**(확률은 statRng).
 
-### 0-J-1. 서버 상태 (저장됨)
+### 0-E-1. 서버 상태 (저장됨)
 
 | 필드 | 뜻 |
 |---|---|
@@ -196,7 +246,7 @@ artifacts: [{ key, name, grade, desc, type, obtainedTick, consumed, chargesLeft,
 | `nation.relMeta` | 거절 연속 장부 등 |
 | `world.offerBanUntil` / `world.natEvState` / `world.relState` | 제안 중단(쇄국·부족 회의) / 국가 이벤트 예약·발화 장부 / 강재 특가 쿨타임 |
 
-### 0-J-2. 이벤트·제안 (S→C 는 기존 `events` 피드·`offers` 재사용 — 새 소켓 이벤트 없음)
+### 0-E-2. 이벤트·제안 (S→C 는 기존 `events` 피드·`offers` 재사용 — 새 소켓 이벤트 없음)
 
 | kind | 언제 |
 |---|---|
@@ -205,31 +255,31 @@ artifacts: [{ key, name, grade, desc, type, obtainedTick, consumed, chargesLeft,
 | `nation_contract` | 엘라시아 정기 계약(임계 30) — 매 일 틱 목재 자동 입고, 금고 빈 날은 쉼 |
 | 특수 제안 | `world.offers` 에 `special:{adj, relBonus}` 로 실림(강재 특가·도움 요청·조약). **단가 보정은 respondOffer 만 채운다** — 클라 페이로드의 `_` 키는 서버가 벗긴다 |
 
-### 0-J-3. 규칙 변경
+### 0-E-3. 규칙 변경
 
 - `respondOffer` 거절이 관계를 깎는다(나라별 `refuseDelta`). 청명은 3연속이면 쇄국(-8·제안 4틱 중단).
 - **엔딩 게이트 승격**: `balance.ending` 의 거래 누계 조건 → **재회 게이지 `relations.ai3 ≥ reunionScoreMin(60)`**. 위신 사건이 게이지를 미니 관계 게이지로 채운다.
 - 외교 첩(`visitNation` ack)·세계 뷰 `nations[]` 에 `relation:{score,title,nextAt}` — **만난 나라만**. 호칭: 에르니아 3단계(옛 영웅들→신흥국→{name}의 군주(들)), 청명(낯선 이방인→얼굴을 아는 손→신의를 맺은 벗), 엘라시아(가까운 이웃→오랜 벗).
 
-## 0-I. v3.3 안 델타 — **매듭형 엔딩(초대장·재회)** (§세계관 W3)
+## 0-D. v3.3 안 델타 — **매듭형 엔딩(초대장·재회)** (§세계관 W3)
 
 **판번호를 올리지 않는다. 필드는 더하기만 했다.** 정본은 `data/balance.json ending` + `docs/세계관기획.md §8`.
 조건 3중(티어 5 · 용 격퇴 — 웨이브 용 승리 **또는** 세계 보스 처치 · 에르니아 거래 금화 누계)이 차면
 다음 일 틱에 초대장이 온다. **저절로 열리지 않는다** — 봉투 단추가 남고, 여는 것은 군주다.
 
-### 0-I-1. 신설 — 이벤트 (S→C)
+### 0-D-1. 신설 — 이벤트 (S→C)
 
 | 이벤트 | 언제 | 페이로드 | 클라가 할 일 |
 |---|---|---|---|
 | `endingInvite` | 조건 3중이 갓 찬 일 틱(방 전체) · 안 연 초대장이 있는 채 접속(그 소켓) | `{from, text, accept, later}` | 토스트 1회 + 봉투 단추(#ending-invite-btn). 누르면 대화창이 [간다/아직은]을 묻는다 |
 
-### 0-I-2. 신설 — 명령 (C→S)
+### 0-D-2. 신설 — 명령 (C→S)
 
 | 명령 | 페이로드 | 서버가 하는 일 | 거절 |
 |---|---|---|---|
 | `acceptEnding` | `{playerName?}` | `world.endingDone` 기록 + `ending_started` 사건 → story.js 가 엔딩·크레딧·쿠키 beat 를 얹는다(방 전체 동시 재생). 연대기에 「첫 매듭」 | `NO_INVITE` · `ALREADY` · `WAVE_DAY`(전투 중이거나 오늘이 도착일 — 「지금은 성을 비울 수 없습니다」) |
 
-### 0-I-3. 서버 상태·보상 (저장됨)
+### 0-D-3. 서버 상태·보상 (저장됨)
 
 | 필드 | 뜻 |
 |---|---|
@@ -262,7 +312,7 @@ artifacts: [{ key, name, grade, desc, type, obtainedTick, consumed, chargesLeft,
 - 성녀 자리 기본 이름표(`npc.NPC_NAMES.saint[0]`)는 「성녀 세라」. 성녀 자리를 **사람이** 쥐면 세라 화자 beat 는 「성녀의 직감」으로 나간다.
 - 연대기: `chronicle` 칸을 가진 beat 는 `kind:'story'` 항목을 남긴다 — 재접속자·늦게 온 군주의 회고 창구.
 
-## 0-K. v3.3 안 델타 — **`worldDiff` 가 이름값을 한다** (§21-A1)
+## 0-I. v3.3 안 델타 — **`worldDiff` 가 이름값을 한다** (§21-A1)
 
 **판번호를 올리지 않는다**(`world.schema` **6** 유지). §0-W · §0-J 가 세운 기준 그대로다 —
 판번호는 「세이브가 안 맞는가」로만 오른다. 세이브도 판정도 한 칸 안 바뀌었고, 바뀐 것은
@@ -275,7 +325,7 @@ artifacts: [{ key, name, grade, desc, type, obtainedTick, consumed, chargesLeft,
 그 가운데 실제로 달라진 것은 대개 **한 줄도 없었다** — 조용한 하루의 건물과 울타리는 어제 그대로다.
 Sprint 3 의 뷰 공유 캐시가 「같은 것을 사람 수만큼 빚는」 셈은 이미 없앴다. 남은 것은 **전송량**이었다.
 
-### 0-K-1. 나뉜 자리 — 무엇이 변경분이고 무엇이 전량인가
+### 0-I-1. 나뉜 자리 — 무엇이 변경분이고 무엇이 전량인가
 
 | 몫 | 방식 | 계약 |
 |---|---|---|
@@ -292,7 +342,7 @@ Sprint 3 의 뷰 공유 캐시가 「같은 것을 사람 수만큼 빚는」 �
 - **안 바뀐 컬렉션은 열쇠말 자체가 없다.** 빠진 항목은 예나 지금이나 「바뀐 것 없음」이다.
 - `counts` — 서버가 아는 줄 수(`{structures,fences,camps,clusters,towns}`). 화면이 제 장부와 견주는 도장이다.
 
-### 0-K-2. 되맞춤 — 잃어버린 한 장을 되찾는 세 길
+### 0-I-2. 되맞춤 — 잃어버린 한 장을 되찾는 세 길
 
 | 길 | 언제 | 무엇이 오는가 |
 |---|---|---|
@@ -304,14 +354,14 @@ Sprint 3 의 뷰 공유 캐시가 「같은 것을 사람 수만큼 빚는」 �
   `worldDiff` 는 사람마다 다른 `sinceTick` 으로 나가므로 「무엇까지 받았는가」도 사람마다 다르다.
 - 장부는 서버 런타임의 것이다 — 세이브에도 난수에도 닿지 않는다.
 
-### 0-K-3. 클라가 할 일
+### 0-I-3. 클라가 할 일
 
 `S.map.structures` · `S.map.fences` · `S.map.camps` 는 예전과 **똑같은 모양**을 유지한다 —
 붙이는 일은 `public/js/state.js` 의 `mergeCollections()` 한 곳이 한다(전량이면 갈아 끼우고, 변경분이면
 id 로 얹고 `removed*` 는 지운다). 군락·마을은 예전 그대로 쌓아 얹는다.
 `counts` 가 어긋나면 `requestWorld` 로 지도를 다시 청한다.
 
-### 0-K-4. 바뀌지 않은 것
+### 0-I-4. 바뀌지 않은 것
 
 - **판정·결정론·서버 권위** — 여기는 전송 계층이다. 회귀 시험이 「변경분을 뽑든 안 뽑든 월드가 바이트 단위로 같다」를 붙든다.
 - `world` 스냅샷 · `state`(NationView) · 즉시 공개분(`reveal:true`)의 모양 — 한 글자도 안 바뀌었다.
@@ -1495,7 +1545,7 @@ TrailView { id, key, kind:'chain'|'micro', x, y, name, art, verb, ready }
 
 판번호는 3.1 그대로다(호환을 깨는 삭제가 없다). 아래는 **더해진 계약**이다.
 
-### 0-Z-1. 신설
+### 0-Y-1. 신설
 
 | 구분 | 이름 | 한 줄 설명 |
 |---|---|---|
@@ -1518,7 +1568,7 @@ TrailView { id, key, kind:'chain'|'micro', x, y, name, art, verb, ready }
 | 뷰 | `worldDiff.caravans` | ★ §12-6 — 상단 목록. **무역이 열리기 전에는 언제나 빈 배열** |
 | 오류 | `IMMOVABLE` `AUTO_TIER` `TOO_LATE` | 본부는 못 옮긴다 / 본부는 손으로 개축 안 한다 / 이미 헐어 되돌릴 수 없다 |
 
-### 0-Z-2. 바뀐 계약
+### 0-Y-2. 바뀐 계약
 
 | 무엇 | 전 | 후 |
 |---|---|---|

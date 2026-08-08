@@ -48,7 +48,7 @@
     }
 
     var p = S.goalProgress() || { have: g.have, need: g.need, ratio: 0 };
-    card.appendChild(U.el('span', 'gc-cap', (ch.id < ch.total ? ch.id + '장 · ' : '') + ch.name));
+    card.appendChild(U.el('span', 'gc-cap', capText(ch)));
     card.appendChild(U.el('span', 'gc-title', g.title));
     if (p.need > 1) {
       var gauge = U.makeGauge({ height: 15, color: '#6a994e' });
@@ -76,6 +76,17 @@
     U.tipSet(card, g.title, (g.sub || '') + '\n눌러서 그 자리로 시선을 옮깁니다.');
 
     maybeHint(g);
+  }
+
+  /**
+   * ★ §21-C2 — 카드 머리글.
+   *   끝없는 장에는 「10장」이 붙지 않는다(마지막 장이라 세는 의미가 없다). 대신 **매듭 수**가 붙는다:
+   *   지금 짓고 있는 것은 cycle 번째가 아니라 cycle+1 번째다 — 다 지어야 한 매듭으로 센다.
+   */
+  function capText(ch) {
+    var cap = (ch.id < ch.total ? ch.id + '장 · ' : '') + ch.name;
+    if (!ch.endless || ch.cycle == null) return cap;
+    return cap + ' · ' + (ch.cycle + 1) + '번째 매듭';
   }
 
   /* ══════════ ★ Sprint 5 — 목표 카드 위의 [사람을 부른다] ══════════ */
@@ -200,7 +211,9 @@
       GM.fx.sparkle(me.x, me.y - 0.5, 26, '#f6cf7a');
       GM.fx.ring(me.x, me.y, '#f6cf7a', 0.2, 3.2, 0.9, 3);
     }
-    U.banner({ icon: 'tier', kind: 'level', title: p.name + ' — 끝', sub: p.line || '', ms: 2600 });
+    /* ★ §21-C2 — 끝없는 장은 '끝'나지 않는다. 매듭을 지었을 뿐이다. */
+    var head = p.cycle ? (p.name + ' — ' + p.cycle + '번째 매듭') : (p.name + ' — 끝');
+    U.banner({ icon: 'tier', kind: 'level', title: head, sub: p.line || '', ms: 2600 });
     if (!p.card) return;
     setTimeout(function () { openUnlockCard(p.card); }, 1500);
   }
