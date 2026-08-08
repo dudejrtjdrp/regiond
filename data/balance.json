@@ -6,6 +6,8 @@
     "tickRealSeconds": 600,
     "devFastTickSeconds": 2,
     "councilEveryTicks": 7,
+    "_calendarNote": "★ §20-R3 — daysPerYear 는 **표시 전용 달력**이다. 게임의 시계는 tick(하루) 하나뿐이고, 어떤 판정도 「해」를 읽지 않는다. 도감·연대기가 「N년 M일」로 적어 발견의 날을 사람 말로 옮기는 데만 쓴다 — 값을 바꾸면 옛 기록의 적힌 날도 함께 다시 계산된다(원본은 tick 이라 어긋나지 않는다).",
+    "daysPerYear": 60,
     "dayPhases": [
       "morning",
       "day",
