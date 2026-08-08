@@ -136,6 +136,69 @@ artifacts: [{ key, name, grade, desc, type, obtainedTick, consumed, chargesLeft,
 - 성녀 자리 기본 이름표(`npc.NPC_NAMES.saint[0]`)는 「성녀 세라」. 성녀 자리를 **사람이** 쥐면 세라 화자 beat 는 「성녀의 직감」으로 나간다.
 - 연대기: `chronicle` 칸을 가진 beat 는 `kind:'story'` 항목을 남긴다 — 재접속자·늦게 온 군주의 회고 창구.
 
+## 0-J. v3.3 안 델타 — **`battleTick` 을 나눠 보낸다** (§21-A2)
+
+**판번호를 올리지 않는다**(`world.schema` **6** 유지). §0-W 가 세운 기준 그대로다 —
+판번호는 「세이브가 안 맞는가」로만 오른다. 세이브도 상태도 한 칸 안 바뀌었고, 바뀐 것은
+**한 이벤트의 실리는 방식**뿐이다. 다만 이것은 더하기가 아니라 **모양이 바뀐 자리**라 아래를 정본으로 읽는다.
+
+「왜」. 서브틱은 초에 넷이다. 그 넷 모두에 적·민병·터렛·플레이어 **전량**과 이름·최대 체력·도읍 자리까지
+통째로 실었더니 전투 중 사람마다 초당 20~33KB(적 55·민병 26·터렛 10 판에서 실측)가 나갔다.
+그런데 그 안에서 서브틱마다 실제로 달라지는 것은 **적의 좌표**뿐이다. 터렛은 전투 내내 한 자리에 서 있고,
+이름·총원·도읍 자리는 끝날 때까지 한 글자도 안 바뀌며, 민병의 걸음은 절반 박자로도 족하다 —
+화면은 `GM.interp` 가 박자를 **스스로 배워** 그 사이를 이어 준다(`public/js/interp.js` `learnGap`).
+
+### 0-J-1. 나뉜 자리 — 무엇이 4Hz 이고 무엇이 변경분인가
+
+| 몫 | 박자 | 계약 |
+|---|---|---|
+| 적(`enemies`) | **매 서브틱(4Hz) 그대로** | 보간의 전제다 — 여기를 줄이면 걸음이 끊긴다. 다만 **살아 있는 놈 전량의 동적 칸만**: `{id,x,y,hp}` + 훔치는 중이면 `looting:true`. 정적 칸(`maxHp`·`type`)은 **그 적이 처음 실릴 때 한 번만** 붙는다 |
+| 민병(`militia`) · 터렛(`turrets`) | **2Hz** | 한 장 걸러 한 장에만 실리고, 그마저 **지난번과 달라진 줄만** 온다. 아무도 안 움직였으면 칸 자체가 **없다**. 터렛은 목록이 실제로 달라졌을 때만 **통째로** 다시 온다 |
+| 플레이어(`players`) | **바뀔 때만** | `{id,hp,maxHp}` + 쓰러졌으면 `down:true`. 손에 꼽는 수라 최대 체력은 늘 함께 싣는다 |
+| 정적 칸 | **안 보낸다** | `number`·`type`·`name`·`maxSeconds`·`core`·`total` 은 델타에 없다. 화면은 앞의 판에서 잇는다 |
+| 시계·전황 | 매 서브틱 | `waveIndex`·`t`·`killed`·`escaped`·`over`·`won` — 작은 수라 그냥 싣는다 |
+
+- **델타 한 줄은 그 유닛의 「동적 필드 한 벌」이다.** 빠진 칸은 **거짓**으로 읽는다(`looting`·`down` 은 없으면 거짓,
+  `alive` 는 없으면 참). 그래서 훔치기를 그만둔 적에게 `looting:false` 를 따로 보내지 않는다.
+- 정적 칸(`maxHp`·`type`)은 **앞의 판에서 잇는다** — 델타에 없다고 지우면 안 된다.
+
+### 0-J-2. 되맞춤 — 잃어버린 한 장을 되찾는 두 길
+
+| 길 | 언제 | 무엇이 오는가 |
+|---|---|---|
+| `battleStart` | 전투 개시 · **입장/관전 진입**(join 중 `nation.battle` 이 살아 있으면) | **풀 스냅샷 한 장**(옛 모양 그대로 + `full:true`) |
+| `battleTick` 되맞춤 | `world.json simulation.battleFullEvery` 서브틱마다 한 번(기본 **40** = 10초) | 같은 **풀 스냅샷**(`full:true`) |
+
+- **`full` 칸이 계약의 열쇠다.** `full:false` 면 델타이고, 그 밖(`true` 이거나 아예 **없는** 경우)은 풀 스냅샷이다.
+  → 옛 생산자(구경 모드 `public/js/mock.js`)가 보내는 옛 모양은 `full` 이 없으므로 **그대로 풀로 읽힌다**.
+- 풀 스냅샷을 **한 장도 못 받은 채** 델타부터 받은 화면은 그것을 **버린다**(반쪽짜리 판을 그리지 않는다).
+  다음 되맞춤이 판을 다시 세운다.
+- 한 사람에게만 보내는 풀(입장·관전)은 **방의 장부를 건드리지 않는다** — 그 한 장은 그 사람만 받았고,
+  방의 나머지는 이미 그만큼을 알고 있다.
+- `/api/debug/battle`(단숨에 끝까지 돌리기)과 전투 종료 직전의 한 장도 **풀**이다 — 델타로는 이을 수 없는 자리다.
+
+### 0-J-3. 클라가 할 일
+
+`S.battle` 은 예전과 **똑같은 모양**을 유지한다 — `combat.js`·`minimap.js`·`swing.js`·`hud.js` 는 한 줄도 안 바뀌었다.
+붙이는 일은 `public/js/state.js` 의 `applyBattle()` 한 곳이 한다(풀이면 갈아 끼우고, 델타면 앞의 판 위에 얹는다).
+`GM.combat.onTick` 이 받는 것도 **붙여 놓은 온전한 판**이다.
+
+> ★ 보간 주의 — 제자리에 선 유닛을 띠에 다시 얹으면 안 된다. 민병이 2Hz 로 오는데 그 사이 서브틱마다
+> 같은 좌표를 얹으면 띠가 250ms 박자를 배워 500ms 어치 걸음을 250ms 만에 지나간다(걷다 서다 하는 톱니).
+> `combat.js pushSnapshot` 은 좌표가 앞의 것과 같으면 얹지 않는다.
+
+### 0-J-4. 바뀌지 않은 것
+
+- **판정·결정론·서버 권위** — 여기는 전송 계층이다. 전송 장부(`battleStreamCache`)는 월드가 아니라 **서버 런타임**이 쥐고,
+  세이브에도 난수에도 닿지 않는다. 회귀 시험이 「스트림을 뽑든 안 뽑든 전투 결과가 바이트 단위로 같다」를 붙든다.
+- `battleStart` · `NationView.battle`(`battleView`) · `waveResult` 의 모양 — 한 글자도 안 바뀌었다.
+- `events[]` — 실리는 자리도 뜻도 그대로다(풀이든 델타든 그 서브틱에 난 사건이 함께 온다).
+
+**실측**(적 55·민병 26·터렛 10 / 적 36·민병 34·터렛 14 / 적 77·민병 40·터렛 18, 전투 전 구간 합):
+종전 대비 **66.8% · 67.6% · 69.8%** 절감(합계 **69.1%**) — 20.2~33.0 KB/s → 6.6~10.0 KB/s.
+
+---
+
 ## 0-G. v3.3 안 델타 — **대기의 앞: 상시 예고와 야영지 선제 타격** (Sprint 5)
 
 **판번호를 올리지 않는다**(`world.schema` **6** 유지). **필드는 더하기만 했다.**
@@ -1376,7 +1439,7 @@ TrailView { id, key, kind:'chain'|'micro', x, y, name, art, verb, ready }
 |---|---|---|---|
 | **일 틱** | `config.time.dayRealSeconds` (기본 600초 = 1게임일) | 산출·소비·가격·무역·주민 유입·사기·웨이브 일정·사건·티어 판정 | `state`, `worldDiff`, `worldState`, `events` |
 | **실시간** | 즉시 | 스윙(`actionSwing`)·전투 스윙(`combatSwing`)·아바타 이동(`lordMove`)·건설/울타리 명령 | 그 명령의 **ack**(+ 남의 스윙은 `swing`, 새 땅을 밟으면 `worldDiff`) |
-| **서브틱** | `config.time.subtickSeconds` (기본 0.25초) | 웨이브 전투 시뮬(적 이동·터렛 사격·민병·플레이어) | `battleTick` |
+| **서브틱** | `config.time.subtickSeconds` (기본 0.25초) | 웨이브 전투 시뮬(적 이동·터렛 사격·민병·플레이어) | `battleTick` (★ §21-A2 — 적만 매 서브틱, 민병·터렛은 2Hz 변경분. §0-H) |
 
 즉 **스윙은 틱을 기다리지 않는다.** 클라는 ack 로 돌아온 값(획득량·쿨타임·주기 완료 여부)으로 즉시 이펙트를 재생한다.
 
@@ -1722,7 +1785,7 @@ ack / `joined` 이벤트 payload:
 | `emotionDay` / `mandate` | 티어 3 | 컷신 → 관제 선포 화면 |
 | `waveIncoming` | 도착일 | 경보 |
 | `battleStart` | 전투 개시 | 전투 화면 진입 |
-| `battleTick` | 서브틱(0.25초) | 적·민병·플레이어 위치·체력 갱신 + `events` 로 타격 이펙트 |
+| `battleTick` | 서브틱(0.25초) | ★ §21-A2 — **나뉘어 온다**: 적 위치는 매번(4Hz), 민병·터렛은 2Hz 의 변경분, 정적 칸은 안 온다. `full:false` 면 앞의 판에 얹고, `full` 이 거짓이 아니면 갈아 끼운다(§0-H) |
 | `waveResult` | 전투 종료 | 결과 카드 + 리플레이 타임라인 |
 | `campSpotted` / `campScouted` | D-2 / 정찰 성공 | 지도 마커 |
 | `chronicle` | join · `requestChronicle` | 연대기 화면 |
@@ -1988,9 +2051,10 @@ ack / `joined` 이벤트 payload:
 ```jsonc
 { "index": 0, "number": 1, "type": "wolf", "name": "늑대 떼", "units": 11, "power": 61, "direction": "north" }
 ```
-#### `battleStart` / `battleTick` — 같은 스냅샷 형태
+#### `battleStart` · `battleTick` 되맞춤 — **풀 스냅샷**(`full` 이 거짓이 **아닌** 장)
 ```jsonc
-{ "waveIndex": 0, "number": 1, "type": "wolf", "name": "늑대 떼",
+{ "full": true,
+  "waveIndex": 0, "number": 1, "type": "wolf", "name": "늑대 떼",
   "t": 12.5, "maxSeconds": 120, "core": { "x": 68, "y": 60 }, "over": false, "won": false,
   "total": 11, "killed": 4, "escaped": 0,
   "enemies": [{ "id": "e3", "x": 72.4, "y": 54.1, "hp": 31, "maxHp": 55, "type": "wolf", "looting": false }],
@@ -1999,6 +2063,27 @@ ack / `joined` 이벤트 payload:
   "players": [{ "id": "p1", "hp": 60, "maxHp": 60, "down": false }],
   "events": [ { "t": 12.25, "kind": "kill", "targetId": "e2", "by": "turret", "byId": "s9" } ] }
 ```
+전투 개시 · 입장/관전 진입 · `battleFullEvery`(기본 40 서브틱) 되맞춤 · `/api/debug/battle` 이 이 모양을 보낸다.
+`full` 이 아예 없는 장(구경 모드 `mock.js`)도 **풀로 읽는다** — 옛 모양과 한 글자도 다르지 않다.
+
+#### `battleTick` 서브틱 — **델타**(`full:false`) ★ §21-A2
+```jsonc
+{ "full": false, "waveIndex": 0, "t": 12.75, "over": false, "won": false, "killed": 4, "escaped": 0,
+  "enemies": [{ "id": "e3", "x": 72.9, "y": 54.6, "hp": 28 },
+              { "id": "e9", "x": 80.1, "y": 44.2, "hp": 55, "maxHp": 55, "type": "wolf" },
+              { "id": "e4", "x": 68.2, "y": 60.4, "hp": 12, "looting": true }],
+  "militia": [{ "id": "r5", "x": 70.4, "y": 57.2, "hp": 34 }],
+  "players": [{ "id": "p1", "hp": 41, "maxHp": 60 }],
+  "events": [ { "t": 12.75, "kind": "playerHit", "targetId": "p1" } ] }
+```
+- `enemies` — **매 서브틱(4Hz), 살아 있는 놈 전량.** `maxHp`·`type` 은 **처음 실리는 적에게만**(위 `e9`) 붙는다.
+  이미 아는 적은 `{id,x,y,hp}` 뿐이고, 훔치는 중일 때만 `looting:true` 가 더 붙는다.
+- `militia` — **2Hz · 달라진 줄만.** 아무도 안 움직였으면 이 칸 자체가 없다. 쓰러졌으면 `alive:false` 가 붙는다.
+- `turrets` — 목록이 실제로 달라졌을 때만(새 터렛·철거·개축) **통째로** 다시 온다. 그 밖에는 없다.
+- `players` — 체력·다운이 달라진 사람만. 쓰러졌으면 `down:true`.
+- `number`·`type`·`name`·`maxSeconds`·`core`·`total` 은 **없다** — 앞의 풀 스냅샷에서 잇는다.
+- **빠진 칸은 거짓**이다(`looting`·`down` 없음 = 거짓, `alive` 없음 = 참). 정적 칸(`maxHp`·`type`)만 앞의 것을 잇는다.
+
 `events[].kind`: `spawn` `kill` `fenceBreak` `structureHit` `structureRuined` `structureBreach` `breach` `militiaDown` `playerDown` `playerHit` `hold` `withdraw`
 
 > ★ §19-F1(F05-3) — `structureBreach` 는 **길목의 건물이 뚫린** 순간이다(무너진 것이 아니다:

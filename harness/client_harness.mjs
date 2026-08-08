@@ -909,6 +909,12 @@ test('클라이언트 하니스 — 7장 이후(울타리·개축·웨이브·�
       assert.ok(enemy, '칠 수 있는 적이 있다');
       GM.avatar.setPos(Math.round(enemy.x), Math.round(enemy.y));
       await sleep(80);
+      /* ★ 적은 걸어오는 중이다 — 80ms 전 자리에 서면 그 사이 한 서브틱(0.25초)을 더 걸어 나가
+         사거리(2.5칸)를 아슬아슬하게 벗어나곤 했다(간헐 OUT_OF_RANGE). **보내기 직전의 자리**로
+         다시 선다: setPos 는 그 자리에서 lordMove 를 내고, socket.io 가 순서를 지키므로
+         서버는 새 자리로 스윙을 잰다(public/js/swing.js §16-4 와 같은 규칙). */
+      const cur = (S.battleLive().enemies || []).find((e) => e.id === enemy.id) || enemy;
+      GM.avatar.setPos(Math.round(cur.x), Math.round(cur.y));
       now += 2500;
       const hit = await sendNow(window, 'combatSwing', { targetId: enemy.id, now });
       assert.ok(hit && hit.ok, `검이 닿았다: ${JSON.stringify(hit && hit.error)}`);

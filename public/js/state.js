@@ -1176,6 +1176,77 @@
   function defense() { return (S.view && S.view.defense) || null; }
   function chronicle() { return S.chronicle || (S.view && S.view.chronicle) || null; }
   function battleLive() { return S.battle; }
+
+  /* ══════════ ★ §21-A2 — 나뉘어 오는 전투 스냅샷을 한 판으로 붙인다 ══════════
+     서버는 서브틱마다 **적의 좌표만** 4Hz 로 보내고, 민병·터렛은 2Hz 의 바뀐 줄만,
+     이름·최대 체력·도읍 자리 같은 정적 칸은 아예 보내지 않는다(server/engine/battle.js §21-A2).
+     화면이 읽는 S.battle 은 예전과 **똑같은 모양**이어야 하므로 — combat.js·minimap.js·swing.js·
+     hud.js 가 전부 그 한 판을 읽는다 — 여기서 앞의 판 위에 새 줄을 얹어 온전한 판을 다시 세운다.
+     델타 한 줄은 그 유닛의 동적 필드 한 벌이다: 빠진 칸은 기본값(거짓)이고, 정적 칸은 앞의 것을 잇는다.
+     풀 스냅샷(`full` 이 거짓이 **아닌** 것 — battleStart · 되맞춤 · 구경 모드)이 오면 통째로 갈아 끼운다. */
+  function idIndex(list) {
+    var at = {};
+    for (var i = 0; i < (list || []).length; i++) at[list[i].id] = i;
+    return at;
+  }
+
+  /** 앞의 줄 → 기본값 → 새 줄 차례로 덮는다(정적 칸은 남고, 빠진 칸은 기본값으로 돌아간다). */
+  function unitRow(old, blank, row) {
+    var out = {}, k;
+    for (k in (old || {})) if (own(old, k)) out[k] = old[k];
+    for (k in blank) if (own(blank, k)) out[k] = blank[k];
+    for (k in row) if (own(row, k)) out[k] = row[k];
+    return out;
+  }
+  function own(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+
+  /** 목록 전량이 온다(적) — 온 순서 그대로 다시 세우되 정적 칸은 앞의 판에서 잇는다. */
+  function freshUnits(prev, rows, blank) {
+    var at = idIndex(prev), out = [];
+    for (var i = 0; i < (rows || []).length; i++) {
+      var r = rows[i];
+      out.push(unitRow(at[r.id] == null ? null : prev[at[r.id]], blank, r));
+    }
+    return out;
+  }
+
+  /** 바뀐 줄만 온다(민병·플레이어) — 앞의 목록에서 그 자리만 갈아 끼운다. */
+  function patchUnits(prev, rows, blank) {
+    var out = (prev || []).slice(), at = idIndex(out);
+    for (var i = 0; i < (rows || []).length; i++) {
+      var r = rows[i];
+      var k = at[r.id] == null ? out.length : at[r.id];
+      at[r.id] = k;
+      out[k] = unitRow(out[k], blank, r);
+    }
+    return out;
+  }
+
+  function mergeBattle(base, p) {
+    var b = unitRow(base, {}, {});
+    b.full = false;
+    b.t = p.t; b.over = p.over; b.won = p.won;
+    b.killed = p.killed; b.escaped = p.escaped;
+    b.events = p.events || [];
+    b.enemies = freshUnits(base.enemies, p.enemies, { looting: false });
+    if (p.militia) b.militia = patchUnits(base.militia, p.militia, { alive: true });
+    if (p.players) b.players = patchUnits(base.players, p.players, { down: false });
+    if (p.turrets) b.turrets = p.turrets;
+    return b;
+  }
+
+  /**
+   * battleStart · battleTick 한 장을 판에 반영하고 **온전해진 판**을 돌려준다.
+   * 풀 스냅샷을 아직 한 장도 못 받았으면 델타는 버린다 — 다음 되맞춤(기본 10초)이 판을 다시 세운다.
+   */
+  function applyBattle(p) {
+    if (!p) { set({ battle: null }); return null; }
+    if (p.full === false && !S.battle) return null;
+    var merged = p.full === false ? mergeBattle(S.battle, p) : p;
+    set({ battle: merged });
+    return merged;
+  }
+
   function enemyMeta(type) {
     var base = ENEMIES[type] || { name: type || '알 수 없는 무리', icon: 'bandit', color: '#7a5a48' };
     var c = cfg();
@@ -1615,6 +1686,7 @@
     suspendAutoPlayLocal: suspendAutoPlayLocal, resetAutoPlayLocal: resetAutoPlayLocal,
     rally: rally, defenseFlag: defenseFlag,
     wave: wave, defense: defense, chronicle: chronicle, battleLive: battleLive,
+    applyBattle: applyBattle,                /* ★ §21-A2 — 나뉘어 오는 전투 스냅샷을 한 판으로 */
     enemyMeta: enemyMeta, directionMeta: directionMeta,
     timeCfg: timeCfg, phaseIndex: phaseIndex, phaseMeta: phaseMeta, isNight: isNight,
     lightCfg: lightCfg, fogVeil: fogVeil,

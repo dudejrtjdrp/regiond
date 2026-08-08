@@ -196,8 +196,10 @@
     socket.on('researchDone', function (p) { S.emit('researchDone', p); });
     socket.on('buildingDone', function (p) { S.emit('buildingDone', p); });
     socket.on('waveIncoming', function (p) { S.emit('waveIncoming', p); });
-    socket.on('battleStart', function (p) { S.set({ battle: p }); S.emit('battleStart', p); });
-    socket.on('battleTick', function (p) { S.set({ battle: p }); S.emit('battleTick', p); });
+    /* ★ §21-A2 — 서브틱은 나뉘어 온다(적 4Hz + 민병·터렛 변경분). 판을 붙이는 일은 state 가 하고,
+       화면에는 **붙여 놓은 온전한 판**을 넘긴다 — 받아 보는 쪽의 코드는 한 줄도 안 바뀐다. */
+    socket.on('battleStart', function (p) { S.emit('battleStart', S.applyBattle(p)); });
+    socket.on('battleTick', function (p) { S.emit('battleTick', S.applyBattle(p)); });
     socket.on('waveResult', function (p) { S.set({ battle: null, lastWave: p }); S.emit('waveResult', p); });
     socket.on('chronicle', function (p) { S.set({ chronicle: p }); S.emit('chronicle', p); });
     /* ★ §19-E(F04-9) — 방장이 시계를 돌렸다. 방 전체가 같은 하루 길이를 쓴다(해가 사람마다 다르면 안 된다). */

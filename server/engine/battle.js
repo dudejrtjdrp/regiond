@@ -847,7 +847,7 @@ export function runBattle(world, nation, data, opts = {}) {
 // ────────────────────────────────────────────────────────────────
 // 뷰 — 실시간 스트림
 // ────────────────────────────────────────────────────────────────
-/** battleTick 페이로드 — 위치·체력만. 매 서브틱 방 전체에 흘려보낸다. */
+/** 온전한 한 판 — battleStart · 되맞춤 · NationView 가 쓴다(서브틱 스트림은 아래 델타가 나른다). */
 export function battleSnapshot(nation, data) {
   const b = nation.battle;
   if (!b) return null;
@@ -869,7 +869,7 @@ export function battleSnapshot(nation, data) {
       type: e.type, looting: e.looting > 0,
     })),
     militia: b.militia.map((m) => ({ id: m.id, x: m.x, y: m.y, hp: round2(m.hp), maxHp: m.maxHp, alive: m.alive })),
-    turrets: turretList(nation, data).map((t) => ({ id: t.id, x: t.x, y: t.y, range: t.range, key: t.key })),
+    turrets: turretRows(nation, data),
     players: Object.values(nation.players || {}).map((p) => ({
       id: p.id, hp: round2(p.hp ?? 0), maxHp: p.maxHp, down: (p.downUntil || 0) > 0,
     })),
@@ -882,4 +882,134 @@ export function battleView(nation, data) {
   if (!b) return null;
   const snap = battleSnapshot(nation, data);
   return { ...snap, multipliers: { defender: round3(b.multipliers.defender), enemy: round3(b.multipliers.enemy) } };
+}
+
+/* ★ §21-A2 — battleTick 을 나눠 보낸다.
+   「왜」. 서브틱은 초에 넷이다. 그 넷 모두에 적·민병·터렛·플레이어 **전량**을 실었더니 전투 중
+   초당 수십 KB 가 사람마다 나갔다. 그런데 그 안에서 서브틱마다 실제로 달라지는 것은 **적의 좌표**뿐이다:
+   터렛은 전투 내내 한 자리에 서 있고(사거리·종류도 그대로), 이름·최대 체력·도읍 자리는 전투가
+   끝날 때까지 한 글자도 안 바뀌며, 민병의 걸음은 절반 박자로도 족하다 — 화면은 GM.interp 가
+   박자를 **스스로 배워** 그 사이를 이어 준다(public/js/interp.js learnGap).
+   그래서 나눈다. **적은 4Hz 그대로다** — 보간의 전제이고, 여기를 줄이면 걸음이 끊긴다.
+   민병·터렛은 2Hz 의 **바뀐 줄만**, 플레이어는 바뀔 때만, 정적 필드는 아예 안 보낸다.
+   잃어버린 한 장을 되찾는 길은 둘: 입장·개시의 풀 스냅샷(battleStart)과,
+   `world.json simulation.battleFullEvery` 서브틱마다 한 번 끼워 넣는 되맞춤(`full:true`).
+   판정은 한 눈금도 안 바뀐다 — 여기는 전송 계층이고, 캐시는 월드가 아니라 서버 런타임이 쥔다. */
+const FULL_EVERY = 40;
+const fullEvery = (data) => Math.max(1, data.world?.simulation?.battleFullEvery ?? FULL_EVERY);
+
+const turretRows = (nation, data) => turretList(nation, data)
+  .map((t) => ({ id: t.id, x: t.x, y: t.y, range: t.range, key: t.key }));
+const playerList = (nation) => Object.values(nation.players || {});
+const militiaSig = (m) => `${m.x},${m.y},${round2(m.hp)},${m.alive ? 1 : 0}`;
+const playerSig = (p) => `${round2(p.hp ?? 0)},${p.maxHp},${(p.downUntil || 0) > 0 ? 1 : 0}`;
+
+/* 델타 한 줄 = 그 유닛의 **동적 필드 한 벌**이다. 빠진 칸은 거짓으로 읽고(looting·alive·down),
+   정적 칸(최대 체력·생김새)은 그 줄이 처음 실릴 때만 붙인다. */
+function enemyRow(e, fresh) {
+  const o = { id: e.id, x: e.x, y: e.y, hp: round2(e.hp) };
+  if (e.looting > 0) o.looting = true;
+  if (fresh) { o.maxHp = e.maxHp; o.type = e.type; }
+  return o;
+}
+
+function militiaRow(m, fresh) {
+  const o = { id: m.id, x: m.x, y: m.y, hp: round2(m.hp) };
+  if (!m.alive) o.alive = false;
+  if (fresh) o.maxHp = m.maxHp;
+  return o;
+}
+
+/** 사람은 손에 꼽는다 — 최대 체력(능력치로 자란다)까지 늘 함께 싣는다. */
+function playerRow(p) {
+  const o = { id: p.id, hp: round2(p.hp ?? 0), maxHp: p.maxHp };
+  if ((p.downUntil || 0) > 0) o.down = true;
+  return o;
+}
+
+/** 방 하나가 「지금까지 무엇을 받았는지」 — 서버 런타임이 들고 다닌다(세이브에 넣지 않는다). */
+export function battleStreamCache() {
+  return { n: 0, enemies: new Set(), militia: new Map(), players: new Map(), turrets: '' };
+}
+
+function rememberAll(cache, nation, snap) {
+  cache.n = 1;
+  cache.enemies = new Set(snap.enemies.map((e) => e.id));
+  cache.militia = new Map(nation.battle.militia.map((m) => [m.id, militiaSig(m)]));
+  cache.players = new Map(playerList(nation).map((p) => [p.id, playerSig(p)]));
+  cache.turrets = JSON.stringify(snap.turrets);
+}
+
+/**
+ * 풀 스냅샷 한 장 — battleStart · 되맞춤. 방 전체에 보내는 것이면 cache 를 넘겨
+ * 「방금 이만큼을 보냈다」를 새긴다(한 사람에게만 보내는 되맞춤은 cache 를 건드리지 않는다).
+ */
+export function battleFull(nation, data, cache) {
+  const snap = battleSnapshot(nation, data);
+  if (!snap) return null;
+  if (cache) rememberAll(cache, nation, snap);
+  return { ...snap, full: true };
+}
+
+/** 서브틱 한 장 — 되맞춤 차례면 풀 스냅샷, 아니면 델타. */
+export function battleStreamTick(nation, data, cache) {
+  if (!nation.battle) return null;
+  if (cache.n % fullEvery(data) === 0) return battleFull(nation, data, cache);
+  cache.n += 1;
+  return battleDelta(nation, data, cache);
+}
+
+/** 살아 있는 적 전량 — 4Hz. 처음 보는 놈에게만 생김새·최대 체력을 붙인다. */
+function enemyRows(b, cache) {
+  const out = [];
+  const live = new Set();
+  for (const e of b.enemies) {
+    if (!e.alive) continue;
+    live.add(e.id);
+    out.push(enemyRow(e, !cache.enemies.has(e.id)));
+  }
+  cache.enemies = live;
+  return out;
+}
+
+/** 지난번과 달라진 줄만 — 같은 값이면 아예 싣지 않는다. */
+function changedRows(list, seen, sig, row) {
+  const out = [];
+  for (const it of list) {
+    const s = sig(it);
+    if (seen.get(it.id) === s) continue;
+    out.push(row(it, !seen.has(it.id)));
+    seen.set(it.id, s);
+  }
+  return out;
+}
+
+/** 터렛은 전투 내내 한 자리다 — 목록이 실제로 달라졌을 때만 통째로 다시 보낸다. */
+function turretDelta(nation, data, cache) {
+  const list = turretRows(nation, data);
+  const sig = JSON.stringify(list);
+  if (sig === cache.turrets) return null;
+  cache.turrets = sig;
+  return list;
+}
+
+/** 민병·터렛은 절반 박자(2Hz)에만 얹는다 — 이 한 장이 그 차례인가. */
+function addSlowRows(out, nation, data, cache) {
+  if (cache.n % 2 !== 0) return out;
+  const militia = changedRows(nation.battle.militia, cache.militia, militiaSig, militiaRow);
+  if (militia.length) out.militia = militia;
+  const turrets = turretDelta(nation, data, cache);
+  if (turrets) out.turrets = turrets;
+  return out;
+}
+
+function battleDelta(nation, data, cache) {
+  const b = nation.battle;
+  const out = {
+    full: false, waveIndex: b.waveIndex, t: round2(b.t), over: b.over, won: b.won,
+    killed: b.killed, escaped: b.escaped, enemies: enemyRows(b, cache),
+  };
+  const players = changedRows(playerList(nation), cache.players, playerSig, playerRow);
+  if (players.length) out.players = players;
+  return addSlowRows(out, nation, data, cache);
 }

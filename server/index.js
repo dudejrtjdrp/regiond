@@ -31,7 +31,10 @@ import { storyEvents, gameStartedEvents } from './engine/story.js';
 import { checkEndingInvite, inviteView } from './engine/ending.js';
 import { roleSummary } from './engine/npc.js';
 import { ensurePlayer, playerProgressView } from './engine/skills.js';
-import { stepBattle, finishBattle, battleSnapshot } from './engine/battle.js';
+// ★ §21-A2 — 서브틱 스트림은 battleStreamTick(델타)이, 되맞춤은 battleFull(풀)이 낸다
+import {
+  stepBattle, finishBattle, battleFull, battleStreamCache, battleStreamTick,
+} from './engine/battle.js';
 // ★ GDD3 §13-C — 상시 생태계. 일 틱도 전투 서브틱도 아닌 제 박자로 돈다.
 import { stepEcology, ensureCreatures, creatureViews } from './engine/ecology.js';
 // ★ GDD3 §14-1 — 주민의 작업 사이클도 그 박자에 편승한다(즉시 크레딧 + 그 자리 수치).
@@ -369,15 +372,24 @@ class GameRuntime {
     return null;
   }
 
+  /* ★ §21-A2 — 이 방이 「지금까지 받은 것」의 장부. 월드가 아니라 런타임이 쥔다
+     (세이브에도 결정론에도 닿지 않는 순수 전송 계층이다). 싸움이 끝나면 함께 버린다. */
+  battleStreamOf() {
+    if (!this.battleCache) this.battleCache = battleStreamCache();
+    return this.battleCache;
+  }
+
   ensureBattleLoop() {
     if (this.battleTimer) return;
-    if (!this.activeBattleNation()) return;
     const nation = this.activeBattleNation();
-    io.to(this.gameId).emit('battleStart', battleSnapshot(nation, data));
+    if (!nation) return;
+    this.battleCache = battleStreamCache();
+    io.to(this.gameId).emit('battleStart', battleFull(nation, data, this.battleCache));
     this.battleTimer = setInterval(() => this.battleStep(), this.subtickSeconds * 1000);
   }
 
   stopBattleLoop() {
+    this.battleCache = null;
     if (this.battleTimer) { clearInterval(this.battleTimer); this.battleTimer = null; }
   }
 
@@ -385,7 +397,8 @@ class GameRuntime {
     const nation = this.activeBattleNation();
     if (!nation) { this.stopBattleLoop(); return; }
     const { events, done } = stepBattle(this.world, nation, data, this.subtickSeconds);
-    io.to(this.gameId).emit('battleTick', { ...battleSnapshot(nation, data), events });
+    const tick = battleStreamTick(nation, data, this.battleStreamOf());
+    io.to(this.gameId).emit('battleTick', { ...tick, events });
     if (!done) return;
     this.completeBattle(nation);
   }
@@ -602,7 +615,8 @@ app.post('/api/debug/battle', (req, res) => {
   let guard = 0;
   const max = Math.ceil(data.waves.battle.maxSeconds / g.subtickSeconds) + 8;
   while (!nation.battle.over && guard++ < max) stepBattle(g.world, nation, data, g.subtickSeconds);
-  io.to(g.gameId).emit('battleTick', { ...battleSnapshot(nation, data), events: [] });
+  // ★ §21-A2 — 단숨에 끝까지 돌린 판이라 델타로는 못 잇는다: 방 전체에 풀 한 장을 던진다
+  io.to(g.gameId).emit('battleTick', { ...battleFull(nation, data, g.battleStreamOf()), events: [] });
   const result = g.completeBattle(nation);
   res.json({ ok: true, resolved: true, subticks: guard, won: result?.won ?? null });
 });
@@ -935,7 +949,9 @@ io.on('connection', (socket) => {
     sock.emit('state', payloads.state);
     sock.emit('worldState', payloads.worldState);
     sock.emit('chronicle', chronicleView(rt.world, nation, data));
-    if (nation.battle && !nation.battle.over) sock.emit('battleStart', battleSnapshot(nation, data));
+    /* ★ §21-A2 — 늦게 든 사람에게는 **풀 한 장**이 간다(방의 장부는 건드리지 않는다:
+       이 한 장은 이 사람만 받았고, 방의 나머지는 이미 그만큼을 알고 있다). */
+    if (nation.battle && !nation.battle.over) sock.emit('battleStart', battleFull(nation, data, null));
     // ★ §세계관 W2 — 갓 세운 세계의 첫 접속에서 도입(알현실)이 흐른다. storySeen 이 1회를 보장한다.
     //   「왜」 맨 뒤인가 — 접속 절차(세계·상태·연대기)가 다 닿은 뒤에 이야기가 시작해야,
     //   접속 시점의 연대기 스냅샷이 이야기 줄에 물들지 않는다(하니스 연대기 검사와의 정합).
@@ -1003,7 +1019,9 @@ io.on('connection', (socket) => {
         }
         const nation = rt.world.nations[s.nationId];
         if (type === 'combatSwing' && nation.battle) {
-          io.to(s.gameId).emit('battleTick', { ...battleSnapshot(nation, data), events: [] });
+          // ★ §21-A2 — 검이 닿은 자리를 곧바로 보여 주는 한 장. 같은 방에 같은 델타가 가므로 장부도 함께 나아간다
+          const beat = battleStreamTick(nation, data, rt.battleStreamOf());
+          io.to(s.gameId).emit('battleTick', { ...beat, events: [] });
         }
         // ★ §13-C-8 — 사냥한 놈이 쓰러졌으면 방 전체가 그 자리에서 사라진 것을 본다
         //   (1초 뒤 저빈도 방송을 기다리면 죽은 짐승이 잠깐 더 서 있다)

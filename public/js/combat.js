@@ -67,6 +67,11 @@
       seen[id] = 1;
       var a = interp[id];
       if (!a) { interp[id] = GM.interp.create(x, y, bclock, null); return; }
+      /* ★ §21-A2 — 제자리에 선 놈은 띠에 얹지 않는다. 민병은 이제 절반 박자(2Hz)로 오고,
+         그 사이 서브틱마다 **같은 좌표**를 다시 얹으면 띠가 250ms 박자를 배워 버린다:
+         그러면 500ms 어치 걸음을 250ms 만에 지나가 걷다 서다 하는 톱니가 된다. */
+      var last = a.buf[a.buf.length - 1];
+      if (last && last.x === x && last.y === y) return;
       GM.interp.push(a, x, y, bclock, BATTLE_SNAP, d, d.battleGapMs);
     };
     var i;
