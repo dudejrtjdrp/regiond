@@ -10,6 +10,8 @@ import { reassign } from './npc.js';
 import { isLastPlace, foreignPriceTable } from './ai_nation.js';
 // ★ §세계관 W3 — 매듭형 엔딩(초대장 열기·재회 근사 게이지·재회 매입 우대)
 import { acceptEnding, countTradeGold, reunionSellPremium } from './ending.js';
+// ★ §세계관 W4 — 관계 결: 거래 성사·거절이 게이지를 움직인다
+import { onTradeDone, onOfferRefused, relationView } from './relations.js';
 import { performApAction, harvestNode, resolveRuinChoice } from './king.js';
 import { townOf, ringAt, revealConcealed, nodeById, inTerritory, removeNode } from './world.js';
 import { recordRuinFound, discoverBiomes } from './codex.js';
@@ -190,6 +192,7 @@ export function visitNation(world, nation, cmd, data) {
   return ok({
     ...nationBrief(other, data), first, tick: world.tick, x: town.x, y: town.y,
     specialties: specialtyList(world, nation, other.id, data),
+    relation: relationView(world, nation, data, other.id),   // ★ §세계관 W4 — 첩에 「우리 사이」가 실린다
   });
 }
 
@@ -937,7 +940,8 @@ function runCommand(world, nationId, cmd, data, rng) {
         eventDelta: freightEventDelta(nation),
       };
       if (side === 'buy') {
-        const unit = importPrice(foreign, nation, data, opts);
+        // ★ §세계관 W4 — 특수 제안(특가·도움 요청)의 단가 보정. respondOffer 만 채울 수 있다(클라 페이로드는 _키가 벗겨진다).
+        const unit = importPrice(foreign, nation, data, opts) * (1 + (cmd._offerAdj || 0));
         const cost = unit * amt;
         if (nation.gold < cost) return err('NO_GOLD', '골드가 부족합니다.');
         if ((partner.resources[resource] || 0) < amt) return err('NO_STOCK', '상대국 재고가 부족합니다.');
@@ -950,13 +954,15 @@ function runCommand(world, nationId, cmd, data, rng) {
         if (tariffZero) nation.artifactState.tariffZeroCharges -= 1;
         nation.stats.tradeVolume += cost;
         countTradeGold(nation, partnerId, cost);   // ★ §세계관 W3 — 재회의 근사 게이지
+        onTradeDone(world, nation, partnerId, cost, data, cmd._relBonus || 0);   // ★ §세계관 W4
         recordTradeFlow(world, nation.id, partnerId, resource, amt, 'buy');
         return ok({ side, resource, amount: amt, unitPrice: round2(unit), gold: round2(-cost) });
       }
       if (side === 'sell') {
         if ((nation.resources[resource] || 0) < amt) return err('NO_STOCK', '재고가 부족합니다.');
         // ★ §세계관 W3 재회 — 엔딩 뒤 에르니아는 매입가를 조금 더 쳐준다(빈 손으로 보내지 않는 사이)
-        const premium = (hooks.premiumTrade?.[partnerId] || 0) + reunionSellPremium(world, partnerId, data);
+        const premium = (hooks.premiumTrade?.[partnerId] || 0) + reunionSellPremium(world, partnerId, data)
+          + (cmd._offerAdj || 0);   // ★ §세계관 W4 — 도움 요청(웃돈 매입)의 단가 보정
         const unit = exportPrice(foreign, data, nation) * (1 + premium);
         const gain = unit * amt * (hooks.goldMultiplier ?? 1);
         if (partner.gold < gain) return err('PARTNER_NO_GOLD', '상대국의 국고가 부족합니다.');
@@ -967,6 +973,7 @@ function runCommand(world, nationId, cmd, data, rng) {
         nation.stats.goldEarned += gain;
         nation.stats.tradeVolume += gain;
         countTradeGold(nation, partnerId, gain);   // ★ §세계관 W3 — 재회의 근사 게이지
+        onTradeDone(world, nation, partnerId, gain, data, cmd._relBonus || 0);   // ★ §세계관 W4
         recordTradeFlow(world, nation.id, partnerId, resource, amt, 'sell');
         return ok({ side, resource, amount: amt, unitPrice: round2(unit), gold: round2(gain) });
       }
@@ -983,9 +990,15 @@ function runCommand(world, nationId, cmd, data, rng) {
       if (idx < 0) return err('NO_OFFER', '만료되었거나 없는 제안입니다.');
       const offer = world.offers[idx];
       world.offers.splice(idx, 1);
-      if (!cmd.accept) return ok({ accepted: false, offerId: offer.offerId });
+      if (!cmd.accept) {
+        // ★ §세계관 W4 — 거절에도 값이 있다: 게이지가 내리고, 청명은 세 번이면 문을 닫는다
+        const refused = onOfferRefused(world, nation, offer.nationId, data);
+        return ok({ accepted: false, offerId: offer.offerId, events: refused });
+      }
       const res = runCommand(world, nationId, {
         type: 'trade', nationId: offer.nationId, side: offer.side, resource: offer.resource, amount: offer.amount,
+        // ★ §세계관 W4 — 특수 제안의 단가 보정·관계 웃돈은 서버 내부에서만 채워진다
+        _offerAdj: offer.special?.adj || 0, _relBonus: offer.special?.relBonus || 0,
       }, data, rng);
       return res.ok ? ok({ accepted: true, offerId: offer.offerId, ...res }) : res;
     }

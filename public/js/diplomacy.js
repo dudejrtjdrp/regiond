@@ -93,6 +93,7 @@
     var body = U.el('div', 'nation-panel');
     body.appendChild(head(brief));
     if (brief.concept) body.appendChild(U.el('p', 'hint', brief.concept));
+    relationRow(body, brief.relation);
     tagRow(body, brief.tagNames);
     profileRow(body, brief.tradeProfile);
     priceTable(body, brief.prices);
@@ -123,6 +124,23 @@
     sb.appendChild(U.el('div', 'sp-line', '문 앞까지 걸어와 인사를 나누었습니다.'));
     sp.appendChild(sb);
     return sp;
+  }
+
+  /* ★ §세계관 W4 — 관계 결. 점수 게이지 한 줄 + 지금의 호칭. 셈은 전부 서버가 했다. */
+  function relationRow(body, rel) {
+    if (!rel) return;
+    body.appendChild(U.el('h3', 'sec-title', '우리 사이'));
+    var row = U.el('div', 'ctx-acts');
+    row.appendChild(U.el('span', 'chip', rel.title || ''));
+    var bar = U.el('div', 'meter');
+    bar.style.cssText = 'flex:1;height:8px;background:#2a2620;border-radius:4px;overflow:hidden;align-self:center';
+    var fill = U.el('div', '');
+    fill.style.cssText = 'height:100%;width:' + Math.round(rel.score) + '%;background:#8fe3b4';
+    bar.appendChild(fill);
+    row.appendChild(bar);
+    var label = rel.nextAt != null ? Math.round(rel.score) + ' / 다음 문턱 ' + rel.nextAt : String(Math.round(rel.score));
+    row.appendChild(U.el('span', 'hint', label));
+    body.appendChild(row);
   }
 
   /** 그 땅이 품은 것 — 찾아가 눈으로 봤으니 이제 안다 */

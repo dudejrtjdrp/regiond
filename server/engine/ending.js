@@ -21,19 +21,23 @@ function tradeGoldWith(nation, partnerId) {
   return (nation.stats?.tradeGoldWith || {})[partnerId] || 0;
 }
 
-/** 초대장 조건판 — 외교 화면·테스트가 함께 본다 */
+/** 초대장 조건판 — 외교 화면·테스트가 함께 본다.
+ *  ★ §세계관 W4 — 거래 누계(tradeOk)가 재회 게이지(relationOk)로 승격됐다. 게이지가 없는
+ *  옛 세이브는 relations.js 이관 근사(migratePerGold)가 누계에서 채워 후퇴를 막는다. */
 export function endingState(world, nation, data) {
   const cfg = endingCfg(data);
   const traded = tradeGoldWith(nation, cfg.tradePartnerId);
+  const score = nation.relations?.[cfg.tradePartnerId] ?? 0;
   const s = {
     tierOk: settlementTier(nation) >= cfg.tierMin,
     dragonOk: dragonBeaten(world, nation),
-    tradeOk: traded >= cfg.tradeGoldMin,
+    relationOk: score >= (cfg.reunionScoreMin ?? 60),
+    reunionScore: round2(score),
     traded: round2(traded),
     invited: world.endingInviteTick != null,
     done: world.endingDone != null,
   };
-  s.met = s.tierOk && s.dragonOk && s.tradeOk;
+  s.met = s.tierOk && s.dragonOk && s.relationOk;
   return s;
 }
 

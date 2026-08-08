@@ -44,5 +44,82 @@
     "offer": { "kind": "trade_offer", "title": "무역 제안" },
     "invasion": { "kind": "invasion_prep", "title": "침공 대응" },
     "budget": { "kind": "budget", "title": "예산 배분" }
+  },
+  "nations": {
+    "_note": "★ §세계관 W4 — 살아있는 세 나라(세계관기획 §4). 반복 이벤트가 아니라 「상태 조건」이 방아쇠다. 평가는 서버(index.js advance)에서만 — 시뮬 봇은 이 길을 지나지 않고, 확률은 statRng 라 세계 난수를 축내지 않는다. minChapter 는 disastersFromChapter 결(7장부터 — 갓 도끼질을 배운 사람에게 세계가 무너지지 않는다). 성녀 자리가 채워져 있으면 하루 전 예고(omen)가 먼저 흐른다. maxPerTick 1 — 하루에 세계가 두 번 흔들리지 않는다.",
+    "maxPerTick": 1,
+    "saintForewarn": true,
+    "pool": [
+      {
+        "id": "elasia_forest_fire", "nation": "ai2", "name": "엘라시아 숲 화재",
+        "trigger": { "minChapter": 7 }, "chance": 0.02,
+        "omen": "세라의 꿈에 불탄 숲이 보였다 — 서쪽 어딘가에서, 큰 불이 날 것 같다.",
+        "text": "엘라시아의 대삼림에 불이 붙었다. 세계의 목재 공급이 크게 줄어든다.",
+        "effects": [{ "target": "all", "kind": "globalOutputModifier", "resource": "wood", "delta": -0.4, "durationTicks": 3 }],
+        "followUp": {
+          "afterTicks": 2,
+          "text": "목재 값이 치솟자, 에르니아가 비싼 값에 목재를 사들이기 시작했다.",
+          "specialOffer": { "nationId": "ai3", "side": "sell", "resource": "wood", "amount": 40, "premium": 0.4, "relBonus": 3, "expiryTicks": 2 }
+        }
+      },
+      {
+        "id": "elasia_council_split", "nation": "ai2", "name": "부족 회의 결렬",
+        "trigger": { "minChapter": 7 }, "chance": 0.015,
+        "omen": "세라가 서쪽 바람에서 언쟁의 냄새를 맡았다 — 엘라시아의 세 부족이 크게 다툴 모양이다.",
+        "text": "엘라시아의 세 부족이 크게 다퉜다. 회의가 끝날 때까지 무역 제안이 끊긴다.",
+        "ban": { "nationId": "ai2", "ticks": 2 },
+        "followUp": {
+          "afterTicks": 2,
+          "text": "회의가 끝났다. 이긴 부족이 화해의 뜻으로 특가를 내놓는다.",
+          "specialOffer": { "nationId": "ai2", "side": "buy", "resource": "wood", "amount": 50, "discount": 0.25, "relBonus": 2, "expiryTicks": 2 }
+        }
+      },
+      {
+        "id": "cheongmyeong_new_sect", "nation": "ai1", "name": "새 문파의 등장",
+        "trigger": { "minChapter": 7, "relMin": 15 }, "chance": 0.02,
+        "omen": "동쪽에서 낯선 기운이 인다 — 청명에 새 문파가 서려는 모양이다.",
+        "text": "청명에 새 문파가 섰다. 축하의 뜻으로, 아는 얼굴에게만 강재를 싸게 내놓는다.",
+        "specialOffer": { "nationId": "ai1", "side": "buy", "resource": "steel", "amount": 30, "discount": 0.3, "relBonus": 2, "expiryTicks": 2 }
+      },
+      {
+        "id": "ernia_succession", "nation": "ai3", "name": "에르니아 왕위 계승",
+        "trigger": { "minChapter": 7, "tierMin": 5, "oncePerWorld": true }, "chance": 0.03,
+        "omen": "동쪽 하늘의 별자리가 바뀌었다 — 에르니아 왕실에 큰 일이 있을 징조다.",
+        "text": "에르니아의 왕위가 넘어간다. 혼란한 시장에 운임이 출렁인다.",
+        "effects": [{ "target": "player", "kind": "freightModifier", "delta": 0.1, "durationTicks": 2 }],
+        "followUp": {
+          "afterTicks": 2,
+          "text": "새 국왕이 조약을 청했다 — 옛 인연을 기려, 곡물을 후한 값에 사들이겠다 한다.",
+          "specialOffer": { "nationId": "ai3", "side": "sell", "resource": "grain", "amount": 60, "premium": 0.3, "relBonus": 15, "expiryTicks": 2 }
+        }
+      },
+      {
+        "id": "ernia_grain_dump", "nation": "ai3", "name": "에르니아 곡물 덤핑",
+        "trigger": { "minChapter": 7, "playerGrainAbove": 300 }, "chance": 0.02,
+        "omen": "에르니아의 곡창이 넘친다는 소문이 돈다 — 곧 싼 곡물이 시장에 풀릴 것이다.",
+        "text": "에르니아가 남는 곡물을 싼값에 풀었다. 한동안 곡물이 흔해져 값이 내려간다.",
+        "effects": [{ "target": "all", "kind": "globalOutputModifier", "resource": "grain", "delta": 0.5, "durationTicks": 2 }]
+      },
+      {
+        "id": "cheongmyeong_famine_plea", "nation": "ai1", "name": "청명의 기근",
+        "trigger": { "minChapter": 7, "aiGrainBelow": 40 }, "chance": 0.1,
+        "omen": "동쪽에서 마른 바람이 분다 — 청명의 들녘이 시들고 있다.",
+        "text": "청명의 들녘이 말랐다. 장로 담선이 예를 갖춰 곡물을 청한다 — 후한 값을 치르겠다 한다.",
+        "specialOffer": { "nationId": "ai1", "side": "sell", "resource": "grain", "amount": 40, "premium": 0.4, "relBonus": 12, "expiryTicks": 2 }
+      },
+      {
+        "id": "elasia_blight_plea", "nation": "ai2", "name": "엘라시아의 흉작",
+        "trigger": { "minChapter": 7, "aiGrainBelow": 40 }, "chance": 0.1,
+        "omen": "서쪽 숲의 잎이 이르게 진다 — 엘라시아의 수확이 좋지 않을 모양이다.",
+        "text": "엘라시아의 수확이 무너졌다. 대변인 리엔이 이웃의 정으로 식량을 청한다.",
+        "specialOffer": { "nationId": "ai2", "side": "sell", "resource": "grain", "amount": 40, "premium": 0.3, "relBonus": 8, "expiryTicks": 2 }
+      },
+      {
+        "id": "cheongmyeong_closed_gate", "nation": "ai1", "name": "청명의 쇄국",
+        "trigger": { "refuseStreak": true },
+        "text": "거듭된 거절에 청명이 문을 닫았다. 한동안 어떤 제안도 오지 않을 것이다.",
+        "_note": "확률 이벤트가 아니다 — 제안 3연속 거절(relation.refuseStreakLimit)이 유일한 방아쇠. 효과(신의 하락·제안 중단)는 relation.closedGate 다이얼."
+      }
+    ]
   }
 }

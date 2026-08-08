@@ -25,6 +25,8 @@ function readyWorld(seed = 42) {
   p.tier = cfg.tierMin;
   p.wave = { index: 6, arrivalTick: null, scheduledTick: null, history: [{ type: 'dragon', won: true }] };
   countTradeGold(p, cfg.tradePartnerId, cfg.tradeGoldMin);
+  // ★ §세계관 W4 — 게이트가 재회 게이지로 승격됐다(이관 근사와 같은 상태를 만든다)
+  (p.relations ||= {})[cfg.tradePartnerId] = cfg.reunionScoreMin;
   return world;
 }
 
@@ -39,8 +41,8 @@ test('조건 3중 — 하나라도 모자라면 초대장은 오지 않는다', 
   assert.equal(endingState(world, p, data).met, false, '용');
   world.dragon = { slainTick: 3 };
   assert.equal(endingState(world, p, data).met, true, '세계 보스 처치도 용 격퇴로 인정한다');
-  p.stats.tradeGoldWith = {};
-  assert.equal(endingState(world, p, data).met, false, '에르니아 거래');
+  p.relations[cfg.tradePartnerId] = 0;   // ★ §세계관 W4 — 게이트는 이제 재회 게이지다
+  assert.equal(endingState(world, p, data).met, false, '재회 게이지');
 });
 
 test('초대장 — 조건이 차면 한 번만 오고, 연대기에 남는다', () => {

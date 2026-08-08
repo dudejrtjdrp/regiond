@@ -69,6 +69,18 @@
           "_note": "★ §세계관 W1 — 강재의 나라는 이제 청명. key(west_steel_ingot)는 세이브 호환으로 유지."
         }
       ],
+      "relation": {
+        "_note": "★ §세계관 W4 「신의(信義)」 — 오직 계약 이행으로만 오른다(세계관기획 §3-2). 위신·거래액 무관. 거절이 세 번 이어지면 쇄국(closedGate)이 문을 닫는다. bond 임계를 넘으면 독점 강재 특가(steelDeal)가 이따금 온다.",
+        "style": "trust",
+        "perDeal": 2,
+        "refuseDelta": -1,
+        "refuseStreakLimit": 3,
+        "closedGate": { "delta": -8, "banTicks": 4 },
+        "thresholds": { "opened": 15, "bond": 40 },
+        "titles": { "base": "낯선 이방인", "opened": "얼굴을 아는 손", "bond": "신의를 맺은 벗" },
+        "steelDeal": { "resource": "steel", "amount": 40, "discount": 0.25, "relBonus": 2, "coolTicks": 5, "expiryTicks": 2 },
+        "migratePerGold": 0
+      },
       "startingResources": {
         "grain": 120,
         "wood": 80,
@@ -160,6 +172,16 @@
           "_note": "★ §세계관 W1 — 유전이 엘라시아로 넘어가며 함께 이사. key(east_oil_jar)는 옛 세이브의 재고 상태와 이어지도록 그대로 둔다."
         }
       ],
+      "relation": {
+        "_note": "★ §세계관 W4 「세 부족의 목소리」 — 가장 쉽게 열리는 이웃(세계관기획 §3-3). contract 임계를 넘으면 정기 계약: 매 일 틱 목재가 고정가로 자동 입고된다(금고 부족한 날은 쉼). 부족 회의(council_split 이벤트)가 이따금 태도를 출렁이게 한다.",
+        "style": "neighbors",
+        "perDeal": 3,
+        "refuseDelta": -0.5,
+        "thresholds": { "contract": 30 },
+        "titles": { "base": "가까운 이웃", "contract": "오랜 벗" },
+        "contract": { "resource": "wood", "amount": 12, "goldPerUnit": 1.2 },
+        "migratePerGold": 0.1
+      },
       "startingResources": {
         "grain": 90,
         "wood": 140,
@@ -241,6 +263,15 @@
           "_note": "★ §세계관 W1 — 강괴가 청명으로 떠난 자리. 큰손의 결(남는 물자를 푼다)에 맞는 새 특산품."
         }
       ],
+      "relation": {
+        "_note": "★ §세계관 W4 「재회(再會)」 — 에르니아는 플레이어의 「성장」을 지켜본다(세계관기획 §3-1). 거래 금화 비례 + 위신 사건(티어업·격퇴·유물) 가산. 하락은 거의 없다. balance.ending.reunionScoreMin(60) 이 엔딩 게이트다. migratePerGold 는 옛 세이브(관계치 없음)를 거래 누계에서 근사해 후퇴를 막는 이관 계수.",
+        "style": "reunion",
+        "perGold": 0.08,
+        "refuseDelta": -0.5,
+        "prestige": { "tier_up": 8, "wave_held": 3, "artifact_found": 2 },
+        "titles": { "early": "서쪽으로 떠난 옛 영웅들", "rising": "신흥국 {name}", "equal": "{name}의 군주(들)" },
+        "migratePerGold": 0.24
+      },
       "startingResources": {
         "grain": 150,
         "wood": 120,

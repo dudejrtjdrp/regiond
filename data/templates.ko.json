@@ -6,6 +6,21 @@
     "궁정 서기가 {{tick}}일차 일지를 덮었습니다."
   ],
   "templates": {
+    "nation_event": [
+      "{{text}}",
+      "바깥소식 — {{text}}",
+      "국경 너머의 일 — {{text}}"
+    ],
+    "nation_omen": [
+      "{{text}}",
+      "예감 — {{text}}",
+      "바람결에 실려 온 낌새 — {{text}}"
+    ],
+    "nation_contract": [
+      "{{text}}",
+      "약속한 대로 — {{text}}",
+      "정기 상단의 방울 소리 — {{text}}"
+    ],
     "production_summary": [
       "{{tick}}일차, 곳간에 곡물 {{grain}}이 들어왔습니다. 강재는 {{steel}}입니다.",
       "농정관이 곡물 {{grain}}을 거두었고, 공방은 강재 {{steel}}을 뽑았습니다.",

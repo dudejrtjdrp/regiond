@@ -31,6 +31,8 @@ import { evaluateProgress } from './engine/progression.js';
 import { storyEvents, gameStartedEvents } from './engine/story.js';
 // ★ §세계관 W3 — 매듭형 엔딩: 조건 3중이 차면 초대장이 「알림」으로 온다
 import { checkEndingInvite, inviteView } from './engine/ending.js';
+// ★ §세계관 W4 — 관계 결·국가 이벤트: 세계는 플레이어 없이도 움직인다(시뮬 불간섭·statRng)
+import { dailyRelations } from './engine/relations.js';
 import { roleSummary } from './engine/npc.js';
 import { ensurePlayer, playerProgressView } from './engine/skills.js';
 // ★ §21-A2 — 서브틱 스트림은 battleStreamTick(델타)이, 되맞춤은 battleFull(풀)이 낸다
@@ -352,8 +354,10 @@ class GameRuntime {
     this.world = state;
 
     // ★ §세계관 W2 — 일 틱의 사건(장 진행·웨이브 예고)에 이야기를 얹는다. 시뮬은 이 길을 지나지 않는다.
+    // ★ §세계관 W4 — 관계(위신 가산·정기 계약·국가 이벤트)가 먼저, 그 위에서 초대장 조건을 본다.
+    const relEvs = dailyRelations(this.world, data, events);
     // ★ §세계관 W3 — 조건 3중이 갓 찼으면 초대장(알림)이 같은 아침에 함께 온다.
-    const dayBatch = [...events, ...checkEndingInvite(this.world, data)];
+    const dayBatch = [...events, ...relEvs, ...checkEndingInvite(this.world, data)];
     const withStory = [...dayBatch, ...storyEvents(this.world, data, dayBatch)];
     const decorated = this.#decorate(withStory);
     saveSnapshot(this.world);
@@ -993,6 +997,8 @@ io.on('connection', (socket) => {
   for (const type of CLIENT_COMMANDS) {
     socket.on(type, (rawPayload = {}, rawAck) => {
       const { payload, ack } = readAck(rawPayload, rawAck);
+      // ★ §세계관 W4 — _로 시작하는 키는 서버 내부 전용(특가 단가 보정 등). 클라가 채워 보내도 벗긴다.
+      for (const k of Object.keys(payload || {})) if (k.startsWith('_')) delete payload[k];
       const fail = (error) => {
         socket.emit('serverError', error);
         if (ack) ack({ ok: false, error });
