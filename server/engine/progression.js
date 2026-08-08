@@ -13,6 +13,8 @@ import { townOf, dist, terrainNameAt } from './world.js';
 import { tierUnlockedList, settlementTier } from './tiers.js';
 // ★ GDD3 §13-A-1 — 목표 카드의 have 도 조건 행과 같은 계측기를 쓴다.
 import { haveResource, haveStructures, havePopulation } from './requirements.js';
+// ★ §21-C1 — 장이 열릴 때 흔적의 링도 한 겹 자란다(onChapterOpen 이 유일한 문).
+import { growTrailsFor } from './trails.js';
 
 export const chaptersCfg = (data) => data.chapters;
 export const chapterList = (data) => data.chapters.chapters;
@@ -327,6 +329,10 @@ function summarizeOpens(opens, data) {
 /** 장이 열릴 때 딱 한 번 — 그 장이 필요로 하는 월드 준비 */
 function onChapterOpen(world, nation, ch, data) {
   if (ch.key === 'strange_tracks') placeTrace(world, nation, data);
+  /* ★ §21-C1 — 장이 열리면 세계도 한 겹 자란다(data/trails.json rings[].openAtChapter).
+     「이제 저기까지 갈 수 있다」와 「저기에 뭔가 있다」는 같은 순간에 와야 한다. 규칙은 이 한 줄뿐이고
+     어느 장이 어느 링을 여는지는 자료가 쥔다 — 코드에 장 번호를 적지 않는다. */
+  if (nation.isPlayer) growTrailsFor(world, data, ch.id);
 }
 
 /**

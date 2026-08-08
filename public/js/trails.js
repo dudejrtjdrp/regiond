@@ -88,9 +88,14 @@
       if (!got[k] || !Object.prototype.hasOwnProperty.call(got, k)) continue;
       GM.fx.floatText(t.x, y, '+' + U.fmt(got[k], 0) + ' ' + S.resourceMeta(k).name, '#c8e6a0', 13);
     }
-    if (res.healed) GM.fx.floatText(t.x, y, '+' + U.fmt(res.healed, 0) + ' 체력', '#8fd06a', 13);
+    /* ★ §21-C1 — healed 는 이제 **부호가 있다**: 매복·함정·벌집은 그 자리에서 아프다(reward.damage).
+       올라간 체력은 초록으로 오르고, 깎인 체력은 붉게 내린다 — 같은 한 줄이 두 일을 한다. */
+    if (res.healed > 0) GM.fx.floatText(t.x, y, '+' + U.fmt(res.healed, 0) + ' 체력', '#8fd06a', 13);
+    if (res.healed < 0) GM.fx.floatText(t.x, y, U.fmt(res.healed, 0) + ' 체력', '#ff9d99', 14);
     if (res.morale) GM.fx.floatText(t.x, y, '사기 ' + (res.morale > 0 ? '↑' : '↓'), '#f6cf7a', 13);
-    if (GM.sfx) GM.sfx.play(res.pending ? 'tap' : 'pickup');
+    /* ★ §21-C1 생존자 결말 — 사람이 따라왔다. 곳간 숫자보다 이쪽이 훨씬 큰 사건이라 따로 알린다. */
+    if (res.joined) U.toast(res.joined + '명이 우리를 따라왔습니다.', 'good', 4200);
+    if (GM.sfx) GM.sfx.play(res.healed < 0 ? 'hurt' : (res.pending ? 'tap' : 'pickup'));
   }
 
   GM.trails = { near: near, investigate: investigate, reach: reach };

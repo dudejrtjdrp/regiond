@@ -17,7 +17,7 @@ import { applyCommand } from '../server/engine/commands.js';
 import { townOf, dist, generateWorldMap, terrainIndex, terrainAt } from '../server/engine/world.js';
 import { ensurePlayer } from '../server/engine/skills.js';
 import { isExplored, stampVisionDisc, bumpGen } from '../server/engine/fog.js';
-import { trailsOf, trailViews } from '../server/engine/trails.js';
+import { trailsOf, trailViews, growTrailsFor, investigateTrail, trailDef } from '../server/engine/trails.js';
 import { buildWorldSnapshot } from '../server/engine/view.js';
 
 const data = loadGameData();
@@ -309,4 +309,122 @@ test('★ §18-D2 거리 — 멀리서 부른 조사는 물린다(팔 길이는 
     { type: 'investigateTrail', trailId: tr.id, avatarId: 'lord' }, data, s.rng);
   assert.equal(res.ok, false);
   assert.equal(res.error.code, 'OUT_OF_RANGE');
+});
+
+// ────────────────────────────────────────────────────────────────
+// ⑨ ★ §21-C1 링1~3 — 세계는 장이 열릴 때마다 한 겹 자란다
+//    붙드는 문장 다섯:
+//      ① 링은 openAtChapter 에 닿아야 심긴다(1일차 지도에 링3 이 앉아 있으면 안 된다).
+//      ② **언제** 열리든 같은 씨앗이면 같은 자리다 — 한꺼번에 열어도, 나눠 열어도.
+//      ③ 두 번 열어도 두 번 심지 않는다(멱등).
+//      ④ 심긴 자리는 제 링 반경 안이고, id 는 겹치지 않는다.
+//      ⑤ 링0 은 한 톨도 안 바뀐다 — 링 확장이 시드42 밴드를 건드리면 안 된다.
+// ────────────────────────────────────────────────────────────────
+const RINGS = CFG.rings;
+const fingerprintAll = (world) =>
+  trailsOf(world).map((t) => `${t.id}:${t.chainId ?? t.key}:${t.step ?? '-'}:${t.x},${t.y}`).join('|');
+
+test('★ §21-C1 링은 장이 열려야 심긴다 — 그 전에는 앞마당뿐이다', () => {
+  const s = scene();
+  const before = trailsOf(s.world).length;
+  const first = RINGS[0];
+  assert.equal(growTrailsFor(s.world, data, first.openAtChapter - 1), 0, '아직 안 열린 장이 링을 심었다');
+  assert.equal(trailsOf(s.world).length, before);
+  assert.ok(growTrailsFor(s.world, data, first.openAtChapter) > 0, '장이 열렸는데 링이 안 자랐다');
+  assert.deepEqual(s.world.map.trailRings, [first.ring]);
+});
+
+test('★ §21-C1 결정론 — 한꺼번에 열든 나눠 열든 같은 씨앗이면 같은 지도다', () => {
+  const last = RINGS[RINGS.length - 1].openAtChapter;
+  const a = scene();
+  growTrailsFor(a.world, data, last);
+  const b = scene();
+  for (const r of RINGS) growTrailsFor(b.world, data, r.openAtChapter);
+  assert.equal(fingerprintAll(a.world), fingerprintAll(b.world));
+  const other = scene(SEED + 1);
+  growTrailsFor(other.world, data, last);
+  assert.notEqual(fingerprintAll(a.world), fingerprintAll(other.world), '씨앗이 달라도 같은 지도가 났다');
+});
+
+test('★ §21-C1 멱등 — 같은 장을 두 번 열어도 두 번 심지 않는다', () => {
+  const s = scene();
+  const last = RINGS[RINGS.length - 1].openAtChapter;
+  growTrailsFor(s.world, data, last);
+  const n = trailsOf(s.world).length;
+  assert.equal(growTrailsFor(s.world, data, last), 0);
+  assert.equal(trailsOf(s.world).length, n);
+  assert.equal(new Set(trailsOf(s.world).map((t) => t.id)).size, n, 'id 가 겹쳤다');
+});
+
+test('★ §21-C1 자리 — 링마다 제 반경 안에 앉고, 물 위에는 앉지 않는다', () => {
+  const s = scene();
+  growTrailsFor(s.world, data, RINGS[RINGS.length - 1].openAtChapter);
+  const idx = terrainIndex(data);
+  const outer = RINGS[RINGS.length - 1].radius[1];
+  for (const t of trailsOf(s.world)) {
+    const r = dist(s.t.x, s.t.y, t.x, t.y);
+    assert.ok(r <= outer + 1, `흔적이 바깥 링 밖에 앉았다 (${r.toFixed(1)})`);
+    assert.notEqual(terrainAt(s.world.map, t.x, t.y), idx.water, '물 위에 흔적이 앉았다');
+  }
+});
+
+test('★ §21-C1 링0 불변 — 링이 자라도 앞마당은 한 톨도 안 바뀐다', () => {
+  const a = scene();
+  const ring0 = fingerprintAll(a.world);
+  growTrailsFor(a.world, data, RINGS[RINGS.length - 1].openAtChapter);
+  assert.equal(fingerprintAll(a.world).slice(0, ring0.length), ring0);
+});
+
+test('★ §21-C1 상처와 합류 — damage 는 죽이지 않고, villager 는 사람을 데려온다', () => {
+  const s = scene();
+  growTrailsFor(s.world, data, RINGS[RINGS.length - 1].openAtChapter);
+  /* 아픈 미시 발견(벌집·오소리 굴) 하나를 골라 hp 를 바닥에 두고 손을 댄다 */
+  const hurtful = trailsOf(s.world).find((t) => (trailDef(data, t)?.reward?.damage ?? 0) > 0);
+  assert.ok(hurtful, '아픈 발견물이 하나도 안 심겼다');
+  const p = ensurePlayer(s.nation, 'lord', data, '개척자');
+  p.hp = 3;
+  s.nation.avatars.lord.x = hurtful.x;
+  s.nation.avatars.lord.y = hurtful.y;
+  const res = investigateTrail(s.world, s.nation,
+    { trailId: hurtful.id, avatarId: 'lord' }, data);
+  assert.equal(res.ok, true);
+  assert.ok(res.healed < 0, '아픈 발견물인데 체력이 안 깎였다');
+  assert.ok(p.hp >= 1, '흔적이 사람을 죽였다');       /* GDD3 §14-6 — 1 아래로는 안 내린다 */
+  assert.equal(typeof res.joined, 'number');
+});
+
+test('★ §21-C1 생존자 결말 — reward.villager 가 사람을 늘린다', () => {
+  const s = scene();
+  const t = trailsOf(s.world).find((x) => !x.hidden);
+  const before = s.nation.villagers?.length ?? 0;
+  s.nation.avatars.lord.x = t.x;
+  s.nation.avatars.lord.y = t.y;
+  /* 자료를 건드리지 않고 그 흔적의 보상만 갈아 끼워 본다(계약 시험이지 콘텐츠 시험이 아니다) */
+  const def = trailDef(data, t);
+  const keep = def.reward;
+  def.reward = { villager: 2 };
+  const res = investigateTrail(s.world, s.nation, { trailId: t.id, avatarId: 'lord' }, data);
+  def.reward = keep;
+  assert.equal(res.ok, true);
+  assert.equal(res.joined, 2);
+  assert.equal(s.nation.villagers.length, before + 2);
+});
+
+test('★ §21-C1 자료 온전성 — 사슬은 마지막 칸에 final 이 있고 결말 무게가 선다', () => {
+  const seen = new Set();
+  for (const c of CFG.chains) {
+    assert.ok(!seen.has(c.id), `사슬 id 가 겹친다: ${c.id}`);
+    seen.add(c.id);
+    assert.ok(c.steps.length >= 3, `${c.id}: 사슬이 너무 짧다`);
+    assert.ok(c.steps[c.steps.length - 1].final, `${c.id}: 마지막 칸에 final 이 없다`);
+    assert.ok(c.endings.length >= 1, `${c.id}: 결말이 없다`);
+    assert.ok(c.endings.reduce((a, e) => a + e.weight, 0) > 0, `${c.id}: 결말 무게 합이 0`);
+    for (const e of c.endings) {
+      assert.ok(e.lines?.length, `${c.id}/${e.key}: 말이 없다`);
+      for (const ch of e.choices || []) assert.ok(ch.label && ch.lines?.length, `${c.id}/${e.key}/${ch.key}: 선택지가 비었다`);
+    }
+    /* 앞 칸들은 다음 흔적을 열 반경을 들고 있어야 한다 — 없으면 사슬이 거기서 끊긴다 */
+    for (const st of c.steps.slice(0, -1)) assert.ok(st.revealRadius > 0, `${c.id}/${st.key}: revealRadius 가 없다`);
+  }
+  for (const m of CFG.micro) assert.ok(m.lines?.length || m.choices?.length, `${m.key}: 말이 없다`);
 });

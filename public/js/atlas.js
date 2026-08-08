@@ -55,6 +55,35 @@
     dusk:    { base: '#6b4a55', dots: ['#7d5865', '#573a45', '#8f6675'] }
   };
 
+  /* 지형 바닥은 각 바이옴마다 하나의 심리스 표면만 쓴다. 이전 _b 파일은
+     독립 그림이라 이웃 칸 경계가 맞지 않아 의도적으로 사용하지 않는다. */
+  var TERRAIN_IMAGES = {};
+  var terrainExpected = Object.keys(TERRA).length;
+  var terrainSettled = 0;
+  var terrainAnnounced = false;
+
+  function settleTerrainImage() {
+    terrainSettled += 1;
+    if (terrainAnnounced || terrainSettled < terrainExpected) return;
+    terrainAnnounced = true;
+    try { global.dispatchEvent(new Event('gm:terrain-assets-ready')); } catch (e) {}
+  }
+
+  function terrainImage(code) {
+    var image = TERRAIN_IMAGES[code];
+    if (image) return image;
+    image = new Image();
+    image.onload = settleTerrainImage;
+    image.onerror = settleTerrainImage;
+    image.src = 'assets/tileset/' + code + '/base.png';
+    TERRAIN_IMAGES[code] = image;
+    return image;
+  }
+
+  function preloadTerrainImages() {
+    Object.keys(TERRA).forEach(terrainImage);
+  }
+
   /* ★ §19-F2 — 땅마다의 표식을 **표**로 세운다. 옛것은 if 를 줄줄이 이어 붙였는데,
      땅이 일곱에서 열셋이 되면 그 함수 하나가 예순 줄이 된다(함수 ≤15줄 규칙 위반).
      그림은 한 획도 바뀌지 않는다 — 옛 if 의 몸통을 그대로 옮겨 담았다. */
@@ -118,6 +147,8 @@
   };
 
   function terrain(code, variant) {
+    var image = terrainImage(code);
+    if (image.complete && image.naturalWidth) return image;
     var key = 't:' + code + ':' + variant;
     var def = TERRA[code] || TERRA.grass;
     return cached(key, 16, 16, function (P) {
@@ -130,6 +161,8 @@
       if (MARK[code]) MARK[code](P);
     });
   }
+
+  preloadTerrainImages();
 
   /* ══════════ 자원 자리 ══════════ */
   var FIELD_STAGE = { sown: 0, sprout: 1, grow: 2, ripe: 3 };
@@ -212,8 +245,187 @@
       if (art === 'well') return wellArt(P, faded);
       if (art === 'statue') return statueArt(P, faded);
       if (art === 'vista') return vistaArt(P, faded);
+      var far = TRAIL_ART[art];
+      if (far) return far(P, ink, faded);
       P(6, 7, 4, 4, ink); P(7, 8, 2, 2, faded ? '#8f8878' : '#d8c98f');
     });
+  }
+
+  /* ══════════ ★ §21-C1 링1~3 의 흔적 ══════════
+     「왜」 표를 쓰나 — 링이 세 겹 붙으며 art 가 스물 남짓이 되었다. if 스물세 줄은 읽히지 않는다.
+     여기서도 그림 파일은 0장이다. 규율은 앞마당의 것 그대로: **작고 낮게**, 자원 자리를 덮지 않게.
+     빛깔 두 벌(성한 것 / 바랜 것)은 f() 한 손잡이가 고른다 — 갈래마다 삼항을 늘어놓으면 눈이 아프다. */
+  var TRAIL_ART = {
+    /* 부서진 마차 — 기운 바퀴 하나와 부러진 채 */
+    cart: function (P, ink, d) {
+      var f = tone(d);
+      P(2, 11, 12, 2, f('#6b5230', '#5a4a34')); P(3, 9, 9, 2, f('#8a6a40', '#6a5a40'));
+      P(9, 4, 2, 8, f('#8a6a40', '#6a5a40')); P(7, 6, 6, 2, f('#a98a56', '#7d7460'));
+      P(4, 13, 8, 1, ink);
+    },
+    /* 피어오르는 연기 — 재 위로 오르는 세 겹 */
+    smoke: function (P, ink, d) {
+      var f = tone(d);
+      P(4, 12, 8, 2, f('#4a4038', '#3f3a34')); P(6, 11, 4, 1, f('#a33a34', '#7a5048'));
+      P(7, 7, 3, 3, f('#b9b4a8', '#8a8880')); P(5, 4, 3, 3, f('#cfc9bc', '#95948c'));
+      P(8, 1, 3, 3, f('#e2ddd2', '#a6a49c'));
+    },
+    /* 핏자국 — 점점이 이어지다 한쪽이 끌린 자국 */
+    blood: function (P, ink, d) {
+      var f = tone(d), r = f('#a33a34', '#7a5048');
+      P(3, 12, 2, 2, r); P(6, 9, 2, 2, r); P(9, 6, 1, 1, r); P(11, 4, 2, 2, r);
+      P(4, 10, 6, 1, f('#7c2c28', '#5f4440'));
+    },
+    /* 낡은 이정표 — 기울어진 기둥에 판때기 하나 */
+    sign: function (P, ink, d) {
+      var f = tone(d);
+      P(7, 4, 2, 10, f('#6b5230', '#5a4a34'));
+      P(2, 3, 12, 4, f('#a98a56', '#7d7460')); P(2, 3, 12, 1, f('#c8bda0', '#95948c'));
+      P(4, 5, 3, 1, ink); P(9, 5, 4, 1, ink); P(4, 13, 8, 1, f('#4e7040', '#4a5240'));
+    },
+    /* 새겨진 바위 — 원 안에 선 셋 */
+    carving: function (P, ink, d) {
+      var f = tone(d);
+      P(2, 4, 12, 10, f('#8a9098', '#7a7870')); P(2, 4, 12, 1, f('#b4bac2', '#95948c'));
+      P(5, 6, 6, 1, ink); P(5, 11, 6, 1, ink); P(4, 7, 1, 4, ink); P(11, 7, 1, 4, ink);
+      P(6, 8, 1, 3, ink); P(8, 8, 1, 3, ink); P(10, 8, 1, 2, ink);
+    },
+    /* 빈 배 — 물가에 얹힌 작은 배와 노 하나 */
+    boat: function (P, ink, d) {
+      var f = tone(d);
+      P(1, 12, 14, 2, f('#3d6a8a', '#4a5560'));
+      P(2, 8, 12, 4, f('#8a6a40', '#6a5a40')); P(3, 8, 10, 1, f('#a98a56', '#7d7460'));
+      P(4, 10, 8, 1, f('#5c4526', '#4e4230')); P(11, 3, 1, 6, f('#c8bda0', '#8a8880'));
+    },
+    /* 버려진 깃발 — 삭아 갈라진 천 */
+    flag: function (P, ink, d) {
+      var f = tone(d);
+      P(3, 1, 1, 13, f('#6b5230', '#5a4a34'));
+      P(4, 2, 8, 5, f('#9a5a4a', '#7a5a52')); P(4, 7, 5, 2, f('#9a5a4a', '#7a5a52'));
+      P(10, 4, 2, 3, f('#7c3c34', '#63504a')); P(2, 13, 5, 1, ink);
+    },
+    /* 덩굴 삼킨 사원 — 돌문 위로 덩굴 */
+    temple: function (P, ink, d) {
+      var f = tone(d);
+      P(2, 3, 12, 11, f('#8a8478', '#74716a')); P(5, 7, 6, 7, f('#20242a', '#33363a'));
+      P(2, 3, 12, 2, f('#a9a390', '#8b877c'));
+      P(1, 2, 3, 9, f('#3f6130', '#3f5238')); P(12, 4, 3, 8, f('#4e7040', '#46543c'));
+      P(6, 2, 4, 1, f('#4e7040', '#46543c'));
+    },
+    /* 부서진 기계 — 톱니와 굽은 관 */
+    machine: function (P, ink, d) {
+      var f = tone(d);
+      P(3, 6, 8, 7, f('#7e848c', '#6e6c66')); P(3, 6, 8, 1, f('#b4bac2', '#8a8880'));
+      P(5, 8, 4, 4, f('#3a3f46', '#3a3a38'));
+      P(11, 4, 2, 6, f('#8a9098', '#7a7870')); P(10, 3, 4, 2, f('#a98a56', '#7d7460'));
+      P(2, 13, 11, 1, ink);
+    },
+    /* 짓밟힌 길 — 한 방향으로 누운 풀과 굽 자국 */
+    herd: function (P, ink, d) {
+      var f = tone(d);
+      P(1, 6, 14, 4, f('#6f8a4a', '#5e6a4a')); P(1, 7, 14, 1, f('#4e6a34', '#4a5240'));
+      P(3, 11, 2, 2, ink); P(7, 12, 2, 2, ink); P(11, 10, 2, 2, ink);
+    },
+    /* 지도 조각 — 찢긴 가죽에 물길 한 줄 */
+    scrap: function (P, ink, d) {
+      var f = tone(d);
+      P(2, 3, 11, 10, f('#e0d5b4', '#a8a294')); P(2, 3, 11, 1, f('#f2e9cc', '#bab5a4'));
+      P(13, 5, 1, 3, f('#e0d5b4', '#a8a294')); P(12, 9, 2, 2, f('#e0d5b4', '#a8a294'));
+      P(4, 6, 6, 1, f('#3d6a8a', '#5a6068')); P(5, 9, 4, 1, ink); P(8, 10, 3, 1, ink);
+    },
+    /* 얼어붙은 것 — 눈 위로 나온 손 */
+    ice: function (P, ink, d) {
+      var f = tone(d);
+      P(0, 9, 16, 5, f('#dfe8f0', '#aeb4ba')); P(0, 9, 16, 1, f('#ffffff', '#c8ccd0'));
+      P(6, 5, 4, 5, f('#5a6470', '#565c62')); P(5, 3, 2, 3, f('#6e7a86', '#61666c'));
+      P(9, 2, 2, 4, f('#6e7a86', '#61666c'));
+    },
+    /* 움푹 팬 자리 — 그을린 사발과 아직 따뜻한 한복판 */
+    crater: function (P, ink, d) {
+      var f = tone(d);
+      P(1, 6, 14, 7, f('#4a4038', '#3f3a34')); P(3, 8, 10, 4, f('#2a2420', '#2a2724'));
+      P(6, 9, 4, 2, f('#c86a2a', '#7a5a3a')); P(7, 9, 2, 1, f('#f6b45a', '#95836a'));
+      P(2, 4, 3, 2, f('#5f5148', '#4a4440')); P(12, 4, 3, 2, f('#5f5148', '#4a4440'));
+    },
+    /* 큰 나무 — 옹이 진 둥치와 넓은 우듬지 */
+    bigtree: function (P, ink, d) {
+      var f = tone(d);
+      P(6, 8, 4, 7, f('#6b5230', '#5a4a34')); P(7, 10, 1, 2, f('#4a3820', '#43392c'));
+      P(2, 2, 12, 6, f('#3f6130', '#3f5238')); P(3, 1, 10, 2, f('#4e7040', '#46543c'));
+      P(1, 5, 3, 3, f('#4e7040', '#46543c')); P(12, 5, 3, 3, f('#4e7040', '#46543c'));
+    },
+    /* 은빛 딸기 — 알이 굵고 빛이 돈다 */
+    berry_rare: function (P, ink, d) {
+      var f = tone(d);
+      P(2, 7, 12, 7, f('#3f6130', '#3f5238'));
+      P(4, 8, 3, 3, f('#d8dce4', '#a8aab0')); P(9, 9, 3, 3, f('#d8dce4', '#a8aab0'));
+      P(6, 12, 3, 2, f('#c0c8d4', '#9a9ca2')); P(4, 8, 3, 1, f('#ffffff', '#c4c6ca'));
+    },
+    /* 수정 박힌 바위 */
+    crystal: function (P, ink, d) {
+      var f = tone(d);
+      P(1, 8, 14, 6, f('#7e848c', '#6e6c66')); P(1, 8, 14, 1, f('#a4aab2', '#8a8880'));
+      P(5, 3, 3, 6, f('#8fd6e6', '#8a9ca4')); P(9, 5, 2, 4, f('#b8ecf6', '#a0b0b6'));
+      P(5, 3, 3, 1, f('#e6fbff', '#c0ccd0'));
+    },
+    /* 부러진 검 — 날 반쪽이 꽂혀 있다 */
+    sword: function (P, ink, d) {
+      var f = tone(d);
+      P(7, 2, 2, 8, f('#c8ced6', '#9a9ca2')); P(7, 2, 1, 8, f('#eef2f6', '#b4b6ba'));
+      P(5, 10, 6, 1, f('#8a9098', '#7a7870')); P(7, 11, 2, 3, f('#6b5230', '#5a4a34'));
+      P(3, 13, 10, 1, ink);
+    },
+    /* 아이 신발 한 짝 */
+    shoe: function (P, ink, d) {
+      var f = tone(d);
+      P(3, 9, 9, 4, f('#8a5e33', '#6e5a44')); P(3, 9, 9, 1, f('#a87a48', '#877260'));
+      P(4, 6, 5, 4, f('#8a5e33', '#6e5a44')); P(5, 5, 3, 2, f('#a87a48', '#877260'));
+      P(3, 13, 10, 1, ink);
+    },
+    /* 덫에 걸린 여우 */
+    fox: function (P, ink, d) {
+      var f = tone(d);
+      P(4, 6, 7, 5, f('#c8763a', '#96786a')); P(3, 4, 3, 3, f('#c8763a', '#96786a'));
+      P(3, 3, 1, 2, f('#a4562a', '#7c6258')); P(5, 3, 1, 2, f('#a4562a', '#7c6258'));
+      P(11, 7, 4, 2, f('#e0a068', '#b09a8a')); P(4, 11, 8, 1, f('#8a9098', '#7a7870'));
+      P(4, 12, 1, 2, ink); P(11, 12, 1, 2, ink);
+    },
+    /* 길가의 제단 — 돌 셋과 마른 이삭 */
+    altar: function (P, ink, d) {
+      var f = tone(d);
+      P(3, 10, 10, 4, f('#8a9098', '#7a7870')); P(3, 10, 10, 1, f('#b4bac2', '#95948c'));
+      P(5, 7, 6, 3, f('#7e848c', '#6e6c66')); P(5, 7, 6, 1, f('#a4aab2', '#8a8880'));
+      P(6, 4, 1, 3, f('#e0c65a', '#a8a084')); P(9, 4, 1, 3, f('#e0c65a', '#a8a084'));
+      P(6, 3, 4, 1, f('#f6e6a8', '#bab5a4'));
+    },
+    /* 온천·반딧불 — 김이 오르는 물 */
+    spring: function (P, ink, d) {
+      var f = tone(d);
+      P(2, 8, 12, 6, f('#7e848c', '#6e6c66'));
+      P(4, 9, 8, 4, f('#7ac8d8', '#8a9ca4')); P(4, 9, 8, 1, f('#b8ecf6', '#a0b0b6'));
+      P(5, 4, 2, 3, f('#e2ddd2', '#a6a49c')); P(9, 2, 2, 4, f('#cfc9bc', '#95948c'));
+      P(7, 5, 1, 2, f('#f6e6a8', '#b0aa9c'));
+    },
+    /* 벌집 — 가지에 매달린 층 */
+    hive: function (P, ink, d) {
+      var f = tone(d);
+      P(1, 2, 14, 1, f('#6b5230', '#5a4a34'));
+      P(5, 3, 6, 3, f('#d8a94a', '#a89a7c')); P(4, 6, 8, 4, f('#e0c65a', '#b0a284'));
+      P(5, 10, 6, 3, f('#d8a94a', '#a89a7c')); P(7, 7, 2, 2, ink);
+      P(2, 5, 1, 1, ink); P(13, 8, 1, 1, ink);
+    },
+    /* 굴 — 흙 둔덕에 뚫린 구멍과 뼈 몇 */
+    burrow: function (P, ink, d) {
+      var f = tone(d);
+      P(1, 7, 14, 7, f('#7a5c30', '#63533f')); P(1, 7, 14, 1, f('#9a7a44', '#7d7460'));
+      P(5, 9, 6, 5, f('#20242a', '#33363a'));
+      P(2, 12, 3, 1, f('#e0d5b4', '#a8a294')); P(12, 11, 2, 1, f('#e0d5b4', '#a8a294'));
+    },
+  };
+
+  /** 성한 빛깔과 바랜 빛깔 중 하나를 고르는 한 손잡이 — 갈래마다 삼항을 늘어놓지 않게 */
+  function tone(faded) {
+    return function (lit, dim) { return faded ? dim : lit; };
   }
 
   /* 발자국 넷 — 앞발 둘이 크고 뒷발 둘이 작다. 왼쪽 위로 걸어간 자국이다. */

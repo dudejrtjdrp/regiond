@@ -7,11 +7,68 @@
     "_note": "§18-1 링0 = 본영 0~12타일. chainCount·microCount 는 **보장** 생성 수량이고, minGap 은 발견물끼리의 최소 간격(타일), minTownGap 은 본영 한복판(모닥불 4×4)을 비켜 두는 여백이다. placeTries 는 한 자리를 고르는 헛손질 한도 — 못 찾으면 그 하나는 포기하고 다음으로 간다(월드 생성이 멎지 않게).",
     "radius": 12,
     "chainCount": 1,
-    "microCount": [4, 6],
+    "microCount": [
+      4,
+      6
+    ],
     "minGap": 3,
     "minTownGap": 4,
     "placeTries": 300
   },
+  "_ringsNote": "★ §21-C1 링1~3. 링0 은 월드 생성 때 심고, 링1~3 은 **장이 열릴 때**(openAtChapter) 한 겹씩 자란다 — 규칙은 progression.onChapterOpen 의 한 줄뿐이고 어느 장이 어느 링을 여는지는 여기가 쥔다. 링마다 제 난수(`씨앗:trails:ring2`)를 쓰므로 **언제** 열리든 자리는 씨앗이 정한다. chainTries 는 방위·땅을 가리는 사슬이 제자리를 찾느라 헛손질하는 한도다(못 찾으면 땅은 포기하고 방위만 지킨다).",
+  "rings": [
+    {
+      "_note": "§18-1 링1 = 12~60타일. 온대 확장·사람의 길 — 위험은 낮고 발견은 잘다. 4장(첫 이웃)에서 열린다: 앞마당(링0)이 이틀이면 소진되는 자리라, 그 다음 걸음이 비면 안 된다.",
+      "ring": 1,
+      "openAtChapter": 4,
+      "radius": [
+        12,
+        60
+      ],
+      "chainCount": 3,
+      "microCount": [
+        7,
+        10
+      ],
+      "minGap": 6,
+      "placeTries": 400,
+      "chainTries": 14
+    },
+    {
+      "_note": "§18-1 링2 = 60~140타일. 바이옴 진입·3국 국경 — 조우와 환경이 위험이다. 7장(낯선 발자국)에서 열린다: 바깥이 우리를 알아보는 장이면 바깥도 우리에게 보일 때다.",
+      "ring": 2,
+      "openAtChapter": 7,
+      "radius": [
+        60,
+        140
+      ],
+      "chainCount": 4,
+      "microCount": [
+        7,
+        11
+      ],
+      "minGap": 12,
+      "placeTries": 500,
+      "chainTries": 16
+    },
+    {
+      "_note": "§18-1 링3 = 140타일 밖. 전인미답 — 전설과 위험, 귀환 자체가 도박이다. 9장(나라의 격)에서 연다. 바깥 테두리(178)를 두는 까닭: 384² 지도의 끝자락은 늘 물이나 벼랑이라, 거기까지 열면 사슬이 통째로 접힌다.",
+      "ring": 3,
+      "openAtChapter": 9,
+      "radius": [
+        140,
+        178
+      ],
+      "chainCount": 4,
+      "microCount": [
+        6,
+        9
+      ],
+      "minGap": 18,
+      "placeTries": 600,
+      "chainTries": 18
+    }
+  ],
   "dialogue": {
     "_note": "§18-6 대화창의 말머리. 흔적은 사람이 아니라 **세계**가 건네는 말이라 이름을 「탐험」으로 두고, 초상은 정찰 눈(절차 도트)을 쓴다 — 그림 파일 0장 원칙.",
     "speaker": "탐험",
@@ -30,7 +87,10 @@
           "art": "tracks",
           "verb": "E — 발자국을 살핀다",
           "revealRadius": 8,
-          "nextDistance": [5, 8],
+          "nextDistance": [
+            5,
+            8
+          ],
           "lines": [
             "젖은 풀밭에 발자국이 찍혀 있다. 사람 것도, 늑대 것도 아니다.",
             "자국은 아직 마르지 않았다. 멀리 가지 못했을 것이다."
@@ -42,7 +102,10 @@
           "art": "feather",
           "verb": "E — 깃털을 주워 본다",
           "revealRadius": 8,
-          "nextDistance": [5, 8],
+          "nextDistance": [
+            5,
+            8
+          ],
           "lines": [
             "깃털 한 줌과 마른 핏방울. 여기서 무언가 다투었다.",
             "자국은 덤불 쪽으로 이어진다."
@@ -54,7 +117,9 @@
           "art": "hollow",
           "verb": "E — 덤불을 헤친다",
           "final": true,
-          "lines": ["덤불을 헤치자 작은 빈터가 나온다."]
+          "lines": [
+            "덤불을 헤치자 작은 빈터가 나온다."
+          ]
         }
       ],
       "endings": [
@@ -66,7 +131,10 @@
             "쫓던 것은 놓쳤지만, 오늘 저녁거리는 얻었다."
           ],
           "reward": {
-            "spawnNode": { "type": "berry", "rich": true },
+            "spawnNode": {
+              "type": "berry",
+              "rich": true
+            },
             "chronicle": {
               "kind": "discovery",
               "title": "첫 발자국의 끝",
@@ -85,8 +153,12 @@
             {
               "key": "care",
               "label": "곡물을 나눠 준다",
-              "cost": { "grain": 3 },
-              "lines": ["개는 곡물을 다 먹고는 절뚝이며 숲으로 사라졌다. 뒤를 한 번 돌아보았다."],
+              "cost": {
+                "grain": 3
+              },
+              "lines": [
+                "개는 곡물을 다 먹고는 절뚝이며 숲으로 사라졌다. 뒤를 한 번 돌아보았다."
+              ],
               "reward": {
                 "morale": 0.06,
                 "chronicle": {
@@ -99,7 +171,9 @@
             {
               "key": "leave",
               "label": "그냥 지나친다",
-              "lines": ["들개를 두고 돌아섰다. 발자국의 임자는 끝내 알 수 없었다."],
+              "lines": [
+                "들개를 두고 돌아섰다. 발자국의 임자는 끝내 알 수 없었다."
+              ],
               "reward": {
                 "chronicle": {
                   "kind": "discovery",
@@ -109,6 +183,1788 @@
               }
             }
           ]
+        }
+      ]
+    },
+    {
+      "id": "broken_cart",
+      "name": "부서진 마차",
+      "ring": 1,
+      "weight": 22,
+      "_note": "§18-4 원형 1. 링1 의 얼굴 — 「사람의 길」에서 가장 먼저 만나는 이야기다. 셋 중 하나는 아프게 끝난다(리스크 없는 사슬은 복권일 뿐이다).",
+      "steps": [
+        {
+          "key": "cart_wheel",
+          "name": "부러진 바퀴 자국",
+          "art": "cart",
+          "verb": "E — 바퀴 자국을 짚어 본다",
+          "revealRadius": 12,
+          "nextDistance": [
+            10,
+            16
+          ],
+          "lines": [
+            "깊게 팬 바퀴 자국이 한쪽으로 쏠려 있다. 여기서 축이 부러졌다.",
+            "짐을 끌고 간 흔적이 풀숲으로 이어진다."
+          ]
+        },
+        {
+          "key": "beast_tracks",
+          "name": "짐승 발자국",
+          "art": "tracks",
+          "verb": "E — 발자국을 헤아린다",
+          "revealRadius": 12,
+          "nextDistance": [
+            10,
+            16
+          ],
+          "lines": [
+            "사람 발자국 위에 짐승 발자국이 겹쳐 찍혀 있다. 뒤를 밟은 것이다.",
+            "발자국은 넷, 아니면 다섯. 무리였다."
+          ]
+        },
+        {
+          "key": "raid_site",
+          "name": "습격 현장",
+          "art": "stones",
+          "verb": "E — 흩어진 짐을 살핀다",
+          "final": true,
+          "lines": [
+            "부서진 궤짝과 찢긴 천이 널려 있다. 여기가 끝이었다."
+          ]
+        }
+      ],
+      "endings": [
+        {
+          "key": "survivor_trader",
+          "weight": 40,
+          "lines": [
+            "궤짝 뒤에서 사람 하나가 기어 나온다. 상단의 짐꾼이었다.",
+            "「값은 치르겠소. 우리 상단은 은혜를 적어 두는 집이오.」"
+          ],
+          "reward": {
+            "resources": {
+              "gold": 14
+            },
+            "morale": 0.05,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "마차의 생존자",
+              "text": "부서진 마차에서 상단의 짐꾼을 구했다. 그가 값을 치르고 갔다."
+            }
+          }
+        },
+        {
+          "key": "cargo_chest",
+          "weight": 35,
+          "lines": [
+            "천 아래에 손대지 않은 궤짝 하나가 남아 있다. 임자는 돌아오지 않았다.",
+            "챙기는 손이 조금 무거웠지만, 두고 가면 짐승의 몫이 될 뿐이다."
+          ],
+          "reward": {
+            "spawnNode": {
+              "type": "cache",
+              "rich": true
+            },
+            "resources": {
+              "gold": 6,
+              "grain": 12
+            },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "남겨진 짐",
+              "text": "습격당한 마차의 궤짝을 거두었다."
+            }
+          }
+        },
+        {
+          "key": "wolf_den",
+          "weight": 25,
+          "lines": [
+            "짐 냄새를 따라온 것이 아직 거기 있었다. 굴은 바로 뒤였다.",
+            "물러설 자리가 없어 정면으로 붙었다."
+          ],
+          "reward": {
+            "damage": 18,
+            "resources": {
+              "hide": 8,
+              "meat": 10
+            },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "굴 앞에서",
+              "text": "마차를 덮친 무리의 굴을 찾아내고 그 앞에서 싸웠다."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "rising_smoke",
+      "name": "피어오르는 연기",
+      "ring": 1,
+      "weight": 20,
+      "_note": "§18-4 원형 2. 선택지가 있는 결말을 하나 둔다 — 「낼 것인가 붙을 것인가」는 이 게임이 가장 잘하는 물음이다.",
+      "steps": [
+        {
+          "key": "smoke",
+          "name": "피어오르는 연기",
+          "art": "smoke",
+          "verb": "E — 연기 쪽을 살핀다",
+          "revealRadius": 12,
+          "nextDistance": [
+            10,
+            16
+          ],
+          "lines": [
+            "가느다란 연기 한 줄기가 나무 위로 오른다. 사람의 불이다.",
+            "다만 너무 오래 타고 있다 — 지키는 사람이 없다는 뜻이다."
+          ]
+        },
+        {
+          "key": "cold_fire",
+          "name": "꺼져 가는 모닥불",
+          "art": "smoke",
+          "verb": "E — 재를 헤집는다",
+          "revealRadius": 12,
+          "nextDistance": [
+            10,
+            16
+          ],
+          "lines": [
+            "재는 아직 미지근하다. 반나절 안이다.",
+            "누운 자국 하나, 끌린 자국 하나."
+          ]
+        },
+        {
+          "key": "footprints",
+          "name": "끌린 자국",
+          "art": "tracks",
+          "verb": "E — 자국을 따라간다",
+          "final": true,
+          "lines": [
+            "한 사람이 다른 사람을 끌고 갔다. 아니면, 끌려갔다."
+          ]
+        }
+      ],
+      "endings": [
+        {
+          "key": "hurt_traveler",
+          "weight": 40,
+          "lines": [
+            "덤불 뒤에 사람이 웅크리고 있다. 발목이 부어 걷지 못한다.",
+            "「길을 잃었소. 갈 데가 없소.」"
+          ],
+          "reward": {
+            "villager": 1,
+            "morale": 0.04,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "연기의 임자",
+              "text": "꺼져 가는 모닥불의 임자를 찾아 데려왔다. 한 사람이 늘었다."
+            }
+          }
+        },
+        {
+          "key": "bandit_ambush",
+          "weight": 30,
+          "lines": [
+            "덤불이 갈라지며 셋이 일어선다. 불은 미끼였다.",
+            "값나가는 것을 내놓으라고 한다."
+          ],
+          "choices": [
+            {
+              "key": "pay",
+              "label": "가진 것을 내준다",
+              "cost": {
+                "gold": 10
+              },
+              "lines": [
+                "금을 세어 건네자 그들은 웃으며 물러갔다. 값싼 하루였다."
+              ],
+              "reward": {
+                "morale": -0.03,
+                "chronicle": {
+                  "kind": "discovery",
+                  "title": "연기의 덫",
+                  "text": "연기를 미끼로 삼은 무리에게 금을 주고 물러 나왔다."
+                }
+              }
+            },
+            {
+              "key": "fight",
+              "label": "칼을 뽑는다",
+              "lines": [
+                "셋 중 둘이 달아났다. 남은 하나가 떨군 자루에는 그들이 먼저 턴 것이 들어 있었다."
+              ],
+              "reward": {
+                "damage": 22,
+                "resources": {
+                  "gold": 18,
+                  "grain": 8
+                },
+                "chronicle": {
+                  "kind": "discovery",
+                  "title": "연기의 덫",
+                  "text": "연기를 미끼로 삼은 무리와 싸워 그들이 턴 것을 되찾았다."
+                }
+              }
+            }
+          ]
+        },
+        {
+          "key": "left_supply",
+          "weight": 30,
+          "lines": [
+            "끌린 자국은 냇가에서 끊긴다. 사람은 없고, 두고 간 보급만 남았다."
+          ],
+          "reward": {
+            "resources": {
+              "grain": 16,
+              "wood": 10
+            },
+            "revealRadius": 12,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "두고 간 짐",
+              "text": "연기를 따라간 자리에서 임자 없는 보급을 거두었다."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "blood_trail",
+      "name": "핏자국",
+      "ring": 1,
+      "weight": 20,
+      "_note": "§18-4 원형 3. 세 결말이 각각 다른 감정이다 — 횡재·공포·애틋함. 같은 시작이 판마다 다른 얼굴을 하는 것이 이 시스템의 값이다.",
+      "steps": [
+        {
+          "key": "blood",
+          "name": "마르지 않은 핏자국",
+          "art": "blood",
+          "verb": "E — 핏자국을 살핀다",
+          "revealRadius": 11,
+          "nextDistance": [
+            10,
+            16
+          ],
+          "lines": [
+            "풀잎마다 붉은 점이 이어진다. 크게 다친 것이 지나갔다.",
+            "핏방울 사이가 넓다 — 뛰고 있었다."
+          ]
+        },
+        {
+          "key": "drag_mark",
+          "name": "끌린 자국과 털",
+          "art": "blood",
+          "verb": "E — 털을 집어 든다",
+          "revealRadius": 11,
+          "nextDistance": [
+            10,
+            16
+          ],
+          "lines": [
+            "억센 털 한 줌이 가시덤불에 걸려 있다. 사슴도 늑대도 아니다.",
+            "자국은 이제 느려진다."
+          ]
+        },
+        {
+          "key": "thicket",
+          "name": "덤불 안쪽",
+          "art": "hollow",
+          "verb": "E — 조심스레 들여다본다",
+          "final": true,
+          "lines": [
+            "숨소리가 들린다. 아주 가깝다."
+          ]
+        }
+      ],
+      "endings": [
+        {
+          "key": "rare_beast",
+          "weight": 40,
+          "lines": [
+            "은빛이 도는 큰 짐승이 옆구리를 대고 누워 있다. 이미 숨이 끊겼다.",
+            "이런 가죽은 처음 본다."
+          ],
+          "reward": {
+            "resources": {
+              "hide": 18,
+              "meat": 16
+            },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "은빛 짐승",
+              "text": "핏자국의 끝에서 은빛 가죽의 짐승을 거두었다."
+            }
+          }
+        },
+        {
+          "key": "predator",
+          "weight": 30,
+          "lines": [
+            "쫓던 것을 먼저 찾은 쪽이 있었다. 아직 먹고 있는 중이다.",
+            "이쪽을 보더니, 먹이를 두고 이쪽으로 온다."
+          ],
+          "reward": {
+            "damage": 20,
+            "resources": {
+              "hide": 10,
+              "meat": 6
+            },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "먼저 온 것",
+              "text": "핏자국의 끝에서 포식자와 마주쳤다."
+            }
+          }
+        },
+        {
+          "key": "pup",
+          "weight": 30,
+          "lines": [
+            "어미는 죽었고, 새끼 한 마리가 그 곁을 떠나지 못하고 있다.",
+            "곡물을 조금 놓아 두고 물러섰다. 언젠가 다시 만날지도 모른다."
+          ],
+          "reward": {
+            "morale": 0.05,
+            "resources": {
+              "hide": 4
+            },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "남겨진 새끼",
+              "text": "핏자국의 끝에서 어미 잃은 새끼를 만나 먹을 것을 두고 왔다."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "old_signpost",
+      "name": "낡은 이정표",
+      "ring": 1,
+      "weight": 18,
+      "_note": "§18-4 원형 4. 「사람의 길」의 뼈대 — 이정표·옛길·다리는 전부 사람이 남긴 것이다. 폐촌은 ruin 노드로 땅에 남는다(§18-4 영구 흔적).",
+      "steps": [
+        {
+          "key": "signpost",
+          "name": "글자 지워진 이정표",
+          "art": "sign",
+          "verb": "E — 이정표를 문질러 본다",
+          "revealRadius": 13,
+          "nextDistance": [
+            10,
+            16
+          ],
+          "lines": [
+            "삭은 나무 기둥에 글자가 있었다. 비바람이 절반을 지웠다.",
+            "남은 획을 이어 보면 이쪽으로 길이 있었다는 뜻이다."
+          ]
+        },
+        {
+          "key": "old_road",
+          "name": "묻힌 옛길",
+          "art": "sign",
+          "verb": "E — 발로 흙을 걷어 낸다",
+          "revealRadius": 13,
+          "nextDistance": [
+            10,
+            16
+          ],
+          "lines": [
+            "풀 아래에 돌을 깐 자리가 나온다. 사람이 다지고 다진 길이다.",
+            "길은 곧게 앞으로 이어진다."
+          ]
+        },
+        {
+          "key": "ruined_bridge",
+          "name": "끊긴 다리",
+          "art": "stones",
+          "verb": "E — 다리 밑을 살핀다",
+          "final": true,
+          "lines": [
+            "돌다리가 한가운데서 끊겨 있다. 길은 여기서 죽었다."
+          ]
+        }
+      ],
+      "endings": [
+        {
+          "key": "dead_village",
+          "weight": 40,
+          "lines": [
+            "건너편 언덕에 지붕 없는 집들이 서 있다. 사람은 오래전에 떠났다.",
+            "기둥은 아직 쓸 만하고, 주춧돌은 그대로다."
+          ],
+          "reward": {
+            "spawnNode": {
+              "type": "ruin",
+              "rich": true
+            },
+            "resources": {
+              "stone": 14,
+              "wood": 12
+            },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "길 끝의 폐촌",
+              "text": "옛길을 따라가 지붕 없는 마을을 찾았다."
+            }
+          }
+        },
+        {
+          "key": "collapsed_bridge",
+          "weight": 35,
+          "lines": [
+            "무너진 돌은 물살에 반쯤 묻혔지만 다듬은 자국이 살아 있다.",
+            "건져 올린 돌만으로도 값이 된다."
+          ],
+          "reward": {
+            "resources": {
+              "stone": 22,
+              "wood": 8
+            },
+            "revealRadius": 14,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "끊긴 다리",
+              "text": "옛 돌다리에서 다듬은 돌을 건져 왔다."
+            }
+          }
+        },
+        {
+          "key": "pit_trap",
+          "weight": 25,
+          "lines": [
+            "길 한복판의 풀이 유난히 고르다. 발을 딛는 순간 알았다.",
+            "누군가 이 길로 올 것을 알고 파 두었다."
+          ],
+          "reward": {
+            "damage": 15,
+            "resources": {
+              "wood": 6
+            },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "길 위의 구덩이",
+              "text": "옛길에서 누군가 파 둔 함정에 빠졌다."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "stranger_steps",
+      "name": "낯선 발자국",
+      "ring": 1,
+      "weight": 14,
+      "_note": "§18-4 원형 12 + §18-4 재방문 설계. 마지막 칸에 reuseDays 2 를 두어 **소진되지 않는다** — 「다시 가 볼 이유」 담당. 결말은 하나뿐이고, 값은 선택지가 가른다.",
+      "steps": [
+        {
+          "key": "odd_steps",
+          "name": "사람도 짐승도 아닌 자국",
+          "art": "tracks",
+          "verb": "E — 자국을 살핀다",
+          "revealRadius": 12,
+          "nextDistance": [
+            10,
+            16
+          ],
+          "lines": [
+            "발자국이 두 줄인데 보폭이 사람의 것이 아니다. 무거운 것을 지고 있다.",
+            "매일 조금씩 자리를 옮기는 자국이다."
+          ]
+        },
+        {
+          "key": "cold_camp",
+          "name": "하룻밤 자리",
+          "art": "smoke",
+          "verb": "E — 자리를 살핀다",
+          "revealRadius": 12,
+          "nextDistance": [
+            10,
+            16
+          ],
+          "lines": [
+            "불을 피우고 곧 지운 자리. 흔적을 남기지 않으려 애쓴 티가 난다.",
+            "누군가 이 근처를 돌고 있다."
+          ]
+        },
+        {
+          "key": "hermit_stall",
+          "name": "은둔 상인의 좌판",
+          "art": "cart",
+          "verb": "E — 좌판 앞에 선다",
+          "final": true,
+          "reuseDays": 2,
+          "lines": [
+            "천막 하나와 좌판 하나. 얼굴을 가린 사람이 고개만 든다.",
+            "「값은 내가 부른다. 대신 물건은 여기서만 난다.」"
+          ]
+        }
+      ],
+      "endings": [
+        {
+          "key": "hermit",
+          "weight": 100,
+          "lines": [
+            "좌판에는 어디서도 못 본 것들이 놓여 있다."
+          ],
+          "choices": [
+            {
+              "key": "buy_steel",
+              "label": "쇳덩이를 산다",
+              "cost": {
+                "gold": 20
+              },
+              "lines": [
+                "그는 값을 세지도 않고 자루를 건넨다. 「다음에 또 오시오. 자리는 늘 바뀌지만.」"
+              ],
+              "reward": {
+                "resources": {
+                  "steel": 8
+                },
+                "chronicle": {
+                  "kind": "discovery",
+                  "title": "은둔 상인",
+                  "text": "떠도는 좌판에서 쇳덩이를 샀다."
+                }
+              }
+            },
+            {
+              "key": "buy_seed",
+              "label": "씨앗 자루를 산다",
+              "cost": {
+                "gold": 12
+              },
+              "lines": [
+                "「이건 여기 것이 아니오.」 그는 그렇게만 말했다."
+              ],
+              "reward": {
+                "resources": {
+                  "grain": 40
+                },
+                "morale": 0.02,
+                "chronicle": {
+                  "kind": "discovery",
+                  "title": "은둔 상인",
+                  "text": "떠도는 좌판에서 낯선 씨앗을 샀다."
+                }
+              }
+            },
+            {
+              "key": "leave",
+              "label": "돌아선다",
+              "lines": [
+                "그는 붙잡지 않았다. 다음에 와도 좌판은 있을 것이다."
+              ],
+              "reward": {
+                "morale": 0.01
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "carved_rocks",
+      "name": "새겨진 바위",
+      "ring": 2,
+      "weight": 18,
+      "_note": "§18-4 원형 5. 셋을 잇는 사슬 — 헛수고 결말을 하나 남겨 두는 것이 중요하다. 늘 값이 나오면 흔적은 자판기가 된다.",
+      "steps": [
+        {
+          "key": "carving",
+          "name": "문양이 새겨진 바위",
+          "art": "carving",
+          "verb": "E — 문양을 더듬는다",
+          "revealRadius": 16,
+          "nextDistance": [
+            18,
+            28
+          ],
+          "lines": [
+            "손바닥만 한 문양이 정으로 파여 있다. 원 안에 선 셋.",
+            "이런 것을 새기는 데는 하루가 걸린다. 뜻이 있었다는 말이다."
+          ]
+        },
+        {
+          "key": "carving2",
+          "name": "두 번째 문양",
+          "art": "carving",
+          "verb": "E — 문양을 견주어 본다",
+          "revealRadius": 16,
+          "nextDistance": [
+            18,
+            28
+          ],
+          "lines": [
+            "같은 손이 새긴 문양이다. 다만 선이 하나 더 있다.",
+            "세는 것이라면, 아직 하나가 남았다."
+          ]
+        },
+        {
+          "key": "carving3",
+          "name": "세 번째 문양",
+          "art": "carving",
+          "verb": "E — 마지막 문양을 짚는다",
+          "final": true,
+          "lines": [
+            "세 문양이 이루는 자리 한복판에 무언가가 있다."
+          ]
+        }
+      ],
+      "endings": [
+        {
+          "key": "ancient_site",
+          "weight": 40,
+          "lines": [
+            "흙을 걷어 내자 계단이 나온다. 아래로, 어둠 속으로 이어진다.",
+            "끝까지 내려가지는 못했다. 다만 여기가 무엇인지는 알았다."
+          ],
+          "reward": {
+            "spawnNode": {
+              "type": "ruin",
+              "rich": true
+            },
+            "resources": {
+              "gold": 16,
+              "stone": 10
+            },
+            "morale": 0.04,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "세 문양의 자리",
+              "text": "문양 셋이 가리키는 자리에서 땅 아래 계단을 찾았다."
+            }
+          }
+        },
+        {
+          "key": "good_land",
+          "weight": 35,
+          "lines": [
+            "파 보니 유물은 없다. 대신 흙이 검고 부드럽다.",
+            "옛사람이 표시해 둔 것은 보물이 아니라 **땅**이었다."
+          ],
+          "reward": {
+            "spawnNode": {
+              "type": "fertile",
+              "rich": true
+            },
+            "morale": 0.05,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "옛사람의 표시",
+              "text": "문양 셋이 가리킨 것은 보물이 아니라 기름진 땅이었다."
+            }
+          }
+        },
+        {
+          "key": "hoax",
+          "weight": 25,
+          "lines": [
+            "한복판을 다 파헤쳤지만 아무것도 없다.",
+            "바위 뒤편에 작은 글씨가 있다 — 「여기까지 판 놈이 있다면, 미안하오.」"
+          ],
+          "reward": {
+            "morale": -0.02,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "허풍쟁이의 낙서",
+              "text": "문양 셋을 따라가 헛땅만 팠다. 새긴 자의 사과가 남아 있었다."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "empty_boat",
+      "name": "빈 배",
+      "ring": 2,
+      "terrain": [
+        "water",
+        "marsh",
+        "grass",
+        "fertile"
+      ],
+      "weight": 16,
+      "_note": "§18-4 원형 7 + 10 의 갈래. 「신고할까 팔까」 — 동서 온대의 이야기는 자연이 아니라 **사람**이 위험이라는 §18-2 를 선택지 하나로 옮긴 것이다.",
+      "steps": [
+        {
+          "key": "boat",
+          "name": "물가에 얹힌 빈 배",
+          "art": "boat",
+          "verb": "E — 배 안을 들여다본다",
+          "revealRadius": 16,
+          "nextDistance": [
+            18,
+            28
+          ],
+          "lines": [
+            "노가 하나뿐인 작은 배가 뭍에 얹혀 있다. 안은 비었다.",
+            "바닥에 젖은 자국이 남아 있다 — 짐이 있었다."
+          ]
+        },
+        {
+          "key": "drift_cargo",
+          "name": "떠내려온 화물",
+          "art": "boat",
+          "verb": "E — 화물을 건진다",
+          "revealRadius": 16,
+          "nextDistance": [
+            18,
+            28
+          ],
+          "lines": [
+            "찢긴 자루 몇이 갈대에 걸려 있다. 이것도 저 배의 것이다.",
+            "물살이 온 쪽은 위쪽이다."
+          ]
+        },
+        {
+          "key": "upstream",
+          "name": "상류의 여울",
+          "art": "boat",
+          "verb": "E — 여울을 살핀다",
+          "final": true,
+          "lines": [
+            "여울 아래에 무언가 가라앉아 있다."
+          ]
+        }
+      ],
+      "endings": [
+        {
+          "key": "sunken_ship",
+          "weight": 45,
+          "lines": [
+            "가라앉은 것은 배였다. 그것도 이 강에 어울리지 않게 큰 배다.",
+            "선창에서 손대지 않은 궤짝 둘을 건져 올렸다."
+          ],
+          "reward": {
+            "spawnNode": {
+              "type": "cache",
+              "rich": true
+            },
+            "resources": {
+              "steel": 10,
+              "gold": 22
+            },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "여울 아래의 배",
+              "text": "상류 여울에서 가라앉은 배를 찾아 선창을 건졌다."
+            }
+          }
+        },
+        {
+          "key": "smuggler_den",
+          "weight": 55,
+          "lines": [
+            "여울 옆 바위 뒤가 비어 있다. 사람 다니는 길이 나 있다.",
+            "안에는 표시 없는 궤짝이 쌓여 있다 — 세금을 치른 물건이 아니다."
+          ],
+          "choices": [
+            {
+              "key": "report",
+              "label": "국경에 알린다",
+              "lines": [
+                "표석까지 걸어가 표시를 남겼다. 며칠 뒤 사례가 왔다.",
+                "우리가 어느 쪽 편인지 그들이 기억할 것이다."
+              ],
+              "reward": {
+                "resources": {
+                  "gold": 18
+                },
+                "morale": 0.05,
+                "chronicle": {
+                  "kind": "discovery",
+                  "title": "밀수꾼의 은신처",
+                  "text": "여울가의 밀수 은신처를 국경에 알렸다."
+                }
+              }
+            },
+            {
+              "key": "take",
+              "label": "궤짝을 챙긴다",
+              "lines": [
+                "무거운 궤짝 셋을 밤에 옮겼다. 아무도 묻지 않았고, 아무도 모른다.",
+                "다만 우리도 이제 아는 자가 되었다."
+              ],
+              "reward": {
+                "resources": {
+                  "gold": 34,
+                  "steel": 6
+                },
+                "morale": -0.04,
+                "chronicle": {
+                  "kind": "discovery",
+                  "title": "밀수꾼의 은신처",
+                  "text": "여울가의 밀수 궤짝을 우리가 가져왔다."
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "border_stone",
+      "name": "국경 표석",
+      "ring": 2,
+      "terrain": [
+        "grass",
+        "fertile",
+        "forest"
+      ],
+      "weight": 16,
+      "_note": "§18-4 원형 10. 동서 온대에만 난다(dir 없이 terrain 으로 「사람이 사는 땅」을 고른다) — 설산·밀림 한복판의 국경 표석은 지도가 하는 거짓말이다.",
+      "steps": [
+        {
+          "key": "border_stone",
+          "name": "이끼 낀 국경 표석",
+          "art": "sign",
+          "verb": "E — 표석의 글자를 읽는다",
+          "revealRadius": 16,
+          "nextDistance": [
+            18,
+            28
+          ],
+          "lines": [
+            "세 나라의 이름이 한 돌에 새겨져 있다. 여기가 경계였다.",
+            "다만 글자 하나가 새로 파여 있다 — 나중에 손댄 자국이다."
+          ]
+        },
+        {
+          "key": "forged_mark",
+          "name": "고쳐 새긴 표시",
+          "art": "carving",
+          "verb": "E — 파인 자국을 견준다",
+          "revealRadius": 16,
+          "nextDistance": [
+            18,
+            28
+          ],
+          "lines": [
+            "새 획은 얕고 정 자국이 거칠다. 급하게 한 일이다.",
+            "경계를 몇 걸음 밀어 둔 셈이다. 그 몇 걸음이 길을 하나 만든다."
+          ]
+        },
+        {
+          "key": "smuggle_road",
+          "name": "표석 뒤의 샛길",
+          "art": "sign",
+          "verb": "E — 샛길을 따라간다",
+          "final": true,
+          "lines": [
+            "풀이 낮게 눕는 길이 이어진다. 짐을 진 사람이 여럿 다녔다."
+          ]
+        }
+      ],
+      "endings": [
+        {
+          "key": "toll_road",
+          "weight": 45,
+          "lines": [
+            "샛길 끝에는 짐을 부리는 자리가 있다. 우리 땅에서 가장 가까운 문이다.",
+            "여기를 아는 것만으로 값이 된다."
+          ],
+          "reward": {
+            "resources": {
+              "gold": 20,
+              "grain": 14
+            },
+            "revealRadius": 18,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "표석 뒤의 샛길",
+              "text": "국경 표석을 고쳐 낸 자들의 샛길을 알아냈다."
+            }
+          }
+        },
+        {
+          "key": "border_quarrel",
+          "weight": 30,
+          "lines": [
+            "샛길 끝에서 두 무리가 서로 소리를 지르고 있다. 어느 쪽도 우리를 반기지 않는다.",
+            "돌 하나가 날아왔고, 우리는 물러섰다."
+          ],
+          "reward": {
+            "damage": 14,
+            "morale": -0.03,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "경계의 다툼",
+              "text": "국경 샛길에서 두 무리의 다툼에 휘말렸다."
+            }
+          }
+        },
+        {
+          "key": "border_gift",
+          "weight": 25,
+          "lines": [
+            "샛길 어귀에 짐 하나가 놓여 있다. 표석 쪽을 향해 가지런히.",
+            "지나는 이에게 두고 가는 몫이다 — 그런 규칙이 있는 길이다."
+          ],
+          "reward": {
+            "resources": {
+              "grain": 18,
+              "hide": 6
+            },
+            "morale": 0.03,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "길 위의 몫",
+              "text": "국경 샛길 어귀에 놓인 지나는 이의 몫을 받았다."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "abandoned_flag",
+      "name": "버려진 깃발",
+      "ring": 2,
+      "weight": 15,
+      "_note": "§18-4 원형 11. 생존자 결말이 **주민 둘**을 데려온다 — 흔적이 인구에 닿는 유일한 자리라 값이 세다(그래서 셋 중 하나다).",
+      "steps": [
+        {
+          "key": "flag",
+          "name": "삭은 깃발",
+          "art": "flag",
+          "verb": "E — 깃발을 만져 본다",
+          "revealRadius": 16,
+          "nextDistance": [
+            18,
+            28
+          ],
+          "lines": [
+            "장대에 걸린 천이 색을 잃었다. 그래도 꽂아 둔 손은 단단했다.",
+            "여기에 무언가를 세우려 한 사람들이 있었다."
+          ]
+        },
+        {
+          "key": "burnt_frame",
+          "name": "타다 만 뼈대",
+          "art": "stones",
+          "verb": "E — 그을린 기둥을 살핀다",
+          "revealRadius": 16,
+          "nextDistance": [
+            18,
+            28
+          ],
+          "lines": [
+            "집 한 채의 뼈대가 그을린 채 서 있다. 불은 바깥에서 왔다.",
+            "그래도 다 타지는 않았다 — 누군가 껐다는 뜻이다."
+          ]
+        },
+        {
+          "key": "settler_hut",
+          "name": "남은 오두막",
+          "art": "flag",
+          "verb": "E — 문을 두드린다",
+          "final": true,
+          "lines": [
+            "지붕이 반쯤 남은 오두막. 안에서 소리가 났다."
+          ]
+        }
+      ],
+      "endings": [
+        {
+          "key": "leftover_settlers",
+          "weight": 40,
+          "lines": [
+            "두 사람이 나온다. 불이 난 뒤로 여기서 겨울을 났다고 한다.",
+            "「우리 깃발은 넘어졌소. 당신들 깃발 아래라면 다시 세워도 되겠소?」"
+          ],
+          "reward": {
+            "villager": 2,
+            "morale": 0.06,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "넘어진 깃발",
+              "text": "실패한 개척지의 마지막 두 사람이 우리 깃발 아래로 왔다."
+            }
+          }
+        },
+        {
+          "key": "claim_hint",
+          "weight": 35,
+          "lines": [
+            "안에는 아무도 없다. 대신 벽에 못으로 긁은 글이 있다.",
+            "「물은 서른 걸음, 흙은 좋다. 우리는 사람이 모자랐을 뿐이다.」"
+          ],
+          "reward": {
+            "spawnNode": {
+              "type": "fertile",
+              "rich": true
+            },
+            "resources": {
+              "wood": 12
+            },
+            "revealRadius": 16,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "사람이 모자랐을 뿐",
+              "text": "실패한 개척지가 남긴 글에서 좋은 땅을 알아냈다."
+            }
+          }
+        },
+        {
+          "key": "cursed_land",
+          "weight": 25,
+          "lines": [
+            "안에서 난 소리는 바람이었다. 그리고 바람이 아닌 것도 있었다.",
+            "오래 서 있을 곳이 아니다."
+          ],
+          "reward": {
+            "damage": 16,
+            "morale": -0.04,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "서 있을 곳이 아니다",
+              "text": "버려진 깃발 아래에서 오래 머물지 못하고 돌아섰다."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "vine_temple",
+      "name": "덩굴 삼킨 사원",
+      "ring": 2,
+      "dir": "s",
+      "terrain": [
+        "jungle",
+        "marsh",
+        "mush"
+      ],
+      "weight": 14,
+      "_note": "§18-2 남 「삼키는 생명」. terrain 으로 밀림·습지에만 앉힌다 — 밀림의 이야기는 전부 현재진행형이다(살아 있는 것들이 자란다).",
+      "steps": [
+        {
+          "key": "vine_gate",
+          "name": "덩굴에 먹힌 문",
+          "art": "temple",
+          "verb": "E — 덩굴을 걷어 낸다",
+          "revealRadius": 15,
+          "nextDistance": [
+            14,
+            22
+          ],
+          "lines": [
+            "돌문 하나가 덩굴에 통째로 삼켜져 있다. 걷어 내자 사람 손이 다듬은 결이 드러난다.",
+            "문틀에 물길이 파여 있다. 비가 오면 어디론가 흐르게 되어 있다."
+          ]
+        },
+        {
+          "key": "water_riddle",
+          "name": "마른 물길",
+          "art": "temple",
+          "verb": "E — 물길을 따라간다",
+          "revealRadius": 15,
+          "nextDistance": [
+            14,
+            22
+          ],
+          "lines": [
+            "물길은 문에서 시작해 안쪽으로 굽는다. 막힌 곳에 돌이 끼어 있다.",
+            "돌을 빼자 고인 물이 천천히 안으로 흘러 들어간다."
+          ]
+        },
+        {
+          "key": "inner_hall",
+          "name": "열린 안뜰",
+          "art": "temple",
+          "verb": "E — 안으로 들어선다",
+          "final": true,
+          "lines": [
+            "물이 닿자 안뜰의 돌바닥이 소리를 내며 내려앉는다."
+          ]
+        }
+      ],
+      "endings": [
+        {
+          "key": "relic_hall",
+          "weight": 40,
+          "lines": [
+            "낮은 방 하나가 열린다. 벽을 따라 놓인 것들이 아직 제자리에 있다.",
+            "가져갈 수 있는 것은 많지 않았지만, 본 것은 오래 남는다."
+          ],
+          "reward": {
+            "spawnNode": {
+              "type": "ruin",
+              "rich": true
+            },
+            "resources": {
+              "gold": 26,
+              "stone": 12
+            },
+            "morale": 0.05,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "덩굴 아래의 방",
+              "text": "덩굴이 삼킨 사원의 안뜰을 열고 옛 방을 보았다."
+            }
+          }
+        },
+        {
+          "key": "guardian",
+          "weight": 30,
+          "lines": [
+            "안뜰 한복판에 무언가가 웅크리고 있었다. 물소리에 깬 것이다.",
+            "밀림은 지키는 것을 두고 자란다."
+          ],
+          "reward": {
+            "damage": 26,
+            "resources": {
+              "hide": 16,
+              "meat": 10
+            },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "사원의 지킴",
+              "text": "사원의 안뜰에서 지키는 것과 마주쳐 상처를 얻었다."
+            }
+          }
+        },
+        {
+          "key": "mushroom_grove",
+          "weight": 30,
+          "lines": [
+            "안뜰 가득 빛나는 버섯이 자라 있다. 물이 닿자 더 밝아진다.",
+            "먹을 수 있는 것도 섞여 있다."
+          ],
+          "reward": {
+            "spawnNode": {
+              "type": "berry",
+              "rich": true
+            },
+            "resources": {
+              "grain": 22
+            },
+            "morale": 0.04,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "빛나는 안뜰",
+              "text": "사원 안뜰에서 빛나는 버섯 골짜기를 찾았다."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "broken_machine",
+      "name": "부서진 기계",
+      "ring": 2,
+      "terrain": [
+        "ash",
+        "desert",
+        "rock",
+        "dusk"
+      ],
+      "weight": 13,
+      "_note": "§18-4 원형 13 — C-3 현대화 트랙의 **씨앗**이다. 여기서 나온 「기름 먹은 종이」가 훗날 연구 노드의 서사 근거가 된다(에셋·연구 트랙과 이어 둘 자리).",
+      "steps": [
+        {
+          "key": "machine",
+          "name": "쇠뭉치 하나",
+          "art": "machine",
+          "verb": "E — 쇠뭉치를 두드려 본다",
+          "revealRadius": 15,
+          "nextDistance": [
+            18,
+            28
+          ],
+          "lines": [
+            "사람 키만 한 쇳덩이가 반쯤 묻혀 있다. 이음매가 매끈하다 — 대장간의 솜씨가 아니다.",
+            "기름 냄새가 아직 난다."
+          ]
+        },
+        {
+          "key": "part_cache",
+          "name": "흩어진 부품",
+          "art": "machine",
+          "verb": "E — 부품을 주워 담는다",
+          "revealRadius": 15,
+          "nextDistance": [
+            18,
+            28
+          ],
+          "lines": [
+            "톱니 하나, 굽은 관 하나, 이름 모를 것 하나.",
+            "셋을 맞추면 무언가가 된다. 아직은 아니다."
+          ]
+        },
+        {
+          "key": "engine_core",
+          "name": "본체",
+          "art": "machine",
+          "verb": "E — 본체를 열어 본다",
+          "final": true,
+          "lines": [
+            "덮개를 여는 순간 안에서 무언가가 돌기 시작했다."
+          ]
+        }
+      ],
+      "endings": [
+        {
+          "key": "repaired",
+          "weight": 35,
+          "lines": [
+            "부품 셋을 끼우자 기계가 낮게 울며 스스로 움직인다.",
+            "쓸모는 아직 모르겠지만, 이것을 만든 사람들이 있다는 것은 알았다."
+          ],
+          "reward": {
+            "resources": {
+              "steel": 14,
+              "fuel": 10
+            },
+            "morale": 0.05,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "스스로 도는 것",
+              "text": "들에서 찾은 기계를 부품 셋으로 되살렸다."
+            }
+          }
+        },
+        {
+          "key": "blueprint",
+          "weight": 35,
+          "lines": [
+            "덮개 안쪽에 기름 먹은 종이가 접혀 있다. 그림과 숫자가 빼곡하다.",
+            "읽을 수 있는 사람이 우리에게 아직 없다. 언젠가는 있을 것이다."
+          ],
+          "reward": {
+            "resources": {
+              "steel": 8,
+              "coal": 12
+            },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "기름 먹은 종이",
+              "text": "부서진 기계 안에서 그림과 숫자가 빼곡한 종이를 얻었다."
+            }
+          }
+        },
+        {
+          "key": "blast",
+          "weight": 30,
+          "lines": [
+            "돌던 것이 갑자기 멎더니, 옆구리가 터졌다.",
+            "귀가 한동안 멍했다. 남은 쇠는 무겁게 챙겼다."
+          ],
+          "reward": {
+            "damage": 24,
+            "resources": {
+              "steel": 18
+            },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "터진 기계",
+              "text": "되살리려던 기계가 터졌다. 남은 쇠만 거두었다."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "hungry_herd",
+      "name": "굶주린 무리",
+      "ring": 2,
+      "weight": 13,
+      "_note": "§18-4 원형 15. 세 결말이 「먼저 치나·비켜 가나·놓치나」로 갈린다 — 사건형 원형이라 결말이 곧 다음 며칠의 태도가 된다.",
+      "steps": [
+        {
+          "key": "herd_path",
+          "name": "짓밟힌 길",
+          "art": "herd",
+          "verb": "E — 짓밟힌 자리를 살핀다",
+          "revealRadius": 17,
+          "nextDistance": [
+            18,
+            28
+          ],
+          "lines": [
+            "풀이 한 방향으로 통째로 눕혀졌다. 한두 마리가 아니다.",
+            "자국은 우리 쪽을 향한다."
+          ]
+        },
+        {
+          "key": "gnawed_bark",
+          "name": "벗겨진 나무껍질",
+          "art": "herd",
+          "verb": "E — 나무를 살핀다",
+          "revealRadius": 17,
+          "nextDistance": [
+            18,
+            28
+          ],
+          "lines": [
+            "허리 높이까지 껍질이 벗겨져 있다. 먹을 것이 떨어졌다는 뜻이다.",
+            "굶은 무리는 사람을 겁내지 않는다."
+          ]
+        },
+        {
+          "key": "herd_camp",
+          "name": "무리가 쉬는 자리",
+          "art": "herd",
+          "verb": "E — 멀찍이서 헤아린다",
+          "final": true,
+          "lines": [
+            "얕은 골짜기에 무리가 모여 있다. 아직 우리를 보지 못했다."
+          ]
+        }
+      ],
+      "endings": [
+        {
+          "key": "intercept",
+          "weight": 40,
+          "lines": [
+            "바람을 등지고 돌아 들어가 길목을 막았다. 짧고 사나운 싸움이었다.",
+            "겨울 몫은 이걸로 됐다."
+          ],
+          "reward": {
+            "damage": 10,
+            "resources": {
+              "meat": 34,
+              "hide": 22
+            },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "길목의 무리",
+              "text": "굶주린 무리의 길목을 막고 겨울 몫을 얻었다."
+            }
+          }
+        },
+        {
+          "key": "avoid",
+          "weight": 30,
+          "lines": [
+            "돌아 나오는 길을 표시해 두었다. 저 무리가 지나갈 자리를 이제 안다.",
+            "아는 것만으로도 사람을 잃지 않는다."
+          ],
+          "reward": {
+            "morale": 0.04,
+            "revealRadius": 20,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "비켜 간 길",
+              "text": "굶주린 무리의 이동 길을 알아 두고 비켜 갔다."
+            }
+          }
+        },
+        {
+          "key": "pass_through",
+          "weight": 30,
+          "lines": [
+            "무리가 먼저 일어섰다. 우리 땅 쪽으로 간다.",
+            "돌아가는 걸음이 뛰는 걸음이 되었다."
+          ],
+          "reward": {
+            "morale": -0.03,
+            "resources": {
+              "meat": 8
+            },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "무리가 온다",
+              "text": "굶주린 무리가 우리 땅 쪽으로 움직이는 것을 보았다."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "map_scraps",
+      "name": "반쯤 묻힌 지도 조각",
+      "ring": 3,
+      "weight": 14,
+      "_note": "§18-4 원형 6. 마커 금지(§18-3)를 지키는 방법 — 좌표 대신 **지형 묘사문**을 준다. 「세 봉우리가 나란한 곳」을 찾는 것은 플레이어의 눈이다.",
+      "steps": [
+        {
+          "key": "map_scrap",
+          "name": "묻힌 지도 조각",
+          "art": "scrap",
+          "verb": "E — 조각을 파낸다",
+          "revealRadius": 20,
+          "nextDistance": [
+            26,
+            40
+          ],
+          "lines": [
+            "가죽에 그린 지도의 한 귀퉁이다. 물길과 산줄기가 반쯤 남았다.",
+            "찢긴 자리가 고르다 — 나눠 가진 것이다."
+          ]
+        },
+        {
+          "key": "second_scrap",
+          "name": "두 번째 조각",
+          "art": "scrap",
+          "verb": "E — 조각을 맞춰 본다",
+          "revealRadius": 20,
+          "nextDistance": [
+            26,
+            40
+          ],
+          "lines": [
+            "두 조각을 맞추자 한복판에 표시가 나온다. 글자는 없고 그림뿐이다.",
+            "「세 봉우리가 나란한 곳, 그 그늘.」"
+          ]
+        },
+        {
+          "key": "marked_spot",
+          "name": "표시된 자리",
+          "art": "scrap",
+          "verb": "E — 그늘을 파 본다",
+          "final": true,
+          "lines": [
+            "봉우리 셋이 나란한 자리. 그늘 아래 흙이 유난히 무르다."
+          ]
+        }
+      ],
+      "endings": [
+        {
+          "key": "great_chest",
+          "weight": 45,
+          "lines": [
+            "쇠테를 두른 궤짝이 통째로 묻혀 있었다. 자물쇠는 이미 삭아 있다.",
+            "여기까지 온 값을 오늘 받았다."
+          ],
+          "reward": {
+            "spawnNode": {
+              "type": "cache",
+              "rich": true
+            },
+            "resources": {
+              "gold": 48,
+              "steel": 16
+            },
+            "morale": 0.06,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "세 봉우리의 그늘",
+              "text": "지도 조각을 맞춰 찾아간 자리에서 쇠테 궤짝을 파냈다."
+            }
+          }
+        },
+        {
+          "key": "snow_coords",
+          "weight": 55,
+          "lines": [
+            "묻혀 있던 것은 궤짝이 아니라 또 하나의 지도였다. 이번엔 북쪽이다.",
+            "그린 사람은 끝내 거기 닿지 못한 것 같다."
+          ],
+          "reward": {
+            "resources": {
+              "gold": 14
+            },
+            "revealRadius": 26,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "닿지 못한 곳",
+              "text": "지도 조각의 끝에서 설산으로 이어지는 또 하나의 지도를 얻었다."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "frozen_party",
+      "name": "얼어붙은 원정대",
+      "ring": 3,
+      "dir": "n",
+      "terrain": [
+        "snow"
+      ],
+      "weight": 14,
+      "_note": "§18-2 북 「얼어붙은 과거」. 설산의 이야기는 전부 과거형이다 — 끝난 것들을 발굴한다. 셋 중 하나는 값이 아니라 **기억**만 준다(그 결말의 사기가 가장 높은 까닭).",
+      "steps": [
+        {
+          "key": "frozen_hand",
+          "name": "눈 밖으로 나온 손",
+          "art": "ice",
+          "verb": "E — 눈을 걷어 낸다",
+          "revealRadius": 20,
+          "nextDistance": [
+            26,
+            40
+          ],
+          "lines": [
+            "장갑 낀 손 하나가 눈 위로 나와 있다. 굳은 지 오래다.",
+            "손가락이 한쪽을 가리키고 있다 — 마지막까지."
+          ]
+        },
+        {
+          "key": "journal",
+          "name": "얼어붙은 일지",
+          "art": "scrap",
+          "verb": "E — 일지를 편다",
+          "revealRadius": 20,
+          "nextDistance": [
+            26,
+            40
+          ],
+          "lines": [
+            "책장이 얼어붙어 몇 장만 겨우 넘어간다.",
+            "「열이레째. 우리는 그것을 찾았다. 다만 돌아갈 힘이 남지 않았다.」"
+          ]
+        },
+        {
+          "key": "leader_body",
+          "name": "앞장선 사람",
+          "art": "ice",
+          "verb": "E — 마지막 한 사람을 살핀다",
+          "final": true,
+          "lines": [
+            "가장 앞에 있던 사람이다. 품에 무언가를 안고 있다."
+          ]
+        }
+      ],
+      "endings": [
+        {
+          "key": "leaders_relic",
+          "weight": 40,
+          "lines": [
+            "품에 안고 있던 것은 상자 하나였다. 그 안에 든 것은 값이 아니라 기록이다.",
+            "그들이 무엇을 찾았는지, 이제 우리가 안다."
+          ],
+          "reward": {
+            "resources": {
+              "gold": 30,
+              "steel": 12
+            },
+            "morale": 0.05,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "앞장선 사람",
+              "text": "설산의 원정대 대장이 품고 있던 상자를 거두었다."
+            }
+          }
+        },
+        {
+          "key": "their_vein",
+          "weight": 40,
+          "lines": [
+            "손이 가리킨 쪽으로 조금 더 가자 검은 줄이 눈 밖으로 드러나 있다.",
+            "그들이 찾던 것이다. 열이레의 값이 여기 있었다."
+          ],
+          "reward": {
+            "spawnNode": {
+              "type": "iron",
+              "rich": true
+            },
+            "resources": {
+              "ironOre": 20,
+              "coal": 14
+            },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "열이레의 값",
+              "text": "얼어붙은 원정대가 찾던 광맥을 그들 대신 찾았다."
+            }
+          }
+        },
+        {
+          "key": "last_record",
+          "weight": 20,
+          "lines": [
+            "품에 있던 것은 이름을 적은 종이 한 장뿐이었다. 열둘, 전부.",
+            "돌 아래 눌러 두고 왔다. 우리 연대기에 옮겨 적는 것으로 대신한다."
+          ],
+          "reward": {
+            "morale": 0.07,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "열둘의 이름",
+              "text": "설산의 원정대가 남긴 이름 열둘을 우리 연대기에 옮겨 적었다."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "fallen_star",
+      "name": "별똥별이 떨어진 자리",
+      "ring": 3,
+      "weight": 13,
+      "_note": "§18-4 원형 14 + 영구 흔적 원칙 — 크레이터의 광석 노드는 **지도에 남는다**. 세계가 판마다 다르게 상처 입는 것이 리플레이의 얼굴이다.",
+      "steps": [
+        {
+          "key": "scorched_ground",
+          "name": "그을린 땅",
+          "art": "crater",
+          "verb": "E — 그을음을 만져 본다",
+          "revealRadius": 22,
+          "nextDistance": [
+            26,
+            40
+          ],
+          "lines": [
+            "풀이 한 줄로 타 있다. 무언가가 낮게 스치며 지나갔다.",
+            "탄 자국은 앞으로 갈수록 넓어진다."
+          ]
+        },
+        {
+          "key": "burnt_wood",
+          "name": "쓰러진 나무들",
+          "art": "crater",
+          "verb": "E — 쓰러진 방향을 본다",
+          "revealRadius": 22,
+          "nextDistance": [
+            26,
+            40
+          ],
+          "lines": [
+            "나무들이 전부 한쪽으로 누웠다. 넘어뜨린 힘이 지나간 쪽은 저기다.",
+            "탄 냄새가 아직 매캐하다."
+          ]
+        },
+        {
+          "key": "crater",
+          "name": "움푹 팬 자리",
+          "art": "crater",
+          "verb": "E — 구덩이로 내려간다",
+          "final": true,
+          "lines": [
+            "얕은 사발 모양으로 땅이 팼다. 한복판이 아직 따뜻하다."
+          ]
+        }
+      ],
+      "endings": [
+        {
+          "key": "crater_ore",
+          "weight": 45,
+          "lines": [
+            "구덩이 벽에 낯선 광석이 박혀 있다. 두드리면 맑은 소리가 난다.",
+            "이 자리는 오래 남을 것이다."
+          ],
+          "reward": {
+            "spawnNode": {
+              "type": "iron",
+              "rich": true
+            },
+            "resources": {
+              "ironOre": 26,
+              "steel": 8
+            },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "떨어진 자리",
+              "text": "별똥별이 팬 구덩이에서 낯선 광석을 캐냈다."
+            }
+          }
+        },
+        {
+          "key": "strange_egg",
+          "weight": 30,
+          "lines": [
+            "한복판에 매끈한 것이 하나 놓여 있다. 돌이라기엔 너무 따뜻하다.",
+            "가져가야 할지 오래 망설였다."
+          ],
+          "reward": {
+            "morale": 0.06,
+            "resources": {
+              "stone": 10
+            },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "따뜻한 돌",
+              "text": "별똥별의 구덩이 한복판에서 따뜻한 돌 하나를 주웠다."
+            }
+          }
+        },
+        {
+          "key": "burnt_forest",
+          "weight": 25,
+          "lines": [
+            "불은 이미 꺼졌지만 숲 한 자락이 통째로 탔다.",
+            "탄 나무는 그래도 나무다. 베어 오는 데 이틀이 걸렸다."
+          ],
+          "reward": {
+            "resources": {
+              "wood": 44,
+              "coal": 10
+            },
+            "morale": -0.02,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "탄 숲",
+              "text": "별똥별이 태운 숲에서 이틀 동안 나무를 베어 왔다."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "singing_tree",
+      "name": "노래하는 나무",
+      "ring": 3,
+      "weight": 10,
+      "_note": "§18-4 원형 16 + 재방문 설계. reuseDays 3 — 소진되지 않는다. 보상 없는 아름다움도 하나쯤(§18-5 무드): 여기서 얻는 것은 값이 아니라 **돌아올 이유**다.",
+      "steps": [
+        {
+          "key": "hum",
+          "name": "낮게 울리는 소리",
+          "art": "bigtree",
+          "verb": "E — 소리를 따라간다",
+          "revealRadius": 20,
+          "nextDistance": [
+            26,
+            40
+          ],
+          "lines": [
+            "바람이 아닌데 낮은 소리가 난다. 땅이 아니라 위에서 온다.",
+            "소리는 일정한 간격으로 끊겼다 이어진다."
+          ]
+        },
+        {
+          "key": "ring_of_stumps",
+          "name": "둥글게 벤 자리",
+          "art": "bigtree",
+          "verb": "E — 그루터기를 세어 본다",
+          "revealRadius": 20,
+          "nextDistance": [
+            26,
+            40
+          ],
+          "lines": [
+            "그루터기가 원을 그리며 남아 있다. 한복판만 남기고 벤 것이다.",
+            "베어 낸 사람들도 이 소리를 들었을 것이다."
+          ]
+        },
+        {
+          "key": "the_tree",
+          "name": "한복판의 나무",
+          "art": "bigtree",
+          "verb": "E — 나무에 손을 댄다",
+          "final": true,
+          "reuseDays": 3,
+          "lines": [
+            "손바닥을 대자 소리가 손목까지 올라온다."
+          ]
+        }
+      ],
+      "endings": [
+        {
+          "key": "song",
+          "weight": 100,
+          "lines": [
+            "나무는 사람 소리로 노래하지 않는다. 다만 사람이 그 앞에서 조용해진다.",
+            "한참 서 있다가 돌아왔다. 돌아오는 길이 가벼웠다."
+          ],
+          "reward": {
+            "morale": 0.08,
+            "heal": 40,
+            "resources": {
+              "wood": 12
+            },
+            "chronicle": {
+              "kind": "discovery",
+              "title": "노래하는 나무",
+              "text": "링3 한복판의 노래하는 나무 앞에 서 있다 왔다."
+            }
+          }
         }
       ]
     }
@@ -125,8 +1981,14 @@
         "누군가 이곳을 지나며 씨앗을 묻어 두었다."
       ],
       "reward": {
-        "resources": { "grain": 6 },
-        "chronicle": { "kind": "discovery", "title": "돌무더기 아래", "text": "앞마당의 돌무더기 아래에서 곡물 씨앗 자루를 찾았다." }
+        "resources": {
+          "grain": 6
+        },
+        "chronicle": {
+          "kind": "discovery",
+          "title": "돌무더기 아래",
+          "text": "앞마당의 돌무더기 아래에서 곡물 씨앗 자루를 찾았다."
+        }
       }
     },
     {
@@ -135,19 +1997,32 @@
       "art": "nest",
       "weight": 20,
       "verb": "E — 둥지를 들여다본다",
-      "lines": ["낮은 가지에 둥지가 하나. 알이 한 알 남아 있다."],
+      "lines": [
+        "낮은 가지에 둥지가 하나. 알이 한 알 남아 있다."
+      ],
       "choices": [
         {
           "key": "take",
           "label": "알을 가져간다",
-          "lines": ["알을 챙겼다. 창고는 늘었고, 사람들은 아무 말도 하지 않았다."],
-          "reward": { "resources": { "grain": 4 }, "morale": -0.03 }
+          "lines": [
+            "알을 챙겼다. 창고는 늘었고, 사람들은 아무 말도 하지 않았다."
+          ],
+          "reward": {
+            "resources": {
+              "grain": 4
+            },
+            "morale": -0.03
+          }
         },
         {
           "key": "leave",
           "label": "그대로 둔다",
-          "lines": ["알을 그대로 두고 돌아섰다. 별일은 없었다. 다만 기분이 조금 나아졌다."],
-          "reward": { "morale": 0.02 }
+          "lines": [
+            "알을 그대로 두고 돌아섰다. 별일은 없었다. 다만 기분이 조금 나아졌다."
+          ],
+          "reward": {
+            "morale": 0.02
+          }
         }
       ]
     },
@@ -159,8 +2034,12 @@
       "verb": "E — 두레박을 내린다",
       "_note": "소진되지 않는 재방문 발견물(§18-4 재방문 설계). reuseDays 1 = 하루 한 번만.",
       "reuseDays": 1,
-      "lines": ["이끼 낀 옛 우물. 두레박을 내리자 아직 물이 차갑다."],
-      "reward": { "heal": 25 }
+      "lines": [
+        "이끼 낀 옛 우물. 두레박을 내리자 아직 물이 차갑다."
+      ],
+      "reward": {
+        "heal": 25
+      }
     },
     {
       "key": "mossy_statue",
@@ -173,7 +2052,11 @@
         "「여기까지 왔으면 돌아가도 좋다.」"
       ],
       "reward": {
-        "chronicle": { "kind": "discovery", "title": "이끼 낀 석상", "text": "앞마당의 석상 발치에서 옛 글귀를 읽었다 — 「여기까지 왔으면 돌아가도 좋다.」" }
+        "chronicle": {
+          "kind": "discovery",
+          "title": "이끼 낀 석상",
+          "text": "앞마당의 석상 발치에서 옛 글귀를 읽었다 — 「여기까지 왔으면 돌아가도 좋다.」"
+        }
       }
     },
     {
@@ -182,8 +2065,308 @@
       "art": "vista",
       "weight": 12,
       "verb": "E — 바위에 올라선다",
-      "lines": ["바위에 올라서니 우리 땅이 한눈에 들어온다. 아직 작지만, 우리 것이다."],
-      "reward": { "morale": 0.02, "revealRadius": 10 }
+      "lines": [
+        "바위에 올라서니 우리 땅이 한눈에 들어온다. 아직 작지만, 우리 것이다."
+      ],
+      "reward": {
+        "morale": 0.02,
+        "revealRadius": 10
+      }
+    },
+    {
+      "key": "silver_berry",
+      "name": "은빛 딸기 덤불",
+      "art": "berry_rare",
+      "ring": [
+        1,
+        2,
+        3
+      ],
+      "weight": 18,
+      "verb": "E — 딸기를 딴다",
+      "lines": [
+        "여느 딸기보다 알이 굵고 은빛이 돈다. 한 아름은 족히 된다."
+      ],
+      "reward": {
+        "resources": {
+          "grain": 14
+        },
+        "chronicle": {
+          "kind": "discovery",
+          "title": "은빛 딸기",
+          "text": "들에서 은빛이 도는 딸기 덤불을 만났다."
+        }
+      }
+    },
+    {
+      "key": "gnarled_tree",
+      "name": "옹이 진 거목",
+      "art": "bigtree",
+      "ring": [
+        1,
+        2
+      ],
+      "weight": 16,
+      "verb": "E — 거목을 살핀다",
+      "lines": [
+        "둘레가 세 아름은 되는 나무. 옹이마다 나이가 적혀 있다.",
+        "가지 하나만 베어도 좋은 재목이 나온다."
+      ],
+      "reward": {
+        "resources": {
+          "wood": 18
+        }
+      }
+    },
+    {
+      "key": "crystal_rock",
+      "name": "수정 박힌 바위",
+      "art": "crystal",
+      "ring": [
+        2,
+        3
+      ],
+      "weight": 14,
+      "verb": "E — 수정을 떼어 낸다",
+      "lines": [
+        "바위 틈에 맑은 결정이 박혀 있다. 빛을 조각내 흩는다."
+      ],
+      "reward": {
+        "resources": {
+          "stone": 16,
+          "ironOre": 8
+        },
+        "chronicle": {
+          "kind": "discovery",
+          "title": "수정 박힌 바위",
+          "text": "먼 들에서 수정이 박힌 바위를 찾았다."
+        }
+      }
+    },
+    {
+      "key": "broken_sword",
+      "name": "부러진 검",
+      "art": "sword",
+      "ring": [
+        1,
+        2
+      ],
+      "weight": 12,
+      "verb": "E — 검을 뽑아 든다",
+      "lines": [
+        "날 반쪽이 땅에 꽂혀 있다. 자루의 가죽은 삭아 없어졌다.",
+        "이걸 놓고 간 사람은 걸어서 갔을까."
+      ],
+      "reward": {
+        "resources": {
+          "steel": 4
+        },
+        "chronicle": {
+          "kind": "discovery",
+          "title": "부러진 검",
+          "text": "들에 꽂힌 부러진 검을 거두었다."
+        }
+      }
+    },
+    {
+      "key": "child_shoe",
+      "name": "아이 신발 한 짝",
+      "art": "shoe",
+      "ring": [
+        1
+      ],
+      "weight": 10,
+      "verb": "E — 신발을 집어 든다",
+      "lines": [
+        "작은 신발 한 짝이 길가에 놓여 있다. 나란히 놓여 있었다 — 누가 그렇게 두었다.",
+        "짝은 끝내 보이지 않았다."
+      ],
+      "reward": {
+        "morale": -0.02,
+        "chronicle": {
+          "kind": "discovery",
+          "title": "신발 한 짝",
+          "text": "길가에 가지런히 놓인 아이 신발 한 짝을 보았다."
+        }
+      }
+    },
+    {
+      "key": "trapped_fox",
+      "name": "덫에 걸린 여우",
+      "art": "fox",
+      "ring": [
+        1,
+        2
+      ],
+      "weight": 14,
+      "verb": "E — 덫에 다가간다",
+      "lines": [
+        "여우 한 마리가 덫에 뒷발이 물려 있다. 우리 덫은 아니다.",
+        "이빨을 드러내지만 물 힘은 없어 보인다."
+      ],
+      "choices": [
+        {
+          "key": "free",
+          "label": "덫을 벌린다",
+          "lines": [
+            "발을 빼자마자 덤불로 사라졌다. 열 걸음쯤 가서 한 번 돌아보았다."
+          ],
+          "reward": {
+            "morale": 0.04,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "덫에 걸린 여우",
+              "text": "남의 덫에 걸린 여우를 풀어 주었다."
+            }
+          }
+        },
+        {
+          "key": "take",
+          "label": "가죽을 취한다",
+          "lines": [
+            "덫은 우리 것이 아니었지만, 여우는 우리 것이 되었다."
+          ],
+          "reward": {
+            "resources": {
+              "hide": 8,
+              "meat": 5
+            },
+            "morale": -0.03
+          }
+        }
+      ]
+    },
+    {
+      "key": "roadside_altar",
+      "name": "길가의 제단",
+      "art": "altar",
+      "ring": [
+        1,
+        2
+      ],
+      "weight": 12,
+      "verb": "E — 제단 앞에 선다",
+      "lines": [
+        "돌 셋을 포개 만든 작은 제단. 마른 이삭 몇 개가 놓여 있다.",
+        "지나는 사람마다 조금씩 두고 간 자리다."
+      ],
+      "choices": [
+        {
+          "key": "offer",
+          "label": "곡물을 얹는다",
+          "cost": {
+            "grain": 5
+          },
+          "lines": [
+            "한 줌을 얹고 잠시 섰다. 사람들이 그 이야기를 오래 했다."
+          ],
+          "reward": {
+            "morale": 0.05,
+            "chronicle": {
+              "kind": "discovery",
+              "title": "길가의 제단",
+              "text": "길가의 제단에 곡물 한 줌을 얹고 왔다."
+            }
+          }
+        },
+        {
+          "key": "take",
+          "label": "놓인 것을 가져간다",
+          "lines": [
+            "마른 이삭 몇 개를 챙겼다. 값으로는 하찮고, 말로는 오래 남는다."
+          ],
+          "reward": {
+            "resources": {
+              "grain": 4
+            },
+            "morale": -0.04
+          }
+        }
+      ]
+    },
+    {
+      "key": "hot_spring",
+      "name": "온천",
+      "art": "spring",
+      "ring": [
+        2,
+        3
+      ],
+      "weight": 14,
+      "verb": "E — 물에 몸을 담근다",
+      "_note": "§18-5 무드 — 재방문 발견물. 링2~3 에만 나는 까닭: 먼 데 있어야 「거기까지 간 보람」이 된다.",
+      "reuseDays": 1,
+      "lines": [
+        "바위 사이에서 김이 오른다. 손을 담그자 뜨겁다.",
+        "여기까지 온 다리가 풀린다."
+      ],
+      "reward": {
+        "heal": 55,
+        "morale": 0.02
+      }
+    },
+    {
+      "key": "firefly_valley",
+      "name": "반딧불 골짜기",
+      "art": "spring",
+      "ring": [
+        2,
+        3
+      ],
+      "weight": 11,
+      "verb": "E — 골짜기에 앉는다",
+      "reuseDays": 2,
+      "lines": [
+        "골짜기 가득 작은 불이 오르내린다. 손을 뻗으면 비켜 간다.",
+        "값나가는 것은 하나도 없다. 그래도 한참 앉아 있었다."
+      ],
+      "reward": {
+        "morale": 0.05
+      }
+    },
+    {
+      "key": "beehive",
+      "name": "벌집",
+      "art": "hive",
+      "ring": [
+        1,
+        2
+      ],
+      "weight": 12,
+      "verb": "E — 벌집을 딴다",
+      "lines": [
+        "낮은 가지에 벌집이 매달려 있다. 연기를 피울 새가 없었다.",
+        "쏘이면서도 손은 멈추지 않았다."
+      ],
+      "reward": {
+        "resources": {
+          "grain": 12
+        },
+        "damage": 6
+      }
+    },
+    {
+      "key": "badger_burrow",
+      "name": "굴 속 오소리",
+      "art": "burrow",
+      "ring": [
+        2,
+        3
+      ],
+      "weight": 11,
+      "verb": "E — 굴을 들쑤신다",
+      "lines": [
+        "굴 앞에 뼈가 쌓여 있다. 안에 있는 것은 작지만 사납다."
+      ],
+      "reward": {
+        "resources": {
+          "hide": 10,
+          "meat": 9
+        },
+        "damage": 9
+      }
     }
-  ]
+  ],
+  "_chainsNote": "★ §18-4 사슬 원형 16종. ring 이 어느 링에 나는지, dir(n·s·e·w)·terrain 이 §18-2 방위 정체성을 맡는다 — 설산의 이야기는 과거형(얼어붙은 원정대), 밀림은 현재진행형(덩굴 사원), 동서는 사람이 위험이다(국경·밀수). steps 의 마지막 칸에 final:true 를 달면 그 자리에서 endings 가중 굴림이 돈다(statRng — 월드 난수 불변). reuseDays 를 단 마지막 칸은 **소진되지 않는다**(은둔 상인·노래하는 나무 — 다시 갈 이유).",
+  "_rewardNote": "보상 낱말 — resources·morale·heal·revealRadius·spawnNode·chronicle 에 §21-C1 이 둘을 더했다: **damage**(그 자리에서 아프다. 죽지는 않는다 — hp 1 아래로 안 내린다) · **villager**(생존자 결말이 사람을 데려온다. 빈 침상을 묻지 않는다)."
 }

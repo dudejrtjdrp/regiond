@@ -15,6 +15,7 @@ import { stampVisionDisc } from './fog.js';
 import { record as chronicle } from './chronicle.js';
 import { deposit } from './storage.js';
 import { ensurePlayer, playerMaxHp } from './skills.js';
+import { spawnResident } from './residents.js';
 import { round2 } from './economy.js';
 
 export const trailsCfg = (data) => data.trails ?? null;
@@ -34,22 +35,36 @@ export function generateTrails(map, data, seed) {
   const cfg = trailsCfg(data);
   const town = (map?.towns || []).find((t) => t.isPlayer);
   if (!cfg || !town) return [];
-  const ctx = makeCtx(map, data, seed, town);
-  placeChains(ctx, cfg);
-  placeMicro(ctx, cfg);
+  const ctx = makeCtx(map, data, seed, town, ringSpec(data, 0), 1, []);
+  placeChains(ctx, cfg, 0);
+  placeMicro(ctx, cfg, 0);
   return ctx.out;
 }
 
-function makeCtx(map, data, seed, town) {
+/**
+ * 링 규격 한 벌. ★ 링0 의 옛 글자(radius·minTownGap)와 링1~3 의 새 글자(radius:[안,밖])를
+ * **여기 한 곳에서** 하나로 맞춘다 — 두 벌의 이름이 코드 곳곳에 흩어지면 고칠 자리가 둘이 된다.
+ */
+function ringSpec(data, ring) {
   const cfg = trailsCfg(data);
+  if (ring === 0) {
+    const r0 = cfg.ring0;
+    return { ring: 0, span: [r0.minTownGap, r0.radius], ...r0 };
+  }
+  const spec = (cfg.rings || []).find((r) => r.ring === ring);
+  return spec ? { ...spec, span: spec.radius } : null;
+}
+
+function makeCtx(map, data, seed, town, ring, nextId, taken) {
   return {
     map, data, town, seed,
-    rng: statRng(`${seed}:trails:ring0`),
-    ring: cfg.ring0,
+    rng: statRng(`${seed}:trails:ring${ring?.ring ?? 0}`),
+    ring,
     tIndex: terrainIndex(data),
-    taken: [],                       // 이미 자리를 잡은 점들(minGap 판정용 — 링0 안이라 목록이 짧다)
+    taken,                           // 이미 자리를 잡은 점들(minGap 판정용)
     out: [],
-    nextId: 1,
+    nextId,
+    blocked: null,                   // 건물이 앉은 칸(늦게 자라는 링에서만 채운다)
   };
 }
 
@@ -59,17 +74,18 @@ function spotOk(ctx, x, y) {
   const fromTown = dist(ctx.town.x, ctx.town.y, x, y);
   if (x < 1 || y < 1 || x >= size - 1 || y >= size - 1) return false;
   if (terrainAt(ctx.map, x, y) === ctx.tIndex.water) return false;
-  if (fromTown < ctx.ring.minTownGap || fromTown > ctx.ring.radius) return false;
+  if (fromTown < ctx.ring.span[0] || fromTown > ctx.ring.span[1]) return false;
+  if (ctx.blocked?.has(`${x},${y}`)) return false;
   if ((ctx.map.nodes || []).some((n) => n.x === x && n.y === y)) return false;
   return !ctx.taken.some((p) => dist(p.x, p.y, x, y) < ctx.ring.minGap);
 }
 
 /** 본영 둘레의 빈 칸 하나. placeTries 안에 못 찾으면 null — 월드 생성이 여기서 멎으면 안 된다. */
-function pickSpot(ctx, from = null, span = null) {
+function pickSpot(ctx, from = null, span = null, arc = null) {
   const anchor = from ?? ctx.town;
   for (let i = 0; i < ctx.ring.placeTries; i += 1) {
-    const a = ctx.rng.float(0, Math.PI * 2);
-    const r = span ? ctx.rng.float(span[0], span[1]) : ctx.rng.float(ctx.ring.minTownGap, ctx.ring.radius);
+    const a = arc ? ctx.rng.float(arc[0], arc[1]) : ctx.rng.float(0, Math.PI * 2);
+    const r = span ? ctx.rng.float(span[0], span[1]) : ctx.rng.float(ctx.ring.span[0], ctx.ring.span[1]);
     const x = Math.round(anchor.x + Math.cos(a) * r);
     const y = Math.round(anchor.y + Math.sin(a) * r);
     if (spotOk(ctx, x, y)) return { x, y };
@@ -89,26 +105,63 @@ function push(ctx, row) {
  * 덮어 둔다. 조사하는 순간 hidden 이 벗겨지고 안개가 열린다 — 플레이어가 보기에는 '그때 생긴' 것이고,
  * 서버가 보기에는 '처음부터 거기 있던' 것이다. 실시간에 자리를 뽑으면 재현이 깨진다.
  */
-function placeChains(ctx, cfg) {
-  const chains = (cfg.chains || []).filter((c) => (c.ring ?? 0) === 0);
-  for (let k = 0; k < (ctx.ring.chainCount ?? 0) && chains.length; k += 1) {
-    const chain = chains[k % chains.length];
-    placeChain(ctx, chain);
+function placeChains(ctx, cfg, ring) {
+  const pool = (cfg.chains || []).filter((c) => (c.ring ?? 0) === ring);
+  if (!pool.length) return;
+  /* 링0 은 옛 규율 그대로 목록 차례로 돈다(같은 씨앗 같은 판 — 난수 소비 차례를 한 톨도 안 바꾼다).
+     ★ 링1~3 은 **가중 순서 뽑기**다: 원형이 링마다 넷 안팎이라 차례로 돌면 판마다 같은 넷이 같은
+     차례로 나온다. 미시 발견(placeMicro)이 쓰는 것과 같은 한 벌을 쓴다. */
+  const order = ring === 0 ? pool : drawOrder(ctx, pool.map((c) => ({ ...c, key: c.id })));
+  for (let k = 0; k < (ctx.ring.chainCount ?? 0); k += 1) {
+    placeChain(ctx, order[k % order.length]);
   }
 }
 
+/** 방위 정체성(§18-2) — 북은 설산, 남은 밀림, 동서는 사람의 길. 없으면 사방 어디든. */
+function arcOf(chain) {
+  const H = Math.PI / 2;
+  if (chain.dir === 'n') return [-H - H / 2, -H / 2];         // 화면 위쪽(y 가 작아지는 쪽)
+  if (chain.dir === 's') return [H / 2, H + H / 2];
+  if (chain.dir === 'e') return [-H / 2, H / 2];
+  if (chain.dir === 'w') return [(3 * H) / 2, (5 * H) / 2];
+  return null;
+}
+
+/** 이 사슬이 앉고 싶어 하는 땅인가 — terrain 을 적지 않은 사슬은 아무 땅이나 좋다 */
+function terrainOk(ctx, chain, x, y) {
+  const want = chain.terrain || null;
+  if (!want?.length) return true;
+  const code = ctx.data.world.terrain.codes[terrainAt(ctx.map, x, y)];
+  return want.includes(code);
+}
+
 function placeChain(ctx, chain) {
+  const head = headSpot(ctx, chain);
+  if (!head) return;                                    // 자리가 없으면 사슬을 통째로 접는다(반쪽 사슬 금지)
   let prev = null;
   for (let i = 0; i < chain.steps.length; i += 1) {
     const step = chain.steps[i];
     const span = prev ? (chain.steps[i - 1].nextDistance ?? null) : null;
-    const spot = pickSpot(ctx, prev, span) ?? pickSpot(ctx);
-    if (!spot) return;                                  // 자리가 없으면 사슬을 통째로 접는다(반쪽 사슬 금지)
+    const spot = prev ? (pickSpot(ctx, prev, span) ?? pickSpot(ctx)) : head;
+    if (!spot) return;
     prev = push(ctx, {
       kind: 'chain', chainId: chain.id, step: i, key: step.key,
       x: spot.x, y: spot.y, hidden: i > 0,
     });
   }
+}
+
+/** 첫 흔적의 자리 — 방위·땅을 가리는 사슬은 여기서만 가린다(뒤 단계는 첫 자리를 따라간다) */
+function headSpot(ctx, chain) {
+  const arc = arcOf(chain);
+  /* ★ 가리는 것이 없으면 옛 링0 의 두 번 물음을 **글자 그대로** 지킨다 — 난수 소비 차례가
+     한 톨이라도 달라지면 같은 씨앗이 다른 판이 된다(시드42 밴드가 그 위에 서 있다). */
+  if (!arc && !chain.terrain?.length) return pickSpot(ctx) ?? pickSpot(ctx);
+  for (let i = 0; i < (ctx.ring.chainTries ?? 12); i += 1) {
+    const spot = pickSpot(ctx, null, null, arc);
+    if (spot && terrainOk(ctx, chain, spot.x, spot.y)) return spot;
+  }
+  return pickSpot(ctx, null, null, arc);                // 끝내 못 고르면 땅은 포기하고 방위만 지킨다
 }
 
 /**
@@ -117,8 +170,11 @@ function placeChain(ctx, chain) {
  * 왜 그냥 파일 차례로 안 도나: 4개만 나오는 판에서는 목록 끝(전망 바위)이 영영 안 나온다.
  * 무게 순 무작위 배열 한 번 = 「종류는 겹치지 않고, 어느 넷이 뽑히는지는 씨앗마다 다르다」.
  */
-function placeMicro(ctx, cfg) {
-  const order = drawOrder(ctx, cfg.micro || []);
+function placeMicro(ctx, cfg, ring) {
+  /* ★ 링을 안 적은 미시 발견은 **어느 링에나** 난다(돌무더기·석상은 앞마당의 것만이 아니다).
+     링을 적은 것은 그 링에서만 — 온천은 먼 데 있어야 「거기까지 간 보람」이 된다. */
+  const pool = (cfg.micro || []).filter((m) => inRing(m.ring, ring));
+  const order = drawOrder(ctx, pool);
   if (!order.length) return;
   const want = ctx.rng.int(ctx.ring.microCount[0], ctx.ring.microCount[1]);
   for (let i = 0; i < want; i += 1) {
@@ -126,6 +182,69 @@ function placeMicro(ctx, cfg) {
     if (!spot) continue;
     push(ctx, { kind: 'micro', key: order[i % order.length].key, x: spot.x, y: spot.y, hidden: false });
   }
+}
+
+// ────────────────────────────────────────────────────────────────
+// ★ §21-C1 링 확장 — 세계는 장이 열릴 때마다 한 겹씩 자란다
+// ────────────────────────────────────────────────────────────────
+/**
+ * 「왜」 월드 생성 때 다 심지 않나 — ① 링3 까지 한꺼번에 심으면 1일차 지도에 40개가 앉는다.
+ * 안개가 가려 안 보일 뿐 세이브는 그만큼 무거워지고, 무엇보다 **세계가 자라는 느낌**이 없다.
+ * ② 장이 열린다는 것은 「이제 저기까지 갈 수 있다」는 뜻이다 — 그 순간에 저기가 채워지는 것이 맞다.
+ *
+ * 결정론: 링마다 제 난수(`씨앗:trails:ring2`)를 쓴다. **언제** 자라든 자리는 씨앗이 정한다 —
+ * 3장을 12일에 열든 30일에 열든 같은 씨앗이면 같은 자리다. 월드 난수는 여기서도 한 톨도 안 쓴다.
+ * @returns {number} 이번에 심은 흔적 수
+ */
+export function growTrailsFor(world, data, chapterId) {
+  const cfg = trailsCfg(data);
+  if (!cfg || !world?.map) return 0;
+  const done = (world.map.trailRings ||= []);
+  let planted = 0;
+  for (const spec of cfg.rings || []) {
+    if (done.includes(spec.ring) || chapterId < (spec.openAtChapter ?? 99)) continue;
+    done.push(spec.ring);
+    planted += growRing(world, data, spec.ring);
+  }
+  return planted;
+}
+
+function growRing(world, data, ring) {
+  const cfg = trailsCfg(data);
+  const map = world.map;
+  const town = (map.towns || []).find((t) => t.isPlayer);
+  const spec = ringSpec(data, ring);
+  if (!town || !spec) return 0;
+  const list = map.trails ||= [];
+  const ctx = makeCtx(map, data, world.seed, town, spec, nextTrailId(list), takenOf(list));
+  ctx.blocked = blockedTiles(world);
+  placeChains(ctx, cfg, ring);
+  placeMicro(ctx, cfg, ring);
+  list.push(...ctx.out);
+  return ctx.out.length;
+}
+
+/** 이어 붙일 번호 — 옛 목록의 가장 큰 번호 다음. 같은 id 가 둘이면 조사가 엉뚱한 것을 연다. */
+function nextTrailId(list) {
+  const max = list.reduce((m, t) => Math.max(m, Number(String(t.id).slice(2)) || 0), 0);
+  return max + 1;
+}
+
+const takenOf = (list) => list.map((t) => ({ x: t.x, y: t.y }));
+
+/** 늦게 자라는 링은 **이미 선 것들**을 비켜 가야 한다 — 창고 한복판에 발자국이 찍히면 안 된다. */
+function blockedTiles(world) {
+  const out = new Set();
+  for (const n of Object.values(world.nations || {})) {
+    for (const s of n.structures || []) out.add(`${s.x},${s.y}`);
+  }
+  return out;
+}
+
+/** 링 표기 셋 — 안 적었으면 어느 링에나, 숫자면 그 링에만, 목록이면 그 링들에만 */
+function inRing(spec, ring) {
+  if (spec === undefined || spec === null) return true;
+  return Array.isArray(spec) ? spec.includes(ring) : spec === ring;
 }
 
 /** 무게를 두고 되돌리지 않고 뽑아 만든 차례 한 벌(weighted shuffle) */
@@ -287,10 +406,37 @@ function applyReward(a, reward) {
   const gained = {};
   for (const [k, v] of Object.entries(reward.resources || {})) gained[k] = deposit(a.nation, k, v, a.data);
   const morale = addMorale(a.nation, a.data, reward.morale ?? 0);
-  const healed = heal(a.nation, a.data, a.who, reward.heal ?? 0);
+  const healed = heal(a.nation, a.data, a.who, reward.heal ?? 0) - hurt(a, reward.damage ?? 0);
   const node = spawn(a.world, a.t, a.data, reward.spawnNode);
+  const joined = join(a, reward.villager ?? 0);
   if (reward.chronicle) chronicle(a.world, { ...reward.chronicle, data: { trail: a.t.key } }, a.data);
-  return { gained, morale, healed, node: node ? { id: node.id, type: node.type } : null };
+  return { gained, morale, healed, node: node ? { id: node.id, type: node.type } : null, joined };
+}
+
+/**
+ * ★ §21-C1 — 값을 치르는 흔적. 「리스크 없는 사슬은 복권일 뿐이다」(§18-3):
+ * 매복·함정·폭발은 **그 자리에서 아프다**. 죽지는 않는다(GDD3 §14-6 패배 관대) — 1 아래로는 안 내린다.
+ */
+function hurt(a, amount) {
+  if (!(amount > 0)) return 0;
+  const p = ensurePlayer(a.nation, a.who, a.data, null);
+  const before = p.hp ?? playerMaxHp(p, a.data);
+  p.hp = round2(Math.max(1, before - amount));
+  return round2(before - p.hp);
+}
+
+/**
+ * ★ §21-C1 — 생존자 결말(§18-4 원형 2·11). 이야기의 끝에서 **사람이 하나 따라온다**.
+ * 집들이(housewarmArrival)와 같은 문을 쓰지 않는 까닭: 여기서는 빈 침상을 묻지 않는다 —
+ * 폐허에서 걸어 나온 사람을 「방이 없어서」 돌려보내는 장면은 이 게임의 것이 아니다.
+ * 난수는 statRng — 흔적 하나마다 한 벌이라, 언제 조사하든 같은 씨앗이면 같은 사람이 온다.
+ */
+function join(a, count) {
+  const n = Math.max(0, Math.min(3, Math.floor(count)));
+  if (!n || !a.nation.isPlayer) return 0;
+  const rng = statRng(`${a.world.seed}:trail:join:${a.t.id}`);
+  for (let i = 0; i < n; i += 1) spawnResident(a.world, a.nation, a.data, rng);
+  return n;
 }
 
 function addMorale(nation, data, delta) {
