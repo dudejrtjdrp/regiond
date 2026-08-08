@@ -1418,6 +1418,43 @@ test('발견 카드 — 서사가 뜨고, 개선본이 와도 카드는 하나�
     window.GM.artifacts.discovery({ ...legend, foundById: 'someone-else', foundBy: '이웃' });
     assert.equal(window.GM.ui.modalOpen('relic-found'), null, '남의 발견은 창을 띄우지 않는다');
 
+    /* ★ §20-R3 도감 유물 층 — 서버가 잘라 준 단을 그대로 옮겨 적는가.
+       (단을 세는 것은 서버다 — 여기서는 「잠긴 단은 화면에 없다」만 확인한다) */
+    const view = S2.S.view;
+    view.unlocked = { ...(view.unlocked || {}), ui: ((view.unlocked || {}).ui || []).concat('panel.codex') };
+    view.codex = {
+      totals: {}, species: [], ruins: [],
+      artifacts: {
+        crownGrade: 'legendary', totals: { found: 1, owned: 1, total: 3 },
+        cards: [
+          { key: 'a0', grade: 'legendary', category: 'combat', type: 'permanent', color: '#e8a33d',
+            tier: 0, hint: '지고도 물러서지 않은 자리에 남는다.' },
+          { key: 'a1', grade: 'rare', category: 'role', type: 'consumable', color: '#4a6fa5',
+            tier: 1, name: '풍요의 뿔', record: { firstFoundBy: '이웃', firstFoundDate: { year: 1, day: 4 }, count: 1 } },
+          { key: 'a2', grade: 'common', category: 'qol', type: 'permanent', color: '#9c8f76',
+            tier: 3, name: '신속의 신발', desc: '이동속도 +30%', lore: '바람의 원소가 남긴 실이다.',
+            owned: true, consumed: false,
+            record: { firstFoundBy: '아린', firstFoundDate: { year: 2, day: 9 }, count: 2,
+                      myFoundDate: { year: 2, day: 9 }, myFoundRealAt: '2026-08-08T00:00:00.000Z' } },
+        ],
+      },
+    };
+    S2.emit('state', view);
+    window.GM.codex.open();
+    doc.querySelectorAll('.codex-tabs button')[2].click();
+    const cards = doc.querySelectorAll('.relic-card');
+    assert.equal(cards.length, 3);
+    assert.ok(doc.querySelector('.relic-sect.crown'), '레전더리는 「왕가의 보물」 단에 따로 선다');
+    assert.equal(cards[0].querySelector('.relic-name').textContent, '？？？', '미발견은 이름이 없다');
+    assert.ok(cards[0].querySelector('.relic-hint'), '대신 힌트 한 줄이 있다');
+    assert.equal(cards[0].querySelector('.relic-lore'), null, '이야기는 잠겨 있다');
+    const owned = doc.querySelector('.relic-card.owned');
+    assert.equal(owned.querySelector('.relic-name').textContent, '신속의 신발');
+    assert.ok(owned.querySelector('.relic-lore').textContent.includes('바람의 원소'));
+    assert.ok(owned.querySelector('.relic-rec').textContent.includes('아린'), '최초 발견자가 적힌다');
+    assert.ok(owned.querySelector('.relic-rec').textContent.includes('2년 9일'), '게임 내 날짜가 적힌다');
+    window.GM.ui.closeTopModal();
+
     /* 전역 알림 — 서버가 빚은 문장을 그대로 읽는 금띠 배너 */
     S2.emit('artifactGlobal', { nationName: '엘도린', foundBy: '이웃', artifactName: '용맹의 깃발',
       grade: 'legendary', text: '엘도린의 이웃이(가) 레전더리 유물 「용맹의 깃발」을(를) 발견했습니다.' });

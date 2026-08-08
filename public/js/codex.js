@@ -32,7 +32,7 @@
       ' · 찾은 유적 ' + (t.ruinsFound || 0) + '곳(뒤진 곳 ' + (t.ruinsExplored || 0) + ')'));
 
     var tabs = U.el('div', 'codex-tabs');
-    [['life', '들에 사는 것'], ['ruin', '옛 자취']].forEach(function (p) {
+    [['life', '들에 사는 것'], ['ruin', '옛 자취'], ['relic', '세계에 남은 것']].forEach(function (p) {
       var b = U.btn(p[1], 'btn-sm' + (tab === p[0] ? ' btn-primary' : ' btn-ghost'), function () {
         tab = p[0];
         paint(host);
@@ -42,6 +42,7 @@
     host.appendChild(tabs);
 
     if (tab === 'ruin') { paintRuins(host, c); return; }
+    if (tab === 'relic') { paintRelics(host, c); return; }
 
     var grid = U.el('div', 'codex-grid');
     (c.species || []).forEach(function (sp) { grid.appendChild(card(sp, c.thresholds || {})); });
@@ -141,6 +142,83 @@
     });
     host.appendChild(wrap);
   }
+
+  /* ══════════ ★ §20-R3 유물 층 (유물기획 §20-8) ══════════
+     층은 넷이고 **서버가 센다**: 0 미발견(실루엣+힌트) · 1 방에서 발견(이름) ·
+     2 우리가 보유(효과+이야기) · 3 기록(최초 발견자·날·횟수).
+     잠긴 단은 필드 자체가 오지 않으므로 화면이 지어낼 수 없다(§11-1). */
+  function paintRelics(host, c) {
+    var a = c.artifacts;
+    if (!a) { host.appendChild(U.el('p', 'empty', '아직 적을 것이 없습니다.')); return; }
+    var t = a.totals || {};
+    host.appendChild(U.el('p', 'hint',
+      '세상에 알려진 것 ' + (t.found || 0) + ' / ' + (t.total || 0) + '가지 · 우리가 지닌 것 ' + (t.owned || 0)));
+    var crown = (a.cards || []).filter(function (x) { return x.grade === a.crownGrade; });
+    var rest = (a.cards || []).filter(function (x) { return x.grade !== a.crownGrade; });
+    if (crown.length) host.appendChild(relicSection('왕가의 보물', crown, 'crown'));
+    host.appendChild(relicSection('그 밖의 것들', rest, ''));
+  }
+
+  function relicSection(title, list, cls) {
+    var wrap = U.el('div', 'relic-sect ' + cls);
+    wrap.appendChild(U.el('div', 'relic-sect-t', title));
+    var grid = U.el('div', 'relic-grid');
+    list.forEach(function (r) { grid.appendChild(relicCard(r)); });
+    wrap.appendChild(grid);
+    return wrap;
+  }
+
+  function relicCard(r) {
+    var box = U.el('div', 'relic-card' + (r.tier === 0 ? ' unknown' : '') + (r.owned ? ' owned' : ''));
+    box.style.setProperty('--relic', r.color || '#9c8f76');
+    box.appendChild(relicArt(r));
+    box.appendChild(U.el('div', 'relic-name', r.tier === 0 ? '？？？' : r.name));
+    box.appendChild(U.el('div', 'relic-grade', S.gradeInfo(r.grade).name + ' · ' + catName(r.category)));
+    if (r.tier === 0) box.appendChild(U.el('p', 'relic-hint', r.hint || '이 세계 어딘가에 있습니다.'));
+    if (r.desc) box.appendChild(U.el('div', 'relic-desc', r.desc));
+    if (r.lore) box.appendChild(U.el('p', 'relic-lore', r.lore));
+    if (r.record) box.appendChild(relicRecord(r));
+    return box;
+  }
+
+  /** 도트 자리 — 미발견은 실루엣(등급색으로만 보인다). 에셋이 오면 그림만 갈아 끼운다. */
+  function relicArt(r) {
+    var art = U.el('div', 'relic-art' + (r.tier === 0 ? ' sil' : ''));
+    var im = GM.icons.img(CAT_ICON[r.category] || 'gem', 24, '');
+    im.className = 'relic-dot';
+    art.appendChild(im);
+    return art;
+  }
+
+  function relicRecord(r) {
+    var box = U.el('div', 'relic-rec');
+    var d = r.record.firstFoundDate;
+    box.appendChild(recRow('최초 발견', r.record.firstFoundBy || '전해지지 않음'));
+    if (d) box.appendChild(recRow('그날', d.year + '년 ' + d.day + '일'));
+    if (r.record.myFoundRealAt) box.appendChild(recRow('적힌 날', realDate(r.record.myFoundRealAt)));
+    box.appendChild(recRow('이 땅에 나온 횟수', (r.record.count || 1) + '번'));
+    if (r.owned) box.appendChild(recRow('지금', r.consumed ? '다 썼습니다' : '우리가 지니고 있습니다'));
+    return box;
+  }
+
+  function recRow(k, v) {
+    var row = U.el('div', 'rec-row');
+    row.appendChild(U.el('span', 'k', k));
+    row.appendChild(U.el('span', 'v', v));
+    return row;
+  }
+
+  function realDate(iso) {
+    var t = new Date(iso);
+    if (isNaN(t.getTime())) return iso;
+    return (t.getMonth() + 1) + '월 ' + t.getDate() + '일';
+  }
+
+  var CAT_ICON = { role: 'scroll', qol: 'gem', combat: 'sword', environment: 'leaf',
+                   resource: 'coin', diplomacy: 'flag', tradeoff: 'dice', cosmetic: 'crown' };
+  var CAT_NAME = { role: '부처', qol: '살림', combat: '싸움', environment: '하늘과 땅',
+                   resource: '곳간', diplomacy: '바깥', tradeoff: '값을 치르는 것', cosmetic: '보기 좋은 것' };
+  function catName(c) { return CAT_NAME[c] || c || '—'; }
 
   function refresh() {
     var m = U.modalOpen('codex');

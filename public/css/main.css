@@ -1376,6 +1376,35 @@ body.cutscene .toasts{bottom:74px}
   border-top:2px solid var(--paper-deep); font-size:11.5px; color:var(--ink-dim)}
 .codex-foot .nxt{color:var(--green-deep)}
 .codex-foot .nxt.done{color:var(--gold-deep)}
+/* ★ §20-R3 유물 층 — 등급색은 --relic 하나로 들어온다(카드마다 서버가 준 색) */
+.relic-sect{margin-top:8px}
+.relic-sect-t{font-size:13px; color:var(--gold-deep); border-bottom:2px solid var(--paper-deep);
+  padding-bottom:3px; margin-bottom:6px}
+.relic-sect + .relic-sect{max-height:330px; overflow:auto}
+.relic-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(196px,1fr)); gap:9px}
+.relic-sect.crown .relic-grid{grid-template-columns:repeat(auto-fill,minmax(232px,1fr))}
+.relic-card{padding:9px 10px; display:flex; flex-direction:column; gap:4px;
+  background:linear-gradient(180deg,var(--paper-lit) 0 5px,var(--paper) 5px 100%);
+  border:3px solid var(--relic,var(--paper-deep))}
+.relic-card.unknown{background:rgba(40,32,48,.10); border-style:dashed; border-color:var(--relic,#9c8f76)}
+.relic-card.owned{box-shadow:inset 0 0 0 2px rgba(255,246,220,.7), 0 0 16px -6px var(--relic,#9c8f76)}
+.relic-art{display:flex; justify-content:center; align-items:center; height:52px}
+.relic-dot{image-rendering:pixelated; width:44px; height:44px}
+.relic-art.sil .relic-dot{filter:brightness(0) opacity(.42)}
+.relic-name{font-size:15px; color:var(--relic,var(--wood-dark)); text-align:center}
+.relic-card.unknown .relic-name{color:var(--ink-dim)}
+.relic-grade{font-size:11.5px; color:var(--ink-dim); text-align:center}
+.relic-hint{margin:2px 0 0; font-size:12px; color:var(--ink-dim); line-height:1.6; font-style:italic}
+.relic-desc{font-size:12px; color:var(--wood-dark); line-height:1.5}
+.relic-lore{margin:2px 0 0; font-size:12px; color:var(--ink2); line-height:1.6}
+.relic-rec{margin-top:auto; padding-top:5px; border-top:2px solid var(--paper-deep);
+  display:flex; flex-direction:column; gap:2px; font-size:11.5px}
+.relic-rec .rec-row{display:flex; justify-content:space-between; gap:8px}
+.relic-rec .k{color:var(--ink-dim)}
+.relic-rec .v{color:var(--wood-dark); text-align:right}
+/* 발견 카드의 「도감에 적혔다」 도장 — 작게, 지나가듯 */
+.af-stamp{font-size:11.5px; color:var(--gold-deep); letter-spacing:1px; opacity:.9}
+
 .codex-ruins{display:flex; flex-direction:column; gap:5px; max-height:400px; overflow:auto}
 .codex-ruin{display:flex; align-items:center; gap:10px; padding:6px 9px; cursor:pointer;
   background:rgba(255,255,255,.28); border-left:3px solid var(--purple, #8367a8); font-size:12.5px}

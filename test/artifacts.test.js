@@ -16,9 +16,12 @@ import { waveView, waveSpec, scaleGradeOf } from '../server/engine/waves.js';
 import { capacity } from '../server/engine/residents.js';
 import { craftEquipment } from '../server/engine/equipment.js';
 import { ensurePlayer } from '../server/engine/skills.js';
-import { artifactFoundEvent, expressionQualityOf, fxTierOf } from '../server/engine/artifacts.js';
+import { artifactFoundEvent, expressionQualityOf, fxTierOf, recordArtifactFound, gameDate } from '../server/engine/artifacts.js';
+import { artifactCodexView, codexView } from '../server/engine/codex.js';
+import { publicConfig } from '../server/engine/data.js';
 import { ExpressionQueue, artifactNarrative, artifactGlobalPush } from '../server/expression/index.js';
 import { applyCommand } from '../server/engine/commands.js';
+import { chronicleArtifact } from '../server/engine/artifacts.js';
 import { completeStructure } from '../server/engine/structures.js';
 import { townOf } from '../server/engine/world.js';
 
@@ -65,8 +68,9 @@ test('§20-R1.5 유물 50종 — 원안 명단 19/17/6/7 + 확정지급 1, acqui
     assert.ok(a.name && a.desc && a.effects?.length > 0, `${a.key} 정의 누락`);
     assert.ok(['consumable', 'permanent', 'utility', 'cosmetic', 'tradeoff'].includes(a.type), `${a.key} type`);
     assert.ok(Array.isArray(a.acquireVia) && a.acquireVia.length, `${a.key} acquireVia 누락`);
-    // R3·R4 몫은 아직 넣지 않는다
-    assert.equal(a.lore, undefined, `${a.key} lore 는 R3`);
+    // ★ §20-R3 — lore·hint 는 이제 전량 있다(도감이 여는 것). setKey 는 아직 R4 몫.
+    assert.ok(a.lore && a.lore.length > 20, `${a.key} lore 누락`);
+    assert.ok(a.hint && a.hint.length > 5, `${a.key} hint 누락`);
     assert.equal(a.setKey, undefined, `${a.key} setKey 는 R4`);
   }
 });
@@ -581,4 +585,134 @@ test('연출 다이얼 — 급 1~4의 박자가 전부 데이터에 있다 (코�
   assert.ok(fx.cardDelayMs['4'] > fx.cardDelayMs['2'], '급이 오를수록 뜸을 들인다');
   assert.ok(fx.veilAlpha['4'] > fx.veilAlpha['3'], '급이 오를수록 어둡다');
   assert.ok(fx.beam.seconds > 0 && fx.zoom.step >= 0 && fx.slowmo.scale < 1);
+});
+
+// ────────────────────────────────────────────────────────────────
+// ★ §20-R3 기록·도감 (유물기획 §20-8) — 「기록이 보상이다」
+// ────────────────────────────────────────────────────────────────
+test('발견 기록 — 보유 엔트리에 누가·언제가 적히고, 방 등록부가 선다', () => {
+  const { world, n } = nationOf(91);
+  n.avatars.lord = { id: 'lord', name: '아린', x: 40, y: 41 };
+  world.tick = 73;
+  grantArtifact(n, 'star_chart', world.tick, data);
+  artifactFoundEvent(world, n, 'star_chart', 'ruin', data, { avatarId: 'lord' });
+  const owned = n.artifacts.find((a) => a.key === 'star_chart');
+  assert.equal(owned.foundBy, '아린');
+  assert.equal(owned.foundById, 'lord');
+  assert.deepEqual(owned.foundDate, gameDate(73, data));
+  assert.ok(Date.parse(owned.foundRealAt) > 0, '실제 날짜도 남는다');
+  const reg = world.artifactRegistry.star_chart;
+  assert.equal(reg.firstFoundBy, '아린');
+  assert.equal(reg.firstFoundTick, 73);
+  assert.equal(reg.count, 1);
+});
+
+test('등록부 — 최초 발견자는 덮어쓰지 않고 횟수만 쌓인다', () => {
+  const { world, n } = nationOf(92);
+  n.avatars.lord = { id: 'lord', name: '첫사람', x: 40, y: 41 };
+  grantArtifact(n, 'swift_boots', 1, data);
+  artifactFoundEvent(world, n, 'swift_boots', 'cache', data, { avatarId: 'lord' });
+  n.avatars.two = { id: 'two', name: '나중사람', x: 40, y: 41 };
+  recordArtifactFound(world, n, 'swift_boots', data, { avatarId: 'two' });
+  const reg = world.artifactRegistry.swift_boots;
+  assert.equal(reg.firstFoundBy, '첫사람', '먼저 찾은 이름은 바뀌지 않는다');
+  assert.equal(reg.count, 2, '이 방에 나온 누적 횟수는 쌓인다');
+  assert.equal(n.artifacts.find((a) => a.key === 'swift_boots').foundBy, '첫사람');
+});
+
+test('게임 달력 — tick 을 「N년 M일」로 옮긴다 (표시 전용)', () => {
+  const per = data.balance.time.daysPerYear;
+  assert.ok(per > 0);
+  assert.deepEqual(gameDate(0, data), { year: 1, day: 1 });
+  assert.deepEqual(gameDate(per - 1, data), { year: 1, day: per });
+  assert.deepEqual(gameDate(per, data), { year: 2, day: 1 });
+});
+
+test('세이브 이관 — 옛 보유분에서 등록부를 역생성하되 이름은 지어내지 않는다', () => {
+  const { world } = nationOf(93);
+  const old = structuredClone(world);
+  old.migrationRev = 0;
+  delete old.artifactRegistry;
+  old.nations.player.artifacts = [{ key: 'lucky_charm', obtainedTick: 12, consumed: false }];
+  const m = migrateWorld(old, data);
+  const reg = m.artifactRegistry.lucky_charm;
+  assert.equal(reg.firstFoundBy, null, '전해지지 않은 이름은 빈칸으로 둔다');
+  assert.equal(reg.firstFoundTick, 12, '얻은 날은 되살린다');
+  assert.deepEqual(reg.firstFoundDate, gameDate(12, data));
+  assert.deepEqual(m.nations.player.artifacts[0].foundDate, gameDate(12, data));
+});
+
+test('도감 유물 층 — 네 단이 서버에서 잘려 내려온다 (잠긴 단은 부재)', () => {
+  const { world, n } = nationOf(94);
+  const byKey = (v, k) => v.cards.find((c) => c.key === k);
+
+  // 0단 — 아무것도 없을 때: 이름도 이야기도 없고 힌트만
+  const v0 = artifactCodexView(world, n, data);
+  const c0 = byKey(v0, 'banner_of_valor');
+  assert.equal(c0.tier, 0);
+  assert.equal(c0.name, undefined, '미발견 유물의 이름은 내려가지 않는다');
+  assert.equal(c0.lore, undefined);
+  assert.equal(c0.record, undefined);
+  assert.ok(c0.hint && c0.color, '실루엣에 필요한 힌트와 등급색은 온다');
+
+  // 1단 — 방에서 누가 찾았다(우리가 가진 것은 아니다)
+  world.artifactRegistry = { banner_of_valor: { firstFoundBy: '이웃', firstFoundTick: 4, firstFoundDate: gameDate(4, data), count: 1 } };
+  const c1 = byKey(artifactCodexView(world, n, data), 'banner_of_valor');
+  assert.equal(c1.tier, 1);
+  assert.equal(c1.name, '용맹의 깃발');
+  assert.equal(c1.lore, undefined, '가지지 않은 것의 이야기는 아직 닫혀 있다');
+  assert.equal(c1.record.firstFoundBy, '이웃');
+
+  // 2·3단 — 우리가 가지면 효과·이야기가 열리고 기록이 붙는다
+  n.avatars.lord = { id: 'lord', name: '아린', x: 40, y: 41 };
+  grantArtifact(n, 'banner_of_valor', 9, data);
+  artifactFoundEvent(world, n, 'banner_of_valor', 'ruin', data, { avatarId: 'lord' });
+  const c3 = byKey(artifactCodexView(world, n, data), 'banner_of_valor');
+  assert.equal(c3.tier, 3);
+  assert.ok(c3.desc && c3.lore, '효과 전문과 이야기가 열린다');
+  assert.equal(c3.owned, true);
+  assert.equal(c3.record.firstFoundBy, '이웃', '최초 발견자는 그대로다');
+  assert.ok(c3.record.myFoundDate && c3.record.myFoundRealAt);
+});
+
+test('도감 payload — 유물 층이 codex 에 실리고, 레전더리 단이 따로 있다', () => {
+  const { world, n } = nationOf(95);
+  assert.equal(codexView(n, data).artifacts, undefined, 'world 없이 부르면 칸 자체가 없다');
+  const v = codexView(n, data, world).artifacts;
+  assert.equal(v.cards.length, 50);
+  assert.equal(v.crownGrade, 'legendary');
+  assert.equal(v.cards.filter((c) => c.grade === 'legendary').length, 7, '왕가의 보물 7종');
+  assert.deepEqual(v.totals, { found: 0, owned: 0, total: 50 });
+});
+
+test('정보 비대칭 — /api/config 에는 이름도 이야기도 힌트도 없다 (도감이 여는 것)', () => {
+  const cfg = publicConfig();
+  assert.equal(cfg.artifacts.list.length, 50);
+  for (const a of cfg.artifacts.list) {
+    for (const secret of ['name', 'desc', 'lore', 'hint', 'effects']) {
+      assert.equal(a[secret], undefined, `${a.key}.${secret} 가 규격으로 새어 나간다`);
+    }
+    assert.ok(a.key && a.grade && a.category, '화면이 그리는 데 필요한 것은 남는다');
+  }
+  // 등급표(이름·색·연출 급)는 화면이 그리는 규칙이라 그대로 간다
+  assert.equal(cfg.artifacts.grades.legendary.name, '레전더리');
+  assert.equal(cfg.artifacts.grades.legendary.fxTier, 4);
+});
+
+test('연대기 — 발견자를 알면 이름을 병기하고, 모르면 예전처럼 적는다', () => {
+  const { world, n } = nationOf(96);
+  n.avatars.lord = { id: 'lord', name: '아린', x: 40, y: 41 };
+  const def = data.artifactsByKey.star_chart;
+  grantArtifact(n, 'star_chart', 3, data);
+  const found = artifactFoundEvent(world, n, 'star_chart', 'ruin', data, { avatarId: 'lord' });
+  chronicleArtifact(world, found, { key: def.key, name: def.name, grade: def.grade, desc: def.desc }, data);
+  const row = world.chronicle[world.chronicle.length - 1];
+  assert.equal(row.kind, 'artifact');
+  assert.ok(row.title.includes('아린') && row.title.includes(def.name), row.title);
+  assert.equal(row.data.foundBy, '아린');
+
+  const anon = artifactFoundEvent(world, n, 'swift_boots', 'chest', data);
+  chronicleArtifact(world, anon, { key: 'swift_boots', name: '신속의 신발', desc: 'x' }, data);
+  const row2 = world.chronicle[world.chronicle.length - 1];
+  assert.equal(row2.title, '신속의 신발', '나라의 발견은 이름 없이 적는다');
 });

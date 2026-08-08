@@ -10,7 +10,7 @@
 // 옛 세이브에는 화산재 땅이 없으므로 굴 자리도 없다 — 용이 나타나지 않고 아무 일도 일어나지 않는다.
 import { terrainNameAt, townOf, dist } from './world.js';
 import { record } from './chronicle.js';
-import { grantArtifact } from './artifacts.js';
+import { grantArtifact, recordArtifactFound } from './artifacts.js';
 import { round2 } from './economy.js';
 
 export const bossCfg = (data) => data.creatures?.worldBoss ?? null;
@@ -99,7 +99,7 @@ export function dragonWarning(world, nation, data, x, y) {
  * 자재 전리품은 여느 짐승과 같은 길(def.drops)로 이미 들어갔다. 여기서는 그 위에 얹는 것만 다룬다:
  * 금화 · 사기 · 확정 유물 · **전리품 표식**(trophy) — 표식이 대장간의 용아검·용린 갑옷을 연다.
  */
-export function slayDragon(world, nation, data, killerName = null) {
+export function slayDragon(world, nation, data, killerName = null, killerAvatarId = null) {
   const cfg = bossCfg(data);
   const st = world?.dragon;
   if (!cfg || !st || st.slainTick != null) return null;
@@ -109,6 +109,9 @@ export function slayDragon(world, nation, data, killerName = null) {
   nation.morale = Math.min(m.max, (nation.morale || 0) + (cfg.reward.morale || 0));
   (nation.trophies ||= {})[cfg.reward.trophy] = world.tick;
   const artifact = grantArtifact(nation, cfg.reward.artifact, world.tick, data);
+  /* ★ §20-R3 — 용의 몫도 방의 역사다. 연출은 제 컷신이 쥐므로 발견 사실(push)은 내지 않고
+     기록만 남긴다 — 도감 3단이 「누가 용을 눕히고 얻었는가」를 말할 수 있어야 한다. */
+  if (artifact) recordArtifactFound(world, nation, cfg.reward.artifact, data, { avatarId: killerAvatarId ?? null });
   record(world, { kind: 'discovery', title: cfg.slainTitle, text: cfg.slainText, data: { by: killerName } }, data);
   return { title: cfg.slainTitle, text: cfg.slainText, gold: cfg.reward.gold, trophy: cfg.reward.trophy, artifact };
 }

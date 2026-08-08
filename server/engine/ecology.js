@@ -951,7 +951,7 @@ export function huntSwing(world, nation, cmd, data, now = Date.now()) {
     player.stats.kills = (player.stats.kills || 0) + 1;
     recordKill(nation, target.sp, world.tick);
     // ★ §19-F2(F07-4) — 자재 전리품은 위 drops 로 이미 들어갔다. 그 위에 얹는 몫만 여기서 준다.
-    if (target.boss) boss = slayDragon(world, nation, data, player.name ?? null);
+    if (target.boss) boss = slayDragon(world, nation, data, player.name ?? null, player.id ?? null);
     removeCreature(nation, target, data, world.tick);
     xp = grantXp(player, 'combat', cfgC.xpPerHuntKill ?? cfgC.xpPerKill, data);
   }

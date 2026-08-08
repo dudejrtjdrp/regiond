@@ -5,6 +5,8 @@ import { clamp, storageCapacity } from './economy.js';
 import { settlementTier } from './tiers.js';
 // ★ §20-R2 — 연출의 빛기둥이 설 자리를 모를 때 물러설 곳(도읍)
 import { townOf } from './world.js';
+// ★ §20-R3 — 발견은 정착지의 역사다. 연대기에 발견자 이름과 함께 남는다.
+import { record as chronicle } from './chronicle.js';
 
 /**
  * 유물 엔트리가 아직 지닌 충전 수.
@@ -139,6 +141,7 @@ export function artifactFoundEvent(world, nation, key, source, data, opts = {}) 
   if (!def) return null;
   const label = data.templates.artifactNarrative?.sourceNames?.[source] ?? source;
   const who = finderOf(nation, opts.avatarId);
+  recordArtifactFound(world, nation, key, data, opts);      // ★ §20-R3 — 세계에 먼저 적는다
   return {
     tick: world.tick, kind: 'artifact_found', nationId: nation.id,
     data: { artifact: def.name, key: def.key, grade: def.grade, category: def.category,
@@ -149,6 +152,54 @@ export function artifactFoundEvent(world, nation, key, source, data, opts = {}) 
       // 서사 뽑기의 씨앗 — 월드 난수를 축내지 않는다(같은 판의 같은 발견은 같은 서사를 낸다)
       narrativeSeed: `${world.seed}:artifactNarrative:${def.key}:${world.tick}` },
   };
+}
+
+/**
+ * ★ §20-R3 — 연대기 한 줄. 「왜」 이름을 병기하나 — 「내가 찾았다」의 저작권이 이 리워크의 값이다.
+ * 발견자를 모르면(어전 회의 상자) 나라의 일이므로 예전처럼 이름 없이 적는다.
+ * @param {object} found artifactFoundEvent 가 낸 것 @param {object} drop {name, desc, grade, key}
+ */
+export function chronicleArtifact(world, found, drop, data) {
+  const by = found?.data?.foundBy ?? null;
+  const title = by ? `${drop.name} — ${by}` : drop.name;
+  return chronicle(world, { kind: 'artifact', title, text: drop.desc,
+    data: { ...drop, foundBy: by, foundDate: found?.data?.foundDate ?? null } }, data);
+}
+
+/**
+ * ★ §20-R3(유물기획 §20-8) — 발견을 **기록**으로 남긴다. 「기록이 보상이다」의 뼈대.
+ * 두 곳에 적는다: ① 보유 엔트리(누가·언제 얻었나) ② 방 등록부(그 유물의 **최초** 발견자).
+ * 「왜」 둘인가 — 엔트리는 「우리 나라의 것」이고 등록부는 「이 방의 역사」다. 유물을 소모해도,
+ * 방에 나라가 여럿이라 같은 유물이 다시 나와도, 최초 발견의 이름은 한 번 적히면 바뀌지 않는다.
+ */
+export function recordArtifactFound(world, nation, key, data, opts = {}) {
+  const owned = (nation.artifacts || []).find((a) => a.key === key);
+  const who = finderOf(nation, opts.avatarId);
+  const stamp = { foundBy: who?.name ?? null, foundById: opts.avatarId ?? null,
+                  foundDate: gameDate(world.tick, data), foundRealAt: opts.realAt ?? new Date().toISOString() };
+  if (owned && owned.foundDate == null) Object.assign(owned, stamp);
+  return registerArtifact(world, key, world.tick, stamp);
+}
+
+/** 방 등록부 — 최초 발견자는 덮어쓰지 않는다. count 는 이 방에서 나온 누적 횟수다. */
+function registerArtifact(world, key, tick, stamp) {
+  const reg = (world.artifactRegistry ||= {});
+  const cur = reg[key];
+  if (cur) { cur.count = (cur.count || 0) + 1; return cur; }
+  reg[key] = { firstFoundBy: stamp.foundBy, firstFoundById: stamp.foundById,
+               firstFoundTick: tick, firstFoundDate: stamp.foundDate, count: 1 };
+  return reg[key];
+}
+
+/**
+ * ★ §20-R3 — 하루 눈금(tick)을 사람 말(N년 M일)로 옮긴다. **표시 전용**이다.
+ * 달력의 정본은 balance.time.daysPerYear 하나뿐이고, 어떤 판정도 「해」를 읽지 않는다.
+ */
+export function gameDate(tick, data) {
+  const per = data.balance.time.daysPerYear || 0;
+  const day = Math.max(0, Math.floor(tick));
+  if (per <= 0) return { year: 1, day: day + 1 };
+  return { year: Math.floor(day / per) + 1, day: (day % per) + 1 };
 }
 
 /** 연출 급 — 유물이 제 값을 적었으면 그것이, 아니면 등급표의 기본값이 이긴다(§20-11). */

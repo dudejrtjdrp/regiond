@@ -119,7 +119,51 @@ function rewardBiome(world, nation, data, code, tick) {
  * 종별 카드. **잠긴 층은 필드 자체가 없다** — 화면이 회색 글씨로라도 흘리지 못하게 한다
  * (§11-1 「잠긴 계층은 비활성이 아니라 부재다」의 도감판).
  */
-export function codexView(nation, data) {
+/**
+ * ★ §20-R3 유물 층 (유물기획 §20-8) — 4단. **잠긴 단은 필드 자체가 없다**(§11-1).
+ *   0 미발견   : 실루엣 + 등급색 + hint 1줄 (「이 세계 어딘가에 있다」)
+ *   1 방에서 발견: 이름·등급 (등록부에 이름이 올랐다)
+ *   2 우리가 보유: 효과 전문 + lore 전문
+ *   3 기록      : 최초 발견자·발견 날·획득 횟수·지금 누가 지녔나
+ * 「왜」 서버가 자르나 — 규격(/api/config)에는 이름도 lore 도 없다(publicArtifacts).
+ *   여기서 단을 세지 않으면 화면은 영영 그것을 알 길이 없다. 그것이 이 층의 값이다.
+ */
+export function artifactCodexView(world, nation, data) {
+  const reg = world?.artifactRegistry || {};
+  const owned = new Map((nation.artifacts || []).map((a) => [a.key, a]));
+  const cards = data.artifacts.list.map((def) => artifactCard(def, reg[def.key], owned.get(def.key), data));
+  return {
+    cards,
+    // 레전더리는 목록 맨 위 별도 단에 크게 — 미발견이어도 실루엣이 보여 목표가 된다
+    crownGrade: 'legendary',
+    totals: { found: cards.filter((c) => c.tier >= 1).length, owned: owned.size, total: cards.length },
+  };
+}
+
+function artifactCard(def, reg, own, data) {
+  const tier = own ? (own.foundDate ? 3 : 2) : (reg ? 1 : 0);
+  const g = data.artifacts.grades[def.grade] ?? {};
+  const card = { key: def.key, grade: def.grade, category: def.category, type: def.type,
+                 color: g.color ?? null, tier };
+  if (tier === 0) return { ...card, hint: def.hint ?? null };
+  card.name = def.name;
+  if (own) Object.assign(card, { desc: def.desc, lore: def.lore ?? null, owned: true,
+    consumed: Boolean(own.consumed), chargesLeft: own.chargesLeft ?? null });
+  if (reg) card.record = artifactRecord(reg, own);
+  return card;
+}
+
+/** 3단 — 기록. 발견자를 모르는 옛 세이브는 이름 칸이 **없다**(지어내지 않는다) */
+function artifactRecord(reg, own) {
+  const rec = { firstFoundTick: reg.firstFoundTick ?? null, firstFoundDate: reg.firstFoundDate ?? null,
+                count: reg.count ?? 1 };
+  if (reg.firstFoundBy) rec.firstFoundBy = reg.firstFoundBy;
+  if (own?.foundDate) rec.myFoundDate = own.foundDate;
+  if (own?.foundRealAt) rec.myFoundRealAt = own.foundRealAt;
+  return rec;
+}
+
+export function codexView(nation, data, world = null) {
   const cfg = creatureCfg(data).codex;
   const defs = creatureDefs(data);
   const order = data.creatures.order;
@@ -164,6 +208,8 @@ export function codexView(nation, data) {
     thresholds: { name: cfg.nameAt ?? 1, stats: cfg.statsAt ?? 5, lore: cfg.loreAt ?? 20 },
     species,
     ruins,
+    // ★ §20-R3 — 유물 탭. world 를 못 받는 옛 호출에서는 필드 자체가 없다(§11-1).
+    ...(world ? { artifacts: artifactCodexView(world, nation, data) } : {}),
     totals: {
       seen: species.filter((s) => s.encounters > 0).length,
       total: species.length,

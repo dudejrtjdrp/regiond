@@ -111,6 +111,8 @@
     var line = U.el('div', 'af-tale');
     body.appendChild(line);
     body.appendChild(U.el('div', 'af-effect', found.effect || d.desc || ''));
+    /* ★ §20-R3 — 「기록이 보상이다」(§20-8). 서버는 이미 등록부에 적었다 — 화면은 그 사실만 알린다. */
+    body.appendChild(U.el('div', 'af-stamp', '도감에 적혔습니다'));
     openFoundModal(body, line, found, color, tier);
   }
 

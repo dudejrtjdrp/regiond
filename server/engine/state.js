@@ -6,11 +6,13 @@ import { defaultName } from './npc.js';
 import { normalizeDifficulty } from './difficulty.js';
 import { generateWorldMap, townOf } from './world.js';
 import { createVillagers } from './villagers.js';
-import { createFog, toRuntimeFog } from './fog.js';
+import { createFog } from './fog.js';
 import { tierRadius, settlementTier } from './tiers.js';
 import { completeStructure, syncLegacyBuildings, anchorFromCell, tierSpec } from './structures.js';
 // ★ GDD3 §13-D-1 — 옛 세이브의 주민에게 능력치를 채워 넣을 때 쓴다
 import { rollStats, statRng } from './traits.js';
+// ★ §20-R3 — 「N년 M일」의 정본은 유물 계층이 쥔다(표시 전용 달력, balance.time.daysPerYear)
+import { gameDate } from './artifacts.js';
 // ★ §17-18b — 시작 태그 추첨(고정 배열 폐기). 결정론은 세계 시드가 쥔다.
 import { rollPlayerTags } from './emotion_day.js';
 
@@ -182,6 +184,8 @@ export function createWorld({ gameId, seed = 42, data, playerName = '플레이�
     chat: [],
     chronicle: [],
     chronicleSeq: 0,
+    // ★ §20-R3 — 방 등록부. 「이 유물을 이 방에서 처음 찾아낸 사람」의 정본(도감 3단·§20-8)
+    artifactRegistry: {},
     log: [],
     createdAt: Date.now(),
   };
@@ -262,8 +266,6 @@ export function isLegacySnapshot(world) {
  * ⚠ **아래 migrateWorld 에 줄을 더하면 이 숫자를 반드시 올려라.** 올리지 않으면 이미 표를 받은
  *   세이브가 새 줄을 건너뛴다 — 그것이 이 눈금이 지는 유일한 빚이다.
  */
-/* ★ §21-A3 — 유물 충전(§20-R1, rev 3)과 안개 Uint8Array(§21-A3)가 각각 줄을 더했다.
-   두 트랙이 같은 3 을 쓰면 한쪽을 먼저 받은 세이브가 다른 쪽 줄을 건너뛴다 — 그래서 4. */
 const MIGRATION_REV = 4;
 
 /**
@@ -295,6 +297,27 @@ function fillArtifactCharges(nation) {
     if (owned.chargesLeft != null) continue;
     owned.chargesLeft = owned.consumed ? 0 : 1;
   }
+}
+
+/**
+ * ★ §20-R3(유물기획 §20-8·§20-11) — 옛 세이브에 **방 등록부**를 세운다.
+ * 「왜」 보유 엔트리에서 역생성하나 — 그것이 남은 유일한 흔적이다. 발견자는 적히지 않았으니
+ * null(도감이 「전해지지 않음」이라 적는다) — 이름을 지어내면 그것은 기록이 아니라 거짓이다.
+ * 얻은 날은 obtainedTick 이 알고 있으므로 그날은 되살린다.
+ */
+function fillArtifactRegistry(world, data) {
+  const reg = (world.artifactRegistry ||= {});
+  for (const nation of Object.values(world.nations || {})) {
+    for (const owned of nation.artifacts || []) backfillRegistryEntry(reg, owned, data);
+  }
+}
+
+function backfillRegistryEntry(reg, owned, data) {
+  const tick = owned.obtainedTick ?? 0;
+  if (owned.foundDate == null) owned.foundDate = gameDate(tick, data);
+  if (reg[owned.key]) return;
+  reg[owned.key] = { firstFoundBy: owned.foundBy ?? null, firstFoundById: owned.foundById ?? null,
+                     firstFoundTick: tick, firstFoundDate: owned.foundDate, count: 1 };
 }
 
 export function migrateWorld(world, data) {
@@ -346,15 +369,13 @@ export function migrateWorld(world, data) {
     nation.claims ||= [];
     nation.nextClaimId ||= 1;
     nation.recruit ||= { readyTick: 0, count: 0 };
-    /* ★ §21-A3 — 옛 세이브의 안개는 '0'/'1'/'2' 문자열이다. 런타임 모양(Uint8Array)으로 갈아 끼운다.
-       버리지 않고 그대로 옮겨 담으므로 걸어 둔 땅은 한 칸도 잃지 않는다. 이미 바뀐 세이브면 아무 일도 없다. */
-    toRuntimeFog(nation.fog);
     fillStructureHp(nation, data);
     fillArtifactCharges(nation);
     for (const u of nation.villagers || []) {
       if (!u.stats) u.stats = rollStats(statRng(`${world.seed}:${nation.id}:${u.id}`), data);
     }
   }
+  fillArtifactRegistry(world, data);
   // ★ Sprint 3 — 표를 찍는다. structuredClone 이 이 값을 그대로 옮기므로 다음 틱은 위에서 곧장 돌아선다.
   world.migrationRev = MIGRATION_REV;
   return world;

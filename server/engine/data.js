@@ -280,6 +280,22 @@ export function publicCreatures(d = loadGameData()) {
   };
 }
 
+/**
+ * ★ §20-R3 유물 공개본 — **정보 비대칭**. publicCreatures 와 같은 자를 쓴다.
+ * 「왜」 lore·hint 를 빼나 — 그 둘이 곧 도감이 **여는 것**이다(0단 힌트 · 2단 이야기).
+ * 규격에 통짜로 실어 보내면 도감 화면이 감춰도 규격을 들여다본 사람에게는 이미 다 열린 셈이 된다.
+ * 효과 서술자(effects)도 뺀다 — 무엇이 얼마나 세지는지는 「가진 나라」만 아는 값이다(뷰가 준다).
+ * 남기는 것은 화면이 **그리는 데** 필요한 것뿐: 등급표(이름·색·연출 급)와 열쇠말·갈래·꼴.
+ */
+export function publicArtifacts(d = loadGameData()) {
+  const a = d.artifacts;
+  return {
+    grades: structuredClone(a.grades),
+    list: a.list.map((x) => ({ key: x.key, grade: x.grade, category: x.category,
+                               type: x.type, role: x.role ?? null })),
+  };
+}
+
 /** /api/config 용 병합본 */
 export function publicConfig() {
   const d = loadGameData();
@@ -291,7 +307,8 @@ export function publicConfig() {
     roles: d.roles,
     tags: d.tags,
     tactics: publicTactics(d),
-    artifacts: d.artifacts,
+    // ★ §20-R3 — 이름·효과·lore·hint 는 여기 없다. 그것을 여는 것은 도감이다(state.codex).
+    artifacts: publicArtifacts(d),
     aiNations: d.aiNations.nations.map(({ id, name, concept, diplomacyDifficulty }) => ({ id, name, concept, diplomacyDifficulty })),
     difficulty: publicDifficulty(d),
     // ★ GDD3 §1·§3·§6

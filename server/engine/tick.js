@@ -11,7 +11,7 @@ import {
   cobbDouglas, departmentCapital, officerFactor, buildingFactor, clampedOfficerBuilding,
   tagFactor, producesResource, targetStock, applySpoilage, localPriceTable, round2, clamp, hasSkill,
 } from './economy.js';
-import { collectHooks, artifactFoundEvent } from './artifacts.js';
+import { collectHooks, artifactFoundEvent, chronicleArtifact } from './artifacts.js';
 import { selectActions } from './orders.js';
 import { applyCommand, normalizeAlloc } from './commands.js';
 import { accrueXp, rolePerk } from './npc.js';
@@ -408,8 +408,9 @@ function openCouncilNow(world, nation, data, r, tick) {
   out.push({ tick, kind: 'council_open', nationId: nation.id, data: { councilId: council.councilId, decisions: council.decisions.length, artifactDrop: council.artifactDrop } });
   if (council.artifactDrop?.key) {
     // ★ §20-R1.5 — 세 획득 경로가 같은 모양의 발견 사실을 낸다(서사는 표현 계층이 얹는다)
-    out.push(artifactFoundEvent(world, nation, council.artifactDrop.key, 'chest', data));
-    chronicle(world, { kind: 'artifact', title: council.artifactDrop.name, text: council.artifactDrop.desc, data: council.artifactDrop }, data);
+    const found = artifactFoundEvent(world, nation, council.artifactDrop.key, 'chest', data);
+    out.push(found);
+    chronicleArtifact(world, found, council.artifactDrop, data);
   }
   return out;
 }

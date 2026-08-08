@@ -6,7 +6,7 @@
 
 ---
 
-## 0-U. v3.3 안 델타 — **유물 리워크 R1·R1.5: 상향·충전제·발견 서사** (docs/유물기획.md §20 + 팀 원안)
+## 0-U. v3.3 안 델타 — **유물 리워크 R1~R3: 상향·충전제·발견 서사·획득 연출·기록과 도감** (docs/유물기획.md §20 + 팀 원안)
 
 **판번호를 올리지 않는다**(`world.schema` **6** 유지). **필드는 더하기만 했다.**
 옛 세이브의 유물에는 `chargesLeft` 가 없다 — `migrateWorld` 가 열 때 **1회분**으로 채운다
@@ -82,6 +82,55 @@ artifacts: [{ key, name, grade, desc, type, obtainedTick, consumed, chargesLeft,
   이미 열린 카드의 서사 줄만 갈아 끼운다(`key` 가 같으면 같은 발견이다).
 - `text`(토스트 한 줄)의 계약은 **그대로**다. 옛 화면은 `narrative` 를 몰라도 예전과 똑같이 굴러간다.
 - 표현 품질(`언어의 돌`, `expressionQuality`)이 LLM 호출의 `quality` 로 전달된다 — 나라마다 이벤트 묶음당 한 번만 잰다.
+
+### 0-U-8. 기록과 도감 — 「세계에 남은 것」 (★ R3 · 유물기획 §20-8)
+
+**판번호를 올리지 않는다**(`world.schema` 유지). **필드는 더하기만 했다.** `state.js MIGRATION_REV` 는 3 → **4**.
+
+#### ① 상태 — 두 곳에 적는다
+
+```
+nation.artifacts[i] += { foundBy, foundById, foundDate:{year,day}, foundRealAt }
+world.artifactRegistry = { [key]: { firstFoundBy, firstFoundById, firstFoundTick, firstFoundDate, count } }
+```
+
+- 엔트리는 **「우리 나라의 것」**, 등록부는 **「이 방의 역사」**다. 유물을 다 써도, 방에 나라가 여럿이라
+  같은 유물이 다시 나와도, **최초 발견자는 한 번 적히면 바뀌지 않는다**(`count` 만 쌓인다).
+- `foundDate` 는 **표시 전용 달력**이다 — 정본은 `balance.time.daysPerYear` 하나뿐이고 어떤 판정도 「해」를 읽지 않는다.
+- 적는 자리는 `recordArtifactFound()` 하나다. 세 경로(상자·유적·궤)는 `artifactFoundEvent` 안에서 함께 적히고,
+  용 전리품은 제 컷신을 쓰므로 **기록만** 남긴다(push 없음).
+- **옛 세이브**: 보유 엔트리에서 등록부를 역생성한다. 발견자는 `null` — 도감이 「전해지지 않음」이라 적는다.
+  **이름을 지어내지 않는다.** 얻은 날(`obtainedTick`)은 남아 있으므로 그날은 되살린다.
+- 연대기 `kind:'artifact'` 의 `title` 에 발견자를 병기한다(`「용맹의 깃발 — 아린」`). 모르면 예전 그대로.
+
+#### ② 뷰 — `state.codex.artifacts` 신설 (4단, **서버가 자른다**)
+
+```
+codex.artifacts = { crownGrade: "legendary", totals:{found,owned,total},
+                    cards: [{ key, grade, category, type, color, tier, ...단별 필드 }] }
+```
+
+| 단 | 조건 | 실리는 것 |
+|---|---|---|
+| 0 | 미발견 | `hint` 만. **`name` · `lore` · `record` 는 필드 자체가 없다** |
+| 1 | 방에서 누가 찾음(등록부에 있음) | `name` + `record` |
+| 2 | 우리 나라 보유 | 위에 더해 `desc` · `lore` · `owned` · `consumed` · `chargesLeft` |
+| 3 | 기록까지 | `record.{firstFoundBy?, firstFoundDate, count, myFoundDate?, myFoundRealAt?}` |
+
+- `crownGrade` 는 목록 맨 위 별도 단(「왕가의 보물」)에 크게 그릴 등급이다 — 미발견이어도 실루엣이 보인다.
+- `codexView(nation, data, world)` — `world` 없이 부르면 `artifacts` 칸 **자체가 없다**(§11-1).
+- `nation.artifacts[]` 뷰에도 `foundBy` · `foundDate` · `foundRealAt` 이 **있을 때만** 동봉된다.
+
+#### ③ `/api/config` 정보 비대칭 — 유물도 생태계와 같은 자를 쓴다
+
+`publicArtifacts()` 가 **이름 · 효과 서술 · `effects` · `lore` · `hint` 를 전부 잘라 낸다.**
+규격에 남는 것은 화면이 **그리는 데** 필요한 것뿐이다: 등급표(`grades`)와 `{key, grade, category, type, role}`.
+
+- 근거: 이미 `publicCreatures()` 가 종의 이름·능력치·일화를 규격에서 빼고 도감(state.codex)에만 열어 준다.
+  유물 도감의 0단이 「이름을 숨기는 층」인 이상 **같은 원칙**을 따라야 한다 — 화면이 감춰도 규격이 열려 있으면
+  감춘 것이 아니다. 자르지 않으면 §11-1 이 「화면의 예의」로 격하된다.
+- 클라 영향 없음: 유물함·발견 카드·상자 연출은 전부 **뷰와 push** 가 준 이름을 쓴다
+  (`state.artifactDef` 는 그 값들이 없을 때만 도는 대비 경로였다).
 
 ---
 
