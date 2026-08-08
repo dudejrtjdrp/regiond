@@ -210,6 +210,26 @@ function spawnOne(world, nation, data, key, ring, rng, at = null) {
 }
 
 /**
+ * ★ §20-R4b — 신전을 지키는 것 하나를 **정해진 자리에** 세운다(고대 신전 §20-9 시련 단).
+ * 「왜」 띠 판정을 건너뛰나 — 여느 짐승은 「제 띠 안에서 태어난다」가 규칙이지만(§13-B-5),
+ * 이것은 세상이 낳은 것이 아니라 **신전이 세워 둔 것**이다. 자리를 옮기면 지킬 것을 지키지 못한다.
+ * 정원(ensureCreatures)과도 무관하다 — 눕히면 그 자리는 다시 채워지지 않는다.
+ */
+export function spawnGuardian(world, nation, data, speciesKey, at) {
+  const def = creatureDefs(data)[speciesKey];
+  if (!def || !at) return null;
+  const w = ensureWild(nation);
+  const c = {
+    id: `w${w.nextId++}`, sp: speciesKey, guardian: true,
+    x: at.x, y: at.y, tx: at.x, ty: at.y,
+    hp: def.hp, maxHp: def.hp, ring: 3,
+    state: 'wander', retarget: 0, atkCd: 0, provoked: 0, seen: false,
+  };
+  w.creatures.push(c);
+  return c;
+}
+
+/**
  * 링마다 정원을 채운다. 한 번에 몰아서 태우지 않고 부족분만 조금씩 — 세상이 '차오르는' 느낌이 나게.
  * @returns {Array} 이번에 태어난 것들
  */

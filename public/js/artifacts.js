@@ -28,6 +28,9 @@
     var g = U.el('div', 'art-grid');
     g.id = 'art-grid';
     body.appendChild(g);
+    var s = U.el('div');            // ★ §20-R4c — 세트 진척은 격자 아래 한 칸에 모아 적는다
+    s.id = 'art-sets';
+    body.appendChild(s);
     var foot = U.el('div');
     foot.appendChild(U.btn('덮는다', 'btn-primary', function () { U.closeTopModal(); }));
     U.openModal({ title: '유물함', body: body, footer: foot, width: '760px', key: 'relic',
@@ -47,23 +50,118 @@
     }
     list.forEach(function (a) {
       var d = itemDef(a);
-      var c = U.el('div', 'art ' + gradeCls(d.grade) + (a.consumed ? ' used' : ''));
+      var c = U.el('div', 'art ' + gradeCls(d.grade) + (a.consumed ? ' used' : '') + (a.sealed ? ' sealed' : ''));
       c.appendChild(U.el('div', 'a-name', d.name || a.key));
       c.appendChild(U.el('div', 'a-grade', gradeName(d.grade) + ' · ' + typeName(d.type)));
       c.appendChild(U.el('div', 'a-desc', d.desc || ''));
       U.tipSet(c, (d.name || a.key) + ' — ' + gradeName(d.grade),
         (d.desc || '') + (a.obtainedTick !== undefined ? '\n' + a.obtainedTick + '일에 얻었습니다.' : ''));
       if (isConsumable(d) && !a.consumed) {
-        var b = U.btn('쓴다', 'btn-sm btn-primary a-act', function () {
-          U.confirmBox('유물을 쓸까요?', (d.name || a.key) + ' — ' + (d.desc || '') + '\n\n한 번 쓰면 사라집니다.',
-            function () { GM.net.send('useArtifact', { key: a.key }); GM.sfx.play('unlock'); }, '쓴다');
-        });
+        var b = U.btn(useLabel(a), 'btn-sm btn-primary a-act', function () { useIt(a, d); });
         b.setAttribute('data-artifact', a.key);
         c.appendChild(b);
       } else if (a.consumed) {
         c.appendChild(U.el('div', 'a-act hint', '이미 썼습니다'));
       }
+      /* ★ §20-R4c — 심는 것·봉인하는 것은 「쓴다」와 다른 문이다(뷰의 plantable·curse 가 정본).
+         화면은 유물의 성질을 제 손으로 알지 않는다 — 규격에서 걷어 냈다(§0-U-8). */
+      if (a.plantable) c.appendChild(plantBtn(a, d));
+      if (a.curse) c.appendChild(sealBtn(a, d));
       grid.appendChild(c);
+    });
+    paintSets();
+  }
+
+  /* 충전이 남았으면 몇 번인지 단추가 말한다(R2 에서 미뤄 둔 표시). */
+  function useLabel(a) {
+    var left = a.chargesLeft;
+    if (left === undefined || left === null || (a.charges || 1) <= 1) return '쓴다';
+    return '쓴다 (' + left + '번 남음)';
+  }
+
+  /* 폭군의 왕관만 자리를 묻는다 — 뷰의 picksRole 이 그 자리를 알려 준다(R1 부터 미룬 TODO).
+     서버의 문도 따로다: 고른 자리는 useArtifact 가 아니라 tyrantPick 으로 간다. */
+  function useIt(a, d) {
+    if (a.picksRole) { askRole(a, d); return; }
+    U.confirmBox('유물을 쓸까요?', (d.name || a.key) + ' — ' + (d.desc || '') + '\n\n한 번 쓰면 사라집니다.',
+      function () { GM.net.send('useArtifact', { key: a.key }); GM.sfx.play('unlock'); }, '쓴다');
+  }
+
+  function askRole(a, d) {
+    var body = U.el('div');
+    body.appendChild(U.el('p', null, (d.desc || '') + '\n어느 자리에 왕관을 씌우시겠습니까?'));
+    var box = U.el('div', 'ag-choices');
+    var m = null;
+    roleSeats().forEach(function (r) {
+      box.appendChild(U.btn(r.name, '', function () {
+        GM.net.send('tyrantPick', { role: r.key });
+        GM.net.send('useArtifact', { key: a.key });
+        GM.sfx.play('unlock');
+        U.closeModal(m);
+      }));
+    });
+    body.appendChild(box);
+    var foot = U.el('div');
+    foot.appendChild(U.btn('그만둔다', 'btn-ghost', function () { U.closeModal(m); }));
+    m = U.openModal({ title: '왕관을 씌울 자리', body: body, footer: foot, width: '460px', key: 'tyrant' });
+  }
+
+  function roleSeats() {
+    var n = S.nation() || {};
+    return Object.keys(n.roles || {})
+      .filter(function (k) { return n.roles[k] && n.roles[k].holder; })
+      .map(function (k) { return { key: k, name: S.roleMeta(k).name }; });
+  }
+
+  /* 심는다 — 자리는 **선 자리**다. 반경 판정은 서버가 한다(본영 곁만). */
+  function plantBtn(a, d) {
+    if (a.planted) return U.el('div', 'a-act hint', '심어 두었습니다');
+    return U.btn('선 자리에 심는다', 'btn-sm a-act', function () {
+      var me = standingSpot();
+      if (!me) { U.toast('설 자리를 찾지 못했습니다.', 'warn'); return; }
+      U.confirmBox('여기에 심을까요?', (d.name || a.key) + '\n\n본영 곁에만 뿌리를 내립니다. 한 번 심으면 옮기지 못합니다.',
+        function () { GM.net.send('plantArtifact', { key: a.key, x: Math.round(me.x), y: Math.round(me.y) }); },
+        '심는다');
+    });
+  }
+
+  /* 내가 선 자리 — 아바타 목록에서 내 것을 집는다(world.js 가 쓰는 그 자). */
+  function standingSpot() {
+    var list = S.S.avatars || [];
+    var mine = S.S.avatarId;
+    for (var i = 0; i < list.length; i++) if (list[i].id === mine) return list[i];
+    return null;
+  }
+
+  function sealBtn(a, d) {
+    var cost = (S.nation() || {}).sealCostGold || 0;
+    if (a.sealed) {
+      return U.btn('봉인을 푼다', 'btn-sm a-act', function () {
+        GM.net.send('sealArtifact', { key: a.key, sealed: false });
+      });
+    }
+    return U.btn('봉인한다', 'btn-sm btn-ghost a-act', function () {
+      U.confirmBox('봉인할까요?', (d.name || a.key) + ' — ' + (d.desc || '')
+        + '\n\n힘도 값도 함께 잠듭니다. 금 ' + cost + '이 듭니다. 나중에 되돌릴 수 있습니다.',
+        function () { GM.net.send('sealArtifact', { key: a.key, sealed: true }); }, '봉인한다');
+    });
+  }
+
+  /* 세트 — 몇 조각을 모았고 어느 문턱이 켜졌는가. 셈은 서버가 했다(뷰의 artifactSets). */
+  function paintSets() {
+    var host = U.qs('#art-sets');
+    if (!host) return;
+    U.clear(host);
+    var sets = (S.nation() || {}).artifactSets || {};
+    Object.keys(sets).forEach(function (k) {
+      var s = sets[k];
+      if (!s || !s.owned) return;
+      var box = U.el('div', 'art-set');
+      box.appendChild(U.el('div', 'a-name', s.name + ' ' + s.owned + '/' + s.total));
+      (s.steps || []).forEach(function (st) {
+        box.appendChild(U.el('div', st.on ? 'a-desc' : 'hint', st.need + '개 — ' + (st.text || '')));
+      });
+      host.appendChild(box);
     });
   }
 

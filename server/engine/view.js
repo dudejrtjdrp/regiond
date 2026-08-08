@@ -84,6 +84,23 @@ function shared(cache, key, make) {
   return made;
 }
 
+const hasOp = (def, op) => (def?.effects || []).some((e) => e.op === op);
+
+/* ★ §20-R4c — 세트 칸에 **문턱의 글**을 붙인다. 셈(owned·tiers)은 collectHooks 가 이미 했고,
+   여기서는 정의표의 문구만 옮겨 적는다. 「왜」 화면이 규격에서 못 읽나 — publicArtifacts 가
+   유물의 속살과 함께 sets 도 규격에서 걷어 냈다(§0-U-8). 문턱의 정본은 여전히 한 곳뿐이다. */
+function setsWithSteps(sets, data) {
+  const defs = data.artifacts.sets || {};
+  const out = {};
+  for (const [key, s] of Object.entries(sets || {})) {
+    const steps = Object.keys(defs[key]?.bonuses || {})
+      .map((need) => ({ need: Number(need), text: defs[key]?.tierText?.[need] ?? '',
+                        on: (s.tiers || []).includes(Number(need)) }));
+    out[key] = { ...s, steps };
+  }
+  return out;
+}
+
 export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
   const nation = world.nations[nationId];
   if (!nation) return null;
@@ -228,11 +245,21 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
              이 칸을 몰라도 깨지지 않는다(표시 개선은 R2 몫). 옛 세이브면 null 이 아니라 1이 온다. */
           chargesLeft: a.chargesLeft ?? (a.consumed ? 0 : 1),
           charges: data.artifactsByKey[a.key]?.charges ?? 1,
+          /* ★ §20-R4c — 화면이 「봉인한다·심는다·자리를 고른다」 단추를 어디에 붙일지 알려면
+             정의표의 네 칸이 필요하다. 규격(/api/config)에서는 유물의 속살을 걷어 냈으므로(§0-U-8)
+             **가진 것에 한해** 뷰가 실어 보낸다 — 안 가진 유물의 성질은 여전히 알 수 없다. */
+          curse: data.artifactsByKey[a.key]?.curse === true,
+          sealed: Boolean(a.sealed),
+          setKey: data.artifactsByKey[a.key]?.setKey ?? null,
+          plantable: data.artifactsByKey[a.key]?.type === 'installable',
+          picksRole: hasOp(data.artifactsByKey[a.key], 'maxOneRoleLevel'),
         })),
+        // ★ §20-R4c — 봉인 값은 화면이 미리 알려 줘야 「금 80이 듭니다」라고 물을 수 있다.
+        sealCostGold: data.balance.artifacts.sealCostGold ?? 0,
         /* ★ §20-R4(§20-5) — 세트 현황 {setKey:{name,owned,total,tiers}}. 도감·유물함이 「3/4」와
            「어느 문턱이 켜졌나」를 그리려면 조각 수를 화면이 다시 세면 안 된다(세는 규칙이 둘이
            되면 언젠가 어긋난다). 하나도 안 가졌으면 빈 객체라 옛 화면에도 아무 일이 없다. */
-        artifactSets: hooks.sets ?? {},
+        artifactSets: setsWithSteps(hooks.sets, data),
         decisionQueue: nation.decisionQueue,
         ruinGauge: nation.ruinGauge || 0,
         ruinThreshold: data.ruins.gaugeThreshold,

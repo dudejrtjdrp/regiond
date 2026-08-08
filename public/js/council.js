@@ -26,7 +26,10 @@
         : (d.dueTick !== undefined ? d.dueTick : null)),
       urgent: !!(d.urgent || d.kind === 'invasion' || d.priority === 'high'),
       offer: d.offer || null,
-      choices: normChoices(d.choices || d.options)
+      /* ★ §20-R4b — 라벨을 실어 보낸 카드는 그 라벨을 쓴다(신전의 「땅의 문양」·「맞선다」).
+         OPT_KO 는 옛 안건들이 열쇠말만 보내던 시절의 대비표다 — 새 카드까지 여기에 적어 넣으면
+         한국어가 서버와 화면 두 곳에 살게 되어 언젠가 갈린다. */
+      choices: normChoices(d.optionLabels || d.choices || d.options)
     };
   }
   function normChoices(list) {

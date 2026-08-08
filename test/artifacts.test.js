@@ -27,6 +27,7 @@ import { applyCommand } from '../server/engine/commands.js';
 import { chronicleArtifact } from '../server/engine/artifacts.js';
 import { completeStructure } from '../server/engine/structures.js';
 import { townOf } from '../server/engine/world.js';
+import { templeKindAt, templeCard, templeAnswer, resolveTempleChoice } from '../server/engine/temple.js';   // ★ §20-R4b
 
 const data = loadGameData();
 const CFG = data.balance.artifacts;
@@ -912,4 +913,75 @@ test('★ §20-R4 부활 충전 — 웨이브당 정해진 횟수만, 그리고 
   assert.equal(consumeRevive(n), false, '한 웨이브에 한 번뿐이다');
   resetReviveCharges(n);
   assert.equal(consumeRevive(n), true, '다음 웨이브에는 다시 선다');
+});
+
+// ────────────────────────────────────────────────────────────────
+// ★ §20-R4b 고대 신전 (유물기획 §20-9) — 자리가 신전을 정하고, 세 단을 차례로 지난다
+// ────────────────────────────────────────────────────────────────
+test('★ §20-R4b 신전 — 가까운 자취는 신전이 아니고, 링 밖 자취는 신전이다', () => {
+  const { world, n } = nationOf(4301);
+  const t = townOf(world, n.id);
+  const near = { id: 'ruinNear', type: 'ruin', x: t.x + 3, y: t.y };
+  const r = data.ruins.temple.ringRadius;
+  const far = { id: 'ruinFar', type: 'ruin', x: Math.min(data.world.size - 2, t.x + r + 8), y: t.y };
+  assert.equal(templeKindAt(world, n, near, data), null, '앞마당의 자취는 신전이 아니다');
+  const kind = templeKindAt(world, n, far, data);
+  assert.ok(kind, '멀리 간 자취는 신전이다');
+  assert.ok(kind.guardian && kind.via === 'temple');
+  // 같은 씨앗의 같은 자리는 언제나 같은 신전이다(난수가 아니라 자리가 정한다)
+  assert.equal(templeKindAt(world, n, far, data).id, kind.id);
+});
+
+test('★ §20-R4b 신전 — 수수께끼 → 시련 → 안치소를 차례로만 지난다', () => {
+  const { world, n } = nationOf(4302);
+  const t = townOf(world, n.id);
+  const far = { id: 'ruinT', type: 'ruin', x: Math.min(data.world.size - 2, t.x + data.ruins.temple.ringRadius + 8), y: t.y };
+  world.map.nodes.push(far);
+
+  const card = templeCard(world, n, far, data);
+  assert.equal(card.temple.stage, 'riddle');
+  assert.equal(card.kind, data.ruins.temple.decisionKind);
+  assert.ok(card.optionLabels.length === card.options.length, '한국어 라벨을 서버가 들고 간다');
+
+  // 틀린 답 — 며칠 물러선다
+  const answer = templeAnswer(world, far, data);
+  const wrong = data.ruins.temple.riddle.options.map((o) => o.key).find((k) => k !== answer);
+  assert.equal(resolveTempleChoice(world, n, { temple: card.temple }, wrong, data).result.passed, false);
+  assert.equal(templeCard(world, n, far, data), null, '재도전까지는 문이 닫힌다');
+  world.tick += data.balance.artifacts.templeRetryDays;
+
+  // 맞는 답 → 시련
+  assert.equal(resolveTempleChoice(world, n, { temple: card.temple }, answer, data).result.passed, true);
+  const trial = templeCard(world, n, far, data);
+  assert.equal(trial.temple.stage, 'trial', '수수께끼를 풀어도 안치소가 바로 열리지 않는다');
+  const fought = resolveTempleChoice(world, n, { temple: trial.temple }, 'fight', data);
+  assert.ok(fought.result.guardianId, '지키는 것이 그 자리에 선다');
+  assert.equal(templeCard(world, n, far, data).temple.stage, 'trial', '눕히기 전에는 안 열린다');
+
+  // 눕히면 안치소
+  n.wild.creatures = n.wild.creatures.filter((c) => c.id !== fought.result.guardianId);
+  const vault = templeCard(world, n, far, data);
+  assert.equal(vault.temple.stage, 'vault');
+  const taken = resolveTempleChoice(world, n, { temple: vault.temple }, 'take', data);
+  assert.equal(taken.result.passed, true);
+  const got = data.artifactsByKey[taken.result.artifact];
+  assert.ok(got, '안치소가 무언가를 내어준다');
+  assert.ok(!got.acquireVia.includes('chest'), '상자 밖의 것이다');
+  assert.ok(['legendary', 'unique'].includes(got.grade), '신전은 전설이 먼저다');
+  assert.equal(taken.events[0].kind, 'artifact_found');
+  assert.equal(templeCard(world, n, far, data), null, '한 번 연 신전은 닫힌다');
+});
+
+test('★ §20-R4b 신전 — 이미 나온 전설은 다시 내어주지 않는다(방에 하나)', () => {
+  const { world, n } = nationOf(4303);
+  // 신전마다 내어주는 것이 다르다 — 설산은 얼어붙은 왕의 홀, 밀림은 성배, 들판은 아로스의 눈
+  assert.deepEqual(dropPool(world, n, data, 'legendary', 'temple:snow').map((a) => a.key),
+    ['frozen_kings_scepter']);
+  assert.deepEqual(dropPool(world, n, data, 'legendary', 'temple:jungle').map((a) => a.key),
+    ['chalice_of_aqua']);
+  const legend = dropPool(world, n, data, 'legendary', 'temple');
+  assert.ok(legend.length >= 1, '신전이 내어줄 전설이 있다');
+  world.artifactRegistry = { [legend[0].key]: { firstFoundBy: '이웃', firstFoundTick: 1, count: 1 } };
+  const after = dropPool(world, n, data, 'legendary', 'temple').map((a) => a.key);
+  assert.ok(!after.includes(legend[0].key), '한 번 나온 전설은 후보에서 빠진다');
 });

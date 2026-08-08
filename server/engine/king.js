@@ -5,6 +5,7 @@
 import { grantArtifact, dropPool } from './artifacts.js';
 import { round2 } from './economy.js';
 import { nodeById, townOf, territoryRadius, dist } from './world.js';
+import { templeCard } from './temple.js';   // ★ §20-R4b — 자취가 신전이면 게이지 대신 신전이 선다
 import {
   resolveTarget, isHarvestReady, markHarvestCycle, fieldStage, fieldStageView,
 } from './villagers.js';
@@ -89,12 +90,16 @@ export function performApAction(world, nation, cmd, data, rng) {
       ap.current -= cost;
       nation.ruinGauge = (nation.ruinGauge || 0) + (def.gaugeGain ?? 1);
       const events = [];
-      let card = null;
-      if (nation.ruinGauge >= data.ruins.gaugeThreshold) {
+      /* ★ §20-R4b — 이 자취가 신전이면 게이지를 기다리지 않는다. 신전은 「뒤지다 보면 나오는 것」이
+         아니라 **찾아가는 곳**이라, 선 그 자리에서 다음 단이 열린다(수수께끼 → 시련 → 안치소). */
+      let card = templeCard(world, nation, target.node ?? target, data);
+      if (card) {
+        (nation.decisionQueue ||= []).push({ ...card, createdTick: world.tick });
+      } else if (nation.ruinGauge >= data.ruins.gaugeThreshold) {
         nation.ruinGauge = 0;
-        card = openRuinCard(world, nation, data, rng);
-        events.push({ kind: 'ruin_event', nationId: nation.id, data: { card } });
+        card = openRuinCard(world, nation, data, rng);   // 이 문이 제 손으로 큐에 넣는다
       }
+      if (card) events.push({ kind: 'ruin_event', nationId: nation.id, data: { card } });
       return { ok: true, ap: { ...ap }, action: 'explore', nodeId: target.id, ruinGauge: nation.ruinGauge, card, events };
     }
     case 'survey': {

@@ -1467,6 +1467,65 @@ test('발견 카드 — 서사가 뜨고, 개선본이 와도 카드는 하나�
     await until(() => !!doc.querySelector('.banner-relic'), { what: '전역 알림 금띠' });
     assert.ok(doc.querySelector('.banner-relic').textContent.includes('용맹의 깃발'));
 
+    /* ★ §20-R4c 유물함 — 봉인·심기·자리 고르기·충전·세트가 **뷰의 칸**을 그대로 읽는가.
+       화면은 유물의 성질을 제 손으로 알지 않는다(규격에서 걷어 냈다 — §0-U-8). */
+    const v2 = S2.S.view;
+    v2.unlocked = { ...(v2.unlocked || {}), ui: ((v2.unlocked || {}).ui || []).concat('panel.council') };
+    v2.nation = {
+      ...(v2.nation || {}), gold: 500, sealCostGold: 80,
+      roles: { farm: { holder: 'npc', level: 1 }, trade: { holder: 'npc', level: 3 } },
+      artifacts: [
+        { key: 'starving_crown', name: '굶주린 왕관', grade: 'unique', type: 'tradeoff',
+          desc: '생산 +50%, 무리 +20%', consumed: false, curse: true, sealed: false },
+        { key: 'worldtree_seed', name: '세계수의 씨앗', grade: 'unique', type: 'installable',
+          desc: '심으면 자란다', consumed: false, plantable: true, planted: null },
+        { key: 'tyrants_crown', name: '폭군의 왕관', grade: 'rare', type: 'consumable',
+          desc: '한 자리를 최대로', consumed: false, curse: true, picksRole: true, chargesLeft: 1, charges: 1 },
+        { key: 'dragon_tooth', name: '용의 이빨', grade: 'rare', type: 'consumable',
+          desc: '패배 보험', consumed: false, chargesLeft: 2, charges: 2 },
+      ],
+      artifactSets: { genesis: { name: '수에르의 균형', owned: 2, total: 4, tiers: [2],
+        steps: [{ need: 2, text: '전 자원 생산 +10%', on: true }, { need: 4, text: '균형', on: false }] } },
+    };
+    S2.S.avatarId = 'me';
+    S2.S.avatars = [{ id: 'me', x: 64, y: 64 }];
+    S2.emit('state', v2);
+    window.GM.artifacts.open();
+
+    const sent = [];
+    const realSend = window.GM.net.send;
+    window.GM.net.send = (kind, payload) => { sent.push([kind, payload]); };
+
+    assert.equal(doc.querySelectorAll('#art-grid .art').length, 4);
+    const acts = () => [...doc.querySelectorAll('#art-grid .a-act')].map((b) => b.textContent);
+    assert.ok(acts().some((t) => t.includes('2번 남음')), '남은 충전이 단추에 적힌다');
+    assert.equal(acts().filter((t) => t === '봉인한다').length, 2, '저주만 봉인 단추를 갖는다');
+    assert.ok(acts().includes('선 자리에 심는다'), '심을 수 있는 것만 심기 단추를 갖는다');
+    assert.ok(doc.querySelector('#art-sets').textContent.includes('수에르의 균형 2/4'), '세트 진척이 보인다');
+
+    /* 봉인 — 값을 묻고, 「그리하라」를 눌러야 나간다 */
+    [...doc.querySelectorAll('#art-grid .art')]
+      .find((c) => c.textContent.includes('굶주린 왕관'))
+      .querySelector('.a-act[data-artifact], .a-act:not([data-artifact])');
+    [...doc.querySelectorAll('#art-grid .art')]
+      .find((c) => c.textContent.includes('굶주린 왕관'))
+      .querySelectorAll('.a-act').forEach((b) => { if (b.textContent === '봉인한다') b.click(); });
+    const boxes = [...doc.querySelectorAll('.modal')];
+    [...boxes[boxes.length - 1].querySelectorAll('button')]
+      .find((b) => b.textContent === '봉인한다').click();
+    assert.ok(sent.some(([k, p]) => k === 'sealArtifact' && p.key === 'starving_crown' && p.sealed === true),
+      '봉인이 서버로 간다');
+
+    /* 폭군의 왕관 — 「쓴다」가 곧바로 쓰지 않고 자리를 먼저 묻는다 */
+    [...doc.querySelectorAll('#art-grid .art')]
+      .find((c) => c.textContent.includes('폭군의 왕관'))
+      .querySelector('.a-act').click();
+    assert.ok(window.GM.ui.modalOpen('tyrant'), '자리를 묻는 창이 뜬다');
+    [...doc.querySelectorAll('.modal .ag-choices button')][0].click();
+    assert.ok(sent.some(([k, p]) => k === 'tyrantPick' && p.role), '고른 자리가 tyrantPick 으로 간다');
+    window.GM.net.send = realSend;
+    window.GM.ui.closeTopModal();
+
     const noisy = errors.filter((e) => !/AudioContext|Not implemented|Could not parse CSS/i.test(e));
     assert.deepEqual(noisy, [], noisy.join(' / '));
   } finally {

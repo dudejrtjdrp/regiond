@@ -96,7 +96,7 @@
 
 ---
 
-## 0-U. v3.3 안 델타 — **유물 리워크 R1·R1.5: 상향·충전제·발견 서사** (docs/유물기획.md §20 + 팀 원안)
+## 0-U. v3.3 안 델타 — **유물 리워크 R1~R4: 상향·충전제·발견 서사·연출·기록과 도감·상자 밖의 것들·고대 신전** (docs/유물기획.md §20 + 팀 원안)
 
 **판번호를 올리지 않는다**(`world.schema` **6** 유지). **필드는 더하기만 했다.**
 옛 세이브의 유물에는 `chargesLeft` 가 없다 — `migrateWorld` 가 열 때 **1회분**으로 채운다
@@ -173,6 +173,94 @@ artifacts: [{ key, name, grade, desc, type, obtainedTick, consumed, chargesLeft,
 - `text`(토스트 한 줄)의 계약은 **그대로**다. 옛 화면은 `narrative` 를 몰라도 예전과 똑같이 굴러간다.
 - 표현 품질(`언어의 돌`, `expressionQuality`)이 LLM 호출의 `quality` 로 전달된다 — 나라마다 이벤트 묶음당 한 번만 잰다.
 
+### 0-U-5. push `artifact_found` 재확장 — 연출 급과 자리 (★ R2)
+
+**필드는 더하기만 했다.** 아래 넷을 모르는 옛 화면은 R1.5 와 똑같이 굴러간다(카드 한 장 + 서사).
+
+| 필드 | 뜻 |
+|---|---|
+| `fxTier` | 1~4. 획득 연출의 급. 정본은 `data/artifacts.json grades[등급].fxTier`(일반 1 · 레어 2 · 유니크 3 · 레전더리 4 · fixed 3)이고, 엔트리에 `fxTier` 를 적으면 **그것이 이긴다**(§20-11) |
+| `foundBy` | 발견자 캐릭터명. 모르면 `null`(어전 회의 상자는 나라의 일이다) |
+| `foundById` | 발견자 아바타 id. **화면은 이 값으로 「내가 찾았는가」를 가른다** — 내 것이 아니면 창을 띄우지 않고 방 배너와 작은 빛기둥만 |
+| `nodePos` | `{x, y}` 빛기둥이 설 자리. 궤는 제 자리, 유적은 찾은 사람 자리, 상자는 도읍으로 물러선다 |
+
+- **연출 다이얼의 정본은 `data/world.json render.artifactFx`** 다: `cardDelayMs` · `veilAlpha` · `sparkleCount` ·
+  `sfx`(급→효과음 이름) · `beam{seconds,widthTiles,heightTiles,ringCount,sharedScale}` · `zoom{step,holdMs}` ·
+  `vignetteSeconds` · `slowmo{scale,ms}` · `globalBannerMs`. **서버는 이 표를 한 칸도 읽지 않는다.**
+- **슬로모는 렌더 이펙트다.** 이펙트 계층(`GM.fx.step`)의 시계만 잠깐 늦춘다 — 서버 tick·전투 서브틱·
+  보간(`stepUnits`)은 손대지 않는다. 서버 시계는 불변이라는 계약이 그대로다.
+- 연출 중 **ESC·클릭·E** 로 건너뛰면 카드만 남는다. `battleStart` 가 오면 그 자리에서 접는다(종이 이긴다).
+
+### 0-U-6. push 신설 `artifact_global` — 레전더리는 서버 전체가 안다 (★ R2)
+
+소켓 이벤트 이름은 **`artifactGlobal`**(`story_beat`→`storyBeat` 와 같은 규칙). **`io.emit` — 방을 넘는 유일한 유물 push 다.**
+
+```
+artifactGlobal { nationName, foundBy, artifactName, grade, text }
+```
+
+- **레전더리(`grade === "legendary"`)에서만** 나간다. 그 밖의 등급은 보내지 않는다.
+- `text` 의 정본은 `data/templates.ko.json artifactGlobal`(`byFinder` / `byNation` 두 벌). 발견자를 알면
+  이름이, 모르면 「군주가」가 들어간다. **화면은 제 문장을 짓지 않는다.**
+- 보낼지 말지와 문구는 표현 계층의 순수 함수 `artifactGlobalPush(event, nationName, data)` 가 정한다 —
+  소켓 없이도 잴 수 있다(`test/artifacts.test.js`).
+- 받는 쪽은 **금띠 배너**(`.banner-relic`)로 몇 초 띄운다. 다른 방의 일이라 눌러도 열리는 곳이 없다.
+
+### 0-U-7. `/api/config` — 등급표가 이름·색·연출 급의 정본이다 (★ R2)
+
+`config.artifacts.grades[등급]` 이 `{ name, cls, color, fxTier }` 를 함께 내려보낸다.
+클라의 `GRADES` 하드코딩은 **대비값으로 물러섰다**(규격이 아직 안 온 첫 프레임에만 쓴다) —
+이제 `data/artifacts.json` 을 고치면 유물함·발견 카드·연출 급이 함께 따라온다.
+
+### 0-U-8. 기록과 도감 — 「세계에 남은 것」 (★ R3 · 유물기획 §20-8)
+
+**판번호를 올리지 않는다**(`world.schema` 유지). **필드는 더하기만 했다.** `state.js MIGRATION_REV` 는 3 → **4**.
+
+#### ① 상태 — 두 곳에 적는다
+
+```
+nation.artifacts[i] += { foundBy, foundById, foundDate:{year,day}, foundRealAt }
+world.artifactRegistry = { [key]: { firstFoundBy, firstFoundById, firstFoundTick, firstFoundDate, count } }
+```
+
+- 엔트리는 **「우리 나라의 것」**, 등록부는 **「이 방의 역사」**다. 유물을 다 써도, 방에 나라가 여럿이라
+  같은 유물이 다시 나와도, **최초 발견자는 한 번 적히면 바뀌지 않는다**(`count` 만 쌓인다).
+- `foundDate` 는 **표시 전용 달력**이다 — 정본은 `balance.time.daysPerYear` 하나뿐이고 어떤 판정도 「해」를 읽지 않는다.
+- 적는 자리는 `recordArtifactFound()` 하나다. 세 경로(상자·유적·궤)는 `artifactFoundEvent` 안에서 함께 적히고,
+  용 전리품은 제 컷신을 쓰므로 **기록만** 남긴다(push 없음).
+- **옛 세이브**: 보유 엔트리에서 등록부를 역생성한다. 발견자는 `null` — 도감이 「전해지지 않음」이라 적는다.
+  **이름을 지어내지 않는다.** 얻은 날(`obtainedTick`)은 남아 있으므로 그날은 되살린다.
+- 연대기 `kind:'artifact'` 의 `title` 에 발견자를 병기한다(`「용맹의 깃발 — 아린」`). 모르면 예전 그대로.
+
+#### ② 뷰 — `state.codex.artifacts` 신설 (4단, **서버가 자른다**)
+
+```
+codex.artifacts = { crownGrade: "legendary", totals:{found,owned,total},
+                    cards: [{ key, grade, category, type, color, tier, ...단별 필드 }] }
+```
+
+| 단 | 조건 | 실리는 것 |
+|---|---|---|
+| 0 | 미발견 | `hint` 만. **`name` · `lore` · `record` 는 필드 자체가 없다** |
+| 1 | 방에서 누가 찾음(등록부에 있음) | `name` + `record` |
+| 2 | 우리 나라 보유 | 위에 더해 `desc` · `lore` · `owned` · `consumed` · `chargesLeft` |
+| 3 | 기록까지 | `record.{firstFoundBy?, firstFoundDate, count, myFoundDate?, myFoundRealAt?}` |
+
+- `crownGrade` 는 목록 맨 위 별도 단(「왕가의 보물」)에 크게 그릴 등급이다 — 미발견이어도 실루엣이 보인다.
+- `codexView(nation, data, world)` — `world` 없이 부르면 `artifacts` 칸 **자체가 없다**(§11-1).
+- `nation.artifacts[]` 뷰에도 `foundBy` · `foundDate` · `foundRealAt` 이 **있을 때만** 동봉된다.
+
+#### ③ `/api/config` 정보 비대칭 — 유물도 생태계와 같은 자를 쓴다
+
+`publicArtifacts()` 가 **이름 · 효과 서술 · `effects` · `lore` · `hint` 를 전부 잘라 낸다.**
+규격에 남는 것은 화면이 **그리는 데** 필요한 것뿐이다: 등급표(`grades`)와 `{key, grade, category, type, role}`.
+
+- 근거: 이미 `publicCreatures()` 가 종의 이름·능력치·일화를 규격에서 빼고 도감(state.codex)에만 열어 준다.
+  유물 도감의 0단이 「이름을 숨기는 층」인 이상 **같은 원칙**을 따라야 한다 — 화면이 감춰도 규격이 열려 있으면
+  감춘 것이 아니다. 자르지 않으면 §11-1 이 「화면의 예의」로 격하된다.
+- 클라 영향 없음: 유물함·발견 카드·상자 연출은 전부 **뷰와 push** 가 준 이름을 쓴다
+  (`state.artifactDef` 는 그 값들이 없을 때만 도는 대비 경로였다).
+
 ### 0-U-9. R4a — **상자 밖 축**: 신규 21종 · 세트 · 저주 봉인 · 설치형 (docs/유물기획.md §20-3~6 · §20-9 · §20-11)
 
 **판번호를 올리지 않는다**(`world.schema` **6** 유지). **필드는 더하기만 했다.**
@@ -228,6 +316,40 @@ artifacts: [{ key, name, grade, desc, type, obtainedTick, consumed, chargesLeft,
 
 `world.schema` 6 · 등급표 55/32/8/5 · 원안 50종의 이름·효과·`acquireVia` · `artifact_found` 의 모양 ·
 `artifact_global`(§20-R2) · 도감 4단(§20-R3) · `publicArtifacts()` 의 정보 비대칭(이름·효과·lore·hint 비공개).
+
+
+### 0-U-13. R4b·R4c — **고대 신전**과 유물함의 손잡이들 (docs/유물기획.md §20-9 · §20-3·6)
+
+**판번호를 올리지 않는다. 필드는 더하기만 했다.** 정본은 `data/ruins.json temple` + `server/engine/temple.js`.
+
+#### ① 고대 신전 — 새 씬이 아니라 **세 번 잇는 결정 큐**
+
+결정 종류는 `temple`(유적 카드의 `ruin` 과 다른 칸). 한 자취에서 세 번 연달아 묻는다.
+
+| 단 | 묻는 것 | 넘어가는 조건 |
+|---|---|---|
+| `riddle` | 문양 셋 중 하나 | 정답 = `statRng("<seed>:temple:<nodeId>")`. 틀리면 `balance.artifacts.templeRetryDays` 만큼 물러선다 |
+| `trial` | 맞선다 / 물러선다 | 지키는 것을 **세우고 눕혀야** 열린다 — 세우기 전에는 안치소가 열리지 않는다 |
+| `vault` | 거둔다 / 두고 나온다 | 상자 밖 풀에서 한 점(`dropPool`). **전설이 먼저**, 없으면 고유 |
+
+- **어느 자취가 신전인가는 난수가 아니라 자리가 정한다.** 설산·밀림 한복판이면 그 바이옴의 신전이고, 둘 다 아니면 본영에서 `ruins.temple.ringRadius`(140) 밖일 때만 신전이다. 같은 씨앗의 같은 자취는 언제나 같은 신전이라 「저 멀리 눈 덮인 곳에 신전이 있더라」가 사람 사이에 옮겨질 수 있다.
+- **신전마다 내어주는 것이 다르다**(§20-4): 설산 `temple:snow`→얼어붙은 왕의 홀 · 밀림 `temple:jungle`→아쿠아의 성배 · 들판 `temple`→아로스의 눈. 「어느 신전을 찾아갔나」가 무엇을 얻는지 정한다.
+- 신전은 **유적 게이지를 기다리지 않는다** — 뒤지다 보면 나오는 것이 아니라 찾아가는 곳이라, 탐사한 그 자리에서 다음 단이 열린다.
+- 지키는 것은 `spawnGuardian` 이 **정해진 자리에** 세운다(여느 짐승의 띠 판정을 지나지 않는다 — 세상이 낳은 것이 아니라 신전이 세워 둔 것이다). 눕히면 그 자리는 다시 채워지지 않는다.
+- 진행은 `nation.temples[nodeId] = {stage, failedTick, guardianId, done}` 에 저장된다.
+- 카드는 `options`(열쇠말)와 함께 **`optionLabels`(한국어)** 를 싣는다. 화면은 라벨이 실려 오면 그것을 쓴다 — 한국어가 서버와 화면 두 곳에 살면 언젠가 갈린다(`council.js normDecision`).
+
+#### ② 뷰 — 유물함이 손잡이를 붙일 자리를 안다
+
+```
+nation.artifacts[i] += { curse, sealed, setKey, plantable, picksRole }
+nation.artifactSets[key].steps = [{ need, text, on }]      // 문턱의 글(data sets[key].tierText)
+nation.sealCostGold
+```
+
+- **안 가진 유물의 성질은 여전히 알 수 없다.** 규격(`/api/config`)에서 유물의 속살을 걷어 낸 규칙은 그대로고(§0-U-8), 화면이 「봉인한다·심는다·자리를 고른다」 단추를 어디에 붙일지 알아야 하므로 **보유분에만** 실어 보낸다.
+- 세트의 셈(`owned`·`tiers`)은 `collectHooks` 가 이미 한다 — 뷰는 문턱의 **글**만 붙인다. 문턱의 정본은 `data/artifacts.json sets[key].bonuses` 의 열쇠 하나뿐이다.
+- 유물함(`public/js/artifacts.js`): 충전이 남으면 단추가 「쓴다 (2번 남음)」이라 말하고, 저주에는 봉인/해봉이, 설치형에는 「선 자리에 심는다」가, 자리를 묻는 유물에는 역할 고르기 창이 붙는다. 자리는 **선 자리**(내 아바타 좌표)이고 반경 판정은 서버가 한다.
 
 ---
 

@@ -733,6 +733,12 @@ button[data-tip],.res-chip[data-tip],.minister[data-tip]{cursor:pointer}
 .art .a-grade{font-size:11.5px; position:relative}
 .art .a-desc{color:var(--ink2); font-size:12px; margin-top:5px; position:relative}
 .art.used{opacity:.5; filter:grayscale(.6)}
+/* ★ §20-R4c — 봉인한 저주는 잠들어 있음이 한눈에 보여야 한다(힘도 값도 함께 꺼진 상태). */
+.art.sealed{opacity:.62; filter:grayscale(.35)}
+.art.sealed::after{content:"봉인"; position:absolute; top:6px; right:6px; font-size:10.5px; z-index:1;
+  color:var(--paper-lit); background:var(--wood-dark); padding:1px 5px; border-radius:2px}
+.art-set{margin-top:12px; border-top:2px dashed var(--wood); padding-top:8px}
+.art-set .a-name{color:var(--wood-dark); font-size:14px}
 .art .a-act{margin-top:8px; position:relative}
 .chest-stage{display:flex; flex-direction:column; align-items:center; gap:12px; padding:12px 0}
 .chest-stage canvas{width:min(250px,80vw); height:auto}

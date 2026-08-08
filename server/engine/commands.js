@@ -8,6 +8,7 @@ import {
   //   여기는 인자를 재고 넘길 뿐이다(명령 계층은 얇게, 규칙은 도메인에).
   sealArtifact, plantArtifact, pickTyrantRole,
 } from './artifacts.js';
+import { resolveTempleChoice } from './temple.js';   // ★ §20-R4b — 고대 신전의 세 단
 import { localPrice, importPrice, exportPrice, round2, clamp } from './economy.js';
 import { validateOrders } from './orders.js';
 import { reassign } from './npc.js';
@@ -1026,6 +1027,14 @@ function runCommand(world, nationId, cmd, data, rng) {
           resource: decision.offer.resource, amount: decision.offer.amount,
         }, data, rng);
         return ok({ decision, trade: r });
+      }
+      /* ★ §20-R4b — 고대 신전은 한 자취에서 세 번 연달아 묻는다(수수께끼→시련→안치소).
+         유적 카드와 같은 문(decide)으로 들어오되 답을 내는 곳만 다르다. */
+      if (decision.kind === data.ruins.temple?.decisionKind && decision.temple) {
+        const t = resolveTempleChoice(world, nation, decision, cmd.choice, data);
+        if (!t.ok) return err(t.error.code, t.error.message);
+        decision.result = t.result;
+        return ok({ decision, temple: t.result, events: t.events ?? [] });
       }
       if (decision.kind === data.ruins.decisionKind && decision.ruin) {
         const r = resolveRuinChoice(world, nation, decision, cmd.choice, data, rng);
