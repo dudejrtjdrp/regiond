@@ -42,12 +42,32 @@ def build_cmd(entry: dict, passthrough: list[str]) -> list[str]:
     return cmd + passthrough
 
 
+SKIPPED: list[str] = []
+
+
 def run_entry(entry: dict, passthrough: list[str]) -> int:
     print(f"\n===== {entry['id']} — {entry['name']} =====")
-    rc = subprocess.run(build_cmd(entry, passthrough)).returncode
+    rc = _run_and_watch(build_cmd(entry, passthrough))
     if rc != 0:
         return rc
     return run_anims(entry, passthrough)
+
+
+def _run_and_watch(cmd: list[str]) -> int:
+    """「왜」 generate.py가 미게시할 때 찍는 '!! SKIP' 줄을 모아 배치 끝에 요약한다."""
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    _echo(proc.stdout)
+    _echo(proc.stderr, err=True)
+    SKIPPED.extend(l.strip() for l in proc.stdout.splitlines() if l.startswith("!! SKIP"))
+    return proc.returncode
+
+
+def _echo(text: str, err: bool = False) -> None:
+    if not text:
+        return
+    stream = sys.stderr if err else sys.stdout
+    stream.write(text)
+    stream.flush()
 
 
 def run_anims(entry: dict, passthrough: list[str]) -> int:
@@ -103,11 +123,20 @@ def main() -> None:
             continue
         results[entry["id"]] = run_entry(entry, passthrough)
     failed = [aid for aid, rc in results.items() if rc != 0]
-    print(f"\n배치 완료: 실행 {len(results)}장 · 실패 {len(failed)}장")
+    print(f"\n배치 완료: 실행 {len(results)}장 · 실패 {len(failed)}장 · 미게시(SKIP) {len(SKIPPED)}장")
     for aid in failed:
         print(f"  ! 실패: {aid}")
+    _print_skipped()
     if failed:
         raise SystemExit(1)
+
+
+def _print_skipped() -> None:
+    if not SKIPPED:
+        return
+    print("\n## 미게시(전 후보 QA FAIL) — desc를 고쳐 --only로 다시 돌리세요")
+    for line in SKIPPED:
+        print(f"  {line}")
 
 
 if __name__ == "__main__":

@@ -281,15 +281,22 @@ def _missing_text(class_type: str, value: str, options: list[str]) -> str:
 
 # ------------------------------------------------------------------ 생성 루프
 
-def generate_candidates(client: ComfyClient, cfg: dict, args, prompt: str, out_dir: Path) -> list[Path]:
+def generate_candidates(client: ComfyClient, cfg: dict, args, prompt: str, out_dir: Path,
+                        seed_offset: int = 0) -> list[Path]:
     """시드를 바꿔 가며 후보 N장을 큐잉·회수해 candidate_*.png로 저장한다."""
     saved: list[Path] = []
     for index in range(args.candidates):
-        seed = args.seed + index if args.seed is not None else random.randint(0, 2**31 - 1)
+        seed = _seed_for(args, index, seed_offset)
         workflow = apply_settings(load_workflow(args.workflow), cfg, prompt, seed, args.category)
         print(f"  [{index + 1}/{args.candidates}] 큐잉 (seed={seed}) ...", flush=True)
         saved.extend(_run_one(client, workflow, out_dir, index))
     return saved
+
+
+def _seed_for(args, index: int, offset: int) -> int:
+    if args.seed is not None:
+        return args.seed + index + offset
+    return random.randint(0, 2**31 - 1)
 
 
 def _run_one(client: ComfyClient, workflow: dict, out_dir: Path, index: int) -> list[Path]:
@@ -316,36 +323,33 @@ def _save_images(blobs: list[bytes], out_dir: Path, index: int) -> list[Path]:
 
 # ------------------------------------------------------------------ 후처리 + 랭킹
 
-def refine_and_rank(raws: list[Path], spec: dict, cfg: dict, args, out_dir: Path) -> list[dict]:
-    """후보를 규격화한 뒤 QA 점수로 정렬한다. FAIL 후보는 뽑히지 않게 뒤로 밀어낸다."""
+def refine_and_rank(raws: list[Path], spec: dict, cfg: dict, args, out_dir: Path) -> dict:
+    """후보를 규격화·검수한다. 게시 가능(PASS/WARNING)과 기각(FAIL)을 나눠서 돌려준다."""
     scored = [_refine_one(raw, spec, cfg, args, out_dir) for raw in raws]
     alive = [s for s in scored if s.get("report")]
-    if not alive:
-        raise SystemExit("모든 후보가 후처리에 실패했습니다 — 마젠타 배경이 제대로 생성됐는지 확인하세요.")
-    return _rank(alive)
-
-
-def _rank(alive: list[dict]) -> list[dict]:
-    """「왜」 배경 잔존 같은 FAIL은 점수가 높아도 반려 대상이다. PASS/WARNING을 항상 앞에 둔다."""
     ok = sorted((s for s in alive if s["report"]["result"] != qa.FAIL), key=_by_score)
     bad = sorted((s for s in alive if s["report"]["result"] == qa.FAIL), key=_by_score)
-    if not ok:
-        _warn_all_failed(bad)
-    return ok + bad
+    return {"publishable": ok, "rejected": bad}
 
 
 def _by_score(entry: dict) -> float:
     return -entry["report"]["score"]
 
 
-def _warn_all_failed(bad: list[dict]) -> None:
-    reasons = _fail_reasons(bad[0]["report"])
-    print(f"  ! 후보 {len(bad)}장이 전부 QA FAIL입니다 — 최고점을 쓰지만 반려 대상입니다: {reasons}")
-    print("    desc를 더 구체적으로 바꾸거나 --candidates를 늘려 다시 뽑으세요.")
-
-
 def _fail_reasons(report: dict) -> str:
     return ", ".join(k for k, v in report["checks"].items() if v == qa.FAIL) or "(사유 없음)"
+
+
+def _reason_summary(rejected: list[dict]) -> str:
+    """기각 사유를 검사 항목별로 집계한다 — 무인 실행 로그에서 원인을 바로 읽으려고."""
+    tally: dict[str, int] = {}
+    for entry in rejected:
+        for key, value in entry["report"]["checks"].items():
+            if value == qa.FAIL:
+                tally[key] = tally.get(key, 0) + 1
+    if not tally:
+        return "(사유 없음)"
+    return ", ".join(f"{k}x{n}" for k, n in sorted(tally.items(), key=lambda kv: -kv[1]))
 
 
 def _refine_one(raw: Path, spec: dict, cfg: dict, args, out_dir: Path) -> dict:
@@ -901,13 +905,55 @@ def _run(args, cfg: dict, root: Path, spec: dict, prompt: str) -> int:
 
 
 def _pipeline(args, cfg: dict, root: Path, spec: dict, prompt: str, out_dir: Path) -> int:
+    """「왜」 무인 실행에서는 FAIL을 절대 게시하면 안 된다. 통과작이 나올 때까지 라운드를 돈다."""
     client = _connect(cfg)
-    raws = generate_candidates(client, cfg, args, prompt, out_dir)
+    best, rejected = _rounds(client, cfg, args, prompt, spec, out_dir)
     client.close()
-    ranked = refine_and_rank(raws, spec, cfg, args, out_dir)
-    written = _finish(ranked[0], args, root)
+    if best is None:
+        _cleanup(args, out_dir)
+        return _skip(args, root, rejected)
+    written = _finish(best, args, root)
     _cleanup(args, out_dir)
-    _report(ranked, written)
+    _report(best, written)
+    return 0
+
+
+def _rounds(client, cfg: dict, args, prompt: str, spec: dict, out_dir: Path):
+    """라운드마다 새 시드로 후보를 뽑고, 게시 가능한 게 나오면 즉시 멈춘다."""
+    total = 1 + max(0, int(cfg.get("retryRounds", 2)))
+    rejected: list[dict] = []
+    for index in range(total):
+        raws = _round_candidates(client, cfg, args, prompt, out_dir, index, total)
+        graded = refine_and_rank(raws, spec, cfg, args, out_dir)
+        rejected.extend(graded["rejected"])
+        if graded["publishable"]:
+            return (graded["publishable"][0], rejected)
+        _announce_retry(index, total, graded["rejected"])
+    return (None, rejected)
+
+
+def _announce_retry(index: int, total: int, rejected: list[dict]) -> None:
+    if index + 1 >= total:
+        return
+    print(f"  ! 라운드 {index + 1}/{total} 전 후보 FAIL ({_reason_summary(rejected)}) — 새 시드로 재시도")
+
+
+def _round_candidates(client, cfg: dict, args, prompt: str, out_dir: Path,
+                      index: int, total: int) -> list[Path]:
+    """「왜」 라운드마다 시드를 크게 밀어야 같은 그림이 다시 나오지 않는다."""
+    if index > 0:
+        print(f"  == 재시도 라운드 {index + 1}/{total}")
+    return generate_candidates(client, cfg, args, prompt, out_dir / f"r{index}",
+                               seed_offset=index * 100003)
+
+
+def _skip(args, root: Path, rejected: list[dict]) -> int:
+    """게시하지 않고 넘어간다. 기존 발행물이 있으면 그대로 둔다(덮어쓰지 않는다)."""
+    print(f"!! SKIP {args.id}: 전 후보 FAIL ({_reason_summary(rejected)})")
+    existing = root / "public/assets" / args.id / "base.png"
+    if existing.exists():
+        print(f"   기존 발행물을 유지합니다(덮어쓰지 않음): {existing}")
+    print("   manifest에 등록하지 않았습니다 — desc를 고치고 --only로 다시 돌리세요.")
     return 0
 
 
@@ -926,9 +972,9 @@ def _cleanup(args, out_dir: Path) -> None:
     shutil.rmtree(out_dir, ignore_errors=True)
 
 
-def _report(ranked: list[dict], written: list[str]) -> None:
-    best = ranked[0]["report"]
-    print(f"\n## 선정: {Path(ranked[0]['refined']).name} — QA {best['result']} (점수 {best['score']})")
+def _report(chosen: dict, written: list[str]) -> None:
+    best = chosen["report"]
+    print(f"\n## 선정: {Path(chosen['refined']).name} — QA {best['result']} (점수 {best['score']})")
     for key in qa.CHECK_ORDER:
         print(f"  - {key}: {best['checks'][key]} — {best['details'][key]}")
     print("\n## 변경 파일")

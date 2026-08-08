@@ -14,7 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections import Counter
+from collections import Counter, deque
 from pathlib import Path
 
 from PIL import Image
@@ -44,6 +44,11 @@ THRESHOLDS = {
     "sceneBlockWarn": 20.0, "sceneBlockFail": 30.0,
     "flatStdWarn": 6.0, "flatStdFail": 4.5,
     "flatColorsFail": 6,
+    # 「왜」 픽셀아트 LoRA 학습 데이터가 스프라이트 시트 위주라 "한 장에 여러 개"를
+    #      프롬프트로 완전히 막을 수 없다. 결과물에서 검출해 기각하는 쪽으로 간다.
+    "secondBlobWarn": 0.12, "secondBlobFail": 0.22,
+    "secondBlobEffect": 0.50,   # 이펙트는 파편이 흩어지는 게 정상이라 완화
+    "dominantExempt": 0.70,     # 최대 성분이 전체의 70%+면 나머지는 소품·그림자로 본다
     "opaqueAlpha": 250,            # museum.js OPAQUE_A
     "runLengthCap": 16,            # 대면적 단색을 그리드 추정에서 제외
     "gridDivisibleRatio": 0.80,
@@ -462,6 +467,85 @@ def _dominant_note(opaque: list) -> str:
     return f" · 지배색 {hexed} 점유 {count / len(opaque):.0%}"
 
 
+# ------------------------------------------------------------- 단일 피사체 검사
+
+# 「왜」 실측(콜라주 표본): sawmill 2위/1위 0.240 · pine_snow 0.301 · grain_bread 0.805 ·
+#      meat 0.868 → 전부 0.22 초과. 양품: house/market/berry_bush는 최대 성분이 전체의
+#      99%+라 면제 규칙에 걸린다. rock_node(바위 3개)는 서로 붙어 한 덩어리라 오검출 없음.
+# 「주의」 campfire·iron_node처럼 조각들이 서로 붙어 **한 덩어리로 융합된** 콜라주는
+#      연결 성분으로는 원리상 분리할 수 없다. 이 검사로는 못 잡는다(사람 눈 검수 필요).
+
+MIN_BLOB = 2   # 이보다 작은 조각은 노이즈로 보고 무시(despeckle가 1px는 이미 제거)
+
+
+def _components(img: Image.Image) -> list[int]:
+    """4-이웃 연결 성분의 면적 목록(내림차순). 「왜」 scipy 없이 순수 BFS — 128~256px면 충분히 빠르다."""
+    px = pp.pixels(img)
+    w, h = img.size
+    opaque = [p[3] >= THRESHOLDS["opaqueAlpha"] for p in px]
+    seen = bytearray(len(px))
+    areas = [_flood_area(opaque, seen, i, w, h) for i in range(len(px))
+             if opaque[i] and not seen[i]]
+    return sorted((a for a in areas if a >= MIN_BLOB), reverse=True)
+
+
+def _flood_area(opaque: list, seen: bytearray, start: int, w: int, h: int) -> int:
+    queue = deque([start])
+    seen[start] = 1
+    area = 0
+    while queue:
+        i = queue.popleft()
+        area += 1
+        _push_open(queue, opaque, seen, i, w, h)
+    return area
+
+
+def _push_open(queue: deque, opaque: list, seen: bytearray, i: int, w: int, h: int) -> None:
+    for n in pp._neighbors(i, w, h):
+        if opaque[n] and not seen[n]:
+            seen[n] = 1
+            queue.append(n)
+
+
+def check_single_subject(img: Image.Image, category: str) -> dict:
+    """한 캔버스에 피사체가 여럿 그려진(콜라주) 결과를 연결 성분으로 잡는다."""
+    anchor = pp.CATEGORY_SPECS.get(category, {}).get("anchor", "bottom")
+    if anchor == "fill":
+        return _result(SKIP, "타일은 단일 피사체 대상이 아닙니다.", None)
+    areas = _components(img)
+    if not areas:
+        return _result(FAIL, "불투명 성분이 없습니다.", None)
+    return _subject_verdict(areas, category)
+
+
+def _subject_verdict(areas: list[int], category: str) -> dict:
+    total = sum(areas)
+    top = areas[0]
+    second = areas[1] if len(areas) > 1 else 0
+    stats = {"blobs": len(areas), "top": top, "second": second,
+             "ratio": round(second / top, 3), "dominance": round(top / total, 3)}
+    detail = (f"성분 {stats['blobs']}개 · 1위 {top}px · 2위 {second}px · "
+              f"2위/1위 {stats['ratio']} · 1위/전체 {stats['dominance']}")
+    return _result(_subject_status(stats, category), detail, stats)
+
+
+def _subject_status(stats: dict, category: str) -> str:
+    """최대 성분이 전체의 70%+면 나머지는 그림자 조각·낙하 소품으로 보고 통과시킨다."""
+    if stats["dominance"] >= THRESHOLDS["dominantExempt"]:
+        return PASS
+    if category == "effect":
+        return _blob_status(stats["ratio"], THRESHOLDS["secondBlobEffect"])
+    return _blob_status(stats["ratio"], THRESHOLDS["secondBlobFail"])
+
+
+def _blob_status(ratio: float, fail_at: float) -> str:
+    if ratio > fail_at:
+        return FAIL
+    if ratio > THRESHOLDS["secondBlobWarn"]:
+        return WARNING
+    return PASS
+
+
 # ------------------------------------------------------- 타일 구도 검사 (장면/민무늬)
 
 # 「왜」 임계는 실물 8종 실측으로 보정했다(최종 64px, RGB). 아래가 그 근거표다.
@@ -739,10 +823,11 @@ def _shared_problems(s: dict, lim: dict) -> list[str]:
 
 CHECK_ORDER = ("palette", "translucent", "resolution", "pixelGrid",
                "outline", "light", "night", "frames", "sizeRatio",
-               "backgroundResidue", "seamScore", "tileComposition")
+               "backgroundResidue", "seamScore", "tileComposition", "singleSubject")
 
 # museum.js가 계산할 수 없는(정지 1장 분석으로는 불가능한) 파이프라인 전용 검사 목록.
-PIPELINE_ONLY_CHECKS = ("backgroundResidue", "seamScore", "tileComposition", "frameConsistency")
+PIPELINE_ONLY_CHECKS = ("backgroundResidue", "seamScore", "tileComposition",
+                        "singleSubject", "frameConsistency")
 
 
 def run_checks(png: Path, category: str, subcategory: str | None = None,
@@ -773,6 +858,7 @@ def _collect(m: dict, spec, box, sheet, frames, category, img) -> dict:
         "backgroundResidue": check_background_residue(img, category),
         "seamScore": check_seam(img, category),
         "tileComposition": check_tile_composition(img, category),
+        "singleSubject": check_single_subject(img, category),
     }
 
 

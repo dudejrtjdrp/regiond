@@ -110,5 +110,7 @@
   },
   "seamless": true,
   "seamBand": 7,
-  "_seamNote": "타일 심리스화. seamless=false로 끄고, seamBand로 섞을 가장자리 대역(px)을 조절한다. generate.py의 _postprocess_options가 cfg.get으로 실제로 읽는다."
+  "_seamNote": "타일 심리스화. seamless=false로 끄고, seamBand로 섞을 가장자리 대역(px)을 조절한다. generate.py의 _postprocess_options가 cfg.get으로 실제로 읽는다.",
+  "retryRounds": 2,
+  "_retryNote": "전 후보가 QA FAIL이면 새 시드로 이만큼 더 돌린다(라운드당 candidates장). 그래도 전부 FAIL이면 게시하지 않고 SKIP한다 — generate.py의 _rounds가 cfg.get으로 읽는다."
 }

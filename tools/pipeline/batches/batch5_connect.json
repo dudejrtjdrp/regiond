@@ -16,8 +16,8 @@
       "category": "building",
       "subcategory": "fence_wood",
       "size": "64x96",
-      "candidates": 4,
-      "desc": "one horizontal span of wooden palisade fence, two squared weathered pine posts eight pixels thick carrying two split rails four pixels thick that run dead straight and touch both the left frame edge and the right frame edge so identical spans join without a seam, hemp rope lashings at every joint, the same mid brown timber tone and grain as the other fence pieces, base flush with the bottom edge, one single subject only, not a row, not a set of variations, not multiple drawings, an unoccupied building, the building is empty, nobody present, no people, no figures, no characters, no animals, no surrounding village, no street, no other buildings, nothing else around it, empty surroundings, the building stands completely alone"
+      "candidates": 6,
+      "desc": "a single short section of wooden fence seen from a top-down three-quarter view, two vertical squared posts standing at the left and right ends with three horizontal rails spanning between them, clear open air visible through the gaps between the rails, the rails touch both the left frame edge and the right frame edge so identical sections join seamlessly, weathered pine timber with visible grain, an open post-and-rail fence and not a solid wall, not a mud wall, not a plastered surface, you can see through it, base flush with the bottom edge, one single subject only, not a row, not a set of variations, not multiple drawings, an inanimate object only, no people, no figures, no hands, no characters"
     },
     {
       "id": "building/fence_v",
@@ -25,8 +25,8 @@
       "category": "building",
       "subcategory": "fence_wood",
       "size": "64x96",
-      "candidates": 4,
-      "desc": "a run of wooden palisade fence receding away from the viewer, three squared weathered pine posts eight pixels thick in a line front to back with two split rails four pixels thick between them, the rails reaching the bottom frame edge in front and the top frame edge behind so identical runs join without a seam, hemp rope lashings, the same mid brown timber tone and rail height as the other fence pieces, one single subject only, not a row, not a set of variations, not multiple drawings, an unoccupied building, the building is empty, nobody present, no people, no figures, no characters, no animals, no surrounding village, no street, no other buildings, nothing else around it, empty surroundings, the building stands completely alone, base flush with the bottom edge"
+      "candidates": 6,
+      "desc": "a single short section of wooden fence running away from the viewer, three vertical squared posts in a line receding upward with three horizontal rails spanning between them, clear open air visible through the gaps between the rails, the run touches both the top frame edge and the bottom frame edge so identical sections join seamlessly, weathered pine timber with visible grain, an open post-and-rail fence and not a solid wall, not a mud wall, not a plastered surface, you can see through it, one single subject only, not a row, not a set of variations, not multiple drawings, an inanimate object only, no people, no figures, no hands, no characters"
     },
     {
       "id": "building/gate_wood",
@@ -52,8 +52,8 @@
       "category": "building",
       "subcategory": "fence_stone",
       "size": "64x96",
-      "candidates": 4,
-      "desc": "one horizontal run of gray granite wall, rectangular blocks laid in level courses twelve pixels thick under a continuous flat capstone that touches both the left frame edge and the right frame edge so identical runs join without a seam, chipped block corners and pale lichen in the joints, the same granite tone and wall height as the other stone wall pieces, base flush with the bottom edge, one single subject only, not a row, not a set of variations, not multiple drawings, an unoccupied building, the building is empty, nobody present, no people, no figures, no characters, no animals, no surrounding village, no street, no other buildings, nothing else around it, empty surroundings, the building stands completely alone"
+      "candidates": 6,
+      "desc": "a single short section of low stone wall seen from a top-down three-quarter view, rectangular gray granite blocks laid in three level courses with staggered vertical joints, a flat continuous capstone along the top, the wall touches both the left frame edge and the right frame edge so identical sections join seamlessly, a low dry-stone garden wall about waist height, cut stone blocks with visible mortar lines, not a mud wall, not a plastered surface, not a building facade, no roof, base flush with the bottom edge, one single subject only, not a row, not a set of variations, not multiple drawings, an inanimate object only, no people, no figures, no hands, no characters"
     },
     {
       "id": "building/wall_v",
@@ -61,8 +61,8 @@
       "category": "building",
       "subcategory": "fence_stone",
       "size": "64x96",
-      "candidates": 4,
-      "desc": "a run of gray granite wall receding away from the viewer, level courses of rectangular blocks twelve pixels thick with the flat capstone reaching the bottom frame edge in front and the top frame edge behind so identical runs join without a seam, chipped corners and pale lichen in the joints, the same granite tone and wall height as the other stone wall pieces, one single subject only, not a row, not a set of variations, not multiple drawings, an unoccupied building, the building is empty, nobody present, no people, no figures, no characters, no animals, no surrounding village, no street, no other buildings, nothing else around it, empty surroundings, the building stands completely alone, base flush with the bottom edge"
+      "candidates": 6,
+      "desc": "a single short section of low stone wall running away from the viewer, rectangular gray granite blocks laid in three level courses with staggered vertical joints and a flat capstone along the top, the run touches both the top frame edge and the bottom frame edge so identical sections join seamlessly, a low dry-stone garden wall about waist height, cut stone blocks with visible mortar lines, not a mud wall, not a plastered surface, not a building facade, no roof, one single subject only, not a row, not a set of variations, not multiple drawings, an inanimate object only, no people, no figures, no hands, no characters"
     },
     {
       "id": "building/gate_stone",

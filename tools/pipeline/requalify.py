@@ -58,7 +58,40 @@ def _previous(asset: dict) -> str:
 
 
 def requalify_all(root: Path, category: str | None) -> list[dict]:
-    return [requalify_one(root, a) for a in load_assets(root, category)]
+    rows = [requalify_one(root, a) for a in load_assets(root, category)]
+    return rows + unpublished(root, category, {r["id"] for r in rows})
+
+
+def unpublished(root: Path, category: str | None, known: set[str]) -> list[dict]:
+    """「왜」 무인 실행에서 전 후보 FAIL이면 generate.py가 게시를 건너뛴다(manifest에 안 들어감).
+       배치에는 있는데 manifest에 없는 id를 '미게시'로 드러내야 아침에 알아볼 수 있다."""
+    wanted = _batch_assets(category)
+    missing = sorted(i for i in wanted if i not in known)
+    # 「왜」 '아직 안 돌린 것'과 '돌렸는데 전부 FAIL이라 스킵된 것'을 여기서는 구분할 수 없다.
+    #      둘 다 '재생성 대상'이라는 점에서는 같으므로 한 상태로 묶어 보고한다.
+    return [{"id": i, "result": "미게시", "checks": {}, "details": {},
+             "was": "-", "png": str(root / "public/assets" / i / "base.png")} for i in missing]
+
+
+def _batch_assets(category: str | None) -> set[str]:
+    out: set[str] = set()
+    for path in sorted(BATCH_DIR.glob("*.json")):
+        out |= {e["id"] for e in _batch_entries(path) if _wanted(e, category)}
+    return out
+
+
+def _wanted(entry: dict, category: str | None) -> bool:
+    if not category:
+        return True
+    return entry.get("category") == category
+
+
+def _batch_entries(path: Path) -> list[dict]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return []
+    return [e for e in data.get("assets", []) if isinstance(e, dict) and "id" in e]
 
 
 # ---------------------------------------------------------------- 배치 역인덱스
@@ -73,11 +106,7 @@ def batch_index() -> dict[str, str]:
 
 
 def _entries(path: Path) -> list[str]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (ValueError, OSError):
-        return []
-    return [e["id"] for e in data.get("assets", []) if isinstance(e, dict) and "id" in e]
+    return [e["id"] for e in _batch_entries(path)]
 
 
 def _win(path: str) -> str:
@@ -123,7 +152,7 @@ def _orphan_lines(failed: list[str], index: dict[str, str]) -> list[str]:
 
 # ---------------------------------------------------------------- 출력
 
-STATUS_ORDER = ("FAIL", "WARNING", "PASS", "MISSING")
+STATUS_ORDER = ("FAIL", "미게시", "MISSING", "WARNING", "PASS")
 
 
 def print_table(rows: list[dict]) -> None:
@@ -139,6 +168,8 @@ def _sort_key(row: dict) -> tuple:
 
 
 def _problem_text(row: dict) -> str:
+    if row["result"] == "미게시":
+        return "manifest에 없습니다 — 미생성이거나 전 후보 QA FAIL로 게시가 스킵됐습니다"
     if row["result"] == "MISSING":
         return f"파일 없음: {_win(row['png'])}"
     bad = [k for k, v in row["checks"].items() if v in ("FAIL", "WARNING")]
@@ -156,7 +187,7 @@ def print_summary(rows: list[dict]) -> None:
 
 def _print_regressions(rows: list[dict]) -> None:
     """「왜」 '예전엔 PASS였는데 지금 FAIL'이 이번 규칙 강화로 새로 드러난 것들이다."""
-    newly = [r for r in rows if r["result"] == "FAIL" and r["was"] != "FAIL"]
+    newly = [r for r in rows if r["result"] == "FAIL" and r["was"] not in ("FAIL", "-")]
     if not newly:
         return
     print(f"\n새 규칙으로 새로 반려된 에셋 {len(newly)}건:")
@@ -165,9 +196,10 @@ def _print_regressions(rows: list[dict]) -> None:
 
 
 def print_rerun(rows: list[dict]) -> None:
-    failed = [r["id"] for r in sorted(rows, key=_sort_key) if r["result"] == "FAIL"]
+    redo = ("FAIL", "미게시", "MISSING")
+    failed = [r["id"] for r in sorted(rows, key=_sort_key) if r["result"] in redo]
     if not failed:
-        print("\nFAIL 에셋이 없습니다 — 재생성할 것이 없습니다.")
+        print("\nFAIL·미게시 에셋이 없습니다 — 재생성할 것이 없습니다.")
         return
     print(f"\n{'=' * 96}\n재생성 명령 (Windows, 프로젝트 루트에서 실행)\n{'=' * 96}")
     for line in rerun_commands(failed, batch_index()):
@@ -177,7 +209,7 @@ def print_rerun(rows: list[dict]) -> None:
 def write_back(root: Path, rows: list[dict]) -> int:
     """--write: 재검사 결과를 manifest/meta의 qa 필드에 반영한다."""
     manifest = register.load_manifest(root)
-    by_id = {r["id"]: r for r in rows if r["result"] != "MISSING"}
+    by_id = {r["id"]: r for r in rows if r["result"] not in ("MISSING", "미게시")}
     changed = _apply_results(manifest, by_id)
     if changed:
         register.write_json_atomic(root / register.MANIFEST_REL, manifest)
