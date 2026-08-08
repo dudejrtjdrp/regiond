@@ -272,6 +272,14 @@ export function measure(world, nation, cond, data) {
       const have = settlementTier(nation);
       return { ok: have >= cond.tier, have, need: cond.tier };
     }
+    /* ★ §21-C3 — 얼굴을 익힌 이웃의 수(`visitNation` 이 적어 두는 nation.metNations).
+       9장이 이 잣대를 쓰는 까닭: 「이웃 나라 찾아가기」(§17-16)는 이미 만들어져 있는데 어느 장도
+       가리키지 않아 아무도 모르고 지나간다. 세어야 할 것은 관계 점수가 아니라 **가 봤는가**다. */
+    case 'metNations': {
+      const have = Object.keys(nation.metNations || {}).length;
+      const need = needOf(nation, cond, cond.count ?? 1);
+      return { ok: have >= need, have, need };
+    }
     case 'flag': {
       const have = ensureProgress(nation).flags[cond.flag] ? 1 : 0;
       return { ok: have === 1, have, need: 1 };
@@ -639,6 +647,17 @@ function targetsFor(world, nation, target, data) {
   } else if (target.type === 'point' && target.source === 'trace') {
     const p = ensureProgress(nation);
     if (p.trace) out.push({ kind: 'point', id: 'trace', x: p.trace.x, y: p.trace.y, name: '낯선 발자국' });
+  } else if (target.type === 'town') {
+    /* ★ §21-C3 — 바깥 나라의 도읍. 안개를 묻지 않는다(노드와 다르다): 이웃 나라가 어디에 있는지는
+       비밀이 아니다 — 예언과 연대기가 이미 그 이름을 말해 두었다. 숨은 것은 자리가 아니라 **길**이고,
+       그 길을 걷는 것이 이 칸의 전부다. 아직 얼굴을 못 익힌 나라를 먼저 가리킨다. */
+    const met = nation.metNations || {};
+    for (const t of world.map?.towns || []) {
+      if (t.isPlayer || t.nationId === nation.id) continue;
+      out.push({ kind: 'town', id: t.nationId, x: t.x, y: t.y, name: nationName(t.nationId, data) });
+    }
+    out.sort((a, b) => (met[a.id] ? 1 : 0) - (met[b.id] ? 1 : 0) || near(a, b));
+    out.length = Math.min(out.length, 3);
   } else if (target.type === 'camp') {
     for (const c of world.camps || []) {
       if (c.nationId && c.nationId !== nation.id) continue;
@@ -665,6 +684,12 @@ function targetsFor(world, nation, target, data) {
 }
 
 const HOUSING = ['tent', 'hut', 'house', 'manor'];
+
+/** 바깥 나라의 이름 — 자료가 쥔다(id 는 세이브 호환용이라 화면에 내지 않는다) */
+function nationName(id, data) {
+  const found = (data.aiNations?.nations || []).find((n) => n.id === id);
+  return found?.name ?? id;
+}
 
 /** 빈 잠자리와, 지금 지을 수 있는 가장 좋은 주거 */
 function housingBeds(nation, data) {

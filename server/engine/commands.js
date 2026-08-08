@@ -974,6 +974,9 @@ function runCommand(world, nationId, cmd, data, rng) {
         countTradeGold(nation, partnerId, cost);   // ★ §세계관 W3 — 재회의 근사 게이지
         onTradeDone(world, nation, partnerId, cost, data, cmd._relBonus || 0);   // ★ §세계관 W4
         recordTradeFlow(world, nation.id, partnerId, resource, amt, 'buy');
+        /* ★ §21-C3 — 값을 주고받아 봤다는 사실 하나. 8장의 「첫 거래」 칸이 이 깃발만 본다
+           (사고파는 방향도 액수도 묻지 않는다 — 배우는 것은 '주고받는다'는 동사 하나다). */
+        setFlag(nation, 'traded');
         return ok({ side, resource, amount: amt, unitPrice: round2(unit), gold: round2(-cost) });
       }
       if (side === 'sell') {
@@ -993,6 +996,9 @@ function runCommand(world, nationId, cmd, data, rng) {
         countTradeGold(nation, partnerId, gain);   // ★ §세계관 W3 — 재회의 근사 게이지
         onTradeDone(world, nation, partnerId, gain, data, cmd._relBonus || 0);   // ★ §세계관 W4
         recordTradeFlow(world, nation.id, partnerId, resource, amt, 'sell');
+        /* ★ §21-C3 — 값을 주고받아 봤다는 사실 하나. 8장의 「첫 거래」 칸이 이 깃발만 본다
+           (사고파는 방향도 액수도 묻지 않는다 — 배우는 것은 '주고받는다'는 동사 하나다). */
+        setFlag(nation, 'traded');
         return ok({ side, resource, amount: amt, unitPrice: round2(unit), gold: round2(gain) });
       }
       return err('BAD_SIDE', 'side 는 buy 또는 sell 입니다.');

@@ -10,7 +10,8 @@
     "buildSlot": "배치대에서 고를 것 — 월드 좌표가 없다(단추를 가리킨다)",
     "ui": "화면 단추",
     "point": "월드 좌표 하나(정찰 지점 등)",
-    "resident": "주민"
+    "resident": "주민",
+    "town": "바깥 나라의 도읍 — ★ §21-C3. 안개를 묻지 않는다(이웃이 어디 있는지는 비밀이 아니다). 아직 얼굴을 못 익힌 나라를 먼저 가리킨다"
   },
   "chapters": [
     {
@@ -531,7 +532,11 @@
           "ballista",
           "cannon",
           "banner",
-          "bloomery"
+          "bloomery",
+          "manor",
+          "ranch",
+          "mill",
+          "fountain"
         ],
         "features": [
           "scout",
@@ -618,6 +623,13 @@
           },
           "target": {
             "type": "camp"
+          },
+          "opens": {
+            "_note": "★ §21-C3 — 한 무리를 겪어 봤으니 더 나은 탑을 준다. 「막아 낸 뒤에 열리는 방어」가 「처음부터 다 주는 방어」보다 낫다 — 무엇이 모자랐는지 알고 나서 고르게 된다.",
+            "buildings": [
+              "frost_tower",
+              "flame_tower"
+            ]
           }
         }
       ],
@@ -629,7 +641,8 @@
           "title": "장사꾼의 길",
           "text": "바깥과 값을 주고받을 때가 되었습니다 — 교역소를 세우세요."
         }
-      }
+      },
+      "_opensNote": "★ §21-C3 — 살림 넷(저택·목장·방앗간·분수)이 여기서 열린다. 7장은 인구가 25를 넘어 티어 4로 오르는 시기인데, 정작 티어 4 살림은 장 사슬 밖이라 **10장에 들어서야** 배치대에 떴다 (진행 감독은 마지막 장 전에는 티어 해금을 합류시키지 않는다 — §11 새치기 봉쇄). 그래서 「티어는 오르는데 지을 것이 없는」 구간이 7~9장 내내 이어졌다. 지금은 티어가 오르는 그 장에서 열린다."
     },
     {
       "id": 8,
@@ -690,6 +703,50 @@
               "building": "trading_post",
               "sel": "#tb-build"
             }
+          },
+          "opens": {
+            "_note": "★ §21-C3 — 무역을 **장 보상이 아니라 이 칸**이 연다. 예전에는 교역소를 다 세워도 장이 끝나야 좌판이 열려서, 「지었는데 아무 일도 안 난다」가 되었다. 지은 그 자리에서 열려야 다음 칸(첫 거래)이 이어진다.",
+            "features": [
+              "trade"
+            ],
+            "ui": [
+              "panel.trade"
+            ],
+            "commands": [
+              "trade",
+              "respondOffer",
+              "setAutoExport",
+              "setExportFloor",
+              "buyTool",
+              "sellWeapon",
+              "setQueue"
+            ]
+          }
+        },
+        {
+          "key": "first_trade",
+          "title": "바깥과 첫 거래를 트세요",
+          "short": "첫 거래",
+          "sub": "교역소를 눌러 좌판을 엽니다. 남는 것을 팔든 모자란 것을 사든, 한 번이면 됩니다.",
+          "verb": "교역소 — 사고팔기",
+          "condition": {
+            "type": "flag",
+            "flag": "traded"
+          },
+          "target": {
+            "type": "structure",
+            "building": "trading_post",
+            "fallback": {
+              "type": "buildSlot",
+              "building": "trading_post",
+              "sel": "#tb-build"
+            }
+          },
+          "opens": {
+            "_note": "★ §21-C3 — 값을 주고받고 나면 이웃의 이름을 알게 된다. 영사관(티어 5)이 여기서 열린다.",
+            "buildings": [
+              "consulate"
+            ]
           }
         }
       ],
@@ -697,21 +754,7 @@
         "fanfare": "caravan",
         "line": "첫 상단이 먼지를 일으키며 다가온다.",
         "opens": {
-          "features": [
-            "trade"
-          ],
-          "ui": [
-            "panel.trade"
-          ],
-          "commands": [
-            "trade",
-            "respondOffer",
-            "setAutoExport",
-            "setExportFloor",
-            "buyTool",
-            "sellWeapon",
-            "setQueue"
-          ]
+          "_note": "★ §21-C3 — 무역 해금은 첫 칸(trading_post_built)으로 옮겼다. 여기 남는 것은 연출뿐이다."
         },
         "card": {
           "icon": "ship",
@@ -755,7 +798,12 @@
           "mine_shaft",
           "barracks",
           "market",
-          "bloomery"
+          "bloomery",
+          "library",
+          "monument",
+          "workshop",
+          "station",
+          "academy"
         ],
         "features": [
           "equipment"
@@ -790,6 +838,20 @@
               "sel": "#tb-build"
             }
           }
+        },
+        {
+          "key": "met_neighbor",
+          "title": "이웃 나라를 찾아가 보세요",
+          "short": "이웃 방문",
+          "sub": "바깥 나라의 도읍 앞까지 걸어가면 첩이 펼쳐집니다. 어디에 무엇이 있는지는 지도가 압니다.",
+          "verb": "도읍 앞 — 찾아가기",
+          "condition": {
+            "type": "metNations",
+            "count": 1
+          },
+          "target": {
+            "type": "town"
+          }
         }
       ],
       "reward": {
@@ -815,7 +877,8 @@
           "title": "어전 회의와 유물",
           "text": "회의는 오른쪽 알림에 쌓입니다 — 여는 건 언제나 그대입니다."
         }
-      }
+      },
+      "_opensNote": "★ §21-C3 — 티어 5·6 건물(기념비·공방·정거장·서고·대학당)이 여기서 열린다. 「나라의 격」이라는 장 이름이 가리키는 것들인데 전부 장 사슬 밖이라 10장까지 잠겨 있었다."
     },
     {
       "id": 10,
