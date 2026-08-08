@@ -256,7 +256,8 @@ function openCache(world, nation, node, data) {
   let artifact = null;
   if (rng.chance(cacheArtifactChance(world, nation, node, cfg, data))) artifact = grantRandomArtifact(nation, data, rng, world.tick);
   removeNode(world, node.id);
-  return { nodeId: node.id, gold, artifact, total: round2(nation.gold) };
+  // ★ §20-R2 — 궤가 앉았던 자리. 유물이 나오면 그 자리에 빛기둥이 선다(연출은 클라 몫).
+  return { nodeId: node.id, gold, artifact, total: round2(nation.gold), x: node.x, y: node.y };
 }
 
 // ────────────────────────────────────────────────────────────────

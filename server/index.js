@@ -47,7 +47,7 @@ import {
 } from './engine/social.js';
 // ★ Sprint 3 — markDirty: 사건 경로의 동기 저장을 걷어낸 미룬 저장(persistence.js 주석 참고)
 import { saveSnapshot, markDirty, loadSnapshot, appendEvents, listGames, savesDir } from './persistence.js';
-import { ExpressionQueue } from './expression/index.js';
+import { ExpressionQueue, artifactGlobalPush } from './expression/index.js';
 // ★ §20-R1.5 — 언어의 돌(expressionQuality)이 표현 계층까지 닿게 하는 한 칸
 import { expressionQualityOf } from './engine/artifacts.js';
 
@@ -416,6 +416,12 @@ class GameRuntime {
     return result;
   }
 
+  /** 레전더리만 전역으로. 보낼지 말지와 문구는 표현 계층이 정한다(artifactGlobalPush). */
+  emitArtifactGlobal(e) {
+    const push = artifactGlobalPush(e, this.world.nations[e.nationId]?.name, data);
+    if (push) io.emit('artifactGlobal', push);
+  }
+
   emitTypedEvent(e) {
     switch (e.kind) {
       case 'emotion_day': io.to(this.gameId).emit('emotionDay', e.data); break;
@@ -434,6 +440,10 @@ class GameRuntime {
       case 'wave_incoming': io.to(this.gameId).emit('waveIncoming', e.data); break;
       case 'wave_held':
       case 'wave_breached': io.to(this.gameId).emit('waveResult', e.data); break;
+      /* ★ §20-R2(유물기획 §20-7) — 레전더리 유물은 **서버 전체**가 안다.
+         「왜」 io.emit 인가 — 이 알림의 값어치는 「내 방 밖에서도 안다」에 있다. 다른 방에는
+         금띠 배너 한 줄만 가고(연출은 발동자 본인 몫), 판정·상태는 한 톨도 건너가지 않는다. */
+      case 'artifact_found': this.emitArtifactGlobal(e); break;
       case 'council_open': {
         const council = this.world.councils.find((c) => c.councilId === e.data.councilId);
         if (council) io.to(this.gameId).emit('council', council);

@@ -235,6 +235,8 @@
     /* ★ §세계관 W2 — 이야기 연출. story.js 가 대화창으로 흘린다 */
     socket.on('storyBeat', function (p) { if (GM.story) GM.story.onBeat(p); S.emit('storyBeat', p); });
     socket.on('mandate', function (p) { S.set({ mandate: p }); S.emit('mandate', p); });
+    /* ★ §20-R2 — 레전더리 유물의 전역 알림. **서버 전체**가 받는다(내 방 것이 아닐 수도 있다) */
+    socket.on('artifactGlobal', function (p) { S.emit('artifactGlobal', p); });
     socket.on('council', function (p) { S.set({ council: p }); S.emit('council', p); });
     socket.on('campSpotted', function (p) { S.emit('campSpotted', p); });
     socket.on('campScouted', function (p) { S.emit('campScouted', p); });

@@ -27,6 +27,14 @@
   /* ★ GDD3 §13-B-5 — 사나운 땅(링2)에 발을 들인 순간 화면 **가장자리**가 한 번 붉어진다.
      화면 전체를 물들이면 지금 하던 일이 안 보인다 — 가운데는 그대로 두고 테두리만 경고한다. */
   var danger = { t: 0, dur: 0 };
+  /* ★ §20-R2 — 유물 획득 연출. beams 는 월드층(방 안 모두가 본다), vig 는 화면층(발동자만).
+     둘 다 **그리기 전용**이라 시계·판정에 닿지 않는다. */
+  var beams = [];        // 빛기둥 {x,y,t,dur,color,w,h,rings,scale}
+  var vig = { t: 0, dur: 0, color: '#e8a33d' };
+  /* ★ §20-R2 슬로모 — **이 계층의 시계만** 늦춘다. 「왜」 여기만인가 —
+     서버 tick 과 전투 서브틱은 서버가 쥐고, 사람·짐승의 걸음(stepUnits)은 서버 좌표를 따라가는
+     보간이라 늦추면 밀렸다가 순간이동한다. 늦춰서 멋있어지는 것은 파티클·빛기둥뿐이다. */
+  var slow = { until: 0, scale: 1 };
 
   var layer = null, lctx = null, LW = 0, LH = 0;
 
@@ -141,6 +149,26 @@
     }
   }
 
+  /**
+   * ★ §20-R2 빛기둥 — 그 자리에서 하늘로 솟는 빛 한 줄기.
+   * 「왜」 월드층인가 — 획득 지점은 **자리**다. 화면층에 그리면 카메라를 돌렸을 때 빛이 따라와
+   * 「어디서 났는지」를 잃는다. 같은 방의 다른 사람에게는 scale 을 줄여 작게 세운다.
+   * @param {object} o {x,y,color,seconds,widthTiles,heightTiles,ringCount,scale}
+   */
+  function beam(o) {
+    if (!o || o.x == null) return;
+    push(beams, { x: o.x, y: o.y, t: 0, dur: o.seconds || 2.4, color: o.color || '#f6cf7a',
+                  w: o.widthTiles || 1.1, h: o.heightTiles || 9,
+                  rings: o.ringCount || 3, scale: o.scale || 1 }, 6);
+  }
+
+  /** ★ §20-R2 비네트 — 화면 네 귀퉁이가 등급색으로 어두워진다(레전더리 전용) */
+  function vignette(color, seconds) {
+    vig.color = color || '#e8a33d';
+    vig.dur = seconds || 2.2;
+    vig.t = 0;
+  }
+
   function ring(x, y, color, r0, r1, dur, w) {
     push(rings, { x: x, y: y, t: 0, dur: dur || 0.55, color: color || '#f6cf7a',
                   r0: r0 === undefined ? 0.2 : r0, r1: r1 === undefined ? 1.6 : r1, w: w || 2.5 }, 24);
@@ -195,8 +223,15 @@
                  color: color || '#f6e6a8', key: resKey, hit: false }, MAX_POPS);
   }
 
+  /** @param {number} scale 0<scale<1 이면 느려진다 @param {number} ms 몇 밀리초 동안 */
+  function slowmo(scale, ms) {
+    slow.scale = scale > 0 ? scale : 1;
+    slow.until = now() + (ms || 0);
+  }
+
   /* ══════════ 스텝 ══════════ */
-  function step(dt) {
+  function step(dtRaw) {
+    var dt = now() < slow.until ? dtRaw * slow.scale : dtRaw;
     var i;
     for (i = parts.length - 1; i >= 0; i--) {
       var pt = parts[i];
@@ -216,7 +251,9 @@
       if (floats[i].t > floats[i].dur) floats.splice(i, 1);
     }
     for (i = flashes.length - 1; i >= 0; i--) { flashes[i].t += dt; if (flashes[i].t > flashes[i].dur) flashes.splice(i, 1); }
+    for (i = beams.length - 1; i >= 0; i--) { beams[i].t += dt; if (beams[i].t > beams[i].dur) beams.splice(i, 1); }
     if (danger.dur > 0) danger.t += dt;
+    if (vig.dur > 0) vig.t += dt;
     var t0 = now();
     for (i = stumps.length - 1; i >= 0; i--) if (t0 - stumps[i].born > stumps[i].life) stumps.splice(i, 1);
     if (shake.t < shake.dur) shake.t += dt;
@@ -279,6 +316,7 @@
       ctx.stroke();
       ctx.restore();
     }
+    drawBeams(ctx, tile);
     /* 파편 — ★ Sprint 3: 파편은 한 번에 260개까지 살아 있고 프레임마다 전부 그린다.
        그 자리마다 점 객체를 낳으면 초당 만 개가 넘는 쓰레기가 된다. 좌표만 세는 셈으로 바꾼다
        (worldToScreenX/Y 는 worldToScreen 과 **같은 식**이다 — 그림은 한 점도 안 달라진다). */
@@ -308,6 +346,44 @@
       try { ctx.fillText(f.text, fpx, fpy); } catch (e2) {}
     }
     ctx.restore();
+  }
+
+  /* 빛기둥 — 아래는 진하고 위로 갈수록 스러진다. 밑동에 퍼지는 고리 몇을 얹어 「내려앉는」 결을 낸다 */
+  function drawBeams(ctx, tile) {
+    for (var i = 0; i < beams.length; i++) {
+      var b = beams[i];
+      var k = b.t / b.dur;
+      var grow = Math.min(1, k * 4);                       // 솟는 데 4분의 1
+      var fade = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
+      drawOneBeam(ctx, tile, b, grow, fade);
+    }
+  }
+
+  function drawOneBeam(ctx, tile, b, grow, fade) {
+    var c = GM.camera.worldToScreen(b.x, b.y);
+    var w = tile * b.w * b.scale;
+    var h = tile * b.h * b.scale * grow;
+    var g = ctx.createLinearGradient(0, c.y - h, 0, c.y);
+    g.addColorStop(0, U.rgba(b.color, 0));
+    g.addColorStop(1, U.rgba(b.color, 0.62 * fade));
+    ctx.save();
+    ctx.fillStyle = g;
+    ctx.fillRect(c.x - w / 2, c.y - h, w, h);
+    drawBeamRings(ctx, tile, b, c, fade);
+    ctx.restore();
+  }
+
+  function drawBeamRings(ctx, tile, b, c, fade) {
+    ctx.strokeStyle = b.color;
+    ctx.lineWidth = 2;
+    for (var r = 0; r < b.rings; r++) {
+      var rk = ((b.t / b.dur) * 2 + r / b.rings) % 1;
+      ctx.globalAlpha = (1 - rk) * 0.5 * fade;
+      ctx.beginPath();
+      ctx.ellipse(c.x, c.y, tile * b.w * b.scale * (0.4 + rk * 1.5), tile * 0.28 * b.scale * (0.4 + rk * 1.5), 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
   }
 
   /** 그루터기는 지형 위·건물 아래에 깔린다 */
@@ -366,15 +442,31 @@
      기억해 둔다(layerWasDirty). 눈에 보이는 결과는 옛것과 똑같다. */
   var layerWasDirty = false;
 
+  /* ★ §20-R2 — 네 귀퉁이만 등급색으로 눌러 「지금 이것을 봐라」를 만든다(가운데는 건드리지 않는다) */
+  function drawVignette() {
+    if (vig.dur <= 0) return;
+    var k = vig.t / vig.dur;
+    if (k >= 1) { vig.dur = 0; return; }
+    var g = lctx.createRadialGradient(LW / 2, LH / 2, Math.min(LW, LH) * 0.28, LW / 2, LH / 2, Math.max(LW, LH) * 0.72);
+    g.addColorStop(0, U.rgba(vig.color, 0));
+    g.addColorStop(1, U.rgba(vig.color, 0.5));
+    lctx.save();
+    lctx.globalAlpha = Math.sin(Math.PI * k);
+    lctx.fillStyle = g;
+    lctx.fillRect(0, 0, LW, LH);
+    lctx.restore();
+  }
+
   function drawLayer() {
     if (!lctx) return;
-    var hasWork = danger.dur > 0 || flashes.length > 0 || pops.length > 0;
+    var hasWork = danger.dur > 0 || flashes.length > 0 || pops.length > 0 || vig.dur > 0;
     if (!hasWork && !layerWasDirty) return;
     layerWasDirty = hasWork;
     lctx.clearRect(0, 0, LW, LH);
     if (!hasWork) return;                 // 마지막 뒷정리 — 지우기만 하고 끝낸다
     var i;
     drawDangerEdge();
+    drawVignette();
     for (i = 0; i < flashes.length; i++) {
       var fl = flashes[i];
       lctx.save();
@@ -409,6 +501,9 @@
   function reset() {
     parts = []; arcs = []; rings = []; floats = []; stumps = []; slashes = []; pops = [];
     flashes = []; shakes = {};
+    beams = [];                                        // ★ §20-R2 — 판을 갈면 빛기둥도 함께 걷힌다
+    vig = { t: 0, dur: 0, color: vig.color };
+    slow = { until: 0, scale: 1 };
     danger = { t: 0, dur: 0 };
     shake = { t: 0, dur: 0, power: 0 };
     freezeUntil = 0;
@@ -417,6 +512,7 @@
 
   GM.fx = {
     mount: mount, resize: resize, step: step, drawWorld: drawWorld, drawStumps: drawStumps,
+    beam: beam, vignette: vignette, slowmo: slowmo,
     drawLayer: drawLayer, reset: reset, busy: busy,
     hitStop: hitStop, frozen: frozen, shakeScreen: shakeScreen, shakeOffset: shakeOffset, flash: flash,
     swingArc: swingArc, slash: slash, debris: debris, dust: dust, sparkle: sparkle,

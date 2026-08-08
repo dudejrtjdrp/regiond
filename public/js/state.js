@@ -143,13 +143,15 @@
     field:   { name: '밭',        color: '#e0c65a', job: 'farm',   res: 'grain',   verb: '거둔다', skill: 'farm',   icon: 'farmTile' }
   };
 
-  var GRADES = {
-    common:    { name: '흔한 것',   cls: 'g-common',    color: '#9c8f76' },
-    uncommon:  { name: '쓸 만한 것', cls: 'g-uncommon',  color: '#6a994e' },
-    rare:      { name: '귀한 것',   cls: 'g-rare',      color: '#4a6fa5' },
-    unique:    { name: '하나뿐인 것', cls: 'g-unique',  color: '#8367a8' },
-    legendary: { name: '전설의 것', cls: 'g-legendary', color: '#e8a33d' },
-    fixed:     { name: '약속된 것', cls: 'g-legendary', color: '#e8a33d' }
+  /* ★ §20-R2 — 등급표의 정본은 **data/artifacts.json grades** 다(이름·색·CSS 클래스·연출 급).
+     「왜」 옮겼나 — 화면이 제 이름표를 들고 있어서, 서버가 「일반·레어·유니크·레전더리」라 부르는
+     동안 유물함은 「흔한 것·귀한 것」이라 적었다. 아래는 규격이 아직 안 온 첫 프레임(로비)용 대비값이다. */
+  var GRADES_FALLBACK = {
+    common:    { name: '일반',      cls: 'g-common',    color: '#9c8f76', fxTier: 1 },
+    rare:      { name: '레어',      cls: 'g-rare',      color: '#4a6fa5', fxTier: 2 },
+    unique:    { name: '유니크',    cls: 'g-unique',    color: '#8367a8', fxTier: 3 },
+    legendary: { name: '레전더리',  cls: 'g-legendary', color: '#e8a33d', fxTier: 4 },
+    fixed:     { name: '약속된 것', cls: 'g-legendary', color: '#e8a33d', fxTier: 3 }
   };
 
   /* ── 웨이브 적 6종 (config.waves.types 가 정본) ── */
@@ -1390,6 +1392,11 @@
     var w = worldCfg();
     return (w && w.render && w.render.dialogue) || DIALOGUE_FALLBACK;
   }
+  /* ★ §20-R2 — 획득 연출의 박자(data/world.json render.artifactFx). 없으면 빈 표라 연출이 조용히 준다. */
+  function artifactFxCfg() {
+    var w = worldCfg();
+    return (w && w.render && w.render.artifactFx) || {};
+  }
   function buildingDef(key) {
     var b = buildingsCfg();
     var d = b && b.defs && b.defs[key];
@@ -1494,7 +1501,19 @@
     if (n.tagNames && n.tagNames.length) return n.tagNames;
     return (n.tags || []).map(tagName);
   }
-  function gradeInfo(g) { return GRADES[g] || GRADES.common; }
+  function gradeTable() {
+    var c = S.config;
+    var t = c && c.artifacts && c.artifacts.grades;
+    return (t && t.common) ? t : GRADES_FALLBACK;
+  }
+  /** 등급 한 칸. 규격에 빠진 자리는 대비값이 메운다 — 옛 규격으로도 화면이 서야 한다. */
+  function gradeInfo(g) {
+    var t = gradeTable();
+    var d = t[g] || GRADES_FALLBACK[g] || t.common || GRADES_FALLBACK.common;
+    var f = GRADES_FALLBACK[g] || GRADES_FALLBACK.common;
+    return { name: d.name || f.name, cls: d.cls || f.cls, color: d.color || f.color,
+             fxTier: d.fxTier || f.fxTier };
+  }
   function artifactDef(key) {
     var c = S.config;
     if (!c) return null;
@@ -1612,6 +1631,7 @@
     hasForeignPrices: hasForeignPrices, hasPreciseWave: hasPreciseWave,
     resourceMeta: resourceMeta, roleMeta: roleMeta, skillMeta: skillMeta,
     artifactDef: artifactDef, decisionQueue: decisionQueue, offers: offers, gradeInfo: gradeInfo,
+    artifactFxCfg: artifactFxCfg,
     tradePartners: tradePartners,
     wordFor: wordFor,
 
@@ -1659,7 +1679,9 @@
 
     RESOURCES: RESOURCES, BASIC3: BASIC3, SKILLS: SKILLS, ROLES: ROLES, LABOR: LABOR, JOBS: JOBS,
     BUILD_CATEGORIES: BUILD_CATEGORIES, TOOLS: TOOLS, TERRAIN: TERRAIN, NODES: NODES,
-    GRADES: GRADES, ENEMIES: ENEMIES, DIRECTION: DIRECTION, DAY_PHASES: DAY_PHASES,
+    /* ★ §20-R2 — 규격이 붙기 전(로비)에도 무엇이라도 답해야 하는 자리라 대비값을 그대로 내준다.
+       살아 있는 값을 원하면 gradeInfo(등급) 를 쓸 것 — 그쪽이 data/artifacts.json 을 읽는다. */
+    GRADES: GRADES_FALLBACK, ENEMIES: ENEMIES, DIRECTION: DIRECTION, DAY_PHASES: DAY_PHASES,
     NATION_COLORS: NATION_COLORS, EMPTY_SEL: EMPTY_SEL
   };
 })(window);

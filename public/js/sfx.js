@@ -142,7 +142,32 @@
     slash:   function () { noise(0.045, 0.4); tone({ f: 1400, f2: 500, d: 0.07, v: 0.3, type: 'sawtooth' }); },
     kill:    function () { noise(0.09, 0.46); tone({ f: 260, f2: 90, d: 0.16, v: 0.38, type: 'square' }); },
     fenceBreak: function () { noise(0.16, 0.5); tone({ f: 190, f2: 80, d: 0.2, v: 0.42, type: 'square' }); },
-    hurt:    function () { tone({ f: 300, f2: 150, d: 0.14, v: 0.4, type: 'sawtooth' }); noise(0.06, 0.3); }
+    hurt:    function () { tone({ f: 300, f2: 150, d: 0.14, v: 0.4, type: 'sawtooth' }); noise(0.06, 0.3); },
+
+    /* ══ ★ §20-R2 유물 획득 3종 (유물기획 §20-7) ══
+       「왜」 등급마다 다른 소리인가 — 같은 소리로는 「대박이다」가 오지 않는다. 셋 다 파일 없이
+       위의 tone/noise 로만 짓는다(외부 오디오 에셋 없음). 급이 오를수록 화성이 두꺼워진다:
+       ① 레어 = 3음 아르페지오(도-미-솔) ② 유니크 = 장3화음 스웰(동시에 울려 부풀린다)
+       ③ 레전더리 = 5음 팡파레 + 저음 드론. */
+    relicRare: function () {
+      [523, 659, 784].forEach(function (f, i) {
+        tone({ f: f, d: 0.17, v: 0.3, delay: i * 0.075, type: 'triangle' });
+      });
+      tone({ f: 1047, d: 0.3, v: 0.22, delay: 0.23, type: 'triangle' });
+    },
+    relicUnique: function () {
+      /* 합창풍 스웰 — 세 음을 한꺼번에 길게 깔고, 옥타브 위를 늦게 얹어 부푸는 결을 만든다 */
+      [392, 494, 587].forEach(function (f) { tone({ f: f, d: 0.85, v: 0.19, type: 'triangle' }); });
+      [784, 988].forEach(function (f, i) { tone({ f: f, d: 0.7, v: 0.13, delay: 0.3 + i * 0.09, type: 'triangle' }); });
+    },
+    relicLegend: function () {
+      [523, 659, 784, 1047, 1319].forEach(function (f, i) {
+        tone({ f: f, d: 0.22, v: 0.34, delay: i * 0.11, type: 'square' });
+      });
+      tone({ f: 1568, d: 0.8, v: 0.26, delay: 0.62, type: 'triangle' });
+      tone({ f: 131, d: 1.5, v: 0.2, delay: 0.02, type: 'triangle' });      /* 저음 드론 */
+      tone({ f: 196, d: 1.3, v: 0.15, delay: 0.02, type: 'triangle' });
+    }
   };
 
   function play(name) {

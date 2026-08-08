@@ -453,21 +453,28 @@
     if (!root || !opts) return null;
     var d = epicCfg();
     clear(root);
-    if (opts.veil) root.appendChild(epicVeil(d));
+    if (opts.veil) root.appendChild(epicVeil(d, opts.veilAlpha));
+    /* ★ §20-R2 — 제목 없이 **어둠만** 덮는 길. 유물 획득 연출은 글자 대신 카드가 주인공이라
+       큰 제목을 얹으면 두 개가 서로를 가린다(박자는 아래 epicOut 이 그대로 쥔다). */
+    if (opts.veilOnly) { scheduleEpicOut(root, d, opts); return null; }
     var card = el('div', 'epic epic-' + (opts.kind || 'land'));
     card.appendChild(el('span', 'ep-t', opts.title || ''));
     if (opts.sub) card.appendChild(el('span', 'ep-s', opts.sub));
     root.appendChild(card);
     void card.offsetWidth;
     card.classList.add('in');
-    clearTimeout(epicTimer);
-    epicTimer = setTimeout(function () { epicOut(root, d.fadeMs || 520); }, opts.ms || d.holdMs || 2400);
+    scheduleEpicOut(root, d, opts);
     return card;
   }
+  function scheduleEpicOut(root, d, opts) {
+    clearTimeout(epicTimer);
+    epicTimer = setTimeout(function () { epicOut(root, d.fadeMs || 520); }, opts.ms || d.holdMs || 2400);
+  }
   /** 날이 바뀌는 전환 — 어둠이 한 번 덮었다 걷힌다(제목과 같은 박자로 사라진다) */
-  function epicVeil(d) {
+  function epicVeil(d, alphaOverride) {
     var v = el('div', 'ep-veil decor');
-    v.style.setProperty('--ep-veil-a', d.veilAlpha == null ? 0.5 : d.veilAlpha);
+    var a = alphaOverride == null ? d.veilAlpha : alphaOverride;
+    v.style.setProperty('--ep-veil-a', a == null ? 0.5 : a);
     setTimeout(function () { v.classList.add('in'); }, 0);
     return v;
   }

@@ -16,8 +16,8 @@ import { waveView, waveSpec, scaleGradeOf } from '../server/engine/waves.js';
 import { capacity } from '../server/engine/residents.js';
 import { craftEquipment } from '../server/engine/equipment.js';
 import { ensurePlayer } from '../server/engine/skills.js';
-import { artifactFoundEvent, expressionQualityOf } from '../server/engine/artifacts.js';
-import { ExpressionQueue, artifactNarrative } from '../server/expression/index.js';
+import { artifactFoundEvent, expressionQualityOf, fxTierOf } from '../server/engine/artifacts.js';
+import { ExpressionQueue, artifactNarrative, artifactGlobalPush } from '../server/expression/index.js';
 import { applyCommand } from '../server/engine/commands.js';
 import { completeStructure } from '../server/engine/structures.js';
 import { townOf } from '../server/engine/world.js';
@@ -519,4 +519,66 @@ test('숨은 궤 — 궤가 유물을 내면 스윙 ack 에 발견 사실이 함
   assert.ok(found, '궤 마흔 개 안에 유물 하나는 나온다');
   assert.equal(found.data.source, 'cache');
   assert.ok(found.data.narrativeSeed.includes('artifactNarrative'));
+});
+
+// ────────────────────────────────────────────────────────────────
+// ★ §20-R2 획득 연출 — 서버는 「급과 자리」만 더한다(연출은 클라 몫)
+// ────────────────────────────────────────────────────────────────
+test('연출 급(fxTier) — 등급표가 정본, 유물이 제 값을 적으면 그것이 이긴다', () => {
+  const g = data.artifacts.grades;
+  assert.deepEqual([g.common.fxTier, g.rare.fxTier, g.unique.fxTier, g.legendary.fxTier], [1, 2, 3, 4]);
+  for (const grade of Object.keys(g)) assert.ok(g[grade].name && g[grade].color && g[grade].cls, grade);
+  assert.equal(fxTierOf(data.artifactsByKey.swift_boots, data), 1);
+  assert.equal(fxTierOf(data.artifactsByKey.lucky_charm, data), 4, '레전더리는 4급');
+  assert.equal(fxTierOf({ grade: 'common', fxTier: 3 }, data), 3, '엔트리의 값이 등급 기본값을 이긴다');
+  assert.equal(fxTierOf({ grade: 'no_such' }, data), 1, '모르는 등급도 깨지지 않는다');
+});
+
+test('발견 사실 — fxTier·발견자·빛기둥 자리가 함께 온다 (더하기만 한 칸)', () => {
+  const { world, n } = nationOf(81);
+  n.avatars.lord = { id: 'lord', name: '개척자', x: 40, y: 41 };
+  const ev = artifactFoundEvent(world, n, 'lucky_charm', 'ruin', data, { avatarId: 'lord' });
+  assert.equal(ev.data.fxTier, 4);
+  assert.equal(ev.data.foundBy, '개척자');
+  assert.equal(ev.data.foundById, 'lord');
+  assert.deepEqual(ev.data.nodePos, { x: 40, y: 41 }, '찾은 사람 자리에 빛기둥이 선다');
+  // 궤는 제 자리를 안다 — 사람보다 그쪽이 이긴다
+  const atCache = artifactFoundEvent(world, n, 'swift_boots', 'cache', data, { avatarId: 'lord', pos: { x: 9, y: 8 } });
+  assert.deepEqual(atCache.data.nodePos, { x: 9, y: 8 });
+  // 아무도 없으면 도읍으로 물러선다(어전 회의 상자)
+  const chest = artifactFoundEvent(world, n, 'star_chart', 'chest', data);
+  assert.ok(chest.data.nodePos && chest.data.nodePos.x != null, '자리가 비지 않는다');
+  assert.equal(chest.data.foundById, null, '발견자를 모르면 나라의 일이다');
+});
+
+test('전역 알림 — 레전더리만, 발견자를 알면 이름이 들어간다', () => {
+  const { world, n } = nationOf(82);
+  n.avatars.lord = { id: 'lord', name: '아린', x: 40, y: 41 };
+  const legend = artifactFoundEvent(world, n, 'banner_of_valor', 'ruin', data, { avatarId: 'lord' });
+  const push = artifactGlobalPush(legend, '엘도린', data);
+  assert.ok(push, '레전더리는 서버 전체가 안다');
+  assert.deepEqual({ nationName: push.nationName, foundBy: push.foundBy, grade: push.grade },
+    { nationName: '엘도린', foundBy: '아린', grade: 'legendary' });
+  assert.ok(push.text.includes('아린') && push.text.includes('용맹의 깃발'), push.text);
+  assert.ok(!push.text.includes('{{'), '자리표시자가 남지 않는다');
+  // 발견자를 모르면 「군주가」로 적는다
+  const anon = artifactGlobalPush({ data: { ...legend.data, foundBy: null } }, '엘도린', data);
+  assert.ok(anon.text.includes('군주') && !anon.text.includes('null'), anon.text);
+  // 레전더리가 아니면 아무 데도 가지 않는다
+  for (const key of ['swift_boots', 'star_chart', 'royal_robe', 'crown_shard']) {
+    const ev = artifactFoundEvent(world, n, key, 'chest', data);
+    assert.equal(artifactGlobalPush(ev, '엘도린', data), null, key);
+  }
+});
+
+test('연출 다이얼 — 급 1~4의 박자가 전부 데이터에 있다 (코드에 숫자가 없다)', () => {
+  const fx = data.world.render.artifactFx;
+  for (const tier of ['1', '2', '3', '4']) {
+    assert.equal(typeof fx.cardDelayMs[tier], 'number', `cardDelayMs.${tier}`);
+    assert.equal(typeof fx.sparkleCount[tier], 'number', `sparkleCount.${tier}`);
+    assert.ok(fx.sfx[tier], `sfx.${tier}`);
+  }
+  assert.ok(fx.cardDelayMs['4'] > fx.cardDelayMs['2'], '급이 오를수록 뜸을 들인다');
+  assert.ok(fx.veilAlpha['4'] > fx.veilAlpha['3'], '급이 오를수록 어둡다');
+  assert.ok(fx.beam.seconds > 0 && fx.zoom.step >= 0 && fx.slowmo.scale < 1);
 });

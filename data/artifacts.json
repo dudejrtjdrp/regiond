@@ -1,11 +1,13 @@
 {
   "_note": "★ §20-R1.5 통합 정본 — 「원안 구조 + 리워크 수치」. 등급 명단과 상자 확률(55/32/8/5)은 팀 원안 그대로다: 레전더리 7 · 유니크 6(외형·표현) · 레어 17 · 일반 19 · fixed 1(왕관의 조각, 상자 풀 제외). 효과 수치·신규 op·chargesLeft·소모형 스케일링·acquireVia·curse 는 R1(docs/유물기획.md §20-2) 상향판을 그대로 유지한다. 「왜」 등급표에서 chance 를 걷었나 — 상자 가중치의 정본은 balance.artifacts.gradeWeights 한 곳이다. 두 파일에 같은 확률이 살면 반드시 어긋난다(여기 남은 것은 표기명뿐). 신규 고유·전설·세트·저주(§20-3~6)는 상자 밖 탐험 전용이라 R4 몫이다. lore/hint/setKey/exclusive/fxTier 도 R2~R4.",
   
+  "_gradesNote": "★ §20-R2 — 등급표가 표기명뿐 아니라 **색과 연출 티어**의 정본이다. 「왜」 클라에서 옮겨 왔나 — public/js/state.js 가 등급 이름·색을 제 손으로 들고 있어서 data 를 고쳐도 화면이 따라오지 않았다(유물함이 「흔한 것」이라 적는 동안 서버는 「일반」이라 불렀다). cls 는 CSS 클래스 이름이고, fxTier 는 획득 연출의 급(1 토스트 · 2 카드+글로우 · 3 암전+파티클 · 4 빛기둥+팡파레+전역 알림)이다. 유물 하나가 제 티어를 따로 쓰려면 엔트리에 fxTier 를 적으면 그것이 이긴다(§20-11).",
   "grades": {
-    "common":    { "name": "일반" },
-    "rare":      { "name": "레어" },
-    "unique":    { "name": "유니크" },
-    "legendary": { "name": "레전더리" }
+    "common":    { "name": "일반",       "cls": "g-common",    "color": "#9c8f76", "fxTier": 1 },
+    "rare":      { "name": "레어",       "cls": "g-rare",      "color": "#4a6fa5", "fxTier": 2 },
+    "unique":    { "name": "유니크",     "cls": "g-unique",    "color": "#8367a8", "fxTier": 3 },
+    "legendary": { "name": "레전더리",   "cls": "g-legendary", "color": "#e8a33d", "fxTier": 4 },
+    "fixed":     { "name": "약속된 것",  "cls": "g-legendary", "color": "#e8a33d", "fxTier": 3 }
   },
   "_acquireViaNote": "★ §20-R1 — acquireVia 는 §20-11 스키마의 획득 경로 목록이다. chest=어전 회의 상자 · ruin=유적 카드 · cache=탐험 궤 · dragon=드래곤 최초 격퇴. ★ §20-R1.5 — 원안 복원으로 유니크·레전더리도 다시 상자에서 나오므로 fixed(왕관의 조각)만 chest 밖이다. temple/chain/event/cache3 은 R4 에서 신규 유물이 서면 쓰인다.",
   "list": [

@@ -68,6 +68,21 @@ export function artifactNarrative(d, data = loadGameData()) {
 
 const pickLine = (pool, rng) => (pool?.length ? pool[Math.floor(rng.next() * pool.length)] : '');
 
+/**
+ * ★ §20-R2(유물기획 §20-7) — 레전더리 전역 알림 한 벌. 아니면 null.
+ * 「왜」 순수 함수인가 — 방송은 server/index.js 의 일이지만 「무엇을 언제 보낼지」는 규칙이라
+ * 소켓 없이도 잴 수 있어야 한다. 낱말의 정본은 data/templates.ko.json artifactGlobal 하나다.
+ */
+export function artifactGlobalPush(event, nationName, data = loadGameData()) {
+  const d = event?.data;
+  if (d?.grade !== 'legendary') return null;
+  const cfg = data.templates.artifactGlobal;
+  const pool = (d.foundBy ? cfg?.byFinder : cfg?.byNation) ?? cfg?.byNation ?? [];
+  const text = pool.length ? renderTemplate(pool[0], { nation: nationName, foundBy: d.foundBy, artifact: d.artifact }) : '';
+  return { nationName: nationName ?? '', foundBy: d.foundBy ?? null,
+           artifactName: d.artifact, grade: d.grade, text };
+}
+
 function withNarrative(event, data) {
   if (event.kind !== 'artifact_found') return event;
   return { ...event, data: { ...event.data, narrative: artifactNarrative(event.data, data), narrativeSource: 'template' } };
@@ -87,4 +102,4 @@ export function buildSnapshot(event, data = loadGameData()) {
   return snap;
 }
 
-export { templateText };
+export { templateText, renderTemplate };

@@ -1382,6 +1382,42 @@ test('발견 카드 — 서사가 뜨고, 개선본이 와도 카드는 하나�
     doc.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     assert.equal(window.GM.ui.modalOpen('relic-found'), null, 'ESC 로 닫힌다');
 
+    /* ★ §20-R2 — 등급표·연출 박자는 **규격에서 파생**한다. 구경 모드의 대비 규격에는 그 칸이 없으므로
+       실제 /api/config 를 끼워 넣고 잰다(진짜 판에서는 app.js 가 첫 프레임에 이렇게 넣는다). */
+    const S2 = window.GM.state;
+    const realCfg = await (await window.fetch('/api/config')).json();
+    S2.set({ config: realCfg });
+    assert.ok(realCfg.world.render.artifactFx.cardDelayMs, '연출 박자가 규격에 실려 내려온다');
+    assert.equal(S2.gradeInfo('common').name, '일반', '등급 이름표를 화면이 제 손으로 들지 않는다');
+    assert.equal(S2.gradeInfo('legendary').name, '레전더리');
+    assert.equal(S2.gradeInfo('unique').fxTier, 3);
+    assert.equal(S2.gradeInfo('legendary').fxTier, 4);
+    assert.equal(window.GM.artifacts.tierOf({ grade: 'rare' }), 2);
+    assert.equal(window.GM.artifacts.tierOf({ grade: 'common', fxTier: 4 }), 4, '유물이 적은 값이 이긴다');
+
+    /* T4 — 뜸을 들였다가 뜬다. 그 사이 화면은 어둡고 획득 지점에 빛기둥이 선다. */
+    const legend = { artifact: '용맹의 깃발', key: 'banner_of_valor', grade: 'legendary', category: 'combat',
+      effect: '패배 인구손실 −70%', source: 'ruin', narrative: '마당이 조용해졌습니다.',
+      fxTier: 4, nodePos: { x: 64, y: 64 } };
+    window.GM.artifacts.discovery(legend);
+    assert.equal(doc.querySelector('.art-found'), null, '레전더리는 곧바로 뜨지 않는다(암전이 먼저다)');
+    assert.ok(doc.querySelector('.ep-veil'), '화면이 어두워진다');
+    window.GM.artifacts.endShow();                       // 전투 경보·건너뛰기와 같은 문
+    assert.ok(doc.querySelector('.art-found.t4'), '접으면 카드만 남는다');
+    assert.equal(doc.querySelector('.ep-veil'), null, '어둠은 걷힌다');
+    window.GM.ui.closeTopModal();
+
+    /* 남이 찾은 것 — 내 화면을 덮지 않고 배너 한 줄만 */
+    window.GM.ui.bannerClear();
+    window.GM.artifacts.discovery({ ...legend, foundById: 'someone-else', foundBy: '이웃' });
+    assert.equal(window.GM.ui.modalOpen('relic-found'), null, '남의 발견은 창을 띄우지 않는다');
+
+    /* 전역 알림 — 서버가 빚은 문장을 그대로 읽는 금띠 배너 */
+    S2.emit('artifactGlobal', { nationName: '엘도린', foundBy: '이웃', artifactName: '용맹의 깃발',
+      grade: 'legendary', text: '엘도린의 이웃이(가) 레전더리 유물 「용맹의 깃발」을(를) 발견했습니다.' });
+    await until(() => !!doc.querySelector('.banner-relic'), { what: '전역 알림 금띠' });
+    assert.ok(doc.querySelector('.banner-relic').textContent.includes('용맹의 깃발'));
+
     const noisy = errors.filter((e) => !/AudioContext|Not implemented|Could not parse CSS/i.test(e));
     assert.deepEqual(noisy, [], noisy.join(' / '));
   } finally {

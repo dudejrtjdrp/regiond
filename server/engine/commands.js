@@ -311,7 +311,8 @@ function runCommand(world, nationId, cmd, data, rng) {
       /* ★ §20-R1.5 — 숨은 궤가 유물을 내어준 순간. 조사 행동의 **직접 피드백**이므로
          상자·유적과 똑같이 발견 사실을 띄운다(연출은 클라, 판정은 이미 끝났다). */
       if (res.ok && res.cache?.artifact) {
-        res.events = [...(res.events || []), artifactFoundEvent(world, nation, res.cache.artifact.key, 'cache', data)];
+        res.events = [...(res.events || []), artifactFoundEvent(world, nation, res.cache.artifact.key, 'cache', data,
+          { avatarId: cmd.avatarId, pos: res.cache })];
       }
       return res.ok ? ok(res) : res;
     }
@@ -1002,7 +1003,7 @@ function runCommand(world, nationId, cmd, data, rng) {
         decision.result = r.result;
         // ★ §20-R1.5 — 유적 카드가 유물을 내면 상자와 같은 발견 사실을 함께 띄운다
         const found = r.result.artifact
-          ? [artifactFoundEvent(world, nation, r.result.artifact.key, 'ruin', data)] : [];
+          ? [artifactFoundEvent(world, nation, r.result.artifact.key, 'ruin', data, { avatarId: cmd.avatarId })] : [];
         return ok({ decision, ruin: r.result,
           events: [{ kind: 'ruin_resolved', nationId: nation.id, data: r.result }, ...found] });
       }

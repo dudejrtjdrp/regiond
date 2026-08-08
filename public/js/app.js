@@ -214,7 +214,21 @@
 
     /* ★ 웨이브 */
     S.on('waveIncoming', function (p) { if (inGame) GM.combat.onIncoming(p); });
-    S.on('battleStart', function (p) { if (inGame) GM.combat.onStart(p); });
+    S.on('battleStart', function (p) {
+      /* ★ §20-R2 — 종이 울리면 구경할 때가 아니다. 유물 연출은 그 자리에서 접고 카드만 남긴다. */
+      if (GM.artifacts && GM.artifacts.endShow) GM.artifacts.endShow();
+      if (inGame) GM.combat.onStart(p);
+    });
+
+    /* ★ §20-R2(유물기획 §20-7) — 레전더리 전역 알림. 문구는 서버가 빚어 보낸 것을 그대로 읽는다.
+       「왜」 토스트가 아니라 금띠 배너인가 — 이것은 내 마을의 소식이 아니라 **세계의 소식**이라
+       평소 알림과 결이 달라야 한다. 다른 방의 일이므로 눌러도 열리는 곳이 없다. */
+    S.on('artifactGlobal', function (p) {
+      if (!p || !p.text) return;
+      U.banner({ icon: 'gem', kind: 'relic', title: '세계에 남은 것', sub: p.text,
+                 ms: (S.artifactFxCfg().globalBannerMs) || 6000 });
+      GM.sfx.play('relicLegend');
+    });
     S.on('battleTick', function (p) { if (inGame) GM.combat.onTick(p); });
     S.on('waveResult', function (p) { if (inGame) GM.combat.onResult(p); });
 

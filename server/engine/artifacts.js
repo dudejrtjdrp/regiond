@@ -3,6 +3,8 @@
 // ★ §20-R1 (docs/유물기획.md §20-1·§20-2) — 등급 재편·효과 상향·충전제 일반화가 여기 얹혔다.
 import { clamp, storageCapacity } from './economy.js';
 import { settlementTier } from './tiers.js';
+// ★ §20-R2 — 연출의 빛기둥이 설 자리를 모를 때 물러설 곳(도읍)
+import { townOf } from './world.js';
 
 /**
  * 유물 엔트리가 아직 지닌 충전 수.
@@ -132,17 +134,39 @@ function applyR1Descriptor(h, e) {
  * 「왜」 여기서 문장을 만들지 않나 — 서사는 표현 계층(server/expression)의 몫이다.
  * 엔진은 사실과 **뽑기 씨앗**만 넘긴다: 그래야 시뮬·검사가 도는 자리에서 난수도 LLM 도 끼어들지 않는다.
  */
-export function artifactFoundEvent(world, nation, key, source, data) {
+export function artifactFoundEvent(world, nation, key, source, data, opts = {}) {
   const def = data.artifactsByKey[key];
   if (!def) return null;
   const label = data.templates.artifactNarrative?.sourceNames?.[source] ?? source;
+  const who = finderOf(nation, opts.avatarId);
   return {
     tick: world.tick, kind: 'artifact_found', nationId: nation.id,
     data: { artifact: def.name, key: def.key, grade: def.grade, category: def.category,
       effect: def.desc, source, role: label,
+      // ★ §20-R2 — 연출 급과 자리. 더하기만 한 칸이라 이것을 모르는 옛 화면도 그대로 산다.
+      fxTier: fxTierOf(def, data), foundBy: who?.name ?? null, foundById: opts.avatarId ?? null,
+      nodePos: foundPos(world, nation, who, opts),
       // 서사 뽑기의 씨앗 — 월드 난수를 축내지 않는다(같은 판의 같은 발견은 같은 서사를 낸다)
       narrativeSeed: `${world.seed}:artifactNarrative:${def.key}:${world.tick}` },
   };
+}
+
+/** 연출 급 — 유물이 제 값을 적었으면 그것이, 아니면 등급표의 기본값이 이긴다(§20-11). */
+export function fxTierOf(def, data) {
+  return def?.fxTier ?? data.artifacts.grades[def?.grade]?.fxTier ?? 1;
+}
+
+const finderOf = (nation, avatarId) => (avatarId ? nation.avatars?.[avatarId] ?? null : null);
+
+/**
+ * ★ §20-R2 — 빛기둥이 설 자리. 「왜」 세 겹으로 물러서나 —
+ * 궤는 제 자리를 알고(opts.pos), 어전 회의는 자리가 없다(찾은 사람 곁 → 그마저 없으면 도읍).
+ * 방 안의 다른 사람에게도 같은 좌표가 가므로 아무도 「어디서 났는지」를 놓치지 않는다.
+ */
+function foundPos(world, nation, who, opts) {
+  const at = opts.pos ?? who ?? townOf(world, nation.id);
+  if (!at || at.x == null) return null;
+  return { x: Math.round(at.x * 100) / 100, y: Math.round(at.y * 100) / 100 };
 }
 
 /**
