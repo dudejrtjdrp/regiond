@@ -32,6 +32,8 @@ function matchesWhen(beat, e) {
   if (!w) return true;
   if (w.chapterId != null && e.data?.id !== w.chapterId) return false;
   if (w.waveNumber != null && e.data?.number !== w.waveNumber) return false;
+  // ★ §세계관 W3 — 무리의 결(type)로도 가른다: 용의 예고·격퇴 턴 포인트가 이 조건을 쓴다
+  if (w.waveType != null && e.data?.type !== w.waveType) return false;
   return true;
 }
 

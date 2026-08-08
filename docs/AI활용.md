@@ -328,3 +328,12 @@ artifactGlobal을 방송하고(「{nation}의 군주가 레전더리 유물 …�
 교체. 연출 다이얼은 전부 world.json render.artifactFx. 검증: 테스트 545/545·하니스 53/53·e2e 4/4·
 시뮬 R1.5와 편차 0. AI가 판단하고 근거를 남긴 것: 발동자 판정(foundById 정본, 상자는 나라 전원),
 빛기둥 좌표 3겹 폴백, epicClear 가드(남의 장면 오걷어냄 방지).
+
+## 부록 — 세계관 W3 매듭형 엔딩 (2026-08-08, fable 세션 · opus 한도 지속으로 fable 직접 구현)
+엔딩 아크 완성: `server/engine/ending.js`(조건 3중 — 티어5·용 격퇴(웨이브 용 승리 or §19-F2 세계 보스
+처치)·에르니아 거래 금화 누계 tradeGoldWith) + 초대장 알림(1회, 봉투 단추 — 저절로 열리지 않음) +
+`acceptEnding` 명령(웨이브 당일 「성을 비울 수 없다」 거절) + story.json beat 5종(dragon_omen·
+dragon_slain 떡밥 2회차·ending·credits·cookie — 대사는 세계관기획 §7-4~7-6 정본) + 재회 보상
+(에르니아 제안 빈도 ×1.35 — rng 소비 횟수 불변·매입가 +5%) + 연대기 「초대장」·「첫 매듭」. PROTOCOL 0-I.
+검증: 신규 ending.test 7종 포함 npm test 548/548 · jsdom 하니스 53/53 · simulate 결정론 보존
+(시드42 수치 베이스라인과 동일 — 웨이브5 55%는 기존 경계 이슈). 엔딩 후에도 게임은 계속(엔드리스 유지).

@@ -6,7 +6,7 @@
 
 ---
 
-## 0-U. v3.3 안 델타 — **유물 리워크 R1·R1.5·R2: 상향·충전제·발견 서사·획득 연출** (docs/유물기획.md §20 + 팀 원안)
+## 0-U. v3.3 안 델타 — **유물 리워크 R1·R1.5: 상향·충전제·발견 서사** (docs/유물기획.md §20 + 팀 원안)
 
 **판번호를 올리지 않는다**(`world.schema` **6** 유지). **필드는 더하기만 했다.**
 옛 세이브의 유물에는 `chargesLeft` 가 없다 — `migrateWorld` 가 열 때 **1회분**으로 채운다
@@ -83,46 +83,36 @@ artifacts: [{ key, name, grade, desc, type, obtainedTick, consumed, chargesLeft,
 - `text`(토스트 한 줄)의 계약은 **그대로**다. 옛 화면은 `narrative` 를 몰라도 예전과 똑같이 굴러간다.
 - 표현 품질(`언어의 돌`, `expressionQuality`)이 LLM 호출의 `quality` 로 전달된다 — 나라마다 이벤트 묶음당 한 번만 잰다.
 
-### 0-U-5. push `artifact_found` 재확장 — 연출 급과 자리 (★ R2)
+---
 
-**필드는 더하기만 했다.** 아래 넷을 모르는 옛 화면은 R1.5 와 똑같이 굴러간다(카드 한 장 + 서사).
+## 0-I. v3.3 안 델타 — **매듭형 엔딩(초대장·재회)** (§세계관 W3)
+
+**판번호를 올리지 않는다. 필드는 더하기만 했다.** 정본은 `data/balance.json ending` + `docs/세계관기획.md §8`.
+조건 3중(티어 5 · 용 격퇴 — 웨이브 용 승리 **또는** 세계 보스 처치 · 에르니아 거래 금화 누계)이 차면
+다음 일 틱에 초대장이 온다. **저절로 열리지 않는다** — 봉투 단추가 남고, 여는 것은 군주다.
+
+### 0-I-1. 신설 — 이벤트 (S→C)
+
+| 이벤트 | 언제 | 페이로드 | 클라가 할 일 |
+|---|---|---|---|
+| `endingInvite` | 조건 3중이 갓 찬 일 틱(방 전체) · 안 연 초대장이 있는 채 접속(그 소켓) | `{from, text, accept, later}` | 토스트 1회 + 봉투 단추(#ending-invite-btn). 누르면 대화창이 [간다/아직은]을 묻는다 |
+
+### 0-I-2. 신설 — 명령 (C→S)
+
+| 명령 | 페이로드 | 서버가 하는 일 | 거절 |
+|---|---|---|---|
+| `acceptEnding` | `{playerName?}` | `world.endingDone` 기록 + `ending_started` 사건 → story.js 가 엔딩·크레딧·쿠키 beat 를 얹는다(방 전체 동시 재생). 연대기에 「첫 매듭」 | `NO_INVITE` · `ALREADY` · `WAVE_DAY`(전투 중이거나 오늘이 도착일 — 「지금은 성을 비울 수 없습니다」) |
+
+### 0-I-3. 서버 상태·보상 (저장됨)
 
 | 필드 | 뜻 |
 |---|---|
-| `fxTier` | 1~4. 획득 연출의 급. 정본은 `data/artifacts.json grades[등급].fxTier`(일반 1 · 레어 2 · 유니크 3 · 레전더리 4 · fixed 3)이고, 엔트리에 `fxTier` 를 적으면 **그것이 이긴다**(§20-11) |
-| `foundBy` | 발견자 캐릭터명. 모르면 `null`(어전 회의 상자는 나라의 일이다) |
-| `foundById` | 발견자 아바타 id. **화면은 이 값으로 「내가 찾았는가」를 가른다** — 내 것이 아니면 창을 띄우지 않고 방 배너와 작은 빛기둥만 |
-| `nodePos` | `{x, y}` 빛기둥이 설 자리. 궤는 제 자리, 유적은 찾은 사람 자리, 상자는 도읍으로 물러선다 |
+| `world.endingInviteTick` / `world.endingDone` | 초대장 온 날 / 매듭 지은 날. 엔딩은 1회 — 이후는 연대기에서 회고 |
+| `nation.stats.tradeGoldWith[nationId]` | 상대별 거래 금화 누계(사고판 것 모두, respondOffer·decide 경유 포함). 재회의 W3 근사 게이지 — W4 에서 관계 게이지로 승격 예정 |
+| 재회 보상 | 엔딩 뒤 영구: 에르니아 제안 빈도 ×`reunion.offerChanceMult`(rng 소비 횟수 불변 — 결정론 유지) · 에르니아에 팔 때 `reunion.sellPremium` 가산 |
 
-- **연출 다이얼의 정본은 `data/world.json render.artifactFx`** 다: `cardDelayMs` · `veilAlpha` · `sparkleCount` ·
-  `sfx`(급→효과음 이름) · `beam{seconds,widthTiles,heightTiles,ringCount,sharedScale}` · `zoom{step,holdMs}` ·
-  `vignetteSeconds` · `slowmo{scale,ms}` · `globalBannerMs`. **서버는 이 표를 한 칸도 읽지 않는다.**
-- **슬로모는 렌더 이펙트다.** 이펙트 계층(`GM.fx.step`)의 시계만 잠깐 늦춘다 — 서버 tick·전투 서브틱·
-  보간(`stepUnits`)은 손대지 않는다. 서버 시계는 불변이라는 계약이 그대로다.
-- 연출 중 **ESC·클릭·E** 로 건너뛰면 카드만 남는다. `battleStart` 가 오면 그 자리에서 접는다(종이 이긴다).
-
-### 0-U-6. push 신설 `artifact_global` — 레전더리는 서버 전체가 안다 (★ R2)
-
-소켓 이벤트 이름은 **`artifactGlobal`**(`story_beat`→`storyBeat` 와 같은 규칙). **`io.emit` — 방을 넘는 유일한 유물 push 다.**
-
-```
-artifactGlobal { nationName, foundBy, artifactName, grade, text }
-```
-
-- **레전더리(`grade === "legendary"`)에서만** 나간다. 그 밖의 등급은 보내지 않는다.
-- `text` 의 정본은 `data/templates.ko.json artifactGlobal`(`byFinder` / `byNation` 두 벌). 발견자를 알면
-  이름이, 모르면 「군주가」가 들어간다. **화면은 제 문장을 짓지 않는다.**
-- 보낼지 말지와 문구는 표현 계층의 순수 함수 `artifactGlobalPush(event, nationName, data)` 가 정한다 —
-  소켓 없이도 잴 수 있다(`test/artifacts.test.js`).
-- 받는 쪽은 **금띠 배너**(`.banner-relic`)로 몇 초 띄운다. 다른 방의 일이라 눌러도 열리는 곳이 없다.
-
-### 0-U-7. `/api/config` — 등급표가 이름·색·연출 급의 정본이다 (★ R2)
-
-`config.artifacts.grades[등급]` 이 `{ name, cls, color, fxTier }` 를 함께 내려보낸다.
-클라의 `GRADES` 하드코딩은 **대비값으로 물러섰다**(규격이 아직 안 온 첫 프레임에만 쓴다) —
-이제 `data/artifacts.json` 을 고치면 유물함·발견 카드·연출 급이 함께 따라온다.
-
----
+- 게임은 끝나지 않는다 — 엔딩·크레딧·쿠키 동안에도 서버 시계는 흐른다(연출은 클라 오버레이).
+- 스토리 beat 추가 5종: `dragon_omen`(용 웨이브 예고) · `dragon_slain`(용 웨이브 첫 승리 — **떡밥 2회차·최종**) · `ending` · `ending_credits` · `ending_cookie`. beat 조건에 `when.waveType` 추가.
 
 ## 0-H. v3.3 안 델타 — **이야기 연출(storyBeat)** (§세계관 W2)
 

@@ -8,6 +8,8 @@ import { validateOrders } from './orders.js';
 import { reassign } from './npc.js';
 // ★ §17-16 — 찾아간 나라의 시세표(방문 모달이 그대로 읽는다)
 import { isLastPlace, foreignPriceTable } from './ai_nation.js';
+// ★ §세계관 W3 — 매듭형 엔딩(초대장 열기·재회 근사 게이지·재회 매입 우대)
+import { acceptEnding, countTradeGold, reunionSellPremium } from './ending.js';
 import { performApAction, harvestNode, resolveRuinChoice } from './king.js';
 import { townOf, ringAt, revealConcealed, nodeById, inTerritory, removeNode } from './world.js';
 import { recordRuinFound, discoverBiomes } from './codex.js';
@@ -311,8 +313,7 @@ function runCommand(world, nationId, cmd, data, rng) {
       /* ★ §20-R1.5 — 숨은 궤가 유물을 내어준 순간. 조사 행동의 **직접 피드백**이므로
          상자·유적과 똑같이 발견 사실을 띄운다(연출은 클라, 판정은 이미 끝났다). */
       if (res.ok && res.cache?.artifact) {
-        res.events = [...(res.events || []), artifactFoundEvent(world, nation, res.cache.artifact.key, 'cache', data,
-          { avatarId: cmd.avatarId, pos: res.cache })];
+        res.events = [...(res.events || []), artifactFoundEvent(world, nation, res.cache.artifact.key, 'cache', data)];
       }
       return res.ok ? ok(res) : res;
     }
@@ -948,12 +949,15 @@ function runCommand(world, nationId, cmd, data, rng) {
         partner.gold += cost;
         if (tariffZero) nation.artifactState.tariffZeroCharges -= 1;
         nation.stats.tradeVolume += cost;
+        countTradeGold(nation, partnerId, cost);   // ★ §세계관 W3 — 재회의 근사 게이지
         recordTradeFlow(world, nation.id, partnerId, resource, amt, 'buy');
         return ok({ side, resource, amount: amt, unitPrice: round2(unit), gold: round2(-cost) });
       }
       if (side === 'sell') {
         if ((nation.resources[resource] || 0) < amt) return err('NO_STOCK', '재고가 부족합니다.');
-        const unit = exportPrice(foreign, data, nation) * (1 + (hooks.premiumTrade?.[partnerId] || 0));
+        // ★ §세계관 W3 재회 — 엔딩 뒤 에르니아는 매입가를 조금 더 쳐준다(빈 손으로 보내지 않는 사이)
+        const premium = (hooks.premiumTrade?.[partnerId] || 0) + reunionSellPremium(world, partnerId, data);
+        const unit = exportPrice(foreign, data, nation) * (1 + premium);
         const gain = unit * amt * (hooks.goldMultiplier ?? 1);
         if (partner.gold < gain) return err('PARTNER_NO_GOLD', '상대국의 국고가 부족합니다.');
         nation.resources[resource] -= amt;
@@ -962,6 +966,7 @@ function runCommand(world, nationId, cmd, data, rng) {
         partner.gold -= gain;
         nation.stats.goldEarned += gain;
         nation.stats.tradeVolume += gain;
+        countTradeGold(nation, partnerId, gain);   // ★ §세계관 W3 — 재회의 근사 게이지
         recordTradeFlow(world, nation.id, partnerId, resource, amt, 'sell');
         return ok({ side, resource, amount: amt, unitPrice: round2(unit), gold: round2(gain) });
       }
@@ -984,6 +989,13 @@ function runCommand(world, nationId, cmd, data, rng) {
       }, data, rng);
       return res.ok ? ok({ accepted: true, offerId: offer.offerId, ...res }) : res;
     }
+    /* ── ★ §세계관 W3 — 초대장을 연다(매듭형 엔딩). 이야기(엔딩·크레딧·쿠키)는 ending_started
+       사건을 본 story.js 가 얹는다. 웨이브 당일·중복 열기는 ending.js 가 막는다. */
+    case 'acceptEnding': {
+      const r = acceptEnding(world, nation, data, cmd.playerName);
+      if (!r.ok) return err(r.code, r.message);
+      return ok({ events: r.events });
+    }
     case 'decide': {
       const idx = nation.decisionQueue.findIndex((d) => d.decisionId === cmd.decisionId);
       if (idx < 0) return err('NO_DECISION', '없는 결정입니다.');
@@ -1003,7 +1015,7 @@ function runCommand(world, nationId, cmd, data, rng) {
         decision.result = r.result;
         // ★ §20-R1.5 — 유적 카드가 유물을 내면 상자와 같은 발견 사실을 함께 띄운다
         const found = r.result.artifact
-          ? [artifactFoundEvent(world, nation, r.result.artifact.key, 'ruin', data, { avatarId: cmd.avatarId })] : [];
+          ? [artifactFoundEvent(world, nation, r.result.artifact.key, 'ruin', data)] : [];
         return ok({ decision, ruin: r.result,
           events: [{ kind: 'ruin_resolved', nationId: nation.id, data: r.result }, ...found] });
       }

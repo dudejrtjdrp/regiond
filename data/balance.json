@@ -705,5 +705,12 @@
   "handWork": {
     "_note": "★ §17-9 — 건물 손일(직접 상호작용). reachTiles 는 건물 중심까지 손이 닿는 거리(발자국 절반을 더해 판정).",
     "reachTiles": 3.2
+  },
+  "ending": {
+    "_note": "★ §세계관 W3 매듭형 엔딩(세계관기획 §8). 조건 3중이 다 차면 다음 일 틱에 에르니아 초대장이 「알림」으로 온다 — 저절로 열리지 않는다. dragon 은 둘 중 무엇이든 인정한다: 웨이브 로테이션의 용을 막아냈거나(wave.history type=dragon won), 세상에 한 마리뿐인 용을 잡았거나(world.dragon.slainTick — §19-F2). tradeGoldMin 은 에르니아와 주고받은 금화 누계(재회 게이지의 W3 근사 — W4 에서 관계 게이지로 승격 예정). reunion 은 엔딩 뒤 영구 보상: 에르니아 제안이 잦아지고(offerChanceMult) 팔 때 값을 더 쳐준다(sellPremium).",
+    "tierMin": 5,
+    "tradePartnerId": "ai3",
+    "tradeGoldMin": 250,
+    "reunion": { "offerChanceMult": 1.35, "sellPremium": 0.05 }
   }
 }

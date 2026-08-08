@@ -89,6 +89,71 @@
       ]
     },
     {
+      "id": "dragon_omen",
+      "on": "wave_incoming",
+      "when": { "waveType": "dragon" },
+      "saintVoice": true,
+      "skippable": true,
+      "chronicle": "성녀의 예감 — 거대한 것이 다가온다.",
+      "scenes": [
+        { "speaker": "세라", "text": "지금까지와는 다릅니다. 무언가… 거대한 것이, 다가오고 있어요." }
+      ]
+    },
+    {
+      "id": "dragon_slain",
+      "on": "wave_held",
+      "when": { "waveType": "dragon" },
+      "saintVoice": true,
+      "skippable": true,
+      "chronicle": "드래곤을 격퇴했다 — 이제 우리는 어떤 나라와도 대등하다.",
+      "scenes": [
+        { "speaker": "세라", "text": "해냈어요…! 우리가, 드래곤을 격퇴했어요!" },
+        { "speaker": "", "text": "저것마저 막아냈다면, 이제 우리는 어떤 나라와도 대등하다 할 수 있으리라." },
+        { "speaker": "세라", "text": "…그런데 이상합니다. 드래곤은 본디 지혜로운 존재라, 함부로 싸움을 걸지 않는데…" }
+      ]
+    },
+    {
+      "id": "ending",
+      "on": "ending_started",
+      "skippable": true,
+      "chronicle": "첫 매듭 — 에르니아의 다탁에서, 두 나라가 대등하게 마주 앉았다.",
+      "scenes": [
+        { "speaker": "", "text": "오랜만에 마주 앉은 자리, 차가 놓였고, 왕은 그간 그대들이 걸어온 길을 들었다." },
+        { "speaker": "아르텐", "text": "그대들의 이야기는 언제 들어도 흥미롭군. 그래, 앞으로의 계획은 어떻게 되는가?" },
+        { "speaker": "{lord}", "text": "우리의 나라를 계속 키워갈 생각입니다. 미지의 땅에서의 시작은… 생각보다 훨씬 큰 걸음이 되었습니다." },
+        { "speaker": "", "text": "왕은 찻잔을 내려놓더니, 살짝 웃었다." },
+        { "speaker": "아르텐", "text": "그래, 그대… 아니, {name}의 군주여. 앞으로도 저희와 함께 걸어주시겠습니까?" },
+        { "speaker": "", "text": "왕이 손을 내밀었고, 그대는 미소와 함께 그 손을 잡았다." },
+        { "speaker": "{lord}", "text": "…영광입니다, 국왕이여." },
+        { "speaker": "", "text": "언젠가 마주 앉을 날을 기대한다던 그 말이, 마침내 이루어지는 순간이었다." }
+      ]
+    },
+    {
+      "id": "ending_credits",
+      "on": "ending_started",
+      "skippable": true,
+      "scenes": [
+        { "speaker": "", "text": "─ 갈래말래 ─" },
+        { "speaker": "", "text": "함께 만든 사람들 — 성효 · 김대윤 · 강동현, 그리고 AI(Claude)와 함께." },
+        { "speaker": "", "text": "이 이야기는 끝이 아니라 매듭입니다. {name}의 길은 계속됩니다." }
+      ]
+    },
+    {
+      "id": "ending_cookie",
+      "on": "ending_started",
+      "skippable": true,
+      "scenes": [
+        { "speaker": "", "text": "잔치의 불빛이 성벽 너머로 잦아들 무렵, 세라는 홀로 창가에 서 있었다." },
+        { "speaker": "세라", "text": "…우리는 결국, 해냈네요." },
+        { "speaker": "{lord}", "text": "그래. 여기까지 왔군." },
+        { "speaker": "", "text": "바람이 한 줄기 불어와 그녀의 머리카락을 스쳤다. 아주 잠깐, 그 어깨가 굳는 것을 그대는 보았다." },
+        { "speaker": "세라", "text": "그런데 왜일까요. 이겨냈는데도… 자꾸만 저 서쪽 하늘이 마음에 걸려요." },
+        { "speaker": "", "text": "이윽고 그녀는 천천히 고개를 젓고, 돌아서며 언제나처럼 옅게 웃었다." },
+        { "speaker": "세라", "text": "…아니요. 오늘만큼은 아무것도 생각하지 않을래요. 우리의 첫 매듭이잖아요." },
+        { "speaker": "", "text": "창밖으로, 바람이 다시 서쪽에서 불어오고 있었다." }
+      ]
+    },
+    {
       "id": "first_wave_lost",
       "on": "wave_breached",
       "excludes": ["first_wave_won"],

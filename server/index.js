@@ -27,6 +27,8 @@ import { buildRegencyReport, markSeen } from './engine/report.js';
 import { evaluateProgress } from './engine/progression.js';
 // ★ §세계관 W2 — 스토리 연출: 이벤트 묶음을 곁눈질해 이야기를 얹는다(판정 없음·1회 보장)
 import { storyEvents, gameStartedEvents } from './engine/story.js';
+// ★ §세계관 W3 — 매듭형 엔딩: 조건 3중이 차면 초대장이 「알림」으로 온다
+import { checkEndingInvite, inviteView } from './engine/ending.js';
 import { roleSummary } from './engine/npc.js';
 import { ensurePlayer, playerProgressView } from './engine/skills.js';
 import { stepBattle, finishBattle, battleSnapshot } from './engine/battle.js';
@@ -47,7 +49,7 @@ import {
 } from './engine/social.js';
 // ★ Sprint 3 — markDirty: 사건 경로의 동기 저장을 걷어낸 미룬 저장(persistence.js 주석 참고)
 import { saveSnapshot, markDirty, loadSnapshot, appendEvents, listGames, savesDir } from './persistence.js';
-import { ExpressionQueue, artifactGlobalPush } from './expression/index.js';
+import { ExpressionQueue } from './expression/index.js';
 // ★ §20-R1.5 — 언어의 돌(expressionQuality)이 표현 계층까지 닿게 하는 한 칸
 import { expressionQualityOf } from './engine/artifacts.js';
 
@@ -345,7 +347,9 @@ class GameRuntime {
     this.world = state;
 
     // ★ §세계관 W2 — 일 틱의 사건(장 진행·웨이브 예고)에 이야기를 얹는다. 시뮬은 이 길을 지나지 않는다.
-    const withStory = [...events, ...storyEvents(this.world, data, events)];
+    // ★ §세계관 W3 — 조건 3중이 갓 찼으면 초대장(알림)이 같은 아침에 함께 온다.
+    const dayBatch = [...events, ...checkEndingInvite(this.world, data)];
+    const withStory = [...dayBatch, ...storyEvents(this.world, data, dayBatch)];
     const decorated = this.#decorate(withStory);
     saveSnapshot(this.world);
     appendEvents(this.gameId, decorated);
@@ -416,17 +420,13 @@ class GameRuntime {
     return result;
   }
 
-  /** 레전더리만 전역으로. 보낼지 말지와 문구는 표현 계층이 정한다(artifactGlobalPush). */
-  emitArtifactGlobal(e) {
-    const push = artifactGlobalPush(e, this.world.nations[e.nationId]?.name, data);
-    if (push) io.emit('artifactGlobal', push);
-  }
-
   emitTypedEvent(e) {
     switch (e.kind) {
       case 'emotion_day': io.to(this.gameId).emit('emotionDay', e.data); break;
       // ★ §세계관 W2 — 이야기 연출. 클라 story.js 가 대화창으로 흘린다(재접속자는 연대기로 회고)
       case 'story_beat': io.to(this.gameId).emit('storyBeat', e.data); break;
+      // ★ §세계관 W3 — 초대장. 봉투(지속 단추)로 남고, 여는 것은 언제나 군주다
+      case 'ending_invite': io.to(this.gameId).emit('endingInvite', e.data); break;
       case 'mandate': io.to(this.gameId).emit('mandate', e.data); break;
       // ★ GDD3 §1 — 티어업은 큰 이벤트다(팡파레 + 영토 말뚝 + 도감 카드 공개)
       case 'tier_up': io.to(this.gameId).emit('tierUp', e.data); break;
@@ -440,10 +440,6 @@ class GameRuntime {
       case 'wave_incoming': io.to(this.gameId).emit('waveIncoming', e.data); break;
       case 'wave_held':
       case 'wave_breached': io.to(this.gameId).emit('waveResult', e.data); break;
-      /* ★ §20-R2(유물기획 §20-7) — 레전더리 유물은 **서버 전체**가 안다.
-         「왜」 io.emit 인가 — 이 알림의 값어치는 「내 방 밖에서도 안다」에 있다. 다른 방에는
-         금띠 배너 한 줄만 가고(연출은 발동자 본인 몫), 판정·상태는 한 톨도 건너가지 않는다. */
-      case 'artifact_found': this.emitArtifactGlobal(e); break;
       case 'council_open': {
         const council = this.world.councils.find((c) => c.councilId === e.data.councilId);
         if (council) io.to(this.gameId).emit('council', council);
@@ -643,6 +639,8 @@ const CLIENT_COMMANDS = [
   'clearNode',
   // ★ GDD3 §11-4 — 감정의 날의 유일한 방아쇠
   'appraiseLand',
+  // ★ §세계관 W3 — 에르니아 초대장을 연다(매듭형 엔딩)
+  'acceptEnding',
   'placeFence', 'upgradeFence', 'repairFence', 'removeFence',
   // 주민
   'commandVillagers', 'setVillagerMix', 'setLabor',
@@ -943,6 +941,10 @@ io.on('connection', (socket) => {
     //   접속 시점의 연대기 스냅샷이 이야기 줄에 물들지 않는다(하니스 연대기 검사와의 정합).
     const introEvs = gameStartedEvents(rt.world, data);
     if (introEvs.length) rt.emitImmediate(rt.world.playerNationId, introEvs);
+    // ★ §세계관 W3 — 아직 열지 않은 초대장은 접속할 때마다 봉투로 되살아난다
+    if (rt.world.endingInviteTick != null && rt.world.endingDone == null) {
+      sock.emit('endingInvite', inviteView(nation));
+    }
 
     if (rt.world.tick > (nation.lastSeenTick ?? 0)) {
       sock.emit('report', buildRegencyReport(rt.world, nation, data));

@@ -1,5 +1,6 @@
 // AI 3국 — 단순 정책 봇(자급 우선·잉여 수출·부족 수입) + 무역 오퍼 생성
 import { localPrice, targetStock, round2, clamp } from './economy.js';
+import { reunionOfferMult } from './ending.js';   // ★ §세계관 W3 — 재회 보상(제안 빈도)
 
 /** 자급 우선: 부족 재화 쪽으로 노동을 소폭 이동시킨다. */
 export function aiAdjustPolicy(nation, data, rng) {
@@ -48,7 +49,9 @@ export function generateOffers(world, data, rng) {
   const player = world.nations[world.playerNationId];
   for (const nation of Object.values(world.nations)) {
     if (nation.isPlayer) continue;
-    if (!rng.chance(cfg.perTickChance)) continue;
+    // ★ §세계관 W3 재회 — 엔딩 뒤 에르니아의 제안이 잦아진다. rng 소비 횟수는 그대로다(결정론).
+    const chance = Math.min(1, cfg.perTickChance * reunionOfferMult(world, nation.id, data));
+    if (!rng.chance(chance)) continue;
     const policy = nation.aiPolicy || {};
     const wantsToSell = rng.chance(0.55);
     const pool = wantsToSell ? (policy.preferredExports || ['wood']) : (policy.criticalImports || ['grain']);

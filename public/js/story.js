@@ -76,7 +76,54 @@
     setTimeout(go, 1500);
   }
 
+  /* ══════════ ★ §세계관 W3 — 에르니아 초대장(봉투) ══════════
+     「저절로 뜨는 것은 없다」 — 초대장은 토스트 한 번과 봉투 단추로만 남고,
+     여는 것은 언제나 군주다. 봉투를 누르면 대화창이 [간다/아직은]을 묻는다. */
+  var invite = null;
+
+  function onInvite(p) {
+    if (!p || invite) { invite = p || invite; refreshEnvelope(); return; }
+    invite = p;
+    if (GM.ui) GM.ui.toast('봉인된 초대장이 도착했습니다 — 좌상단 봉투를 여세요.', 'good', 8000);
+    refreshEnvelope();
+  }
+
+  function refreshEnvelope() {
+    var old = document.getElementById('ending-invite-btn');
+    if (old) old.remove();
+    if (!invite) return;
+    var U = GM.ui;
+    var b = U.btn('✉ 초대장', 'btn-sm', openInvite);
+    b.id = 'ending-invite-btn';
+    b.style.position = 'fixed';
+    b.style.top = '52px';
+    b.style.left = '10px';
+    b.style.zIndex = '60';
+    document.body.appendChild(b);
+  }
+
+  function openInvite() {
+    if (!invite || !GM.dialogue) return;
+    GM.dialogue.open({
+      speaker: invite.from || '에르니아 왕국',
+      portraitKey: 'icon:scroll',
+      lines: [invite.text],
+      choices: [
+        { label: invite.accept || '에르니아로 간다', act: sendAccept },
+        { label: invite.later || '아직은 때가 아니다' }
+      ]
+    });
+  }
+
+  function sendAccept() {
+    GM.net.send('acceptEnding', {}, function (r) {
+      if (r && r.ok) { invite = null; refreshEnvelope(); return; }
+      var msg = (r && r.error && r.error.message) || '지금은 열 수 없습니다.';
+      if (GM.ui) GM.ui.toast(msg, 'warn', 6000);
+    });
+  }
+
   document.addEventListener('keydown', onKey, true);
-  GM.story = { onBeat: onBeat, beforeOpening: beforeOpening,
+  GM.story = { onBeat: onBeat, beforeOpening: beforeOpening, onInvite: onInvite,
     busy: function () { return !!chain || !!queue.length; } };
 })(window);
