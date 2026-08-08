@@ -128,7 +128,7 @@ test('REST — /api/health, /api/config, /api/debug/*', async () => {
       assert.ok(config[key], `config.${key} 누락`);
     }
     assert.equal(config.protocol, '3.3');   /* ★ §15 — schema 5→6 이라 규약도 3.3 */
-    assert.equal(config.artifacts.list.length, 50);
+    assert.equal(config.artifacts.list.length, 71);   /* ★ §20-R4 — 원안 50 + 신규 21 */
     assert.ok(config.buildings.defs.hut, '건물 도감이 실린다');
     assert.equal(config.buildings.defs.hut.requiresTier, 0);
     assert.equal(config.tiers.levels.length, 7);

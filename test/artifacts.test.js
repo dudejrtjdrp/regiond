@@ -7,6 +7,9 @@ import { createRng } from '../server/engine/rng.js';
 import { openChapterForDebug } from '../server/engine/progression.js';
 import {
   collectHooks, rollArtifactDrop, grantArtifact, useArtifact, chargesOf, migrateArtifactCharges,
+  // ★ §20-R4 — 상자 밖 축·세트·봉인·설치·거울
+  dropPool, rollRing3Unique, sealArtifact, plantArtifact, growPlanted, auraDeptBonus,
+  mirrorArtifactHooks, resetReviveCharges, consumeRevive, speciesDamageMultiplier,
 } from '../server/engine/artifacts.js';
 import { grantRandomArtifact } from '../server/engine/king.js';
 import { storageCapacity, effectiveTariff, importPrice } from '../server/engine/economy.js';
@@ -53,30 +56,60 @@ test('§20-R1.5 등급 체계 — 표기명 일반/레어/유니크/레전더리
   for (const info of Object.values(g)) assert.equal(info.chance, undefined);
 });
 
-test('§20-R1.5 유물 50종 — 원안 명단 19/17/6/7 + 확정지급 1, acquireVia 전량 부착', () => {
+test('§20-R4 유물 71종 — 원안 50종(19/17/6/7+1)에 신규 21종이 얹혔다, acquireVia 전량 부착', () => {
   const counts = {};
   for (const a of data.artifacts.list) counts[a.grade] = (counts[a.grade] || 0) + 1;
-  assert.equal(counts.common, 19);
-  assert.equal(counts.rare, 17);
-  assert.equal(counts.unique, 6);
-  assert.equal(counts.legendary, 7);
+  // ★ §20-R4 — 원안 명단은 그대로 살아 있고 그 위에 신규가 더해졌다(19+0 / 17+7 / 6+7 / 7+4).
+  assert.equal(counts.common, 19, '일반은 신규가 없다 — 신규는 전부 레어 이상');
+  assert.equal(counts.rare, 24);
+  assert.equal(counts.unique, 16);
+  assert.equal(counts.legendary, 11);
   assert.equal(counts.fixed, 1, '왕관의 조각은 상자 풀 제외');
-  assert.equal(data.artifacts.list.length, 50);
+  assert.equal(data.artifacts.list.length, 71);
   const keys = new Set(data.artifacts.list.map((a) => a.key));
-  assert.equal(keys.size, 50, 'key 중복 없음');
+  assert.equal(keys.size, 71, 'key 중복 없음');
   for (const a of data.artifacts.list) {
     assert.ok(a.name && a.desc && a.effects?.length > 0, `${a.key} 정의 누락`);
-    assert.ok(['consumable', 'permanent', 'utility', 'cosmetic', 'tradeoff'].includes(a.type), `${a.key} type`);
+    assert.ok(['consumable', 'permanent', 'utility', 'cosmetic', 'tradeoff', 'installable'].includes(a.type), `${a.key} type`);
     assert.ok(Array.isArray(a.acquireVia) && a.acquireVia.length, `${a.key} acquireVia 누락`);
-    // ★ §20-R3 — lore·hint 는 이제 전량 있다(도감이 여는 것). setKey 는 아직 R4 몫.
+    // ★ §20-R3 — lore·hint 는 전량 있다(도감이 여는 것).
     assert.ok(a.lore && a.lore.length > 20, `${a.key} lore 누락`);
     assert.ok(a.hint && a.hint.length > 5, `${a.key} hint 누락`);
-    assert.equal(a.setKey, undefined, `${a.key} setKey 는 R4`);
+    // 게임 내 금지어(§0-6)
+    for (const banned of ['마키나', '혼재']) {
+      assert.ok(!`${a.name}${a.desc}${a.lore}${a.hint}`.includes(banned), `${a.key} 금지어 ${banned}`);
+    }
   }
 });
 
+/* ★ §20-R4 신규 21종의 명단 — 경로로 추정하지 않고 **적어 둔다**. dragon_heart 는 옛 경로명
+   (dragon)을 그대로 쓰므로 「신설 경로를 쓰면 신규」 같은 어림짐작은 그 하나를 놓친다. */
+const R4_KEYS = [
+  'crown_of_ignis', 'storm_cloak', 'worldtree_seed', 'reapers_scythe', 'sigil_of_aros',
+  'hunters_oath', 'spear_of_levin', 'pathfinders_compass', 'stationmasters_sigil',
+  'dragon_heart', 'frozen_kings_scepter', 'chalice_of_aqua', 'eye_of_aros',
+  'cornerstone_of_terra', 'droplet_of_aqua', 'ember_of_ignis', 'feather_of_wind',
+  'captains_journal', 'broken_pickaxe', 'starving_crown', 'blood_pact',
+];
+
+test('★ §20-R4 상자 밖 축 — 신규 21종은 상자·유적·궤 세 풀에 한 톨도 섞이지 않는다', () => {
+  const fresh = data.artifacts.list.filter((a) => R4_KEYS.includes(a.key));
+  assert.equal(fresh.length, 21, '신규 21종이 전부 정의표에 있다');
+  for (const a of fresh) {
+    for (const v of ['chest', 'ruin', 'cache']) {
+      assert.ok(!a.acquireVia.includes(v), `${a.key} 가 ${v} 풀에 샌다 — 「희소는 경로로 만든다」가 깨진다`);
+    }
+  }
+  // 전설 4종은 방 유일(§20-4 잼 규칙)
+  const room = data.artifacts.list.filter((a) => a.exclusive === 'room').map((a) => a.key).sort();
+  assert.deepEqual(room, ['chalice_of_aqua', 'dragon_heart', 'eye_of_aros', 'frozen_kings_scepter']);
+});
+
 test('§20-R1.5 원안 명단 — 레전더리 7종·유니크 6종이 문서 그대로다', () => {
-  const of = (g) => data.artifacts.list.filter((a) => a.grade === g).map((a) => a.key).sort();
+  // ★ §20-R4 — 신규(상자 밖 경로를 쓰는 것)를 걷어 내고 원안 명단만 본다. 원안은 건드리지 않았다는
+  //   약속을 이 한 줄이 지킨다: 신규가 늘어도 여기 적힌 열세 개는 영영 그대로여야 한다.
+  const of = (g) => data.artifacts.list
+    .filter((a) => a.grade === g && !R4_KEYS.includes(a.key)).map((a) => a.key).sort();
   assert.deepEqual(of('legendary'), ['banner_of_valor', 'devils_contract', 'lucky_charm',
     'orb_of_prophecy', 'ring_of_greed', 'sealed_dragon_scale', 'travelers_seal']);
   // 유니크는 외형 5종 + 표현 계층 1종 — 「보기 좋은 것」의 칸이다
@@ -90,10 +123,10 @@ test('§20-R1.5 원안 명단 — 레전더리 7종·유니크 6종이 문서 �
   assert.equal(data.artifactsByKey.travelers_seal.effects[0].op, 'tariffExemptAll', '3국 전면 면제 유지');
 });
 
-test('§20-6 기존 대가 계열 5종은 curse 속성을 단다', () => {
+test('§20-6 저주 계열 — 기존 대가 5종 + R4 신규 3종', () => {
   const cursed = data.artifacts.list.filter((a) => a.curse === true).map((a) => a.key).sort();
-  assert.deepEqual(cursed,
-    ['broken_crown_fragment', 'cursed_map', 'devils_contract', 'ring_of_greed', 'tyrants_crown']);
+  assert.deepEqual(cursed, ['blood_pact', 'broken_crown_fragment', 'cursed_map', 'devils_contract',
+    'reapers_scythe', 'ring_of_greed', 'starving_crown', 'tyrants_crown']);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -679,15 +712,15 @@ test('도감 payload — 유물 층이 codex 에 실리고, 레전더리 단이 
   const { world, n } = nationOf(95);
   assert.equal(codexView(n, data).artifacts, undefined, 'world 없이 부르면 칸 자체가 없다');
   const v = codexView(n, data, world).artifacts;
-  assert.equal(v.cards.length, 50);
+  assert.equal(v.cards.length, 71);
   assert.equal(v.crownGrade, 'legendary');
-  assert.equal(v.cards.filter((c) => c.grade === 'legendary').length, 7, '왕가의 보물 7종');
-  assert.deepEqual(v.totals, { found: 0, owned: 0, total: 50 });
+  assert.equal(v.cards.filter((c) => c.grade === 'legendary').length, 11, '왕가의 보물 — 원안 7 + R4 전설 4');
+  assert.deepEqual(v.totals, { found: 0, owned: 0, total: 71 });
 });
 
 test('정보 비대칭 — /api/config 에는 이름도 이야기도 힌트도 없다 (도감이 여는 것)', () => {
   const cfg = publicConfig();
-  assert.equal(cfg.artifacts.list.length, 50);
+  assert.equal(cfg.artifacts.list.length, 71);
   for (const a of cfg.artifacts.list) {
     for (const secret of ['name', 'desc', 'lore', 'hint', 'effects']) {
       assert.equal(a[secret], undefined, `${a.key}.${secret} 가 규격으로 새어 나간다`);
@@ -715,4 +748,168 @@ test('연대기 — 발견자를 알면 이름을 병기하고, 모르면 예전
   chronicleArtifact(world, anon, { key: 'swift_boots', name: '신속의 신발', desc: 'x' }, data);
   const row2 = world.chronicle[world.chronicle.length - 1];
   assert.equal(row2.title, '신속의 신발', '나라의 발견은 이름 없이 적는다');
+});
+
+// ────────────────────────────────────────────────────────────────
+// ★ §20-R4 — 신규 콘텐츠 축 (유물기획 §20-3~6 · §20-9 · §20-11)
+// ────────────────────────────────────────────────────────────────
+
+test('★ §20-R4 dropPool — 세 옛 풀의 명단이 R4 이후에도 한 글자도 안 바뀐다', () => {
+  const { world, n } = nationOf(4201);
+  for (const via of ['chest', 'ruin', 'cache']) {
+    for (const grade of ['common', 'rare', 'unique', 'legendary']) {
+      const pool = dropPool(world, n, data, grade, via).map((a) => a.key).sort();
+      // 옛 50종 중 그 경로를 적은 것만 — 신규는 한 톨도 없다
+      const want = data.artifacts.list
+        .filter((a) => a.grade === grade && (a.acquireVia || []).includes(via) && !R4_KEYS.includes(a.key))
+        .map((a) => a.key).sort();
+      assert.deepEqual(pool, want, `${via}/${grade} 풀이 흔들렸다`);
+      for (const k of pool) assert.ok(!R4_KEYS.includes(k), `${k} 가 ${via} 로 샌다`);
+    }
+  }
+});
+
+test('★ §20-R4 방 유일 — 이미 나온 전설은 그 방의 어느 풀에도 다시 안 나온다', () => {
+  const { world, n } = nationOf(4202);
+  // 전설은 애초에 상자 밖이므로 cache3 풀로 잰다(경로가 있는 유일한 자리)
+  const before = dropPool(world, n, data, 'legendary', 'temple').map((a) => a.key);
+  assert.ok(before.includes('eye_of_aros'), '아직 아무도 못 찾았다');
+  world.artifactRegistry = { eye_of_aros: { firstFoundBy: '이웃', count: 1 } };
+  const after = dropPool(world, n, data, 'legendary', 'temple').map((a) => a.key);
+  assert.ok(!after.includes('eye_of_aros'), '방에 단 하나 — 두 번은 없다');
+});
+
+test('★ §20-R4 링3 고유 굴림 — 링3 밖에서는 굴리지도 않는다', () => {
+  const { world, n } = nationOf(4203);
+  for (const ring of [0, 1, 2]) {
+    assert.equal(rollRing3Unique(world, n, data, createRng(1), ring), null, `링${ring} 은 굴림 자체가 없다`);
+  }
+  // 링3 에서는 확률만큼 나오고, 나온 것은 반드시 cache3 를 적은 신규 고유다
+  let hit = null;
+  for (let i = 0; i < 400 && !hit; i += 1) hit = rollRing3Unique(world, n, data, createRng(i), 3);
+  assert.ok(hit, '400번 안에는 한 번 나온다(5%)');
+  const def = data.artifactsByKey[hit];
+  assert.equal(def.grade, 'unique');
+  assert.ok(def.acquireVia.includes('cache3'), '링3 궤가 낼 수 있다고 제 입으로 적은 것만');
+});
+
+test('★ §20-R4 세트 — 조각 수만큼 문턱이 **누적**된다(4개면 2개 보너스도 산다)', () => {
+  const { n } = nationOf(4204);
+  const pieces = data.artifacts.sets.genesis.pieces;
+  grantArtifact(n, pieces[0], 1, data);
+  assert.equal(collectHooks(n, data).sets.genesis.tiers.length, 0, '1개로는 아무 문턱도 못 넘는다');
+  grantArtifact(n, pieces[1], 1, data);
+  const h2 = collectHooks(n, data);
+  assert.deepEqual(h2.sets.genesis.tiers, [2]);
+  assert.ok(Math.abs((h2.outputBonus['*'] || 0) - 0.1) < 1e-9, '전 자원 +10%');
+  assert.equal(h2.emotionDayMultiplier, 1, '4개 보너스는 아직');
+  grantArtifact(n, pieces[2], 1, data);
+  grantArtifact(n, pieces[3], 1, data);
+  const h4 = collectHooks(n, data);
+  assert.deepEqual(h4.sets.genesis.tiers, [2, 4], '2개 문턱이 사라지지 않는다');
+  assert.ok(Math.abs((h4.outputBonus['*'] || 0) - 0.1) < 1e-9, '2개 보너스는 그대로 산다');
+  assert.equal(h4.emotionDayMultiplier, 2, '감정의 날 2배');
+  assert.ok(h4.surgeMultiplier < 1, '웨이브 규모가 줄어든다');
+});
+
+test('★ §20-R4 저주 봉인 — 효과는 꺼지고 기록·세트 셈은 남는다, 값은 골드로 치른다', () => {
+  const { n } = nationOf(4205);
+  grantArtifact(n, 'reapers_scythe', 1, data);
+  assert.equal(collectHooks(n, data).attackMultiplier, 2, '들면 두 배');
+  n.gold = 10;
+  assert.equal(sealArtifact(n, 'reapers_scythe', data, true).ok, false, '골드가 없으면 못 봉인한다');
+  n.gold = 1000;
+  const r = sealArtifact(n, 'reapers_scythe', data, true);
+  assert.equal(r.ok, true);
+  assert.equal(n.gold, 1000 - CFG.sealCostGold);
+  assert.equal(collectHooks(n, data).attackMultiplier, 1, '힘이 꺼졌다');
+  assert.equal(collectHooks(n, data).moraleDelta, 0, '값도 함께 꺼진다');
+  assert.ok(n.artifacts.find((a) => a.key === 'reapers_scythe'), '기록은 남는다 — 파기가 아니다');
+  assert.equal(sealArtifact(n, 'horn_of_plenty', data, true).ok, false, '저주가 아니면 봉인 대상이 아니다');
+  // 되돌릴 수 있다 — 「낄까 말까」가 한 번뿐이면 실험이 아니라 도박이다
+  assert.equal(sealArtifact(n, 'reapers_scythe', data, false).ok, true);
+  assert.equal(collectHooks(n, data).attackMultiplier, 2);
+});
+
+test('★ §20-R4 봉인해도 세트는 안 깨진다 — 봉인이 실질적 파기가 되면 §20-6 의 약속이 거짓이 된다', () => {
+  const { n } = nationOf(4206);
+  for (const k of data.artifacts.sets.expedition.pieces) grantArtifact(n, k, 1, data);
+  assert.deepEqual(collectHooks(n, data).sets.expedition.tiers, [3]);
+  n.artifacts.find((a) => a.key === 'broken_pickaxe').sealed = true;
+  assert.deepEqual(collectHooks(n, data).sets.expedition.tiers, [3], '조각 수는 보유 기준');
+});
+
+test('★ §20-R4 설치형 — 심기 전에는 아무 일도 없고, 심어도 다 자라야 제 값을 낸다', () => {
+  const { world, n } = nationOf(4207);
+  grantArtifact(n, 'worldtree_seed', 1, data);
+  assert.equal(Object.keys(auraDeptBonus(world, n, data)).length, 0, '들고만 있으면 씨앗은 씨앗이다');
+  const town = townOf(world, n.id);
+  assert.equal(plantArtifact(world, n, 'worldtree_seed', 9e9, 0, data).ok, false, '지도 밖에는 못 심는다');
+  assert.equal(plantArtifact(world, n, 'worldtree_seed', town.x + 2, town.y, data).ok, true);
+  assert.equal(plantArtifact(world, n, 'worldtree_seed', town.x, town.y, data).ok, false, '두 번은 못 심는다');
+  assert.equal(auraDeptBonus(world, n, data).farm ?? 0, 0, '심은 날은 0단계');
+  const eff = data.artifactsByKey.worldtree_seed.effects[0];
+  growPlanted(n, 1 + eff.growthDays * eff.growthStages, data);
+  assert.ok(Math.abs(auraDeptBonus(world, n, data).farm - eff.delta) < 1e-9, '다 자라면 제 값');
+});
+
+test('★ §20-R4 tyrantPick — 고른 자리가 오른다(R1 의 「최고 레벨 자동 선택」 빚을 갚는다)', () => {
+  const { world, n } = nationOf(4208);
+  openChapterForDebug(world, n, data, 10);
+  const roles = Object.keys(n.roles).filter((k) => n.roles[k].holder);
+  assert.ok(roles.length >= 2, '역할이 둘은 있어야 고르는 의미가 있다');
+  const pick = roles[roles.length - 1];
+  for (const k of roles) n.roles[k].level = 1;
+  n.roles[roles[0]].level = 9;                       // 예전 규칙이라면 이쪽이 뽑혔을 것이다
+  assert.equal(applyCommand(world, n.id, { type: 'tyrantPick', role: pick }, data, createRng(1)).ok, true);
+  grantArtifact(n, 'tyrants_crown', 1, data);
+  useArtifact(n, 'tyrants_crown', 1, data);
+  assert.equal(n.roles[pick].level, data.roles.xp.levelCurve.length - 1, '내가 고른 자리가 올랐다');
+  assert.equal(n.pendingTyrantRole, null, '고른 자리는 쓴 즉시 비운다');
+});
+
+test('★ §20-R4 명령 3종 — 서버가 다시 잰다(화면이 보낸 말은 믿지 않는다)', () => {
+  const { world, n } = nationOf(4209);
+  const run = (cmd) => applyCommand(world, n.id, cmd, data, createRng(1));
+  assert.equal(run({ type: 'sealArtifact', key: 'reapers_scythe' }).ok, false, '없는 것은 못 봉인한다');
+  assert.equal(run({ type: 'plantArtifact', key: 'worldtree_seed', x: 1, y: 1 }).ok, false, '없는 것은 못 심는다');
+  assert.equal(run({ type: 'tyrantPick', role: '없는역할' }).ok, false);
+  assert.equal(run({ type: 'plantArtifact', key: 'horn_of_plenty', x: 1, y: 1 }).error.code, 'NOT_INSTALLABLE');
+});
+
+test('★ §20-R4 세이브 이관 — 옛 유물에 봉인·설치 칸이 열린다(rev 6)', () => {
+  const { world, n } = nationOf(4210);
+  grantArtifact(n, 'horn_of_plenty', 3, data);
+  delete n.artifacts[0].sealed;
+  delete n.artifacts[0].planted;
+  world.migrationRev = 5;
+  const m = migrateWorld(world, data);
+  assert.equal(m.migrationRev, 6);
+  assert.equal(m.nations.player.artifacts[0].sealed, false, '없던 것을 있다고 적지 않는다');
+  assert.equal(m.nations.player.artifacts[0].planted, null);
+});
+
+test('★ §20-R4 종별 누적 피해 — 도감 처치 수가 곧 전투력이 된다', () => {
+  const { n } = nationOf(4211);
+  assert.equal(speciesDamageMultiplier(n, 'wolf'), 1, '유물이 없으면 배수도 없다');
+  grantArtifact(n, 'hunters_oath', 1, data);
+  mirrorArtifactHooks(n, collectHooks(n, data));
+  const e = data.artifactsByKey.hunters_oath.effects[0];
+  n.codex = { species: { wolf: { kills: 5 } } };
+  assert.ok(Math.abs(speciesDamageMultiplier(n, 'wolf') - (1 + e.perKill * 5)) < 1e-9);
+  n.codex.species.wolf.kills = 10000;
+  assert.ok(Math.abs(speciesDamageMultiplier(n, 'wolf') - (1 + e.cap)) < 1e-9, '상한이 있다');
+  assert.equal(speciesDamageMultiplier(n, 'boar'), 1, '종별로 따로 쌓인다');
+});
+
+test('★ §20-R4 부활 충전 — 웨이브당 정해진 횟수만, 그리고 되감긴다', () => {
+  const { n } = nationOf(4212);
+  grantArtifact(n, 'sigil_of_aros', 1, data);
+  mirrorArtifactHooks(n, collectHooks(n, data));
+  resetReviveCharges(n);
+  assert.equal(n.artifactReviveLeft, 1);
+  assert.equal(consumeRevive(n), true);
+  assert.equal(consumeRevive(n), false, '한 웨이브에 한 번뿐이다');
+  resetReviveCharges(n);
+  assert.equal(consumeRevive(n), true, '다음 웨이브에는 다시 선다');
 });

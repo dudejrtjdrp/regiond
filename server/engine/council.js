@@ -13,7 +13,8 @@ export function openCouncil(world, nation, data, rng) {
   const activity = Object.fromEntries(
     Object.entries(nation.roles).map(([k, r]) => [k, r.activity || 0]),
   );
-  const drop = rollArtifactDrop(nation, data, rng, activity);
+  // ★ §20-R4 — world 를 넘겨 「이 방에서 이미 나온 전설」을 상자 명단에서 뺀다(§20-4 방 유일).
+  const drop = rollArtifactDrop(nation, data, rng, activity, world);
   let artifactDrop = null;
   if (drop.opened && drop.artifact) {
     const bound = pickBoundNation(world, rng);

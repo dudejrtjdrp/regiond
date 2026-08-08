@@ -221,11 +221,18 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
           key: a.key, name: data.artifactsByKey[a.key]?.name, grade: data.artifactsByKey[a.key]?.grade,
           desc: data.artifactsByKey[a.key]?.desc, type: data.artifactsByKey[a.key]?.type,
           obtainedTick: a.obtainedTick, consumed: a.consumed,
+          /* ★ §20-R4 — 심은 것(설치형)의 자리와 자란 단계. 「씨앗을 어디에 심었나」는 화면이
+             지도에 그려야 하는 사실이라 뷰에 함께 나간다. 안 심었으면 null 이다. */
+          planted: a.planted ?? null,
           /* ★ §20-R1 — 「N회 충전」 소모형이 몇 번 남았는가. 옛 화면은 consumed 만 보므로
              이 칸을 몰라도 깨지지 않는다(표시 개선은 R2 몫). 옛 세이브면 null 이 아니라 1이 온다. */
           chargesLeft: a.chargesLeft ?? (a.consumed ? 0 : 1),
           charges: data.artifactsByKey[a.key]?.charges ?? 1,
         })),
+        /* ★ §20-R4(§20-5) — 세트 현황 {setKey:{name,owned,total,tiers}}. 도감·유물함이 「3/4」와
+           「어느 문턱이 켜졌나」를 그리려면 조각 수를 화면이 다시 세면 안 된다(세는 규칙이 둘이
+           되면 언젠가 어긋난다). 하나도 안 가졌으면 빈 객체라 옛 화면에도 아무 일이 없다. */
+        artifactSets: hooks.sets ?? {},
         decisionQueue: nation.decisionQueue,
         ruinGauge: nation.ruinGauge || 0,
         ruinThreshold: data.ruins.gaugeThreshold,
@@ -247,7 +254,16 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
       members: membersView(nation, data),
       stats: nation.stats,
       cosmetics: hooks.cosmetics,
-      clientStats: hooks.clientStats ?? {},
+      /* ★ §20-R4(§20-3 폭풍의 망토 · §20-5 바람의 깃) — 이동 속도를 화면 몫으로 내보낸다.
+         걸음은 클라가 재고 서버는 결과만 검산하므로(§19-B) 배수의 자리는 여기다.
+         ⚠ 소비(public/js/avatar.js)는 **R4b 이월**이다 — 그 파일은 지금 다른 트랙이 고치고 있어
+         손대지 않았다. 그때까지 이 두 칸은 「실려는 있고 아무도 안 읽는」 값이다.
+         유물이 없으면 둘 다 0 이라 지금 화면이 이 칸을 읽어도 걸음이 달라지지 않는다.
+         npcSpeedDelta(바람의 깃)도 같은 사정이라 R4b 로 함께 미룬다. */
+      clientStats: {
+        ...(hooks.clientStats ?? {}),
+        moveSpeed: hooks.moveSpeedDelta, moveSpeedWave: hooks.moveSpeedWaveDelta,
+      },
       nodeContribution: nodeContributionView(world, nation, data),
       // ★ GDD3 §13-B-5 — 위험 띠. HUD 가 지금 내가 어느 띠에 서 있는지를 이 값으로 읽는다.
       rings: ringRadii(nation, data),
@@ -495,17 +511,20 @@ export function avatarViews(nation, data) {
     /* ★ GDD3 §15-C — 이 아바타가 동료인가. 화면은 **아이디를 뜯어보지 않는다**:
        봇 여부·이름표 색·맡은 자리를 서버가 실어 보낸다(신원 판정은 서버의 몫이다). */
     const comp = companionById(nation, a.id);
+    const role = comp?.role ?? Object.entries(nation.roles || {}).find(([, seat]) =>
+      seat.holder === 'player' && seat.owner === a.id,
+    )?.[0] ?? null;
     return {
       id: a.id, name: a.name ?? '개척자', x: a.x, y: a.y, tick: a.tick ?? 0,
       appearance: normalizeAppearance(a.appearance, data).appearance,
       down: (nation.players?.[a.id]?.downUntil ?? 0) > 0,
       hp: round2(nation.players?.[a.id]?.hp ?? 0),
       maxHp: nation.players?.[a.id]?.maxHp ?? 0,
+      role,
+      roleName: role ? (data.roles.defs[role]?.name ?? role) : null,
       ...(comp ? {
         bot: true,
         color: comp.color,
-        role: comp.role ?? null,
-        roleName: comp.role ? (data.roles.defs[comp.role]?.name ?? comp.role) : null,
         state: comp.mem?.state ?? 'idle',
       } : { bot: false }),
     };

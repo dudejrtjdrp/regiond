@@ -2,7 +2,12 @@
 // ★ v3(GDD3): 스윙(actionSwing/combatSwing) · 개별 건물 업그레이드(upgradeStructure) · 수리(repairStructure)
 //   · 울타리 조각(placeFence/upgradeFence) 이 새로 들어왔고, 개척령(expand) · 자동 성곽(setWallFocus)
 //   · 터렛 전용 명령(placeTurret) · 몸소 일하기(apAction work) · 현장 가속(workSite) 은 폐기됐다.
-import { collectHooks, useArtifact, artifactFoundEvent } from './artifacts.js';
+import {
+  collectHooks, useArtifact, artifactFoundEvent,
+  // ★ §20-R4(유물기획 §20-11) — 유물이 세계에 손을 대는 세 가지. 판정은 전부 저쪽에 있고
+  //   여기는 인자를 재고 넘길 뿐이다(명령 계층은 얇게, 규칙은 도메인에).
+  sealArtifact, plantArtifact, pickTyrantRole,
+} from './artifacts.js';
 import { localPrice, importPrice, exportPrice, round2, clamp } from './economy.js';
 import { validateOrders } from './orders.js';
 import { reassign } from './npc.js';
@@ -1290,6 +1295,34 @@ function runCommand(world, nationId, cmd, data, rng) {
     case 'setAutoExport': {
       nation.autoExport = Boolean(cmd.enabled);
       return ok({ autoExport: nation.autoExport });
+    }
+    /* ★ §20-R4(유물기획 §20-6) — 저주 봉인·해봉. 「값을 치르는 힘」을 되돌릴 수 있게 하는 유일한 문이다.
+       화면이 보낸 「저주다」·「보유했다」는 믿지 않는다 — sealArtifact 가 정의표와 보유 목록을 다시 잰다. */
+    case 'sealArtifact': {
+      const key = String(cmd.key ?? cmd.payload?.key ?? '');
+      const want = cmd.sealed == null && cmd.payload?.sealed == null
+        ? true : Boolean(cmd.sealed ?? cmd.payload?.sealed);
+      const res = sealArtifact(nation, key, data, want);
+      if (!res.ok) return err(res.code, res.message, res.need != null ? { need: res.need } : undefined);
+      return ok({ ...res, events: [{ kind: 'artifact_sealed', nationId: nation.id, data: { key, name: res.name, sealed: res.sealed } }] });
+    }
+    /* ★ §20-R4(§20-3 세계수의 씨앗) — 심는다. 자리를 고르는 것 자체가 이 유물의 놀이라
+       좌표는 반드시 유한수여야 하고(NaN 이 들어오면 나무가 지도 밖에 선다) 본영 반경 안이어야 한다. */
+    case 'plantArtifact': {
+      const key = String(cmd.key ?? cmd.payload?.key ?? '');
+      const x = Number(cmd.x ?? cmd.payload?.x);
+      const y = Number(cmd.y ?? cmd.payload?.y);
+      const res = plantArtifact(world, nation, key, x, y, data);
+      if (!res.ok) return err(res.code, res.message);
+      return ok({ ...res, events: [{ kind: 'artifact_planted', nationId: nation.id, data: { key, name: res.name, ...res.planted } }] });
+    }
+    /* ★ §20-R4(§20-11) — 폭군의 왕관이 세울 자리를 미리 고른다. 고르기만 하고 효과는 useArtifact 가
+       낸다: 고르는 것과 쓰는 것을 갈라 두어야 「골라 놓고 안 쓰는」 것도 되돌릴 수 있다. */
+    case 'tyrantPick': {
+      const role = String(cmd.role ?? cmd.payload?.role ?? '');
+      const res = pickTyrantRole(nation, role, data);
+      if (!res.ok) return err(res.code, res.message);
+      return ok({ pendingTyrantRole: res.role });
     }
     default:
       return err('UNKNOWN_COMMAND', `알 수 없는 명령: ${cmd.type}`);

@@ -42,6 +42,25 @@ function emptyHooks() {
     // ★ §20-R1 신규 — 아래 다섯은 전부 소비처가 있다(성벽·무기 강재·환스프레드·격퇴 사기·무역로 거점).
     wallHpMultiplier: 1, weaponSteelMultiplier: 1, fxSpreadMultiplier: 1, moraleDeltaOnVictory: 0,
     buildingCostByKey: {}, tariffExemptAll: false,
+    /* ★ §20-R4(유물기획 §20-3~6) — 신규 축. 「왜」 여기 한 벌로 모으나 — 소비처가 열두 파일에
+       흩어져 있어서(tick·ecology·battle·waves·residents·research·train·fog·trails·structures·skills·view),
+       각자 nation 을 다시 훑으면 뜨거운 길목마다 유물 목록을 도는 꼴이 된다. 훅은 하루 한 번 걷고,
+       실시간 경로는 tick 이 국가에 박아 두는 거울(nation.artifact*)을 읽는다(§20-R4 mirrors). */
+    dayOutputBonus: {},            // tick.js — 웨이브 당일이 아닌 날만 산다
+    moveSpeedDelta: 0, moveSpeedWaveDelta: 0,   // view.clientStats → public/js/avatar.js
+    dodgeChance: 0,                // battle.js 피격 · ecology.js 물기
+    critChance: 0, critMultiplier: 1,           // skills.swingDamage 를 쓰는 네 자리
+    attackMultiplier: 1, combatDamageMultiplier: 1, huntShareMultiplier: 1,
+    reviveCharges: 0,              // down 대신 그 자리에서 일어난다(웨이브당 N회)
+    speciesDamageStack: null,      // { perKill, cap } — 도감 처치 수와 곱한다
+    auraTiles: [],                 // 설치형(심은 것만) — { key, radius, depts, delta, ... }
+    snowBuildLimit: 0, fogAutoReveal: 0, healMultiplier: 1,
+    popInflowMultiplier: 1, maxHpMultiplier: 1, npcSpeedDelta: 0,
+    trailSenseDelta: 0, chainRewardTierDelta: 0,
+    trainCargoMultiplier: 1, researchSpeedMultiplier: 1, craftTimeMultiplier: 1,
+    moraleDelta: 0, emotionDayMultiplier: 1, spoilImmune: false,
+    buildingOutputBonus: {}, dailyGrants: [], revealCacheHints: [], chronicleTags: [],
+    sets: {},                      // { setKey: { owned, name, tiers:[2,4] } } — 도감·화면용
   };
 }
 
@@ -68,15 +87,40 @@ export function collectHooks(nation, data) {
   for (const owned of nation.artifacts || []) {
     const def = data.artifactsByKey[owned.key];
     if (!def) continue;
+    // ★ §20-R4 — 봉인한 저주는 **기록은 남고 효과만 꺼진다**(§20-6). 「낄까 말까」를 되돌릴 수 있어야
+    //   실험이 일어난다. 되돌린 것까지 지우면 그 실험의 흔적마저 사라진다.
+    if (owned.sealed) continue;
+    // 설치형은 심기 전까지 아무 일도 하지 않는다 — 씨앗은 들고 있는 동안 열매를 맺지 않는다.
+    if (def.type === 'installable' && !owned.planted) continue;
     const spent = chargesOf(owned, def) <= 0;
     for (const e of def.effects || []) {
       if (spent && e.hook === 'onUse') continue;
       applyDescriptor(h, e, owned, def);
     }
   }
+  applySetBonuses(h, nation, data);   // ★ §20-R4(§20-5) — 단품과 **합산**이다(중첩 규칙 §20-10-5)
   applyState(h, nation);
   h.discoverChanceBonus = Math.min(h.discoverChanceBonus, data.balance.artifacts.discoverChanceCap);
   return h;
+}
+
+/**
+ * ★ §20-R4(유물기획 §20-5) — 세트 보너스. 조각 수를 세어 **충족한 문턱을 전부** 얹는다:
+ * 4개짜리를 다 모으면 2개 보너스도 함께 산다(누적). 「왜」 최고 문턱만 주지 않나 —
+ * 세트는 「모으는 재미」가 값이고, 마지막 조각에서 앞의 보너스가 사라지면 손해 본 기분이 든다.
+ * 봉인·미설치는 위에서 이미 걸렀지만 **조각 수는 보유 기준**이다(봉인해도 세트는 셈에 든다):
+ * 저주 조각을 봉인했다고 세트가 깨지면 봉인이 실질적 파기가 되어 §20-6 의 약속을 어긴다.
+ */
+function applySetBonuses(h, nation, data) {
+  const sets = data.artifacts.sets || {};
+  const owned = new Set((nation.artifacts || []).map((a) => a.key));
+  for (const [setKey, def] of Object.entries(sets)) {
+    const have = (def.pieces || []).filter((k) => owned.has(k)).length;
+    if (!have) continue;
+    const tiers = Object.keys(def.bonuses || {}).map(Number).filter((n) => n <= have).sort((a, b) => a - b);
+    h.sets[setKey] = { name: def.name ?? setKey, owned: have, total: (def.pieces || []).length, tiers };
+    for (const t of tiers) for (const e of def.bonuses[String(t)] || []) applyDescriptor(h, e, {}, def);
+  }
 }
 
 function applyDescriptor(h, e, owned, def) {
@@ -127,7 +171,56 @@ function applyR1Descriptor(h, e) {
     /* ★ §20-R1 — 아직 없는 시스템(W4 국가 이벤트)에 걸린 효과. 수집만 한다:
        factionChoiceBonus(세계수의 파편) · contractGrace(동방의 인장) · nationEventForecastDays(우정의 서약서).
        W4 가 서면 아래 한 줄을 지우고 훅 칸을 열면 된다 — 데이터는 이미 정본이다. */
-    default: break;
+    default: applyR4Descriptor(h, e); break;
+  }
+}
+
+/**
+ * ★ §20-R4 신규 op — 주석의 파일명이 그 효과가 실제로 사는 자리다.
+ * 「곱하나 더하나」의 규칙(§20-10-5): 같은 축의 **배수는 곱**, 확률·평탄값은 **더한다**.
+ * 회피처럼 「둘 다 걸리면 안 되는」 확률만 여집합 곱(1−(1−a)(1−b))으로 상한 1을 넘지 않게 한다.
+ */
+function applyR4Descriptor(h, e) {
+  switch (e.op) {
+    case 'dayOutputBonus':                                                              // tick.js
+      h.dayOutputBonus[e.resource] = (h.dayOutputBonus[e.resource] || 0) + e.delta; break;
+    case 'moveSpeedDelta':                                                              // view.js → avatar.js
+      h.moveSpeedDelta += e.amount || 0; h.moveSpeedWaveDelta += e.waveAmount || 0; break;
+    case 'dodgeChance': h.dodgeChance = 1 - (1 - h.dodgeChance) * (1 - (e.chance || 0)); break; // battle·ecology
+    case 'critChance':                                                                  // skills.swingDamage 소비처
+      h.critChance = 1 - (1 - h.critChance) * (1 - (e.chance || 0));
+      h.critMultiplier = Math.max(h.critMultiplier, e.multiplier || 1); break;
+    case 'attackMultiplier': h.attackMultiplier *= e.multiplier; break;                 // ecology·battle·waves
+    case 'combatDamageMultiplier': h.combatDamageMultiplier *= e.multiplier; break;     // battle.js
+    case 'huntShareMultiplier': h.huntShareMultiplier *= e.multiplier; break;           // ecology.js
+    case 'reviveCharge': h.reviveCharges += e.perWave || 0; break;                      // ecology·battle
+    case 'speciesDamageStack':                                                          // ecology.js + codex.js
+      h.speciesDamageStack = { perKill: Math.max(h.speciesDamageStack?.perKill ?? 0, e.perKill || 0),
+                               cap: Math.max(h.speciesDamageStack?.cap ?? 0, e.cap || 0) }; break;
+    case 'auraTile':                                                                    // tick.js(설치형)
+      h.auraTiles.push({ radius: e.radius, depts: e.depts || [], delta: e.delta,
+                         growthStages: e.growthStages ?? 1, growthDays: e.growthDays ?? 0 }); break;
+    case 'snowBuildUnlock': h.snowBuildLimit = Math.max(h.snowBuildLimit, e.limit || 0); break;  // structures.js
+    case 'fogAutoReveal': h.fogAutoReveal += e.radiusPerDay || 0; break;                // tick.js·fog.js
+    case 'healMultiplier': h.healMultiplier *= e.multiplier; break;                     // ecology.js
+    case 'popInflowMultiplier': h.popInflowMultiplier *= e.multiplier; break;           // residents.js
+    case 'maxHpMultiplier': h.maxHpMultiplier *= e.multiplier; break;                   // skills.js
+    case 'npcSpeedDelta': h.npcSpeedDelta += e.amount || 0; break;                      // villagers(뷰)
+    case 'trailSenseDelta': h.trailSenseDelta += e.amount || 0; break;                  // trails.js
+    case 'chainRewardTierDelta': h.chainRewardTierDelta += e.amount || 0; break;        // trails.js
+    case 'trainCargoMultiplier': h.trainCargoMultiplier *= e.multiplier; break;         // train.js
+    case 'researchSpeedMultiplier': h.researchSpeedMultiplier *= e.multiplier; break;   // research.js
+    case 'craftTimeMultiplier': h.craftTimeMultiplier *= e.multiplier; break;           // equipment.js
+    case 'moraleDelta': h.moraleDelta += e.amount || 0; break;                          // tick.js(상시 사기)
+    case 'emotionDayMultiplier': h.emotionDayMultiplier *= e.multiplier; break;         // emotion_day.js
+    case 'spoilImmune': h.spoilImmune = true; break;                                    // tick.js(부패)
+    case 'buildingOutputBonus':                                                         // tick.js
+      for (const b of e.buildings || []) h.buildingOutputBonus[b] = (h.buildingOutputBonus[b] || 0) + e.delta;
+      break;
+    case 'dailyGrant': h.dailyGrants.push({ resource: e.resource, amount: e.amount, requireStage: e.requireStage ?? 0 }); break;
+    case 'revealCacheHint': h.revealCacheHints.push({ count: e.count ?? 1, biome: e.biome ?? null }); break;
+    case 'unlockChronicle': h.chronicleTags.push(e.tag); break;
+    default: break;   // 아직 시스템이 없는 효과는 조용히 수집만 — 데이터가 정본, 훅은 나중
   }
 }
 
@@ -232,16 +325,54 @@ export function expressionQualityOf(nation, data) {
   return Math.max(1, ...levels);
 }
 
+/**
+ * ★ §20-R4(유물기획 §20-1·§20-9) — **상자 밖 축**의 문지기. 「희소는 경로로 만든다」가 여기 한 함수에 산다.
+ * 세 가지를 함께 건다:
+ *   ① `acquireVia` — 그 유물이 이 경로에서 나올 수 있다고 **제 입으로 적었을 때만** 나온다.
+ *      옛 50종은 전부 chest·ruin·cache 를 적어 두었으므로 기존 세 풀은 한 톨도 바뀌지 않는다
+ *      (= 시드 42 가 그대로 산다). 신규 21종은 어느 것도 그 셋을 적지 않아 자동으로 빠진다.
+ *   ② `exclusive: "room"` — 이 방에서 이미 나온 전설은 다시 나오지 않는다(§20-4 잼 규칙).
+ *   ③ 보유분 제외 — 기존 규칙 그대로.
+ * 「왜」 등급표를 안 고치고 풀만 거르나 — 등급표(gradeWeights)는 팀 원안의 정본이고(§20-R1.5),
+ * 표를 흔들면 상자·유적·궤가 한꺼번에 움직인다. 표는 그대로 두고 **명단**만 좁힌다.
+ */
+export function dropPool(world, nation, data, grade, via) {
+  const owned = new Set((nation.artifacts || []).map((a) => a.key));
+  const reg = world?.artifactRegistry || {};
+  return data.artifacts.list.filter((a) => {
+    if (a.grade !== grade || owned.has(a.key)) return false;
+    if (a.exclusive === 'room' && reg[a.key]) return false;
+    const via1 = a.acquireVia;
+    if (!via1 || !via1.length) return true;          // 경로를 안 적은 옛 엔트리는 예전처럼 어디서나
+    return via1.includes(via);
+  });
+}
+
+/**
+ * ★ §20-R4 — 링3 전용 고유 굴림. 기본 굴림이 **빈손으로 끝난 뒤에만** 한 번 더 던진다(§20-9 링3 고유 5%).
+ * 「왜」 나중에 던지나 — 앞의 굴림이 소비하는 난수를 한 톨도 건드리지 않아야 옛 지도의 옛 궤가
+ * 예전과 같은 것을 낸다. 궤의 난수는 노드마다 따로 흐르므로(statRng `seed:cache:nodeId`)
+ * 여기서 몇 번을 더 던져도 다른 궤·월드 난수에는 닿지 않는다.
+ */
+export function rollRing3Unique(world, nation, data, rng, ring) {
+  const table = data.balance.artifacts.ringDropTable || {};
+  const chance = table.ring3UniqueChance ?? 0;
+  if (ring < 3 || chance <= 0) return null;
+  if (!rng.chance(chance)) return null;
+  const pool = dropPool(world, nation, data, 'unique', 'cache3');
+  if (!pool.length) return null;
+  return rng.pick(pool).key;
+}
+
 /** 어전 회의 상자 판정. rng 2~3회 소비. */
-export function rollArtifactDrop(nation, data, rng, roleActivity = {}) {
+export function rollArtifactDrop(nation, data, rng, roleActivity = {}, world = null) {
   const cfg = data.balance.artifacts;
   const hooks = collectHooks(nation, data);
   const chance = clamp(cfg.chestChancePerCouncil + hooks.discoverChanceBonus, 0, cfg.discoverChanceCap);
   if (!rng.chance(chance)) return { opened: false, chance };
 
   const grade = rng.weighted(Object.entries(cfg.gradeWeights).map(([value, weight]) => ({ value, weight })));
-  const owned = new Set((nation.artifacts || []).map((a) => a.key));
-  const pool = data.artifacts.list.filter((a) => a.grade === grade && !owned.has(a.key));
+  const pool = dropPool(world, nation, data, grade, 'chest');
   if (!pool.length) return { opened: true, chance, grade, artifact: null };
 
   const topRole = Object.entries(roleActivity).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
@@ -351,14 +482,25 @@ function applyUseRole(nation, st, e, data, applied) {
 }
 
 function maxOneRole(nation, e, data, applied) {
-  // TODO(R4 · 유물기획 §20-11): 어느 역할을 최대치로 올릴지 고르는 tyrantPick 명령이 필요하다.
-  //   R1 에서는 정본 수치(othersPenalty)만 갱신하고, 고르는 자리는 최고 레벨 역할로 둔다.
+  /* ★ §20-R4 — R1 의 빚을 갚는다. 그때는 「최고 레벨 역할」로 대신 골랐는데, 그건 고르는 게 아니라
+     따라가는 것이었다 — 폭군의 왕관은 **누구를 세울지 정하는** 값이 전부인 유물이다.
+     이제 tyrantPick 명령이 적어 둔 자리를 먼저 읽고, 안 적혔으면 예전 규칙으로 물러선다
+     (화면이 못 고르게 된 판에서도 유물이 죽지 않아야 하니까). 쓴 자리는 그 즉시 비운다. */
   const roles = Object.entries(nation.roles || {}).filter(([, r]) => r.holder);
   if (!roles.length) return;
-  roles.sort((a, b) => (b[1].level || 0) - (a[1].level || 0));
-  roles[0][1].level = data.roles.xp.levelCurve.length - 1;
-  for (const [, r] of roles.slice(1)) r.level = Math.max(0, (r.level || 0) * (1 - e.othersPenalty));
-  applied.push(`maxRole:${roles[0][0]}`);
+  const picked = nation.pendingTyrantRole;
+  nation.pendingTyrantRole = null;
+  let chosen = picked && nation.roles?.[picked]?.holder ? picked : null;
+  if (!chosen) {
+    roles.sort((a, b) => (b[1].level || 0) - (a[1].level || 0));
+    chosen = roles[0][0];
+  }
+  nation.roles[chosen].level = data.roles.xp.levelCurve.length - 1;
+  for (const [k, r] of roles) {
+    if (k === chosen) continue;
+    r.level = Math.max(0, (r.level || 0) * (1 - e.othersPenalty));
+  }
+  applied.push(`maxRole:${chosen}`);
 }
 
 /** 이벤트 면역/피해경감 소비 */
@@ -373,4 +515,156 @@ export function consumeEventProtection(nation, eventTags = []) {
     return { immune: false, mitigation: st.damageReduction.ratio };
   }
   return { immune: false, mitigation: 0 };
+}
+
+// ────────────────────────────────────────────────────────────────
+// ★ §20-R4 — 유물이 세계에 손을 대는 세 가지 (봉인·설치·선택)
+// ────────────────────────────────────────────────────────────────
+
+/**
+ * 저주 봉인 (유물기획 §20-6) — 「값을 치르는 힘」을 **되돌릴 수 있게** 하는 유일한 문.
+ * 기록은 남고 효과만 꺼진다: 발견의 저작권(§20-8)은 어떤 경우에도 지우지 않는다.
+ * 되돌리기(해봉)도 같은 값을 받고 열어 둔다 — 「낄까 말까」가 한 번뿐이면 실험이 아니라 도박이 된다.
+ */
+export function sealArtifact(nation, key, data, want = true) {
+  const def = data.artifactsByKey[key];
+  if (!def) return { ok: false, code: 'UNKNOWN_ARTIFACT', message: '알 수 없는 유물입니다.' };
+  if (!def.curse) return { ok: false, code: 'NOT_CURSED', message: '봉인할 수 있는 것은 저주받은 유물뿐입니다.' };
+  const owned = (nation.artifacts || []).find((a) => a.key === key);
+  if (!owned) return { ok: false, code: 'NOT_OWNED', message: '보유하지 않은 유물입니다.' };
+  const sealed = Boolean(owned.sealed);
+  if (sealed === want) {
+    return { ok: false, code: 'ALREADY', message: want ? '이미 봉인했습니다.' : '봉인되어 있지 않습니다.' };
+  }
+  const cost = Math.max(0, data.balance.artifacts.sealCostGold ?? 0);
+  if ((nation.gold || 0) < cost) return { ok: false, code: 'NO_GOLD', message: '골드가 부족합니다.', need: cost };
+  nation.gold = Math.round((nation.gold - cost) * 100) / 100;
+  nation.stats.goldSpent = Math.round(((nation.stats.goldSpent || 0) + cost) * 100) / 100;
+  owned.sealed = want;
+  return { ok: true, key, name: def.name, sealed: want, cost, gold: nation.gold };
+}
+
+/**
+ * 설치형 심기 (유물기획 §20-3 세계수의 씨앗) — **어디에 심느냐가 의사결정**이다.
+ * 자리를 국가 영역 안으로 묶는 까닭: 반경 보너스가 남의 땅이나 안개 속에서 자라면
+ * 「심을 자리 선정」이 성립하지 않는다. 심은 뒤에는 옮기지 못한다 — 나무는 그런 것이다.
+ */
+export function plantArtifact(world, nation, key, x, y, data) {
+  const def = data.artifactsByKey[key];
+  if (!def) return { ok: false, code: 'UNKNOWN_ARTIFACT', message: '알 수 없는 유물입니다.' };
+  if (def.type !== 'installable') return { ok: false, code: 'NOT_INSTALLABLE', message: '심을 수 있는 유물이 아닙니다.' };
+  const owned = (nation.artifacts || []).find((a) => a.key === key);
+  if (!owned) return { ok: false, code: 'NOT_OWNED', message: '보유하지 않은 유물입니다.' };
+  if (owned.planted) return { ok: false, code: 'ALREADY_PLANTED', message: '이미 심었습니다.' };
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return { ok: false, code: 'BAD_POS', message: '자리가 올바르지 않습니다.' };
+  const town = townOf(world, nation.id);
+  const radius = data.balance.artifacts.plantRadiusTiles ?? 24;
+  if (town && Math.hypot(town.x - x, town.y - y) > radius) {
+    return { ok: false, code: 'TOO_FAR', message: '본영에서 너무 멉니다.' };
+  }
+  owned.planted = { x: Math.round(x * 100) / 100, y: Math.round(y * 100) / 100, tick: world.tick, stage: 0 };
+  return { ok: true, key, name: def.name, planted: owned.planted };
+}
+
+/**
+ * 자란다 — 하루 한 눈금. 「왜」 tick 에서 부르나: 성장은 날의 일이고, 실시간 스윙이 알 바가 아니다.
+ * 단계가 오른 것만 돌려준다(연출·알림은 부른 쪽 몫).
+ */
+export function growPlanted(nation, tick, data) {
+  const grown = [];
+  for (const owned of nation.artifacts || []) {
+    const p = owned.planted;
+    if (!p) continue;
+    const def = data.artifactsByKey[owned.key];
+    const aura = (def?.effects || []).find((e) => e.op === 'auraTile');
+    if (!aura) continue;
+    const per = Math.max(1, aura.growthDays ?? 1);
+    const max = Math.max(1, aura.growthStages ?? 1);
+    const want = Math.min(max, Math.floor((tick - p.tick) / per));
+    if (want <= p.stage) continue;
+    p.stage = want;
+    grown.push({ key: owned.key, name: def.name, stage: want, max, x: p.x, y: p.y });
+  }
+  return grown;
+}
+
+/**
+ * 심은 것의 반경 보너스 — 다 자란 것만 제 값을 낸다(그 전에는 단계 비례).
+ * 부서(dept)별로 돌려준다: 산출 집계(tick.js departmentMultiplier)가 부서 단위로 곱하기 때문이다.
+ * 「왜」 반경 안 건물 수를 세지 않나 — 산출은 부서로 뭉쳐 계산되고 건물별로 쪼개져 있지 않다.
+ * 대신 **본영에서 반경 안에 심었을 때만** 부서 전체에 얹어(§20-3 「본영에 심는」) 자리 선정의 값을 남긴다.
+ */
+export function auraDeptBonus(world, nation, data) {
+  const out = {};
+  const town = townOf(world, nation.id);
+  for (const owned of nation.artifacts || []) {
+    const p = owned.planted;
+    if (!p || owned.sealed) continue;
+    const def = data.artifactsByKey[owned.key];
+    for (const e of def?.effects || []) {
+      if (e.op !== 'auraTile') continue;
+      if (!town || Math.hypot(town.x - p.x, town.y - p.y) > (e.radius ?? 0)) continue;
+      const ratio = Math.min(1, (p.stage || 0) / Math.max(1, e.growthStages ?? 1));
+      if (ratio <= 0) continue;
+      for (const dept of e.depts || []) out[dept] = (out[dept] || 0) + (e.delta || 0) * ratio;
+    }
+  }
+  return out;
+}
+
+/**
+ * 폭군의 왕관이 고르는 자리 (R1 의 TODO 를 여기서 갚는다 — 유물기획 §20-11 tyrantPick).
+ * R1 은 「최고 레벨 역할」로 대신 골랐다: 그건 고르는 게 아니라 따라가는 것이었다.
+ * 이제 고른 역할을 국가에 적어 두고(pendingTyrantRole), useArtifact 가 그것을 읽는다.
+ */
+export function pickTyrantRole(nation, role, data) {
+  if (!data.roles?.defs?.[role] && !nation.roles?.[role]) {
+    return { ok: false, code: 'UNKNOWN_ROLE', message: '알 수 없는 역할입니다.' };
+  }
+  if (!nation.roles?.[role]?.holder) return { ok: false, code: 'NO_HOLDER', message: '그 자리에는 사람이 없습니다.' };
+  nation.pendingTyrantRole = role;
+  return { ok: true, role };
+}
+
+/**
+ * ★ §20-R4 거울 — 하루 한 번 걷은 훅을 국가에 박아 둔다. 실시간 경로(스윙·물기·이동)는
+ * collectHooks 를 부르지 않고 이 칸만 읽는다: 스윙마다 유물 목록을 도는 것을 막는 기존 관례
+ * (nation.artifactCapDelta · nation.storageBonus)를 그대로 넓힌 것이다.
+ */
+export function mirrorArtifactHooks(nation, hooks) {
+  nation.artifactCombat = {
+    crit: hooks.critChance, critMultiplier: hooks.critMultiplier,
+    dodge: hooks.dodgeChance, attack: hooks.attackMultiplier,
+    damage: hooks.combatDamageMultiplier, huntShare: hooks.huntShareMultiplier,
+    revive: hooks.reviveCharges, species: hooks.speciesDamageStack,
+    heal: hooks.healMultiplier,
+  };
+  nation.artifactMaxHpMultiplier = hooks.maxHpMultiplier;
+  nation.artifactTrailSense = hooks.trailSenseDelta;
+  nation.artifactPopInflow = hooks.popInflowMultiplier;
+  nation.artifactSnowBuildLimit = hooks.snowBuildLimit;
+  for (const p of Object.values(nation.players || {})) p.hpMultiplier = hooks.maxHpMultiplier;
+}
+
+/** 웨이브가 시작될 때 되감는다 — 「웨이브당 1회」의 정본. */
+export function resetReviveCharges(nation) {
+  nation.artifactReviveLeft = nation.artifactCombat?.revive ?? 0;
+}
+
+/**
+ * 쓰러짐을 부활로 갈음한다 — 성표·계약서의 값. 남은 충전이 있으면 그 **자리에서** 일어난다
+ * (본영으로 끌려가지 않는 것이 이 유물의 값이다). 쓴 만큼 줄고, 없으면 예전처럼 쓰러진다.
+ */
+export function consumeRevive(nation) {
+  if ((nation.artifactReviveLeft ?? 0) <= 0) return false;
+  nation.artifactReviveLeft -= 1;
+  return true;
+}
+
+/** 종별 누적 피해 배수 — 도감 처치 수가 곧 전투력이 된다(§20-3 사냥꾼의 맹세). */
+export function speciesDamageMultiplier(nation, speciesKey) {
+  const s = nation.artifactCombat?.species;
+  if (!s || !speciesKey) return 1;
+  const kills = nation.codex?.species?.[speciesKey]?.kills || 0;
+  return 1 + Math.min(s.cap || 0, (s.perKill || 0) * kills);
 }

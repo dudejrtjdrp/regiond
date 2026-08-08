@@ -156,6 +156,12 @@ function checkAndPay(nation, cost, gold, data) {
 // ────────────────────────────────────────────────────────────────
 // 제작 · 강화 · 인첸트
 // ────────────────────────────────────────────────────────────────
+/* TODO(R4b · 유물기획 §20-5 이그니스의 불씨) — craftTimeMultiplier(무기 제작 시간 −25%)를
+   갚을 자리가 이 파일에 **없다**. 벼리기는 값을 치르는 순간 끝난다(아래 craftEquipment 는 자재를
+   깎고 곧바로 gear 를 바꿔 끼운다) — 제작 대기열도, 남은 날수도, 진행바도 없다. 없는 시간을
+   25% 줄일 수는 없으므로 배수만 거울에 실어 둔다(tick.js nation.artifactCraftTime).
+   제작에 시간이 생기는 날 그 대기열의 소요 시간에 이 배수를 곱하면 된다 — 데이터는 이미 정본이다.
+   (같은 유물의 다른 절반, 제련 계열 산출 +25% 는 tick.departmentMultiplier 에서 이미 산다.) */
 /** craftEquipment {slot, key} — 대장간에서 한 자루 벼린다 */
 export function craftEquipment(nation, player, cmd, data, hooks = {}) {
   const slot = String(cmd.slot ?? cmd.payload?.slot ?? '');

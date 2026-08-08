@@ -123,6 +123,62 @@ artifacts: [{ key, name, grade, desc, type, obtainedTick, consumed, chargesLeft,
 - `text`(토스트 한 줄)의 계약은 **그대로**다. 옛 화면은 `narrative` 를 몰라도 예전과 똑같이 굴러간다.
 - 표현 품질(`언어의 돌`, `expressionQuality`)이 LLM 호출의 `quality` 로 전달된다 — 나라마다 이벤트 묶음당 한 번만 잰다.
 
+### 0-U-9. R4a — **상자 밖 축**: 신규 21종 · 세트 · 저주 봉인 · 설치형 (docs/유물기획.md §20-3~6 · §20-9 · §20-11)
+
+**판번호를 올리지 않는다**(`world.schema` **6** 유지). **필드는 더하기만 했다.**
+`state.js MIGRATION_REV` 는 5 → **6** (유물 엔트리에 `sealed`·`planted` 칸을 연다 — 없으면
+`false`·`null`. 없는 것을 있다고 적지 않는다).
+
+**정의표(`data/artifacts.json`) — 50종 → 71종.** 원안 50종은 **한 줄도 바뀌지 않았다.**
+
+| 필드 | 뜻 |
+|---|---|
+| `setKey` | ★ 신설. `"genesis"` \| `"expedition"` — 세트 조각 표시 |
+| `curse` | 저주 속성(기존 5종 + 신규 3종). 등급과 **직교**한다 |
+| `exclusive` | ★ 신설. `"room"` — 그 방에서 한 번 나오면 끝(전설 4종). `"server"` 는 잼후 R5 |
+| `acquireVia` | 값이 늘었다: `temple` · `cache3` · `event` · `chain:*` · `ruin:*` · `micro:*` |
+| `type` | `"installable"` 이 늘었다(세계수의 씨앗 — 심기 전에는 아무 효과도 없다) |
+| `sets` | ★ 최상위 신설 블록. `{setKey: {name, pieces[], bonuses:{"2":[...], "4":[...]}}}` |
+
+- **상자·유적·궤 세 풀의 명단은 한 톨도 안 바뀐다.** 굴림은 `dropPool(world, nation, data, grade, via)`
+  하나를 지나며, 그 경로를 `acquireVia` 에 **제 입으로 적은 것**만 남는다. 옛 50종은 전부
+  `chest`·`ruin`·`cache` 를 적어 두었고 신규 21종은 셋 중 어느 것도 적지 않는다 —
+  그래서 **같은 씨앗의 시뮬 결과가 완전히 동일하다**(시드 42·77 실측 확인).
+- **등급표(`gradeWeights` 55/32/8/5)는 그대로다.** 표는 「보통 무엇이 나오는가」의 정본이고,
+  희소는 표가 아니라 **경로**가 만든다(§20-1).
+- `balance.artifacts` 신규 키: `ringDropTable.ring3UniqueChance`(0.05) · `sealCostGold`(180) ·
+  `plantRadiusTiles`(24) · `templeRetryDays`(1, R4b 예약).
+
+### 0-U-10. 명령 신설 3종
+
+| 명령 | 인자 | 뜻 |
+|---|---|---|
+| `sealArtifact` | `{key, sealed?}` | 저주 봉인·해봉. 골드 `sealCostGold` 를 치른다. **기록은 남고 효과만 꺼진다** |
+| `plantArtifact` | `{key, x, y}` | 설치형을 심는다. 본영에서 `plantRadiusTiles` 안. 두 번은 못 심는다 |
+| `tyrantPick` | `{role}` | 폭군의 왕관이 세울 자리를 고른다. 고르기만 하고 효과는 `useArtifact` 가 낸다 |
+
+- 셋 다 **서버가 다시 잰다** — 화면이 보낸 「저주다」·「보유했다」·「그 자리에 사람이 있다」는 믿지 않는다.
+- 장 게이트(`data/chapters.json`)에는 적지 않았다 — 유물을 얻은 순간부터 쓸 수 있어야 한다.
+
+### 0-U-11. push 신설 3종 · 뷰 더하기
+
+| push | 실리는 것 |
+|---|---|
+| `artifact_grown` | `{key, name, stage, max, x, y}` — 심은 것이 한 단계 자랐다(하루 틱) |
+| `artifact_sealed` | `{key, name, sealed}` — 봉인/해봉 |
+| `artifact_planted` | `{key, name, x, y, tick, stage}` — 심었다 |
+
+- 뷰 `nation.artifacts[]` 엔트리에 **`planted`** 가 더해졌다(안 심었으면 `null`).
+- 뷰 `nation.artifactSets` ★ 신설 — `{setKey: {name, owned, total, tiers[]}}`. 화면이 조각 수를
+  **다시 세지 않는다**(세는 규칙이 둘이 되면 언젠가 어긋난다). 하나도 안 가졌으면 빈 객체다.
+- 뷰 `clientStats` 에 `moveSpeed`·`moveSpeedWave` 가 더해졌다. ⚠ **소비(`public/js/avatar.js`)는 R4b 이월** —
+  그 파일은 지금 에셋 트랙이 고치고 있어 손대지 않았다. 유물이 없으면 둘 다 0 이라 지금 화면도 무해하다.
+
+### 0-U-12. 바뀌지 않은 것
+
+`world.schema` 6 · 등급표 55/32/8/5 · 원안 50종의 이름·효과·`acquireVia` · `artifact_found` 의 모양 ·
+`artifact_global`(§20-R2) · 도감 4단(§20-R3) · `publicArtifacts()` 의 정보 비대칭(이름·효과·lore·hint 비공개).
+
 ---
 
 ## 0-J. v3.3 안 델타 — **관계 결·살아있는 세 나라** (§세계관 W4)

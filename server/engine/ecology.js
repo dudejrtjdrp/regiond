@@ -33,6 +33,10 @@ import { recordEncounter, recordKill } from './codex.js';
 import { round2 } from './economy.js';
 // ★ §17-15 — 역할 개성. 성녀가 자리에 있으면 영토 안 휴식 회복이 빨라진다.
 import { rolePerk } from './npc.js';
+/* ★ §20-R4(유물기획 §20-3~4) — 유물이 들판에도 손을 얹는다. 실시간 경로라 collectHooks 는 부르지
+   않는다: 거울(nation.artifactCombat)만 읽고, 굴림은 combat.js 의 공용 한 벌을 쓴다. */
+import { artifactCritRoll, artifactDodgeRoll } from './combat.js';
+import { consumeRevive, speciesDamageMultiplier } from './artifacts.js';
 
 export const creatureCfg = (data) => data.creatures;
 export const creatureDefs = (data) => data.creatures.defs;
@@ -624,7 +628,10 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
     /* 막 일어난 사람(무적이 도는 3초)은 아직 「일어나는 중」이라 회복이 시작되지 않는다 —
        부활이 준 절반과 모닥불의 몫이 한 숨에 겹치지 않게. */
     /* ★ §17-15 — 성녀 개성. 자리가 채워져 있으면 회복이 30% 빠르다(공석이면 1 — 무보정). */
-    const heal = (cCfg.restHealPerSecond ?? 0) * rolePerk(nation, 'saint', 'healMultiplier', data);
+    /* ★ §20-R4(유물기획 §20-3) — 아쿠아의 성배. 회복 「속도」에 곱한다: 회복량 상한(maxHp)은
+       그대로 두고 차오르는 결만 빨라진다 — 유물이 체력의 천장을 옮기지는 않는다는 뜻이다. */
+    const heal = (cCfg.restHealPerSecond ?? 0) * rolePerk(nation, 'saint', 'healMultiplier', data)
+      * (nation.artifactCombat?.heal ?? 1);
     if (heal > 0 && !inBattle && (p.downUntil || 0) <= 0 && (p.invulnUntil || 0) <= 0 && town0) {
       const av0 = nation.avatars?.[p.id];
       const maxHp = playerMaxHp(p, data);
@@ -642,6 +649,8 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
     if ((p.downUntil || 0) <= 0) continue;
     p.downUntil = Math.max(0, round2(p.downUntil - dt));
     if (p.downUntil > 0) continue;
+    /* ★ §20-R4 — 피의 계약서의 최대 체력 감소는 playerMaxHp 안에서 이미 끝난다(player.hpMultiplier).
+       여기서 한 번 더 곱하면 두 번 깎인다 — 그래서 이 줄은 옛것 그대로 둔다. */
     p.maxHp = playerMaxHp(p, data);
     p.hp = round2(p.maxHp * (cCfg.reviveHpRatio ?? 0.5));
     p.invulnUntil = cCfg.invulnSeconds ?? 3;
@@ -854,10 +863,34 @@ function bite(world, nation, def, avatar, data) {
   // ★ §14-6 — 막 일어난 사람은 잠깐 아무도 건드리지 못한다(연달아 쓰러지는 죽음의 굴레 방지)
   if (isInvulnerable(p)) return null;
   const c = combatSkillCfg(data);
+  /* ★ §20-R4(유물기획 §20-4) — 피하는 힘. 피해를 **적용하기 직전에** 판정한다: 맞고 나서 되돌리면
+     round2 가 한 번 더 끼어들어 「피한 사람」의 체력이 미세하게 달라진다.
+     확률이 0이면 굴리지 않는다(artifactDodgeRoll 이 그 규율을 쥐고 있다) — 유물 없는 판의
+     난수 소비는 이 줄이 있기 전과 한 톨도 다르지 않다. */
+  if (artifactDodgeRoll(world, nation)) {
+    // 기존 반환 형태를 지킨다 — 옛 화면은 damage 0 인 wild_hit 으로 읽고, 새 화면만 dodged 를 본다.
+    return { kind: 'wild_hit', nationId: nation.id, data: { avatarId: avatar.id, damage: 0, hp: p.hp ?? p.maxHp, by: def.name, dodged: true } };
+  }
   const dmg = round2((def.dps || 0) * (data.creatures.sim.attackEverySeconds ?? 1.2));
   p.hp = round2(Math.max(0, (p.hp ?? p.maxHp) - dmg));
   if (p.hp > 0) {
     return { kind: 'wild_hit', nationId: nation.id, data: { avatarId: avatar.id, damage: dmg, hp: p.hp, by: def.name } };
+  }
+  /* ★ §20-R4(유물기획 §20-3) — 쓰러짐을 갈음하는 충전(성표·계약서). 「왜」 본영으로 안 옮기나 —
+     그 자리에서 일어나는 것이 이 유물이 파는 값이다. 사냥터 한복판에서 다시 서는 것과
+     본영까지 끌려갔다 걸어 돌아오는 것은 전혀 다른 물건이다. 사기 페널티도 없다(쓰러진 적이 없다). */
+  if (consumeRevive(nation)) {
+    p.maxHp = playerMaxHp(p, data);
+    p.hp = round2(p.maxHp * (c.reviveHpRatio ?? 0.5));
+    p.invulnUntil = c.invulnSeconds ?? 3;
+    return {
+      kind: 'player_revived', nationId: nation.id,
+      data: {
+        avatarId: avatar.id, hp: p.hp, maxHp: p.maxHp,
+        invulnSeconds: p.invulnUntil, bySigil: true, by: def.name,
+        x: avatar.x, y: avatar.y,
+      },
+    };
   }
   /* 다운 — ★ §14-6. 화면은 이 이벤트로 10초 카운트다운을 띄우고, 다 세면 player_revived 가 온다.
      쓰러진 자리에서 그대로 세는 것이 아니라 **일어날 자리(본부)** 를 함께 알려 준다. */
@@ -929,7 +962,12 @@ export function huntSwing(world, nation, cmd, data, now = Date.now()) {
   const def = creatureDefs(data)[target.sp];
   // ★ §13-D-3 — 손에 든 것은 웨이브에서나 들판에서나 같은 검이다(§13-C-8 과 같은 규칙).
   const gearFx = equipEffects(player, data);
-  const dmg = round2(swingDamage(nation, player, data) * gearFx.damage);
+  /* ★ §20-R4(유물기획 §20-3) — 두 축을 **덧붙이기만** 한다(옛 항의 차례는 그대로다):
+     ① 사냥꾼의 맹세 — 도감에 적힌 처치 수만큼 그 종에게 세진다(speciesDamageMultiplier).
+     ② 번개의 창끝 — 치명타. 확률이 0이면 굴리지 않으므로 유물 없는 판의 난수는 불변이다. */
+  const critFx = artifactCritRoll(world, nation);
+  const dmg = round2(swingDamage(nation, player, data) * gearFx.damage
+    * speciesDamageMultiplier(nation, target.sp) * critFx.multiplier);
   target.hp = round2(target.hp - dmg);
   // 맞으면 덤빈다 — 온순한 짐승도 성이 나고, 포식자는 끝까지 쫓는다
   target.provoked = simCfg(data).provokedSeconds ?? 20;
@@ -944,8 +982,11 @@ export function huntSwing(world, nation, cmd, data, now = Date.now()) {
     /* ★ §13-D-3 — 무기의 '사냥 효율'. 좋은 칼은 더 빨리 벨 뿐 아니라 더 곱게 발라낸다. */
     // ★ §14-5 — 행운이 드롭에 얹힌다(점당 +3%). 손재주가 아니라 '운수'의 몫이다.
     const huntBonus = 1 + (gearFx.huntYield || 0) + (statEffects(player, data).luck || 0);
+    /* ★ §20-R4(유물기획 §20-3) — 죽음의 낫의 「사냥 몫」. 무기 효율·행운과는 **다른 축**이라 곱한다:
+       손재주로 곱게 발라내는 것과 낫이 더 크게 베어 가는 것이 서로를 갉아먹지 않는다. */
+    const huntShare = nation.artifactCombat?.huntShare ?? 1;
     for (const [res, n] of Object.entries(def.drops || {})) {
-      const got = deposit(nation, res, round2(n * huntBonus), data);
+      const got = deposit(nation, res, round2(n * huntBonus * huntShare), data);
       if (got > 0) gained[res] = got;
     }
     player.stats.kills = (player.stats.kills || 0) + 1;
@@ -962,6 +1003,8 @@ export function huntSwing(world, nation, cmd, data, now = Date.now()) {
     species: target.sp,
     speciesName: def.name,
     damage: dmg,
+    // ★ §20-R4 — 세게 들어간 것을 화면이 알아야 번쩍인다(유물이 없으면 늘 false 라 옛 화면과 같다)
+    crit: critFx.crit,
     targetHp: Math.max(0, target.hp),
     killed,
     gained,

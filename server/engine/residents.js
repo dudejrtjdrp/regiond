@@ -66,7 +66,13 @@ export function attractiveness(nation, data) {
   const m = data.balance.morale;
   const moraleRatio = clamp(((nation.morale ?? 1) - m.default) / (m.max - m.default), -1, 1);
   const morale = moraleRatio * cfg.moraleWeight;
-  return clamp(1 + surplus + decor + morale, 0.2, cfg.attractivenessMax);
+  /* ★ §20-R4(유물기획 §20-3 죽음의 낫) — 유물이 얹는 유입 배수(tick.js 가 박는 거울).
+     「왜」 주기가 아니라 **매력도**에 곱하나 — 주기는 매력도로 나눈 값이라(arrivalIntervalDays)
+     여기 0.75 를 곱하면 주기가 정확히 4/3 배로 늘어난다 = 유입 −25%. 부호가 저절로 맞는다.
+     또 매력도는 화면에도 나가는 값이라, 「왜 사람이 덜 오지」의 답이 한 자리에 모인다.
+     유물이 없으면 1 이라 곱해도 옛 값 그대로다. */
+  const inflow = nation.artifactPopInflow ?? 1;
+  return clamp((1 + surplus + decor + morale) * inflow, 0.2, cfg.attractivenessMax);
 }
 
 /**

@@ -12,6 +12,8 @@ import { equipEffects } from './equipment.js';
 import { ensureWild } from './ecology.js';
 // ★ Sprint 5 — 경비 배치는 세계 난수를 한 톨도 축내지 않는다(actions.js 의 은닉물과 같은 규율).
 import { statRng } from './traits.js';
+// ★ §20-R4 — 야영지를 치는 손도 **같은 손**이다: 치명타 굴림도 전투·사냥과 한 벌을 쓴다.
+import { artifactCritRoll } from './combat.js';
 import { record } from './chronicle.js';
 // ★ §19-E(F04-4) — 침공 조건은 **장 목표와 같은 계측기**로 잰다(§13-A-1 조건 행의 단일 정본).
 import { featureUnlocked, measure } from './progression.js';
@@ -506,7 +508,13 @@ export function strikeCamp(world, nation, cmd, data, now = Date.now()) {
   markSwing(player, now, 'combat');
 
   const gearFx = equipEffects(player, data);
-  const damage = round2(swingDamage(nation, player, data) * gearFx.damage);
+  /* ★ §20-R4(유물기획 §20-3) — 쿨타임이 전투 스윙과 같은 자를 쓰듯, 얹히는 것도 같은 자를 쓴다:
+     용의 심장의 전투원 피해 배수 + 번개의 창끝의 치명타. 여기만 유물이 안 듣는다면
+     「선제 타격은 유물을 끄고 가는 편이 낫다」는 이상한 셈이 생긴다.
+     확률이 0이면 굴리지 않으므로 유물 없는 판의 난수 소비는 이 줄 전후가 완전히 같다. */
+  const critFx = artifactCritRoll(world, nation);
+  const damage = round2(swingDamage(nation, player, data) * gearFx.damage
+    * (nation.artifactCombat?.damage ?? 1) * critFx.multiplier);
   camp.hp = round2(Math.max(0, camp.hp - damage));
   const xp = grantXp(player, 'combat', cfg.xpPerSwing ?? 0, data);
 
@@ -546,6 +554,8 @@ export function strikeCamp(world, nation, cmd, data, now = Date.now()) {
     maxHp: camp.maxHp,
     destroyed,
     damage,
+    // ★ §20-R4 — 세게 들어간 것을 화면이 알아야 번쩍인다(유물이 없으면 늘 false)
+    crit: critFx.crit,
     waveCancelled,
     xp: round2(player.skills.combat.xp),
     cooldownMs: cd.cooldownMs,

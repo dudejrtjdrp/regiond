@@ -121,9 +121,14 @@ export function statEffects(player, data) {
   };
 }
 
-/** 이 사람의 최대 HP — 기본값 + 체력 점수 */
+/**
+ * 이 사람의 최대 HP — 기본값 + 체력 점수.
+ * ★ §20-R4(유물기획 §20-6) — 피의 계약서의 「최대 체력 −25%」가 여기 곱해진다. 시그니처는 건드리지
+ * 않는다: 이 함수를 부르는 자리가 열 곳이 넘고, 국가를 새로 넘기게 하면 그 열 곳이 전부 흔들린다.
+ * 대신 거울(mirrorArtifactHooks)이 사람마다 player.hpMultiplier 를 박아 둔다 — 그 칸이 없으면 1이다.
+ */
 export function playerMaxHp(player, data) {
-  return round2(combatSkillCfg(data).playerHp + statEffects(player, data).maxHp);
+  return round2((combatSkillCfg(data).playerHp + statEffects(player, data).maxHp) * (player?.hpMultiplier ?? 1));
 }
 export const maxHpOf = playerMaxHp;
 
@@ -259,10 +264,15 @@ export function yieldMultiplier(nation, player, skillKey, data) {
   return (1 + cfg.yieldPerLevel * (lv - 1)) * toolFor(nation, player, skillKey, data).multiplier * stat;
 }
 
-/** 전투 스윙 1회 피해 */
+/**
+ * 전투 스윙 1회 피해.
+ * ★ §20-R4(유물기획 §20-3) — 죽음의 낫의 「공격력 +100%」가 마지막에 곱해진다. 「왜」 여기냐 —
+ * 스윙 피해를 묻는 자리가 넷(사냥·전투·야영지·견적)인데 넷이 따로 얹으면 견적과 실피해가 어긋난다.
+ * yieldMultiplier 에는 얹지 않는다: 그것은 채집에도 쓰이는 자라서 나무 베는 손까지 세지게 된다.
+ */
 export function swingDamage(nation, player, data) {
   const c = combatSkillCfg(data);
-  return c.damagePerSwing * yieldMultiplier(nation, player, 'combat', data);
+  return c.damagePerSwing * yieldMultiplier(nation, player, 'combat', data) * (nation?.artifactCombat?.attack ?? 1);
 }
 
 // ────────────────────────────────────────────────────────────────

@@ -141,9 +141,14 @@ export function visionSources(world, nation, data) {
   for (const u of nation.villagers || []) {
     out.push({ kind: 'villager', x: u.x, y: u.y, r: u.job === 'scout' ? v.scout : v.villager });
   }
+  /* ★ §20-R4 — 유물 시야(파수꾼의 망토 +2타일)의 **소비처**. R1 부터 collectHooks 가
+     visionDelta 를 걷기만 하고 아무도 읽지 않아 죽어 있던 훅이다. 「왜」 영주 시야에만 얹나 —
+     망토는 사람이 두르는 물건이고, 건물·주민까지 밝아지면 「두른 사람이 더 본다」가 사라진다.
+     값은 tick.js 가 박는 거울이다(안개는 걸음마다 다시 찍히는 가장 뜨거운 길목이다). */
+  const relic = nation.artifactVisionDelta ?? 0;
   for (const a of Object.values(nation.avatars || {})) {
     // ★ GDD3 §13-D-4 — 「밤눈」이 깃든 장비는 안개를 그만큼 더 걷는다(사람마다 따로 잰다)
-    out.push({ kind: 'lord', x: a.x, y: a.y, r: v.lord + bonus + nightVisionOf(nation, a.id, data) });
+    out.push({ kind: 'lord', x: a.x, y: a.y, r: v.lord + bonus + relic + nightVisionOf(nation, a.id, data) });
   }
   return out;
 }

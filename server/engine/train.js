@@ -16,6 +16,16 @@ import { round2 } from './economy.js';
 
 export const trainCfg = (data) => data.research?.trains ?? null;
 
+/**
+ * 한 량에 몇 사람이 타는가.
+ * ★ §20-R4(§20-3 기관장의 인장) — 유물의 적재 배수(+50%)를 여기 한 자리에서 곱한다.
+ * 배수는 tick.js 가 하루 한 번 박아 두는 거울이다(collectHooks 는 부르지 않는다 — 타고 내리는
+ * 판정과 뷰는 둘 다 실시간 길목이다). 자리는 사람 수라 반드시 내림한다 — 4×1.5 = 6, 4×1 = 4.
+ * 유물이 없으면 배수가 1 이라 옛 값(cfg.capacity ?? 4)과 한 톨도 다르지 않다.
+ */
+export const trainCapacity = (nation, cfg) =>
+  Math.floor((cfg?.capacity ?? 4) * (nation?.artifactTrainCargo ?? 1));
+
 const err = (code, message) => ({ ok: false, error: { code, message } });
 
 /** 정거장 한 채의 한가운데 — 풋프린트(2×2)의 복판이다 */
@@ -141,7 +151,7 @@ export function boardTrain(world, nation, cmd, data) {
   if (riding(nation, who)) return err('ALREADY_ABOARD', '이미 타고 있습니다.');
   const t = nearestIdle(nation, av, cfg, cmd.trainId ?? cmd.payload?.trainId ?? null);
   if (!t) return err('NO_TRAIN_NEAR', '곁에 선 기차가 없습니다.');
-  if (t.riders.length >= (cfg.capacity ?? 4)) return err('TRAIN_FULL', '자리가 없습니다.');
+  if (t.riders.length >= trainCapacity(nation, cfg)) return err('TRAIN_FULL', '자리가 없습니다.');
   t.riders.push(who);
   av.x = t.x; av.y = t.y;
   return { ok: true, trainId: t.id, avatarId: who, train: trainView(t) };
@@ -187,7 +197,7 @@ export function trainSummary(nation, data) {
     open: trainsOpen(nation, data),
     minStations: cfg?.minStations ?? 2,
     boardRadius: cfg?.boardRadius ?? 3,
-    capacity: cfg?.capacity ?? 4,
+    capacity: trainCapacity(nation, cfg),      // ★ §20-R4 — 화면도 유물이 얹은 자리 수를 그대로 본다
     stations,
     list: trainViews(nation),
   };

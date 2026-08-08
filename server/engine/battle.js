@@ -30,6 +30,11 @@ import { createRng, rngFromState } from './rng.js';
 import { round2, round3, clamp } from './economy.js';
 // ★ §20-R1 — 격퇴 보상(골드·사기)에 유물이 얹힌다. 결산 한 번에 한 번만 걷는다.
 import { collectHooks } from './artifacts.js';
+/* ★ §20-R4 — 웨이브당 부활 충전. 서브틱은 실시간 경로라 collectHooks 를 부르지 않는다:
+   되감기는 startBattle 한 번, 소비는 쓰러지는 순간 한 번(거울 nation.artifactReviveLeft). */
+import { resetReviveCharges, consumeRevive } from './artifacts.js';
+// ★ §20-R4 — 치명타·회피 굴림은 넷이 같은 한 벌을 쓴다(combat.js 머리말 참고)
+import { artifactCritRoll, artifactDodgeRoll } from './combat.js';
 // ★ Sprint 2 — 전투의 발: 수비는 깃발로, 영토 밖 일꾼은 마을로. 끝나면 제 일터로.
 import { battleStations, standDown } from './assign.js';
 // ★ §19-C — 스폰 자리 검사(물에서 태어나 갇히는 사고를 막는다)
@@ -209,6 +214,10 @@ export function startBattle(world, nation, data, opts = {}) {
     p.hp = p.maxHp ?? combatSkillCfg(data).playerHp;
     p.downUntil = 0;
   }
+  /* ★ §20-R4(유물기획 §20-3) — 「웨이브당 N회」의 정본이 여기다. 되감는 자리를 하나로 못 박아야
+     들판(ecology)에서 쓴 충전과 전투에서 쓴 충전이 같은 지갑에서 나간다 — 지갑이 둘이면
+     웨이브 직전에 일부러 짐승에게 물려 충전을 「비축」하는 이상한 셈이 생긴다. */
+  resetReviveCharges(nation);
   /* ★ Sprint 2 — 종이 울렸다. 수비 주민은 깃발 곁으로, 영토 밖 일꾼은 마을로 발을 옮긴다.
      (민병 전력은 위에서 이미 스냅샷됐다 — 이 발걸음은 행동·연출의 층이다) */
   battleStations(world, nation, data);
@@ -278,13 +287,17 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
   b.t = round3(b.t + dt);
 
   const livingEnemies = alive(b.enemies);
+  /* ★ §20-R4(유물기획 §20-3) — 용의 심장의 「전투원 피해 +25%」. 이름 그대로 **나라 전체 전투원**이라
+     터렛·민병·시뮬 봇·사람의 칼에 똑같이 얹는다(적이 넣는 피해에는 얹지 않는다).
+     유물이 없으면 1 이라 옛 셈과 한 톨도 다르지 않다 — 그래서 늘 **맨 뒤에** 곱한다. */
+  const artifactDamage = nation.artifactCombat?.damage ?? 1;
 
   // ── 1. 터렛 ──────────────────────────────────────────────────
   for (const t of turretList(nation, data)) {
     const found = nearest(livingEnemies, t.x, t.y, t.range);
     if (!found) continue;
     const counter = (t.counters || []).includes(b.type) ? 1.5 : 1;
-    const dmg = t.dps * counter * b.multipliers.defender * dt;
+    const dmg = t.dps * counter * b.multipliers.defender * dt * artifactDamage;
     found.entity.hp -= dmg;
     /* ★ §19-F1(F08-3) — 터렛의 「덤」. data 에 적힌 것만 돈다(화살탑은 한 톨도 안 바뀐다). */
     if (t.slow) chill(found.entity, t.slow);
@@ -309,7 +322,7 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
     const found = nearest(livingEnemies, m.x, m.y);
     if (!found) continue;
     if (found.d <= m.range + 0.4) {
-      const dmg = m.dps * b.multipliers.defender * dt;
+      const dmg = m.dps * b.multipliers.defender * dt * artifactDamage;
       found.entity.hp -= dmg;
       if (found.entity.hp <= 0) killEnemy(b, found.entity, data, 'militia', m.id);
     } else {
@@ -324,7 +337,7 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
   for (const vp of b.virtualPlayers || []) {
     const found = nearest(livingEnemies, b.core.x, b.core.y, cfg.spawnRadiusTiles);
     if (!found) break;
-    const dmg = (vp.dps || 0) * b.multipliers.defender * dt;
+    const dmg = (vp.dps || 0) * b.multipliers.defender * dt * artifactDamage;
     found.entity.hp -= dmg;
     if (found.entity.hp <= 0) killEnemy(b, found.entity, data, 'player', vp.id ?? 'sim');
   }
@@ -336,6 +349,8 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
     if (!(p.downUntil > 0)) continue;
     p.downUntil = Math.max(0, round2(p.downUntil - dt));
     if (p.downUntil > 0) continue;
+    /* ★ §20-R4 — 피의 계약서의 최대 체력 감소는 playerMaxHp 가 이미 안고 있다(player.hpMultiplier).
+       ecology 의 같은 블록과 한 글자도 다르지 않게 둔다 — 두 문이 갈라지면 규칙이 둘이 된다. */
     p.maxHp = playerMaxHp(p, data);
     p.hp = round2(p.maxHp * (cCfg.reviveHpRatio ?? 0.5));
     p.invulnUntil = cCfg.invulnSeconds ?? 3;
@@ -375,6 +390,10 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
       const target = near.entity.ref;
       // ★ §14-6 — 막 일어난 사람은 잠깐 아무도 건드리지 못한다
       if (near.entity.kind === 'player' && isInvulnerable(target)) continue;
+      /* ★ §20-R4(유물기획 §20-4) — 피하는 힘. 사람에게만 붙는다(민병은 능력치가 그 몫을 한다,
+         바로 위 방어구 감산과 같은 갈래다). 피해를 짓기 **전에** 판정하고, 피하면 이 서브틱의
+         그 적은 헛손질로 끝난다. 확률이 0이면 굴리지 않으므로 유물 없는 판의 난수는 불변이다. */
+      if (near.entity.kind === 'player' && artifactDodgeRoll(world, nation)) continue;
       const dmg = e.dps * dt * (1 - reduce);
       target.hp = round2((target.hp ?? 0) - dmg);
       if (target.hp <= 0) {
@@ -388,6 +407,20 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
           //    무너지는 뒤집힌 곡선을 만들었다 — GDD3 §12-4 로 인구가 빨리 느는 지금은 더 심해진다.)
           if (!target.everDowned) { target.everDowned = true; b.militiaHurt = (b.militiaHurt || 0) + 1; }
           push(b, { t: round2(b.t), kind: 'militiaDown', targetId: target.id }, data);
+        } else if (consumeRevive(nation)) {
+          /* ★ §20-R4(유물기획 §20-3) — 쓰러짐을 갈음하는 충전. 그 **자리에서** 다시 선다:
+             본영으로 끌려가지 않는 것이 이 유물이 파는 값이다(ecology.bite 와 같은 규칙).
+             쓰러진 적이 없으므로 playersDowned 를 올리지 않는다 — 그 숫자는 결산에서 사기를
+             깎는 자라서, 올리면 「부활했는데 마을은 무너진」 앞뒤 안 맞는 결말이 난다. */
+          const cC = combatSkillCfg(data);
+          target.maxHp = playerMaxHp(target, data);
+          target.hp = round2(target.maxHp * (cC.reviveHpRatio ?? 0.5));
+          target.invulnUntil = cC.invulnSeconds ?? 3;
+          push(b, {
+            t: round2(b.t), kind: 'playerRevived', targetId: target.id,
+            hp: target.hp, maxHp: target.maxHp, invulnSeconds: target.invulnUntil,
+            bySigil: true, x: near.entity.x, y: near.entity.y,
+          }, data);
         } else {
           target.hp = 0;
           /* ★ §13-D-3 — 방어구의 다운 저항. 쓰러지긴 해도 더 빨리 일어선다(죽음은 없다). */
@@ -714,10 +747,17 @@ export function combatSwing(world, nation, cmd, data, now = Date.now()) {
   /* ★ §13-D-3 — 무기가 얹는 배수. 스킬 도구(skills.json)와는 다른 축이라 곱해진다:
      레벨이 여는 것과 손으로 벼린 것이 서로를 갉아먹지 않는다. */
   const gearFx = equipEffects(player, data);
-  const dmg = round2(swingDamage(nation, player, data) * gearFx.damage * b.multipliers.defender);
+  /* ★ §20-R4(유물기획 §20-3) — 두 축을 옛 항 **뒤에** 덧붙인다(차례를 바꾸지 않는다):
+     ① 용의 심장의 전투원 피해 배수 — stepBattle 의 터렛·민병과 같은 자를 쓴다.
+     ② 번개의 창끝의 치명타 — 확률이 0이면 굴리지 않으므로 유물 없는 판의 난수는 불변이다. */
+  const critFx = artifactCritRoll(world, nation);
+  const dmg = round2(swingDamage(nation, player, data) * gearFx.damage * b.multipliers.defender
+    * (nation.artifactCombat?.damage ?? 1) * critFx.multiplier);
   target.hp = round2(target.hp - dmg);
   b.playerDamage[avatarId] = round2((b.playerDamage[avatarId] || 0) + dmg);
-  push(b, { t: round2(b.t), kind: 'playerHit', targetId: target.id, by: avatarId, damage: dmg }, data);
+  /* 치명타일 때만 칸을 실는다 — 타임라인은 그대로 저장·중계되는 물건이라, 늘 false 인 칸을
+     하나 더 얹으면 옛 스냅샷과 낯이 달라진다(§21-A 전투 스트림 비교). */
+  push(b, { t: round2(b.t), kind: 'playerHit', targetId: target.id, by: avatarId, damage: dmg, ...(critFx.crit ? { crit: true } : null) }, data);
   let killed = false;
   let xp = grantXp(player, 'combat', c.xpPerHit, data);
   if (target.hp <= 0) {

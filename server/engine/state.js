@@ -269,8 +269,11 @@ export function isLegacySnapshot(world) {
 /* ★ §21-A3 — 유물 충전(§20-R1, rev 3)과 안개 Uint8Array(§21-A3)가 각각 줄을 더했다.
    두 트랙이 같은 3 을 쓰면 한쪽을 먼저 받은 세이브가 다른 쪽 줄을 건너뛴다 — 그래서 4.
    ★ §20-R3 — 유물 등록부(fillArtifactRegistry)와 안개(§21-A3)가 또 같은 4 를 썼다.
-   4 표를 받은 세이브가 어느 한쪽만 돌았을 수 있으므로 5 로 올린다 — 같은 빚, 같은 셈. */
-const MIGRATION_REV = 5;
+   4 표를 받은 세이브가 어느 한쪽만 돌았을 수 있으므로 5 로 올린다 — 같은 빚, 같은 셈.
+   ★ §20-R4 — 유물 엔트리에 봉인(sealed)·설치(planted) 칸이 생겼다(§20-6·§20-3).
+   둘 다 「없으면 거짓」이 옳은 기본값이라 세이브를 다치게 하지 않지만, 칸이 아예 없으면
+   화면이 `undefined` 를 그리고 봉인 토글이 첫 클릭을 삼킨다. 그래서 6. */
+const MIGRATION_REV = 6;
 
 /**
  * ★ §19-F1(F08-1) — 옛 세이브의 건물에 체력을 붙인다.
@@ -298,6 +301,12 @@ function fillArtifactCharges(nation) {
   (nation.artifactState ||= { immunities: {}, freeUpgrades: {}, costDiscounts: {}, tariffZeroCharges: 0 });
   nation.artifactState.costDiscountCategories ||= {};
   for (const owned of nation.artifacts || []) {
+    /* ★ §20-R4 — 봉인·설치 칸을 연다. 「왜」 기본값이 false·null 인가 — 옛 세이브의 유물은
+       하나도 봉인되지 않았고 하나도 심기지 않았다. 없는 것을 있다고 적으면 그것은 이관이 아니라
+       조작이다. 설치형(세계수)은 신규라 옛 세이브에 있을 리 없지만, 칸은 미리 열어 둔다:
+       화면이 `undefined` 를 만나면 봉인 토글이 첫 클릭을 삼킨다. */
+    if (owned.sealed == null) owned.sealed = false;
+    if (owned.planted === undefined) owned.planted = null;
     if (owned.chargesLeft != null) continue;
     owned.chargesLeft = owned.consumed ? 0 : 1;
   }

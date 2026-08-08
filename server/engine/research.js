@@ -72,9 +72,14 @@ export const labsCfg = (data) => researchCfg(data).labs ?? null;
 /** 이 연구가 속한 갈래(land·machine). 안 적힌 옛 자료는 갈래가 없다 — 가속도 없다. */
 export const researchField = (key, data) => researchDef(key, data)?.field ?? null;
 
-/** 하루가 깎는 날수 = 1 + 연구소 배수. 연구소가 없으면 정확히 1 이다(옛 세이브 불변). */
+/** 하루가 깎는 날수 = 1 + 연구소 배수. 연구소가 없으면 정확히 1 이다(옛 세이브 불변).
+    ★ §20-R4(§20-3 기관장의 인장) — 유물의 연구 속도 배수를 여기서 곱한다. collectHooks 를
+    부르지 않고 tick.js 가 하루 한 번 박아 두는 거울을 읽는다: 이 함수는 하루 정산뿐 아니라
+    화면·조언이 「며칠 남았나」를 셀 때도 불리는 자리라 그때마다 유물 목록을 돌 수 없다.
+    유물이 없으면 배수가 1 이라 곱셈이 값을 바꾸지 않는다. */
 export function researchStep(nation, key, data) {
-  return round3(1 + researchSpeedBonus(nation, researchField(key, data), data));
+  const artifact = nation.artifactResearchSpeed ?? 1;
+  return round3((1 + researchSpeedBonus(nation, researchField(key, data), data)) * artifact);
 }
 
 /** 화면이 읽는 칸 — 갈래마다 지금 몇 할이 붙어 있는가 */

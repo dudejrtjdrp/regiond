@@ -11,7 +11,11 @@ import {
   cobbDouglas, departmentCapital, officerFactor, buildingFactor, clampedOfficerBuilding,
   tagFactor, producesResource, targetStock, applySpoilage, localPriceTable, round2, clamp, hasSkill,
 } from './economy.js';
-import { collectHooks, artifactFoundEvent, chronicleArtifact } from './artifacts.js';
+// ★ §20-R4 — 하루 한 번 걷은 훅을 국가에 박고(거울), 심은 것을 자라게 하고, 그 반경 몫을 부서에 얹는다.
+import {
+  collectHooks, artifactFoundEvent, chronicleArtifact,
+  mirrorArtifactHooks, growPlanted, auraDeptBonus,
+} from './artifacts.js';
 import { selectActions } from './orders.js';
 import { applyCommand, normalizeAlloc } from './commands.js';
 import { accrueXp, rolePerk } from './npc.js';
@@ -26,7 +30,8 @@ import {
   stepVillagers, stepNodes, stepFields, reassignDepleted, deriveLabor, syncNodeWorkers,
   nodeContribution, nodeFlatYield,
 } from './villagers.js';
-import { recomputeFog } from './fog.js';
+// ★ §20-R4(§20-4 아로스의 눈) — 안개가 날마다 스스로 물러선다. 그 원을 찍는 손이 stampVisionDisc 다.
+import { recomputeFog, stampVisionDisc, fogCfg, visionTierBonus } from './fog.js';
 import {
   completeStructure, finishSite, syncLegacyBuildings, structureOutputBonus, storageBonus,
   flatOutputs, goldPerDay, hasBuilding, moraleBonus, prestige as prestigeOf, effectValue,
@@ -54,7 +59,7 @@ import { deposit, spoilFloor } from './storage.js';
 // ★ GDD3 §13-D-5 — 기술 트리. 값은 착수할 때 치르고, 날은 여기서 흐른다.
 import { stepResearch, productionBonus, gatherResearchBonus } from './research.js';
 // ★ GDD3 §13-B·C — 은닉 유적 발견 · 상시 생태계 · 사냥꾼 오두막
-import { revealConcealed } from './world.js';
+import { revealConcealed, townOf } from './world.js';
 import { stepEcologyDay, huntYield, cullForHunters, livestockOutputs } from './ecology.js';
 // ★ GDD3 §15-C — 동료 봇. 아무도 안 보는 시간만큼을 일 틱이 몰아 돌린다(이중 계산 없음).
 import { stepCompanionsDay } from './companions.js';
@@ -155,7 +160,27 @@ export function step(state, inputs = [], rng = null, data = loadGameData(), opts
        capacity() 는 주민 배치·도착 판정에서 수없이 불리는 자리라 그때마다 훅을 걷을 수 없다.
        nation.storageBonus 와 같은 방식으로 매 틱 여기서 채운다(레거시 거울 규칙). */
     nation.artifactCapDelta = hooks.populationCapDelta;
+    /* ★ §20-R4 — 거울 두 벌을 여기서 한꺼번에 박는다. mirrorArtifactHooks 는 **실시간 경로**
+       (스윙·물기·이동)가 읽는 것이고, mirrorArtifactDay 는 하루 경로 중 훅을 못 받는 자리
+       (연구·기차·안개·부패·사기·감정의 날)가 읽는 것이다. 둘 다 하루 한 번만 걷는다. */
+    mirrorArtifactHooks(nation, hooks);
+    mirrorArtifactDay(nation, hooks);
+    /* ★ §20-R4(유물기획 §20-3 이그니스의 왕관) — 「낮 동안」의 번역.
+       기획서는 「낮 동안 전 자원 +35%」라 적었지만 **서버에는 낮과 밤이 없다**: 낮밤은 클라의
+       벽시계 연출이고(public/js), 산출은 하루에 딱 한 번 이 자리에서 정산된다. 그래서 조건을
+       「웨이브가 오지 않는 날」로 옮겼다 — 유물의 값(「해가 떠 있는 동안만 곳간이 찬다,
+       대신 성문 밖은 위험하다」)을 하루 눈금 위에서 지키는 가장 가까운 번역이다.
+       daysUntilWave 가 null(예정 없음)이면 웨이브 당일이 아니므로 산다. */
+    hooks.dayOutputActive = daysUntilWave(world, nation) !== 0;
+    /* 심은 것의 하루 — 자란 단계만 알린다(연출은 화면 몫). 심은 유물이 없으면 빈 배열이다. */
+    for (const g of growPlanted(nation, tick, data)) {
+      events.push({ tick, kind: 'artifact_grown', nationId: nation.id, data: g });
+    }
+    // 설치형 반경 보너스 — 부서 단위로 미리 걷어 둔다(departmentMultiplier 가 부서마다 읽는다)
+    hooks.auraDept = auraDeptBonus(world, nation, data);
     production[nation.id] = produceNation(world, nation, data, hooks);
+    const granted = applyDailyGrants(nation, hooks, data);
+    if (granted) production[nation.id].granted = granted;
     for (const done of production[nation.id].completed || []) {
       events.push({ tick, kind: 'building_done', nationId: nation.id, data: done });
       // ★ §17-6 집들이 — 완공과 함께 들어온 사람은 도착 연출(이름표)도 같이 나간다
@@ -364,6 +389,10 @@ export function step(state, inputs = [], rng = null, data = loadGameData(), opts
   for (const nation of Object.values(world.nations)) {
     if (!nation.fog) continue;
     recomputeFog(world, nation, data, tick);
+    /* ★ §20-R4(§20-4 아로스의 눈) — 다시 칠한 **뒤에** 스스로 걷힌 원을 덧찍는다.
+       순서가 중요하다: recomputeFog 는 시야원 밖을 「탐사됨(1)」으로 눌러 놓으므로,
+       먼저 찍으면 그날의 개방이 곧바로 지워진다. 유물이 없으면 이 줄은 즉시 되돌아 나온다. */
+    autoRevealFog(world, nation, data, tick);
     for (const c of updateCampIntel(world, nation, data)) {
       events.push({ tick, kind: 'camp_scouted', nationId: nation.id, data: campEventView(c, data) });
     }
@@ -415,6 +444,66 @@ function openCouncilNow(world, nation, data, r, tick) {
   return out;
 }
 
+/**
+ * ★ §20-R4 거울(하루 경로) — artifacts.mirrorArtifactHooks 가 실시간 경로를 맡는 것과 짝이다.
+ * 「왜」 훅을 넘기지 않고 국가에 박나 — 아래 소비처들은 하루 파이프라인 **바깥**에서도 불린다
+ * (researchStep 은 조언·화면이, trainSummary 는 뷰가, visionSources 는 걸음마다 fog 가 부른다).
+ * 그때마다 collectHooks 를 걷으면 유물 목록을 도는 뜨거운 길목이 새로 생긴다 —
+ * 기존 nation.artifactCapDelta · nation.storageBonus 와 똑같은 규율을 넓힌 것뿐이다.
+ * 유물이 없으면 전부 기본값(배수 1 · 델타 0 · false)이라 한 톨도 달라지지 않는다.
+ */
+function mirrorArtifactDay(nation, hooks) {
+  nation.artifactResearchSpeed = hooks.researchSpeedMultiplier;   // research.researchStep
+  nation.artifactTrainCargo = hooks.trainCargoMultiplier;         // train.boardTrain · trainSummary
+  nation.artifactVisionDelta = hooks.visionDelta ?? 0;            // fog.visionSources
+  nation.artifactMoraleDelta = hooks.moraleDelta;                 // updatePopulationAndMorale
+  nation.artifactSpoilImmune = hooks.spoilImmune;                 // consumeAndStock
+  nation.artifactFogAutoReveal = hooks.fogAutoReveal;             // 아래 10-b 안개 갱신
+  nation.artifactEmotionDay = hooks.emotionDayMultiplier;         // emotion_day.assignTags
+  nation.artifactCraftTime = hooks.craftTimeMultiplier;           // equipment.js — R4b 이월(제작이 즉시라 쓸 자리가 없다)
+}
+
+/**
+ * ★ §20-R4 — 매일 들어오는 몫(dailyGrant). 지금 data/artifacts.json 에는 **한 줄도 없다**:
+ * 세계수의 열매·희귀 약초는 대응하는 자원 키가 resources.json 에 없어 데이터에서 걷혔다(그 파일 _note).
+ * 그래서 이 고리는 지금 한 번도 돌지 않는다 — 자원 키가 서는 날 데이터 한 줄로 살아난다.
+ * requireStage 는 「다 자란 뒤에만」을 위한 문이다(심은 것의 단계로 판정한다).
+ * @returns {object|null} {자원: 실제로 들어간 양} — 곳간이 안 받으면 아무것도 남기지 않는다
+ */
+function applyDailyGrants(nation, hooks, data) {
+  if (!hooks.dailyGrants?.length) return null;
+  const out = {};
+  for (const g of hooks.dailyGrants) {
+    if (g.requireStage > 0 && !plantedAtStage(nation, g.requireStage)) continue;
+    const got = deposit(nation, g.resource, g.amount, data);
+    if (got > 0) out[g.resource] = round2((out[g.resource] || 0) + got);
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/** 심은 것 가운데 그만큼 자란 것이 하나라도 있는가 */
+const plantedAtStage = (nation, stage) =>
+  (nation.artifacts || []).some((a) => (a.planted?.stage ?? -1) >= stage);
+
+/**
+ * ★ §20-R4(유물기획 §20-4 아로스의 눈) — 안개가 날마다 스스로 한 겹씩 물러선다.
+ * 본영을 중심으로 원이 **날마다 조금씩 넓어진다**: 어제 열린 만큼에 오늘치(radiusPerDay)를 더한다.
+ * 「왜」 상한을 두나 — 누적이라 며칠만 지나도 지도 전체를 덮어 버린다. 그러면 이 유물이
+ * 「안개를 걷는 재미」를 없애 버린다(§18-3 마커 금지와 같은 결). 지도 절반에서 멈춘다.
+ * 누적 상태는 nation.fogAutoRadius 한 칸이다 — 옛 세이브에는 없어 첫날은 본영 시야에서 시작한다.
+ */
+function autoRevealFog(world, nation, data, tick) {
+  const per = nation.artifactFogAutoReveal || 0;
+  if (!(per > 0)) return;
+  const town = townOf(world, nation.id);
+  if (!town) return;
+  const base = (fogCfg(data).vision?.town ?? 0) + visionTierBonus(nation, data);
+  const cap = data.world.size / 2;
+  const r = Math.min(cap, Math.max(nation.fogAutoRadius ?? base, base) + per);
+  nation.fogAutoRadius = r;
+  stampVisionDisc(nation, data, tick, town.x, town.y, r);
+}
+
 // ────────────────────────────────────────────────────────────────
 // 산출
 // ────────────────────────────────────────────────────────────────
@@ -433,12 +522,52 @@ function departmentMultiplier(world, nation, dept, resource, data, hooks, buffs)
   const T = tagFactor(nation, resource, data);
   const M = clamp(nation.morale, data.balance.morale.min, data.balance.morale.max);
   const sanct = sanctuaryFactor(nation, resource, data, world.tick);
-  const resBuff = 1 + (buffs.outputByResource[resource] || 0) + (hooks.outputBonus[resource] || 0);
-  const deptBuff = 1 + (buffs.outputByDept[dept] || 0);
+  /* ★ §20-R4 — 자원 보정에 항 셋을 **덧붙인다**(기존 순서·기존 항은 한 줄도 안 바뀐다).
+     ① 와일드카드 '*' — R1 부터 outputBonus 를 자원 키로만 조회해서, 「전 자원」으로 적힌
+        세트 2개 보너스(수에르의 균형)와 굶주린 왕관이 조용히 죽어 있었다. 같은 표의 같은 축이므로
+        자원별 값과 **더한다**(§20-10-5 「평탄값은 더한다」).
+     ② 낮 보너스 — 웨이브 당일에는 0 (위 dayOutputActive 의 번역 근거 참고).
+     ③ 건물별 보너스 — 아래 buildingOutputBonusFor 의 근사 설명 참고. */
+  const wild = hooks.outputBonus['*'] || 0;
+  const day = hooks.dayOutputActive
+    ? (hooks.dayOutputBonus?.[resource] || 0) + (hooks.dayOutputBonus?.['*'] || 0) : 0;
+  const byBuilding = buildingOutputBonusFor(nation, dept, resource, data, hooks);
+  const resBuff = 1 + (buffs.outputByResource[resource] || 0) + (hooks.outputBonus[resource] || 0)
+    + wild + day + byBuilding;
+  /* ★ §20-R4(§20-3 세계수의 씨앗) — 심은 것의 반경 몫. 부서 단위로 이미 걷어 둔 표를 읽기만 한다
+     (하루 한 번 tick 이 hooks.auraDept 에 채운다 — 여기서 매번 유물을 훑지 않는다). */
+  const deptBuff = 1 + (buffs.outputByDept[dept] || 0) + (hooks.auraDept?.[dept] || 0);
   const globalBuff = 1 + buffs.output;
   const treasury = nation.gold <= 0 ? 1 - p.treasuryDeficitOutputPenalty : 1;
   const offline = nation.isPlayer && !nation.online ? p.offlineRegencyMultiplier : 1;
   return Math.max(0, OB * T * M * sanct * resBuff * deptBuff * globalBuff * treasury * offline);
+}
+
+/**
+ * ★ §20-R4 — 건물별 산출 보너스(아쿠아의 물방울 우물·분수 +25% · 이그니스의 불씨 제련 계열 +25%).
+ *
+ * 「왜 근사인가」 — 산출은 **건물 하나하나가 아니라 부서로 뭉쳐** 계산된다(콥더글러스 L·K).
+ * buildingFactor·structureOutputBonus 는 건물의 몫을 이미 자원별 한 숫자로 눌러 놓아서,
+ * 「이 우물이 낸 몫에만 25%」를 얹을 자리가 남아 있지 않다. 그래서 가장 단순한 꼴로 물러섰다:
+ * **그 건물을 실제로 가진 나라에서, 그 건물이 속한 부서(또는 그 건물이 내는 자원)의 산출에만** 얹는다.
+ *   · 건물 정의에 role(=부서)이 적혀 있으면 그 부서에만 — 제련소·대장간은 factory 다.
+ *   · role 이 없으면 그 건물이 내는 자원에만 — 우물은 곡물을 내므로 농정의 곡물에 붙는다.
+ *   · 둘 다 없으면(분수 같은 장식) 아무 데도 안 붙는다.
+ * 건물별 산출이 제 칸으로 쪼개지면(R4b) 이 근사를 걷고 그 자리에 바로 얹으면 된다.
+ */
+function buildingOutputBonusFor(nation, dept, resource, data, hooks) {
+  const table = hooks.buildingOutputBonus;
+  if (!table) return 0;
+  let sum = 0;
+  for (const [key, delta] of Object.entries(table)) {
+    if (!delta) continue;
+    if (!(nation.structures || []).some((s) => s.key === key && !s.inactive)) continue;
+    const def = data.buildings?.[key];
+    const owner = def?.role ?? null;
+    if (owner ? owner !== dept : !(def?.tiers || []).some((t) => t?.output?.[resource])) continue;
+    sum += delta;
+  }
+  return sum;
 }
 
 /**
@@ -717,8 +846,12 @@ function consumeAndStock(world, nation, data) {
   nation.stats.consumption += need;
   const warm = burnWarmth(world, nation, data);
   if (warm) events.push({ kind: 'warmth', data: warm });
+  /* ★ §20-R4(§20-5 아쿠아의 물방울) — 부패 면역. 「왜」 곳간 전체인가 — 유물 설명은 「식량 부패
+     없음」이지만 훅(spoilImmune)에는 자원 칸이 없고, 부패 규칙 자체도 자원을 가리지 않는다
+     (곳간을 넘긴 것은 무엇이든 썩는다). 갈래를 하나만 두어 「어떤 것은 썩고 어떤 것은 안 썩는」
+     설명 불가능한 중간 상태를 만들지 않았다. 유물이 없으면 아래는 예전 그대로 돈다. */
   // ★ §19-E(QA-A) — 곳간 상한 안의 재고는 썩지 않는다(496↔499 되튐 제거)
-  const spoiled = applySpoilage(nation, data, spoilFloor(nation, data));
+  const spoiled = nation.artifactSpoilImmune ? {} : applySpoilage(nation, data, spoilFloor(nation, data));
   if (Object.keys(spoiled).length) events.push({ kind: 'spoilage', data: spoiled });
   return events;
 }
@@ -810,11 +943,17 @@ function updatePopulationAndMorale(world, nation, data, rng) {
     if (arrivedNow > 0) autoPlaceIdle(world, nation, data);
   }
 
+  /* ★ §20-R4(§20-3 죽음의 낫) — 상시 사기(−10%p). 「왜」 하루치로 더하지 않고 **띠의 천장을 내리나** —
+     회복은 하루 +0.03 인데 낫은 −0.10 이다. 결과에 매일 더하면 사흘 만에 바닥(min)에 눌어붙어
+     「상시 −10%p」가 아니라 「사기 파괴」가 된다. 천장을 그만큼 내리면 여유 있는 나라의 평형이
+     정확히 10%p 낮은 자리에 서고, 바닥은 기존 clamp 가 그대로 지킨다.
+     델타가 0 이면 cap 은 mcfg.max 와 한 톨도 다르지 않다(옛 판 불변). */
+  const cap = Math.max(mcfg.min, mcfg.max + (nation.artifactMoraleDelta || 0));
   if (!nation.rationing) {
-    nation.morale = Math.min(mcfg.max, nation.morale + mcfg.recoveryPerTick + moraleBonus(nation, data) * 0.5);
-    if (grainDays(nation, data) > 5) nation.morale = Math.min(mcfg.max, nation.morale + mcfg.surplusBonusPerTick);
+    nation.morale = Math.min(cap, nation.morale + mcfg.recoveryPerTick + moraleBonus(nation, data) * 0.5);
+    if (grainDays(nation, data) > 5) nation.morale = Math.min(cap, nation.morale + mcfg.surplusBonusPerTick);
   }
-  nation.morale = clamp(nation.morale, mcfg.min, mcfg.max);
+  nation.morale = clamp(nation.morale, mcfg.min, cap);
   return events;
 }
 

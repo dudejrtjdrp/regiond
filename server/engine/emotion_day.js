@@ -24,7 +24,12 @@ export function runEmotionDay(world, data, rng) {
 
   const revealedByNation = {};
   for (const nation of Object.values(world.nations)) {
-    if (nation.isPlayer) nation.tags = nation.pendingTags ?? assignTags(data, rng);
+    /* ★ §20-R4(§20-5 수에르의 균형 4개 완성) — 「감정의 날 보너스 2배」. 이 날이 실제로 내주는
+       보너스는 **땅의 됨됨이(태그)** 하나다 — 나머지(지하 자원 공개·관제 선포)는 배수를 곱할
+       수 있는 값이 아니라 한 번 열리고 마는 문이다. 그래서 뽑는 태그 수에 배수를 건다.
+       추가분은 전부 강점이다(assignTags 의 마지막 채움이 강점 풀에서만 뽑는다) — 약점 상한은
+       그대로라 「보너스 2배」가 「약점도 2배」가 되지 않는다. 거울은 tick.js 가 박는다. */
+    if (nation.isPlayer) nation.tags = nation.pendingTags ?? assignTags(data, rng, nation.artifactEmotionDay ?? 1);
     nation.tagsRevealed = true;
     revealedByNation[nation.id] = revealSubsurface(world, nation, data);
   }
@@ -217,14 +222,20 @@ function drawInto(picked, pool, target, rng) {
  *   시작 땅이 늘 절름발이였다. 이제 약점 없는 순한 땅도, 약점을 안은 땅도 나온다.
  *   양날(mixed) 태그는 강점도 약점도 아니어서 추첨에서 빠진다(요새지는 아직 AI 국가의 몫).
  */
-export function assignTags(data, rng) {
+/**
+ * @param {number} mult ★ §20-R4 — 유물 배수(세트 「수에르의 균형」 4개 완성이면 2). 뽑는 **종 수**만
+ *   늘린다: 앞의 두 걸음(강점 최소·약점 최대)은 손대지 않고 마지막 채움만 멀리 간다.
+ *   1 이면 target 이 dial.count 그대로라 난수 소비도 결과도 한 톨도 다르지 않다(옛 판 불변).
+ */
+export function assignTags(data, rng, mult = 1) {
   const dial = data.balance.emotionDay.playerTags;
+  const target = Math.max(dial.count, Math.round(dial.count * (mult || 1)));
   const strengths = tagKeysOfKind(data, 'strength');
   const picked = [];
   drawInto(picked, strengths, dial.minStrength, rng);
   drawInto(picked, tagKeysOfKind(data, 'weakness'), picked.length + rng.int(0, dial.maxWeakness), rng);
-  drawInto(picked, strengths, dial.count, rng);
-  return picked.slice(0, dial.count);
+  drawInto(picked, strengths, target, rng);
+  return picked.slice(0, target);
 }
 
 /**

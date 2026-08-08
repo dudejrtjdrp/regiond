@@ -4,6 +4,8 @@
 import { nodeById, townOf, territoryRadius, dist, markDepleted, removeNode } from './world.js';
 // ★ §17-17 — 숨은 궤에서도 유물이 나온다. 등급표를 두 벌 두지 않으려고 유적 쪽 문을 그대로 쓴다.
 import { grantRandomArtifact } from './king.js';
+// ★ §20-R4 — 링3 전용 고유 굴림과 확정 지급. 상자·유적 풀 밖의 것은 여기로만 나온다.
+import { rollRing3Unique, grantArtifact } from './artifacts.js';
 // ★ §17-17 — 궤 보상은 노드 id 로 지은 개인 난수다(월드 난수를 축내면 같은 씨앗이 다른 게임이 된다).
 import { statRng } from './traits.js';
 // ★ GDD3 §13-C-3 — 도감. 유적을 뒤진 기록도 서버가 권위로 쥔다.
@@ -239,11 +241,21 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
  */
 function cacheArtifactChance(world, nation, node, cfg, data) {
   const table = data.balance.artifacts.ringDropTable;
-  const town = townOf(world, nation.id);
-  if (!table || !town) return cfg.artifactChance;
-  const d = dist(town.x, town.y, node.x, node.y);
-  const ring = table.ringRadii.filter((r) => d >= r).length;
+  const ring = cacheRingOf(world, nation, node, data);
+  if (ring == null) return cfg.artifactChance;
   return table.chanceByRing[ring] ?? cfg.artifactChance;
+}
+
+/**
+ * ★ §20-R4 — 궤가 앉은 링. 확률표와 링3 고유 굴림이 **같은 자**를 써야 한다:
+ * 둘이 각자 재면 「40% 짜리 궤인데 고유는 안 나오는」 어긋난 자리가 생긴다.
+ */
+function cacheRingOf(world, nation, node, data) {
+  const table = data.balance.artifacts.ringDropTable;
+  const town = townOf(world, nation.id);
+  if (!table || !town) return null;
+  const d = dist(town.x, town.y, node.x, node.y);
+  return table.ringRadii.filter((r) => d >= r).length;
 }
 
 function openCache(world, nation, node, data) {
@@ -254,7 +266,17 @@ function openCache(world, nation, node, data) {
   nation.gold = round2((nation.gold || 0) + gold);
   nation.stats.goldEarned = round2((nation.stats.goldEarned || 0) + gold);
   let artifact = null;
-  if (rng.chance(cacheArtifactChance(world, nation, node, cfg, data))) artifact = grantRandomArtifact(nation, data, rng, world.tick);
+  if (rng.chance(cacheArtifactChance(world, nation, node, cfg, data))) {
+    artifact = grantRandomArtifact(nation, data, rng, world.tick, 0, { world, via: 'cache' });
+  }
+  /* ★ §20-R4(유물기획 §20-9 링3 고유) — 기본 굴림이 **빈손으로 끝났을 때만** 한 번 더 던진다.
+     「왜」 뒤에 두나 — 앞 굴림이 쓰는 난수를 한 톨도 밀지 않아야 옛 지도의 옛 궤가 예전과 같은
+     것을 낸다. 궤의 난수는 노드마다 따로 흐르므로(statRng `seed:cache:nodeId`) 여기서 더 던져도
+     다른 궤·월드 난수에는 닿지 않는다. 여기서만 나오는 것이 「몸으로 가서 얻는」 고유다. */
+  if (!artifact) {
+    const key = rollRing3Unique(world, nation, data, rng, cacheRingOf(world, nation, node, data));
+    if (key) artifact = grantArtifact(nation, key, world.tick, data) ? data.artifactsByKey[key] : null;
+  }
   removeNode(world, node.id);
   // ★ §20-R2 — 궤가 앉았던 자리. 유물이 나오면 그 자리에 빛기둥이 선다(연출은 클라 몫).
   return { nodeId: node.id, gold, artifact, total: round2(nation.gold), x: node.x, y: node.y };

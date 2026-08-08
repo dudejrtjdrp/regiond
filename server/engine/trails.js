@@ -320,15 +320,21 @@ export function investigateTrail(world, nation, cmd, data) {
   const who = cmd.avatarId ?? cmd.playerName ?? 'lord';
   const av = nation.avatars?.[who];
   if (!av) return err('NO_AVATAR', '아바타가 없습니다.');
-  if (dist(av.x, av.y, t.x, t.y) > reachTiles(data)) return err('OUT_OF_RANGE', '더 가까이 가야 합니다.');
+  if (dist(av.x, av.y, t.x, t.y) > reachTiles(data, nation)) return err('OUT_OF_RANGE', '더 가까이 가야 합니다.');
   if (!trailReady(world, data, t)) return err('COOLDOWN', '오늘은 이미 다녀갔습니다 — 내일 다시.');
   const choice = cmd.choice ?? cmd.payload?.choice ?? null;
   const act = { world, nation, data, who, t };
   return choice == null ? openTrail(act) : resolveChoice(act, choice);
 }
 
-/** 손이 닿는 거리 — 자료가 쥔다. 건물 손일과 같은 자여야 E 한 손잡이의 팔 길이가 하나가 된다. */
-const reachTiles = (data) => trailsCfg(data)?.reachTiles ?? data.balance.handWork?.reachTiles ?? 3;
+/** 손이 닿는 거리 — 자료가 쥔다. 건물 손일과 같은 자여야 E 한 손잡이의 팔 길이가 하나가 된다.
+ *  ★ §20-R4(§20-3 개척자의 나침반) — 흔적 감지 반경 +3타일. 나라가 쥔 거울(tick.js 가 박는다)을
+ *  더한다. 나라를 안 넘긴 자리는 예전 그대로다(옵션 인자라 옛 호출이 깨지지 않는다). */
+const reachTiles = (data, nation = null) =>
+  (trailsCfg(data)?.reachTiles ?? data.balance.handWork?.reachTiles ?? 3) + trailSense(nation);
+
+/** 유물이 얹는 흔적 감지 반경. 유물이 없으면 0 이라 어떤 판정도 움직이지 않는다. */
+const trailSense = (nation) => nation?.artifactTrailSense ?? 0;
 
 /** 1차 — 이 흔적이 무엇인지 펼친다. 선택지가 있으면 거기서 멈춘다. */
 function openTrail(a) {
@@ -378,11 +384,22 @@ function finish(a, reward) {
   const paid = applyReward(a, reward);
   const step = a.t.kind === 'chain' ? trailDef(a.data, a.t) : null;
   const opened = step ? advanceChain(a, step) : [];
+  /* ★ §20-R4(§20-3 개척자의 나침반) — 감지 반경이 넓어진 만큼 **열리는 원**도 함께 넓어진다.
+     「왜」 둘을 같은 값으로 묶나 — 나침반의 값은 「멀리서 알아채고 멀리까지 밝힌다」 한 가지다.
+     한쪽만 넓히면 「보이는데 못 닿는」·「닿는데 안 보이는」 어긋남이 생긴다. 없으면 0 이다. */
   const own = reward?.revealRadius
-    ? stampVisionDisc(a.nation, a.data, a.world.tick, a.t.x, a.t.y, reward.revealRadius) : [];
+    ? stampVisionDisc(a.nation, a.data, a.world.tick, a.t.x, a.t.y,
+      reward.revealRadius + trailSense(a.nation)) : [];
   consume(a.world, a.data, a.t);
   return { ...paid, revealed: [...opened, ...own] };
 }
+
+/* TODO(R4b · 유물기획 §20-3 개척자의 나침반) — chainRewardTierDelta(사슬 결말 보상 1단계 상향)는
+   여기서 갚지 못했다. data/trails.json 의 결말(endings)에는 **등급 개념이 아직 없다**:
+   보상은 자원·사기·회복이 적힌 표 하나뿐이고 「한 단계 위」가 가리킬 다음 표가 없다.
+   등급 없이 수치만 올리면 그것은 「1단계 상향」이 아니라 임의의 배수라 정본이 흐려진다.
+   결말 보상에 tier 를 매기는 날(R4b) collectHooks 의 chainRewardTierDelta 를 여기서 읽으면 된다 —
+   훅은 이미 수집되고 있다(artifacts.applyR4Descriptor). */
 
 /** 다음 단계의 흔적을 드러내고 그 둘레의 안개를 연다. ★ 좌표는 돌려주지 않는다 — 마커 금지(§18-3). */
 function advanceChain(a, step) {
@@ -390,7 +407,9 @@ function advanceChain(a, step) {
   if (!next || !step.revealRadius) return [];
   next.hidden = false;
   next.stamp = a.world.tick ?? 0;
-  return stampVisionDisc(a.nation, a.data, a.world.tick, next.x, next.y, step.revealRadius);
+  // ★ §20-R4 — 다음 단계를 여는 원에도 같은 감지 반경이 붙는다(위 finish 의 주석과 같은 까닭)
+  return stampVisionDisc(a.nation, a.data, a.world.tick, next.x, next.y,
+    step.revealRadius + trailSense(a.nation));
 }
 
 /** 소진 — 하루 한 번짜리(reuseDays)는 자리에 남고 날짜만 적는다 */

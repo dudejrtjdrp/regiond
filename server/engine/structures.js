@@ -394,7 +394,11 @@ export function validatePlacement(world, nation, key, x, y, data, opts = {}) {
     const terrain = terrainNameAt(world.map, cx, cy, data);
     if (!(data.world.terrain.buildable || []).includes(terrain)
       /* ★ §17-13 매립 — 메운 물 칸은 buildable 로 친다. 다리는 해당 없다(그 위에는 못 짓는다). */
-      && !(terrain === 'water' && onFill(nation, cx, cy))) {
+      && !(terrain === 'water' && onFill(nation, cx, cy))
+      /* ★ §20-R4(유물기획 §20-4 얼어붙은 왕의 홀) — 이 유물 하나만 「설산에는 못 짓는다」를 깬다.
+         한도(limit)까지만이다: 몇 채든 서면 설산이 그냥 또 하나의 들판이 되어, 「사람이 살 수 없는
+         땅에 기둥 하나」라는 이 유물의 값이 사라진다. 유물이 없으면 한도가 0 이라 옛 규칙 그대로다. */
+      && !snowBuildAllowed(world, nation, terrain, data)) {
       bad = { ok: false, code: 'BAD_TERRAIN', message: '여기에는 지을 수 없습니다.' };
     }
   });
@@ -422,6 +426,22 @@ export function validatePlacement(world, nation, key, x, y, data, opts = {}) {
     }
   }
   return { ok: true };
+}
+
+/**
+ * ★ §20-R4(§20-4 얼어붙은 왕의 홀) — 설산 한 채 해금. 이미 설산에 세운 건물 수가 한도 미만이면 통과.
+ * 「왜」 건물을 훑어 세나 — 「몇 채 지었나」의 정본은 nation.structures 뿐이다. 따로 셈을 적어 두면
+ * 철거·이전(§12-12)마다 그 셈을 맞춰 줘야 하고, 한 번 어긋나면 영영 어긋난 채로 남는다.
+ * 한도는 tick.js 가 박는 거울(artifactSnowBuildLimit)이다 — 배치 판정은 클릭마다 도는 길목이다.
+ */
+function snowBuildAllowed(world, nation, terrain, data) {
+  const limit = nation.artifactSnowBuildLimit || 0;
+  if (limit <= 0 || terrain !== 'snow') return false;
+  let onSnow = 0;
+  for (const s of nation.structures || []) {
+    if (terrainNameAt(world.map, s.x, s.y, data) === 'snow') onSnow += 1;
+  }
+  return onSnow < limit;
 }
 
 /** 좌표를 안 준 건설(봇·섭정·조언 매크로)이 쓸 기본 자리 — 정착지에서 바깥으로 나선 탐색 */

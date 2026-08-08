@@ -2,7 +2,7 @@
 // ★ v2: 대상이 타일 인덱스가 아니라 월드의 노드/일자리 id 다. 계약(AP 비용·쿨다운·효과)은 그대로 재사용한다.
 // 섭정(오프라인)은 AP를 쓰지 않는다: AP는 '접속한 사람만 얻는 보너스'이고,
 // 시뮬 체크포인트는 AP 미사용 기준으로 유지된다(§C-1).
-import { grantArtifact } from './artifacts.js';
+import { grantArtifact, dropPool } from './artifacts.js';
 import { round2 } from './economy.js';
 import { nodeById, townOf, territoryRadius, dist } from './world.js';
 import {
@@ -196,7 +196,7 @@ export function resolveRuinChoice(world, nation, decision, choice, data, rng) {
              카드를 여는 이 자리가 그것을 읽지 않았다: 「죽은 자의 성채」를 스무 번 두드려도
              나오는 물건의 급이 「옛 자취」와 똑같았다. 여기서 넘겨 쓰고 **쓴 즉시 0 으로 되돌린다**
              (한 번 쌓은 보정은 한 번의 굴림에만 얹힌다 — 안 그러면 성채 하나로 영영 후해진다). */
-          artifact = grantRandomArtifact(nation, data, rng, world.tick, consumeRuinGradeBoost(nation));
+          artifact = grantRandomArtifact(nation, data, rng, world.tick, consumeRuinGradeBoost(nation), { world, via: 'ruin' });
           lines.push(artifact ? `${out.successText} (${artifact.name})` : out.successText);
           applied.push(artifact ? `artifact:${artifact.key}` : 'artifact:none');
         } else {
@@ -256,12 +256,16 @@ export function consumeRuinGradeBoost(nation) {
  *   보정이다. 표를 흔들면 상자·의회 드랍까지 함께 움직인다. 민 등급이 동나 있으면 원래 등급으로 내려온다
  *   — 보정 때문에 오히려 빈손으로 돌아오는 일은 없어야 한다.
  */
-export function grantRandomArtifact(nation, data, rng, tick, gradeBoost = 0) {
+export function grantRandomArtifact(nation, data, rng, tick, gradeBoost = 0, opts = {}) {
   const cfg = data.balance.artifacts;
   const order = Object.keys(cfg.gradeWeights);
   const rolled = rng.weighted(order.map((value) => ({ value, weight: cfg.gradeWeights[value] })));
-  const owned = new Set((nation.artifacts || []).map((a) => a.key));
-  const inGrade = (g) => data.artifacts.list.filter((a) => a.grade === g && !owned.has(a.key));
+  /* ★ §20-R4 — 명단을 dropPool 에 맡긴다(유물기획 §20-1 「상자 밖 축」). 등급표는 그대로 굴리되
+     **그 경로가 낼 수 있다고 제 입으로 적은 것**만 남는다. 옛 50종은 전부 chest·ruin·cache 를
+     적어 두었으므로 이 세 풀은 한 톨도 안 바뀐다(시드 42 가 그대로 산다). 신규 21종은 셋 중
+     어느 것도 적지 않아 자동으로 빠지고, 이미 이 방에서 나온 전설(exclusive:"room")도 빠진다. */
+  const via = opts.via ?? 'ruin';
+  const inGrade = (g) => dropPool(opts.world ?? null, nation, data, g, via);
   const up = order[Math.min(order.length - 1, order.indexOf(rolled) + Math.max(0, gradeBoost))];
   let pool = inGrade(up);
   if (!pool.length) pool = inGrade(rolled);

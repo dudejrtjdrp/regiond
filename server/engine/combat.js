@@ -9,6 +9,63 @@ import { aliveFences } from './fences.js';
 import { nextWaveSpec, battleCfg, warnCfg, hasSaintSight } from './waves.js';
 import { battleMultipliers } from './battle.js';
 import { combatSkillCfg, swingCooldownSeconds, swingDamage } from './skills.js';
+// ★ §20-R4 — 유물 굴림은 세계 난수를 한 톨도 축내지 않는다(relations·trails 와 같은 규율)
+import { statRng } from './traits.js';
+
+// ────────────────────────────────────────────────────────────────
+// ★ §20-R4(유물기획 §20-3~4) — 유물 전투 굴림 한 벌.
+//
+// 「왜」 여기 사나 — 치명타·회피를 굴리는 자리가 넷이다(ecology.bite · ecology.huntSwing ·
+// battle.combatSwing/피격 · waves.strikeCamp). 넷이 제 손으로 굴리면 규칙이 넷으로 갈라지고,
+// 갈라진 순간 「같은 판이 같은 결과를 낸다」가 깨진다. 전투 공용 계산이 사는 이 파일에 한 벌만 둔다.
+//
+// 두 가지 규율을 못으로 박아 둔다:
+//   ① **확률이 0이면 난수를 한 톨도 뽑지 않는다.** 신규 유물을 아무도 안 가진 판에서는 이 함수를
+//      부르기 전과 부른 뒤의 난수 소비가 완전히 같아야 한다(시드 42 체크포인트의 목숨줄이다).
+//   ② **월드 난수를 쓰지 않는다.** 굴림은 statRng 로 짓는다 — 국가마다 따로 흐르는 수열이라
+//      스윙 한 번이 웨이브 스폰이나 생태 난수의 차례를 밀어내지 않는다.
+// ────────────────────────────────────────────────────────────────
+
+/** 치명타가 나지 않았을 때 늘 같은 것을 돌려준다 — 뜨거운 길목에서 객체를 새로 빚지 않는다. */
+const NO_CRIT = Object.freeze({ crit: false, multiplier: 1 });
+
+/** 이 국가 전용 굴림 수열의 다음 씨앗. 국가마다 따로 흐른다(월드 난수 불변). */
+function artifactRoll(world, nation) {
+  const seq = (nation.artifactRollSeq = (nation.artifactRollSeq || 0) + 1);
+  return statRng(`${world?.seed ?? 0}:artifactRoll:${nation.id}:${seq}`);
+}
+
+/**
+ * 치명타 굴림 (번개의 창끝). 확률이 0이면 굴리지 않고 NO_CRIT 을 돌려준다.
+ * TODO(R4b · 유물기획 §20-3): 「치명 처치 시 다음 스윙 즉시」는 쿨다운을 되감는 축이라
+ *   이 배치에서 다루지 않는다. skills.canSwing/markSwing 과 함께 손봐야 하는 일이다.
+ * @returns {{crit:boolean, multiplier:number}}
+ */
+export function artifactCritRoll(world, nation) {
+  const fx = nation?.artifactCombat;
+  const chance = fx?.crit ?? 0;
+  if (!(chance > 0)) return NO_CRIT;
+  if (!artifactRoll(world, nation).chance(chance)) return NO_CRIT;
+  return { crit: true, multiplier: fx.critMultiplier ?? 1 };
+}
+
+/** 회피 굴림 (바람의 망토 계열). 확률이 0이면 굴리지 않는다 — 굴리면 난수 차례가 밀린다. */
+export function artifactDodgeRoll(world, nation) {
+  const chance = nation?.artifactCombat?.dodge ?? 0;
+  if (!(chance > 0)) return false;
+  return artifactRoll(world, nation).chance(chance);
+}
+
+/**
+ * 견적용 치명타 **기대값**. 견적은 굴리는 자리가 아니다 — 굴리면 화면을 한 번 그릴 때마다
+ * 난수가 축나고, 같은 판이 볼 때마다 다른 방어 요약을 낸다.
+ */
+export function artifactCritExpectation(nation) {
+  const fx = nation?.artifactCombat;
+  const chance = fx?.crit ?? 0;
+  if (!(chance > 0)) return 1;
+  return 1 + chance * ((fx.critMultiplier ?? 1) - 1);
+}
 
 /** 무기 티어의 상비 전투력(민병 무장) — 유지 항목 */
 export function weaponPower(nation, data) {
@@ -34,7 +91,9 @@ export function playerDps(nation, data) {
     const cd = swingCooldownSeconds(nation, p, 'combat', data);
     total += swingDamage(nation, p, data) / Math.max(0.1, cd);
   }
-  return total;
+  /* ★ §20-R4 — 공격력 배수(죽음의 낫)는 swingDamage 안에 이미 들어 있다. 여기서는 치명타만
+     기대값으로 얹는다: 견적은 굴리는 자리가 아니므로 「몇 번에 한 번 세게 친다」를 평균으로 편다. */
+  return total * artifactCritExpectation(nation);
 }
 
 /**
@@ -50,7 +109,10 @@ export function defenseSummary(world, nation, data, hooks = {}) {
   const turretDps = turrets.reduce((a, t) => a + t.dps, 0);
   const militiaDps = militia.reduce((a, m) => a + m.dps, 0);
   const pDps = playerDps(nation, data);
-  const totalDps = (turretDps + militiaDps + pDps) * mult.defender;
+  /* ★ §20-R4 — 용의 심장의 「전투원 피해 +25%」는 **나라 전체 전투원**에 붙는다(민병·터렛 포함).
+     stepBattle 이 실제로 그렇게 때리므로 견적도 같은 자를 써야 화면이 거짓말을 하지 않는다. */
+  const artifactDamage = nation.artifactCombat?.damage ?? 1;
+  const totalDps = (turretDps + militiaDps + pDps) * mult.defender * artifactDamage;
 
   const spec = nextWaveSpec(world, nation, data);
   /* ★ §19-F2(F07-3) — 호위대가 섞이면 「한 마리 체력 × 총 마릿수」는 거짓이 된다. 무리마다 제 몸이
