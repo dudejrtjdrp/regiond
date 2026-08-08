@@ -6,6 +6,46 @@
 
 ---
 
+## 0-L. v3.3 안 델타 — **흔적의 링1~3: 세계가 장마다 한 겹 자란다** (§21-C1 / docs/탐험기획.md §18-1·§18-4)
+
+**판번호를 올리지 않는다**(`world.schema` **6** 유지, `MIGRATION_REV` 그대로).
+소켓 이벤트도 새로 나지 않는다 — 흔적은 이미 `world`·`state` 의 `trails` 배열로 흐르고 있었고,
+링1~3 은 **그 배열이 길어지는 일**일 뿐이다. 옛 세이브도 그대로 열린다(`map.trailRings` 가 없으면 빈 목록).
+
+### 0-L-1. 서버 상태 (저장됨)
+
+| 자리 | 뜻 |
+|---|---|
+| `world.map.trailRings: number[]` | 이미 심은 링 번호. 없으면 `[]` — 옛 세이브는 다음 장이 열릴 때 링1부터 따라잡는다 |
+| `world.map.trails[]` | 모양 무변경. 링1~3 의 것도 같은 한 배열에 이어 붙는다(`id` 는 `tr<n>` 이어 번호) |
+
+### 0-L-2. 언제 자라나
+
+`progression.onChapterOpen` 한 곳뿐이다. `data/trails.json rings[].openAtChapter`(링1=4장 · 링2=7장 · 링3=9장)에
+닿으면 그 링을 **딱 한 번** 심는다. 이 문을 두 번 두지 말 것 — 지금은 「그 장이 열렸는가」만 보므로
+장을 건너뛰어 열려도(디버그 `openChapterForDebug` 포함) 밀린 링을 한꺼번에 따라잡는다.
+
+**결정론**: 링마다 제 난수(`statRng('<seed>:trails:ring2')`)다. **언제** 열리든 자리는 씨앗이 정한다 —
+4·7·9장을 한꺼번에 열든 하루씩 나눠 열든 같은 씨앗이면 같은 지도다(회귀 테스트가 이 등식을 지킨다).
+월드 난수(`createRng`)는 여기서도 한 톨도 쓰지 않는다.
+
+### 0-L-3. `investigateTrail` ack — 더해진 두 칸
+
+| 칸 | 뜻 |
+|---|---|
+| `joined: number` | ★ 생존자 결말이 데려온 사람 수(`reward.villager`). 0 이면 그냥 0 이다 |
+| `healed: number` | **부호가 생겼다.** 양수는 회복(`reward.heal`), **음수는 그 자리에서 입은 상처**(`reward.damage`) |
+
+`reward.damage` 는 조사한 **그 사람**의 hp 만 깎고 **1 아래로는 내리지 않는다**(GDD3 §14-6 패배 관대 —
+흔적이 사람을 죽이지는 않는다). 클라는 음수 `healed` 를 붉게 내려 찍고 `hurt` 소리를 낸다.
+
+### 0-L-4. 바뀌지 않은 것
+
+`trails` 뷰의 모양(`id·key·kind·x·y·name·art·verb·ready`) · 마커 금지(다음 흔적의 좌표는 ack 에 없다,
+여는 것은 안개뿐) · `reachTiles` 한 자 · 1차/2차(`choice`) 두 걸음 · 부재 원칙(안개 밖은 목록에서 통째로 빠진다).
+
+---
+
 ## 0-U. v3.3 안 델타 — **유물 리워크 R1·R1.5: 상향·충전제·발견 서사** (docs/유물기획.md §20 + 팀 원안)
 
 **판번호를 올리지 않는다**(`world.schema` **6** 유지). **필드는 더하기만 했다.**
@@ -1851,7 +1891,7 @@ ack / `joined` 이벤트 payload:
 | `setBattlePlan {tactic}` | 티어 2 | ★ 서지 3구간 배분은 폐기 |
 | `setAppearance {appearance}` / `chat {text}` | — | |
 | `visitNation {nationId}` | — | ★ §17-16 이웃 나라 찾아가기(§0-R-1). 도읍 중심 `towns.visitRadius` 안 · 신원 명령 |
-| `investigateTrail {trailId, choice?}` | — | ★ §18-D2 앞마당의 흔적 조사(§0-O-1). `trails.json reachTiles` 안 · 신원 명령 · `choice` 없이 1차, 있으면 2차 |
+| `investigateTrail {trailId, choice?}` | — | ★ §18-D2 흔적 조사(§0-O-1 · 링1~3 은 **§0-L**). `trails.json reachTiles` 안 · 신원 명령 · `choice` 없이 1차, 있으면 2차 · ack 에 `joined`(합류 인원) · `healed`(음수면 상처) |
 | `sleepVote {on?}` | — | ★ §17-7 다같이 잠자기(§0-P-2). 사람 아바타 전원이 잠들면 하루가 곧장 넘어간다 · 싸움 중 불가 · 신원 명령 |
 | `handWork {structureId}` | — | ★ §17-9 건물 손일(§0-P-3). `buildings.json handWork` 가 비용·산출·쿨다운을 쥔다 · 거리·쿨다운은 사람별 · 신원 명령 |
 | `commandCompanion {companionId, order}` | — | ★ §17-11 동료 지시(§0-P-4). `order:{kind:'move',x,y}` 또는 `null`(해제) |
