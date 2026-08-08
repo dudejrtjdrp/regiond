@@ -7,7 +7,6 @@ import { foreignPriceTable } from './ai_nation.js';
 import { reappraisalState } from './emotion_day.js';
 // ★ §19-F3(F07-7) — 나라마다 다른 값(성정 배수)과 특산품 좌판
 import { foreignUnitPrice, tradeProfileView, specialtyList } from './trade.js';
-import { relationView } from './relations.js';   // ★ §세계관 W4 — 외교 카드의 관계 결
 // ★ §17-16 — hasMet: 직접 찾아가 본 나라인가(가격·태그 마스킹 완화의 정본)
 import { recommendedLabor, freightEventDelta, hasMet } from './commands.js';
 import { roleSummary } from './npc.js';
@@ -225,6 +224,10 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
              이 칸을 몰라도 깨지지 않는다(표시 개선은 R2 몫). 옛 세이브면 null 이 아니라 1이 온다. */
           chargesLeft: a.chargesLeft ?? (a.consumed ? 0 : 1),
           charges: data.artifactsByKey[a.key]?.charges ?? 1,
+          /* ★ §20-R3 — 「누가·언제 찾았는가」. 옛 세이브에는 없던 칸이라 없으면 없는 대로 간다
+             (도감이 「전해지지 않음」이라 적는다 — 이름을 지어내지 않는다). */
+          ...(a.foundBy ? { foundBy: a.foundBy } : {}),
+          ...(a.foundDate ? { foundDate: a.foundDate, foundRealAt: a.foundRealAt ?? null } : {}),
         })),
         decisionQueue: nation.decisionQueue,
         ruinGauge: nation.ruinGauge || 0,
@@ -272,7 +275,7 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
       } : {}),
     },
     // ★ GDD3 §13-C-3 — 도감(J). 조우·처치 수는 서버가 권위로 세고, 잠긴 층은 필드 자체가 없다.
-    codex: codexView(nation, data),
+    codex: codexView(nation, data, world),
     // ★ GDD3 §6 — 웨이브·전투. 7장 전에는 세 블록 모두 null 이다(위협 게이지도 없다).
     wave: wavesOn ? waveView(world, nation, viewerRole, data, hooks) : null,
     battle: wavesOn ? battleView(nation, data) : null,
@@ -886,8 +889,6 @@ export function buildWorldState(world, nationId, data) {
         town: t ? { x: t.x, y: t.y } : null,
         territoryRadius: territoryRadius(n, data),
         tier: n.tier ?? 0,
-        // ★ §세계관 W4 — 관계 결(점수·호칭·다음 문턱). 만난 나라만 열린다 — 낯선 이의 마음은 모른다.
-        relation: !n.isPlayer && hasMet(me, n.id) ? relationView(world, me, data, n.id) : null,
       };
     }),
     tradeRoutes: Object.values(world.nations).filter((n) => !n.isPlayer).map((n) => ({

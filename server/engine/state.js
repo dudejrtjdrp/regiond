@@ -6,7 +6,7 @@ import { defaultName } from './npc.js';
 import { normalizeDifficulty } from './difficulty.js';
 import { generateWorldMap, townOf } from './world.js';
 import { createVillagers } from './villagers.js';
-import { createFog } from './fog.js';
+import { createFog, toRuntimeFog } from './fog.js';
 import { tierRadius, settlementTier } from './tiers.js';
 import { completeStructure, syncLegacyBuildings, anchorFromCell, tierSpec } from './structures.js';
 // ★ GDD3 §13-D-1 — 옛 세이브의 주민에게 능력치를 채워 넣을 때 쓴다
@@ -266,7 +266,11 @@ export function isLegacySnapshot(world) {
  * ⚠ **아래 migrateWorld 에 줄을 더하면 이 숫자를 반드시 올려라.** 올리지 않으면 이미 표를 받은
  *   세이브가 새 줄을 건너뛴다 — 그것이 이 눈금이 지는 유일한 빚이다.
  */
-const MIGRATION_REV = 4;
+/* ★ §21-A3 — 유물 충전(§20-R1, rev 3)과 안개 Uint8Array(§21-A3)가 각각 줄을 더했다.
+   두 트랙이 같은 3 을 쓰면 한쪽을 먼저 받은 세이브가 다른 쪽 줄을 건너뛴다 — 그래서 4.
+   ★ §20-R3 — 유물 등록부(fillArtifactRegistry)와 안개(§21-A3)가 또 같은 4 를 썼다.
+   4 표를 받은 세이브가 어느 한쪽만 돌았을 수 있으므로 5 로 올린다 — 같은 빚, 같은 셈. */
+const MIGRATION_REV = 5;
 
 /**
  * ★ §19-F1(F08-1) — 옛 세이브의 건물에 체력을 붙인다.
@@ -369,6 +373,9 @@ export function migrateWorld(world, data) {
     nation.claims ||= [];
     nation.nextClaimId ||= 1;
     nation.recruit ||= { readyTick: 0, count: 0 };
+    /* ★ §21-A3 — 옛 세이브의 안개는 '0'/'1'/'2' 문자열이다. 런타임 모양(Uint8Array)으로 갈아 끼운다.
+       버리지 않고 그대로 옮겨 담으므로 걸어 둔 땅은 한 칸도 잃지 않는다. 이미 바뀐 세이브면 아무 일도 없다. */
+    toRuntimeFog(nation.fog);
     fillStructureHp(nation, data);
     fillArtifactCharges(nation);
     for (const u of nation.villagers || []) {
