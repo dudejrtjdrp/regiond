@@ -341,6 +341,65 @@
     emit('change', S);
   }
 
+  /* ══════════ ★ §21-A1 — 세계 변경분의 일곱 컬렉션 ══════════
+     서버는 이제 구조물·울타리·야영지를 **지난번과 달라진 줄만** 보낸다(군락·마을은 예전처럼
+     쌓아 얹고, 주민은 이 문으로 아예 오지 않는다 — 사람의 목록은 판이 정본이다).
+     한 장을 어떻게 읽는가는 `full` 칸 하나가 가른다:
+       · full:true  — **전량**이다. 통째로 갈아 끼운다(입장 뒤 첫 장 · 주기 되맞춤).
+       · full:false — 변경분이다. id 로 얹고 removed* 에 실린 id 는 지운다.
+       · 칸이 없음 — 옛 모양이다(구경 모드 mock · 즉시 공개분). 빈 목록은 「없음」이 아니라
+         「소식 없음」으로 읽어 앞의 판을 그대로 둔다 — 옛 생산자의 계약을 한 글자도 안 바꾼다. */
+  function rowKey(o) { return o.id != null ? o.id : o.nationId; }
+
+  function rowMode(d) {
+    if (d.full === true) return 'full';
+    if (d.full === false) return 'delta';
+    return 'legacy';
+  }
+
+  function indexOfRow(list, r) {
+    for (var i = 0; i < list.length; i++) if (rowKey(list[i]) === rowKey(r)) return i;
+    return list.length;                      /* 처음 보는 줄은 맨 뒤에 붙는다 */
+  }
+
+  function applyRowDelta(cur, rows, removed) {
+    var out = (cur || []).slice();
+    (rows || []).forEach(function (r) { out[indexOfRow(out, r)] = r; });
+    if (!removed || !removed.length) return out;
+    return out.filter(function (o) { return removed.indexOf(rowKey(o)) < 0; });
+  }
+
+  function mergeRows(cur, rows, removed, mode) {
+    if (mode === 'full') return (rows || []).slice();
+    if (mode === 'delta') return applyRowDelta(cur, rows, removed);
+    return (rows && rows.length) ? rows.slice() : (cur || []);
+  }
+
+  /* ★ §21-A1 — 도장 대조. 서버가 「내가 아는 줄 수」를 함께 보낸다: 한 장을 놓쳐 수가 어긋나면
+     혼자서는 되맞출 길이 없으므로 지도를 통째로 다시 청한다(입장 때와 같은 문).
+     너무 자주 청하지 않는다 — 한 번 청하면 그 답이 올 동안(5초)은 다시 묻지 않는다. */
+  var lastResyncAt = 0;
+  function checkCounts(d, m) {
+    if (!d.counts) return;
+    var off = null;
+    for (var k in d.counts) if (((m[k] || []).length) !== d.counts[k]) off = k;
+    if (!off || Date.now() - lastResyncAt < 5000) return;
+    lastResyncAt = Date.now();
+    console.warn('[state] 세계 변경분이 어긋났습니다(' + off + ') — 지도를 다시 청합니다');
+    if (GM.net && GM.net.send) GM.net.send('requestWorld', {});
+  }
+
+  /** 구조물·울타리·야영지 — 세 목록을 같은 규칙으로 얹는다(위 머리말의 세 갈래). */
+  function mergeCollections(d, m) {
+    var mode = rowMode(d);
+    if (d.structures || d.removedStructures) {
+      m.structures = mergeRows(m.structures, d.structures, d.removedStructures, mode);
+      bumpStructures();
+    }
+    if (d.fences || d.removedFences) m.fences = mergeRows(m.fences, d.fences, d.removedFences, mode);
+    if (d.camps || d.removedCamps) m.camps = mergeRows(m.camps, d.camps, d.removedCamps, mode);
+  }
+
   function applyWorldDiff(d) {
     try { applyWorldDiffInner(d); }
     catch (e) { console.error('[state] 월드 변경분을 풀지 못했습니다', e); }
@@ -388,14 +447,13 @@
     if (d.creatures) applyCreatures(d.creatures);
     /* ★ §12-6 — 상단은 무역이 열린 뒤에야 목록에 실린다. 열리기 전에는 늘 빈 배열이 온다. */
     if (d.caravans) m.caravans = d.caravans;
-    if (d.camps) m.camps = d.camps;
     /* ★ §19-B — 아바타 자리는 이 문으로도 온다(일 틱의 worldDiff). 그때도 **받았다고 알린다** —
        화면의 지연 버퍼는 받은 시각을 기준으로 걸음을 잇는데, 조용히 값만 갈아 두면 그 한 장이
        버퍼에 안 실려 다음 방송까지 얼어붙었다가 통째로 건너뛴다(짐승의 creatures 와 같은 규칙). */
     if (d.avatars) { S.avatars = d.avatars; syncMyVitals(); emit('avatars', S.avatars); }
-    if (d.structures && d.structures.length) { m.structures = d.structures; bumpStructures(); }
-    if (d.fences && d.fences.length) m.fences = d.fences;
+    mergeCollections(d, m);
     m.tick = d.tick;
+    checkCounts(d, m);
     emit('worldDiff', d);
     emit('change', S);
   }

@@ -1263,7 +1263,9 @@
     "councilHistoryMax": 20,
     "battleResultTimelineMax": 200,
     "_streamNote": "★ §21-A2 — battleFullEvery: battleTick 은 이제 나뉘어 나간다(적은 매 서브틱 4Hz, 민병·터렛은 2Hz 의 바뀐 줄만, 정적 필드는 안 보낸다). 이 서브틱 수마다 한 번 **풀 스냅샷**(full:true)을 끼워 넣어 되맞춘다 — 40이면 10초에 한 번이다. 값이 바뀌어도 판정은 한 눈금도 달라지지 않는다(전송 계층).",
-    "battleFullEvery": 40
+    "battleFullEvery": 40,
+    "_worldStreamNote": "★ §21-A1 — worldFullEvery: worldDiff 의 일곱 컬렉션(구조물·울타리·주민·야영지·아바타·군락·마을)도 이제 변경분으로 나간다. 이 장 수마다 한 번 **전량**(full:true)을 끼워 넣어 되맞춘다 — 잃어버린 한 장이 있어도 여기서 판이 다시 선다. 값이 바뀌어도 판정은 한 눈금도 달라지지 않는다(전송 계층).",
+    "worldFullEvery": 20
   },
   "fences": {
     "_note": "울타리·석벽 조각 배치 — placeFence {points:[{x,y}...]} 로 드래그한 선을 조각으로 쪼갠다. 조각마다 내구도(hp)가 있고 목책(tier1)→석벽(tier2)으로 올린다(upgradeFence). gate:true 조각은 문이다. 값·내구도는 data/buildings.json fence/gate 에서 온다.",

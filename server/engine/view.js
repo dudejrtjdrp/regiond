@@ -648,18 +648,8 @@ export function buildWorldSnapshot(world, nationId, data) {
   };
 }
 
-/**
- * 매 틱 — 바뀐 것만. 안개는 청크 RLE, 노드는 stamp 기반.
- * @param {object} opts {cache} — ★ Sprint 3. 한 방송 안에서 buildNationView 와 **같은 그릇**을 받으면
- *   주민·울타리·공사장 목록을 그쪽이 이미 빚어 둔 것으로 쓴다(값이 같은 조각들이다).
- *   안 주면 예전처럼 그때그때 빚는다 — 시험과 단발 호출의 계약은 그대로다.
- */
-export function buildWorldDiff(world, nationId, data, sinceTick = -1, opts = {}) {
-  const nation = world.nations[nationId];
-  if (!nation) return null;
-  const cache = opts.cache ?? null;
-  const once = (key, make) => shared(cache, `${nationId}:${key}`, make);
-  const fogChunks = fogChunksSince(nation, sinceTick);
+/** 이 틱에 바뀐(또는 새로 밝아진 자리의) 노드만 — 안개 청크와 stamp 를 함께 본다 */
+function worldNodeRows(world, nation, data, sinceTick, fogChunks) {
   const chunk = nation.fog?.chunk ?? data.world.fog.chunk;
   const changedChunks = new Set(fogChunks.map((c) => `${c[0]},${c[1]}`));
   const nodes = [];
@@ -669,18 +659,54 @@ export function buildWorldDiff(world, nationId, data, sinceTick = -1, opts = {})
     const fresh = n.stamp > sinceTick || n.stamp === world.tick;
     if (fresh || changedChunks.has(key)) nodes.push(nodeView(world, nation, n, data));
   }
+  return nodes;
+}
+
+/**
+ * ★ §21-A1 — worldDiff 의 **일곱 컬렉션**(구조물·울타리·주민·야영지·아바타·군락·마을).
+ * 여기서 한 번만 빚고, 장부가 있으면 아래 streamRows 가 그 가운데 바뀐 줄만 골라낸다.
+ * ★ Sprint 3 — 목록 자체는 누가 보든 같은 값이라 한 방송 안에서 한 번만 빚는다(그릇 공유).
+ */
+function worldCollections(world, nation, nationId, data, once) {
   return {
+    structures: once('diffStructures', () => (nation.structures || []).map((s) => structureView(nation, s, data))),
+    fences: once('fences', () => fenceViews(nation, data)),
+    camps: campViews(world, nation, null, data),
+    clusters: clusterViews(world, nation),
+    towns: (world.map?.towns || []).map((t) => ({
+      nationId: t.nationId, x: t.x, y: t.y,
+      radius: territoryRadius(world.nations[t.nationId] || {}, data),
+      known: t.nationId === nationId || isExplored(nation, t.x, t.y),
+    })),
+  };
+}
+
+/**
+ * 매 틱 — 바뀐 것만. 안개는 청크 RLE, 노드는 stamp 기반.
+ * @param {object} opts {cache, stream}
+ *   · cache  — ★ Sprint 3. 한 방송 안에서 buildNationView 와 **같은 그릇**을 받으면
+ *     주민·울타리·공사장 목록을 그쪽이 이미 빚어 둔 것으로 쓴다(값이 같은 조각들이다).
+ *   · stream — ★ §21-A1. 이 사람이 「지금까지 받은 것」의 장부. 주면 일곱 컬렉션이 변경분으로 나간다.
+ *   둘 다 안 주면 예전처럼 전량을 그때그때 빚는다 — 시험과 단발 호출의 계약은 그대로다.
+ */
+export function buildWorldDiff(world, nationId, data, sinceTick = -1, opts = {}) {
+  const nation = world.nations[nationId];
+  if (!nation) return null;
+  const cache = opts.cache ?? null;
+  const once = (key, make) => shared(cache, `${nationId}:${key}`, make);
+  const fogChunks = fogChunksSince(nation, sinceTick);
+  const cols = worldCollections(world, nation, nationId, data, once);
+  const base = {
     tick: world.tick,
     sinceTick,
     fog: fogChunks,
-    nodes,
+    nodes: worldNodeRows(world, nation, data, sinceTick, fogChunks),
     /* ★ §17-12 — 걷어 낸 자리. 노드 diff 는 '있는 것'만 실으므로 지워진 것은 이 목록이 알린다 —
        없으면 클라의 노드 사전에 유령 나무가 남는다. 같은 틱 안의 걷어내기도 실어야 하므로
        nodeView 의 fresh 판정과 같은 괄호(> sinceTick 또는 == 지금 틱)를 쓴다. */
     removedNodes: (world.map?.removedNodes || [])
       .filter((r) => r.tick > sinceTick || r.tick === world.tick)
       .map((r) => r.id),
-    clusters: clusterViews(world, nation),
     // ★ §18-D2 — 앞마당의 흔적. 조사로 소진된 것은 이 목록에서 사라지는 것으로 화면에서도 지워진다.
     trails: trailsFor(world, nation, data),
     rings: ringRadii(nation, data),
@@ -690,26 +716,103 @@ export function buildWorldDiff(world, nationId, data, sinceTick = -1, opts = {})
     // ★ §12-6 — 무역이 열린 뒤에야 상단이 다닌다. 열리기 전에는 늘 빈 목록이라
     //   join 뒤에 8장이 열려도 다시 붙지 않고 그 자리에서 나타난다.
     caravans: caravansFor(nation, world.map, data),
-    towns: (world.map?.towns || []).map((t) => ({
-      nationId: t.nationId, x: t.x, y: t.y,
-      radius: territoryRadius(world.nations[t.nationId] || {}, data),
-      known: t.nationId === nationId || isExplored(nation, t.x, t.y),
-    })),
     territory: {
       cx: townXY(world, nation)[0], cy: townXY(world, nation)[1],
       radius: territoryRadius(nation, data), claims: claimViews(nation),
     },
-    /* ★ Sprint 3 — 아래 다섯은 **보는 사람과 무관한 값**이다(역할 마스킹이 걸리지 않는다).
-       그런데도 접속자 수만큼 처음부터 다시 빚었고, 주민 목록은 바로 위 buildNationView 가
-       같은 방송에서 이미 지어 둔 것과 한 톨도 다르지 않았다. 이제 그릇 하나를 나눠 쓴다.
-       건물 목록만 열쇠말이 다르다 — 뷰 쪽은 건축가 여부(architect)를 얹어 짓기 때문이다. */
-    structures: once('diffStructures', () => (nation.structures || []).map((s) => structureView(nation, s, data))),
+    /* 공사장은 나라 판(state.nation.sites)이 정본이고 여기 것은 거울이다 — 손에 꼽는 수라 그대로 둔다. */
     sites: once('sites', () => (nation.construction || []).map((c) => siteView(nation, c, data))),
-    fences: once('fences', () => fenceViews(nation, data)),
-    residents: once('residents', () => residentViews(nation, data, world)),
-    camps: campViews(world, nation, null, data),
+    /* ★ §19-A · §21-A1 — 아바타는 **매번 전량**이다: 걸음이 곧 위치라 거의 모든 장에서 달라지고,
+       사람 수는 손에 꼽는다. 골라내는 값이 아끼는 값보다 비싼 유일한 컬렉션이다. */
     avatars: once('avatars', () => avatarViews(nation, data)),
   };
+  if (!opts.stream) return { ...base, ...cols, residents: once('residents', () => residentViews(nation, data, world)) };
+  return { ...base, ...streamRows(opts.stream, cols, data) };
+}
+
+// ────────────────────────────────────────────────────────────────
+// ★ §21-A1 — worldDiff 가 이름값을 한다: 일곱 컬렉션의 **변경분** 전송
+//
+// 「왜」. 이름은 diff 인데 실제로 변경분이던 것은 안개 청크와 노드뿐이었다. 나머지는 사람마다,
+// 방송마다 **전량**이 다시 나갔다: 건물 마흔 채(효과표·다음 티어 값까지 한 채에 1KB 가까이),
+// 주민 서른(능력치·적성·산출), 울타리 백 조각, 야영지·군락·마을. 후반 정착지에서 한 장이
+// 60~150KB 였고, 그 가운데 실제로 달라진 것은 대개 **한 줄도 없었다**(하루가 조용히 지나가면
+// 건물도 울타리도 어제 그대로다).
+//
+// 그래서 A-2(battleTick)가 세운 방식을 그대로 옮긴다 — 방이 아니라 **세션**이 장부를 쥔다
+// (worldDiff 는 사람마다 다른 sinceTick 으로 나가므로 「누가 무엇까지 받았는가」도 사람마다 다르다).
+//   · 구조물·울타리·야영지·군락·마을 — 지난번과 **지문이 달라진 줄만**. 사라진 것은 removed* 가 알린다.
+//   · 주민 — **판(state.nation.residents)에만 싣는다.** 같은 방송에서 두 벌이 나가고 있었고,
+//     화면의 병합은 애초에 판 쪽만 읽는다(public/js/state.js residents()). 세계 변경분에는 부재다.
+//   · 아바타 — 전량 그대로(위 머리말).
+// 되맞춤은 둘: 입장(world 스냅샷 + 첫 장은 언제나 full)과 `world.json simulation.worldFullEvery`
+// 장마다 한 번 끼는 풀. 화면은 `counts`(서버가 아는 줄 수)로 스스로 어긋남을 알아채 지도를 다시 청한다.
+// 판정·세이브·결정론은 한 눈금도 안 건드린다 — 여기는 전송 계층이다.
+// ────────────────────────────────────────────────────────────────
+const WORLD_FULL_EVERY = 20;
+const worldFullEvery = (data) => Math.max(1, data.world?.simulation?.worldFullEvery ?? WORLD_FULL_EVERY);
+
+/** 컬렉션마다 「사라진 것」을 알리는 열쇠말(군락·마을은 사라지지 않지만 계약은 같게 둔다) */
+const REMOVED_KEY = {
+  structures: 'removedStructures', fences: 'removedFences', camps: 'removedCamps',
+  clusters: 'removedClusters', towns: 'removedTowns',
+};
+
+/** 세션 하나가 「지금까지 받은 것」 — 서버 런타임이 들고 다닌다(세이브에 넣지 않는다). */
+export function worldStreamCache() { return { n: 0, cols: new Map() }; }
+
+const rowId = (it) => it.id ?? it.nationId;
+
+/** 컬렉션 하나의 장부 — id → 그 줄을 그대로 찍은 지문 */
+function ledgerOf(stream, col) {
+  if (!stream.cols.has(col)) stream.cols.set(col, new Map());
+  return stream.cols.get(col);
+}
+
+/** 지난번과 **달라진 줄만**, 그리고 사라진 id 만. 장부는 늘 지금 목록과 같아진다. */
+function collectionDelta(stream, col, list) {
+  const seen = ledgerOf(stream, col);
+  const rows = [];
+  const live = new Set();
+  for (const it of list) {
+    const sig = JSON.stringify(it);
+    live.add(rowId(it));
+    if (seen.get(rowId(it)) !== sig) rows.push(it);
+    seen.set(rowId(it), sig);
+  }
+  const removed = [...seen.keys()].filter((id) => !live.has(id));
+  for (const id of removed) seen.delete(id);
+  return { rows, removed, count: live.size };
+}
+
+/** 되맞춤 한 장 — 전량을 싣고 장부를 지금 목록으로 새로 새긴다. */
+function worldFullRows(stream, cols) {
+  stream.n = 1;
+  const out = { full: true, counts: {} };
+  for (const [name, list] of Object.entries(cols)) {
+    out.counts[name] = collectionDelta(stream, name, list).count;
+    out[name] = list;
+  }
+  return out;
+}
+
+/** 변경분 한 장 — 안 바뀐 컬렉션은 **열쇠말 자체가 없다**. */
+function worldDeltaRows(stream, cols) {
+  const out = { full: false, counts: {} };
+  for (const [name, list] of Object.entries(cols)) {
+    const d = collectionDelta(stream, name, list);
+    out.counts[name] = d.count;
+    if (d.rows.length) out[name] = d.rows;
+    if (d.removed.length) out[REMOVED_KEY[name]] = d.removed;
+  }
+  return out;
+}
+
+/** 이 장이 되맞춤 차례(첫 장 포함)면 전량, 아니면 변경분. */
+function streamRows(stream, cols, data) {
+  if (stream.n % worldFullEvery(data) === 0) return worldFullRows(stream, cols);
+  stream.n += 1;
+  return worldDeltaRows(stream, cols);
 }
 
 /**

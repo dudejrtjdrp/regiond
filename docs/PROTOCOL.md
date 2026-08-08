@@ -136,6 +136,68 @@ artifacts: [{ key, name, grade, desc, type, obtainedTick, consumed, chargesLeft,
 - 성녀 자리 기본 이름표(`npc.NPC_NAMES.saint[0]`)는 「성녀 세라」. 성녀 자리를 **사람이** 쥐면 세라 화자 beat 는 「성녀의 직감」으로 나간다.
 - 연대기: `chronicle` 칸을 가진 beat 는 `kind:'story'` 항목을 남긴다 — 재접속자·늦게 온 군주의 회고 창구.
 
+## 0-K. v3.3 안 델타 — **`worldDiff` 가 이름값을 한다** (§21-A1)
+
+**판번호를 올리지 않는다**(`world.schema` **6** 유지). §0-W · §0-J 가 세운 기준 그대로다 —
+판번호는 「세이브가 안 맞는가」로만 오른다. 세이브도 판정도 한 칸 안 바뀌었고, 바뀐 것은
+**한 이벤트의 실리는 방식**뿐이다. 다만 §0-J 와 마찬가지로 더하기가 아니라 **모양이 바뀐 자리**라
+아래를 정본으로 읽는다.
+
+「왜」. 이름은 변경분(diff)인데 실제로 변경분이던 것은 안개 청크와 노드뿐이었다. 나머지는 방송마다,
+사람마다 **전량**이 다시 나갔다: 건물 마흔 채(한 채에 효과표·다음 티어 값까지 1KB 가까이),
+주민 서른(능력치·적성·산출), 울타리 백 조각, 야영지·군락·마을. 후반 정착지에서 한 장이 60~150KB 였고
+그 가운데 실제로 달라진 것은 대개 **한 줄도 없었다** — 조용한 하루의 건물과 울타리는 어제 그대로다.
+Sprint 3 의 뷰 공유 캐시가 「같은 것을 사람 수만큼 빚는」 셈은 이미 없앴다. 남은 것은 **전송량**이었다.
+
+### 0-K-1. 나뉜 자리 — 무엇이 변경분이고 무엇이 전량인가
+
+| 몫 | 방식 | 계약 |
+|---|---|---|
+| 구조물(`structures`) | **변경분** | 지난번과 **달라진 줄만**. 지으면·헐면·티어가 오르면·상하면 그 한 채가 온다. 헐린 것은 `removedStructures:[id]` 가 알린다 |
+| 울타리(`fences`) | **변경분** | 같은 규칙. 실제로 달라지는 것은 `hp`(와 그에 딸린 `condition`·`broken`)뿐이라, 물어뜯긴 조각 하나만 온다. 사라진 것은 `removedFences` |
+| 야영지(`camps`) | **변경분** | 같은 규칙(`removedCamps`). 정찰·타격으로 값이 바뀔 때만 실린다 |
+| 군락(`clusters`) · 마을(`towns`) | **변경분** | 같은 규칙. 새로 밝아진 것과 값이 달라진 것만. 화면은 예전처럼 **쌓아 얹는다**(이 둘은 사라지지 않는다) |
+| 주민(`residents`) | **아예 없다** | 사람의 목록은 **판(`state.nation.residents`)이 정본**이다. 같은 방송에서 두 벌이 나가고 있었고, 화면의 세계 병합은 애초에 판 쪽만 읽었다 |
+| 아바타(`avatars`) | **매번 전량** | 걸음이 곧 위치라 거의 모든 장에서 달라지고 사람 수는 손에 꼽는다 — 골라내는 값이 아끼는 값보다 비싸다. §19-A 의 정본(`avatarViews`)도 그대로다 |
+| 안개·노드 | **그대로** | §17-12 의 stamp 계약을 한 글자도 안 바꿨다(`nodes` · `removedNodes`) |
+
+- **`full` 칸이 계약의 열쇠다**(§0-J 와 같다). `full:false` 면 변경분이고, 그 밖(`true` 이거나 아예 **없는** 경우)은 전량이다.
+  → 옛 생산자(구경 모드 `public/js/mock.js`)와 즉시 공개분(`reveal:true`)이 보내는 옛 모양은 그대로 읽힌다.
+- **안 바뀐 컬렉션은 열쇠말 자체가 없다.** 빠진 항목은 예나 지금이나 「바뀐 것 없음」이다.
+- `counts` — 서버가 아는 줄 수(`{structures,fences,camps,clusters,towns}`). 화면이 제 장부와 견주는 도장이다.
+
+### 0-K-2. 되맞춤 — 잃어버린 한 장을 되찾는 세 길
+
+| 길 | 언제 | 무엇이 오는가 |
+|---|---|---|
+| `world` 스냅샷 | 입장 · `requestWorld` | 지도 전체(건물·울타리·군락·마을 전량). 서버는 그 사람의 장부를 비운다 |
+| 첫 변경분 · 주기 되맞춤 | 장부를 연 뒤 첫 장 · `world.json simulation.worldFullEvery` 장마다 한 번(기본 **20**) | **전량 한 장**(`full:true` + `counts`) |
+| `counts` 어긋남 → `requestWorld` | 화면이 제 장부의 줄 수가 서버의 것과 다른 것을 본 순간 | 위의 `world` 스냅샷(5초에 한 번까지만 청한다) |
+
+- 장부는 **방이 아니라 세션**이 쥔다. `battleTick`(§0-J)은 방 전체가 같은 한 장을 받지만
+  `worldDiff` 는 사람마다 다른 `sinceTick` 으로 나가므로 「무엇까지 받았는가」도 사람마다 다르다.
+- 장부는 서버 런타임의 것이다 — 세이브에도 난수에도 닿지 않는다.
+
+### 0-K-3. 클라가 할 일
+
+`S.map.structures` · `S.map.fences` · `S.map.camps` 는 예전과 **똑같은 모양**을 유지한다 —
+붙이는 일은 `public/js/state.js` 의 `mergeCollections()` 한 곳이 한다(전량이면 갈아 끼우고, 변경분이면
+id 로 얹고 `removed*` 는 지운다). 군락·마을은 예전 그대로 쌓아 얹는다.
+`counts` 가 어긋나면 `requestWorld` 로 지도를 다시 청한다.
+
+### 0-K-4. 바뀌지 않은 것
+
+- **판정·결정론·서버 권위** — 여기는 전송 계층이다. 회귀 시험이 「변경분을 뽑든 안 뽑든 월드가 바이트 단위로 같다」를 붙든다.
+- `world` 스냅샷 · `state`(NationView) · 즉시 공개분(`reveal:true`)의 모양 — 한 글자도 안 바뀌었다.
+- **장부를 안 주면 옛 계약 그대로다**(`buildWorldDiff` 를 그냥 부르면 주민까지 전량이 실린다) — 시험·단발 호출의 계약이 그대로인 까닭이다.
+
+**실측**(건물 33채 · 주민 30 · 울타리 140조각 · 야영지 · 군락 다수의 후반 월드, 세 씨앗):
+정지 상태(변화 없는 되방송 20장) **94.2~94.4%** 절감(1330KB → 75KB), 통상 플레이(20일 × 하루 4방송,
+건물 신축·울타리 파손·아바타 이동 포함) **94.1~94.4%** 절감(5435KB → 306KB).
+하루 틱 한 장으로는 **68.1KB → 1.5KB**(건물 23.3KB · 주민 17.1KB · 울타리 18.9KB · 군락 7.2KB 가 통째로 빠졌다).
+
+---
+
 ## 0-J. v3.3 안 델타 — **`battleTick` 을 나눠 보낸다** (§21-A2)
 
 **판번호를 올리지 않는다**(`world.schema` **6** 유지). §0-W 가 세운 기준 그대로다 —
@@ -1437,7 +1499,7 @@ TrailView { id, key, kind:'chain'|'micro', x, y, name, art, verb, ready }
 
 | 계층 | 주기 | 무엇이 도는가 | 클라가 받는 것 |
 |---|---|---|---|
-| **일 틱** | `config.time.dayRealSeconds` (기본 600초 = 1게임일) | 산출·소비·가격·무역·주민 유입·사기·웨이브 일정·사건·티어 판정 | `state`, `worldDiff`, `worldState`, `events` |
+| **일 틱** | `config.time.dayRealSeconds` (기본 600초 = 1게임일) | 산출·소비·가격·무역·주민 유입·사기·웨이브 일정·사건·티어 판정 | `state`, `worldDiff` (★ §21-A1 — 일곱 컬렉션은 바뀐 줄만. §0-I), `worldState`, `events` |
 | **실시간** | 즉시 | 스윙(`actionSwing`)·전투 스윙(`combatSwing`)·아바타 이동(`lordMove`)·건설/울타리 명령 | 그 명령의 **ack**(+ 남의 스윙은 `swing`, 새 땅을 밟으면 `worldDiff`) |
 | **서브틱** | `config.time.subtickSeconds` (기본 0.25초) | 웨이브 전투 시뮬(적 이동·터렛 사격·민병·플레이어) | `battleTick` (★ §21-A2 — 적만 매 서브틱, 민병·터렛은 2Hz 변경분. §0-H) |
 
@@ -1775,7 +1837,7 @@ ack / `joined` 이벤트 payload:
 |---|---|---|
 | `joined` | join ack 직후 | 화면 전환 |
 | `world` | join 1회 / `requestWorld` | 지형 RLE·노드·안개·건물·울타리 전량 그리기 |
-| `worldDiff` | 매 일 틱 · **아바타가 새 땅을 밟은 즉시**(`reveal:true`) | 바뀐 청크·노드·건물·울타리·주민만 갱신 |
+| `worldDiff` | 매 일 틱 · **아바타가 새 땅을 밟은 즉시**(`reveal:true`) | ★ §21-A1 — **바뀐 것만 온다**: 바뀐 청크·노드에 더해 구조물·울타리·야영지·군락·마을도 **달라진 줄만**(주민은 판에만, 아바타는 늘 전량). `full` 이 거짓이 아니면 전량이다(§0-I) |
 | `state` | 매 일 틱 · 명령 후 | HUD·패널 전량 |
 | `worldState` | 매 일 틱 | 세계 지도·웨이브 화살표 |
 | `events` | 매 일 틱 | 로그(표현 계층 문장 포함) |
@@ -1821,14 +1883,26 @@ ack / `joined` 이벤트 payload:
 ### 4-2. `worldDiff` — 매 틱 변경분
 
 ```jsonc
-{ "tick": 12, "sinceTick": 11,
-  "fog": [[0,0,1,256]], "nodes": [],
-  "towns": [], "territory": {},
-  "structures": [], "sites": [],
-  "fences": [], "residents": [],
-  "camps": [], "avatars": [] }
+// ★ §21-A1 — 전량 한 장(입장 뒤 첫 장 · 주기 되맞춤)
+{ "tick": 12, "sinceTick": 11, "full": true,
+  "fog": [[0,0,1,256]], "nodes": [], "removedNodes": [],
+  "territory": {}, "sites": [], "avatars": [],
+  "towns": [], "structures": [], "fences": [], "camps": [], "clusters": [],
+  "counts": { "structures": 33, "fences": 140, "camps": 1, "clusters": 12, "towns": 4 } }
+
+// ★ §21-A1 — 변경분 한 장. 안 바뀐 컬렉션은 **열쇠말 자체가 없다**
+{ "tick": 13, "sinceTick": 12, "full": false,
+  "fog": [], "nodes": [], "removedNodes": [],
+  "territory": {}, "sites": [], "avatars": [ /* 늘 전량 */ ],
+  "fences": [ { "id": "f7", "hp": 40, "condition": 0.5, "…": "그 줄 한 벌" } ],
+  "removedStructures": ["s12"],
+  "counts": { "structures": 32, "fences": 140, "camps": 1, "clusters": 12, "towns": 4 } }
 ```
 노드 규칙: `stamp > sinceTick` **또는 `stamp === 현재 틱`** 인 것을 싣는다(같은 틱 안의 개간·수확이 누락되지 않게).
+
+일곱 컬렉션(구조물·울타리·주민·야영지·아바타·군락·마을)의 계약은 **§0-I** 가 정본이다:
+`full` 이 거짓이 아니면 전량, `full:false` 면 변경분(+`removedStructures`·`removedFences`·`removedCamps`),
+**주민은 실리지 않는다**(판이 정본), 아바타는 늘 전량, `counts` 가 어긋나면 `requestWorld` 로 되맞춘다.
 
 **★ 즉시 공개분(`reveal: true`)** — `lordMove` 로 새 땅을 밟은 순간에도 같은 `worldDiff` 가 온다. 일 틱 변경분과 두 가지가 다르다.
 ```jsonc

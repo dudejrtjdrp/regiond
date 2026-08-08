@@ -20,6 +20,8 @@ import {
   buildNationView, buildWorldState, buildWorldSnapshot, buildWorldDiff, buildRevealDiff,
   // ★ Sprint 3 — 한 번의 방송 동안만 사는 파생 그릇(view.js 머리말 참고)
   newViewCache,
+  // ★ §21-A1 — 세션 하나가 「지금까지 받은 것」의 장부(전송 계층. view.js §21-A1 머리말 참고)
+  worldStreamCache,
   // ★ §19-A — 아바타 방송의 유일한 정본(down·bot·color·role·hp·정규화 외형). 아래 emitAvatars 참고.
   avatarViews,
 } from './engine/view.js';
@@ -508,7 +510,8 @@ class GameRuntime {
       const sock = io.sockets.sockets.get(socketId);
       if (!sock) continue;
       sock.emit('state', buildNationView(this.world, session.nationId, session.role, data, { avatarId: session.avatarId, cache }));
-      sock.emit('worldDiff', buildWorldDiff(this.world, session.nationId, data, session.worldTick ?? -1, { cache }));
+      sock.emit('worldDiff', buildWorldDiff(this.world, session.nationId, data, session.worldTick ?? -1,
+        { cache, stream: worldStreamOf(session) }));
       session.worldTick = this.world.tick;
       if (!worldStates.has(session.nationId)) {
         worldStates.set(session.nationId, buildWorldState(this.world, session.nationId, data));
@@ -525,8 +528,20 @@ function upsertMember(nation, avatarId, name, role, online, appearance) {
 
 /** @type {Map<string, GameRuntime>} */
 const games = new Map();
-/** @type {Map<string, {gameId, nationId, role, playerName, avatarId, worldTick}>} */
+/** @type {Map<string, {gameId, nationId, role, playerName, avatarId, worldTick, worldStream}>} */
 const sessions = new Map();
+
+/**
+ * ★ §21-A1 — 이 사람이 「지금까지 받은 것」의 장부.
+ * 「왜」 방이 아니라 세션인가 — battleTick(§21-A2)은 방 전체가 **같은 한 장**을 받지만,
+ * worldDiff 는 사람마다 다른 sinceTick 으로 나간다(늦게 든 사람, 방금 되살아난 사람).
+ * 그래서 「무엇까지 받았는가」도 사람마다 다르다. 장부를 비우면 다음 한 장이 전량이다 —
+ * 입장·재요청(requestWorld)이 그 길을 쓴다. 세이브에도 결정론에도 닿지 않는다.
+ */
+function worldStreamOf(session) {
+  if (!session.worldStream) session.worldStream = worldStreamCache();
+  return session.worldStream;
+}
 
 function getOrCreateGame(gameId, opts = {}) {
   if (gameId && games.has(gameId)) return games.get(gameId);
@@ -867,6 +882,8 @@ io.on('connection', (socket) => {
       const p = buildJoinPayloads(rt, s.nationId, s.role, s.avatarId);
       socket.emit('world', p.world);
       s.worldTick = rt.world.tick;
+      // ★ §21-A1 — 지도를 통째로 다시 받았으니 장부도 비운다(다음 변경분 한 장은 전량이다)
+      s.worldStream = null;
       socket.emit('state', p.state);
       socket.emit('worldState', p.worldState);
       if (ack) ack({ ok: true, protocol: PROTOCOL, tick: rt.world.tick });
@@ -909,7 +926,8 @@ io.on('connection', (socket) => {
        — 자원칸이 널뛰고 안개·노드·아바타가 두 세상 사이에서 오갔다. 들어오기 전에 옛 방을 뗀다. */
     const before = sessions.get(sock.id);
     if (before && before.gameId !== rt.gameId) sock.leave(before.gameId);
-    sessions.set(sock.id, { gameId: rt.gameId, nationId, role, playerName, avatarId, worldTick: -1 });
+    // ★ §21-A1 — worldStream:null 로 연다. 들어온 사람의 첫 변경분은 언제나 전량이다.
+    sessions.set(sock.id, { gameId: rt.gameId, nationId, role, playerName, avatarId, worldTick: -1, worldStream: null });
     sock.join(rt.gameId);
     nation.online = true;
     nation.autoAssistIdleTicks = 0;
