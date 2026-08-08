@@ -96,6 +96,26 @@ const GRADE_LABEL = { common: '일반', uncommon: '고급', rare: '희귀', epic
 const GRID_PAD = 24;   /* 전시대 캔버스 여백 */
 const OPAQUE_A = 250;  /* 이 이상은 불투명으로 본다 */
 
+/* 「왜」 파이프라인이 배경 제거로 건물 일부를 삼킨 사고가 있었다. 제거 전(raw.png)과
+   제거 후(base.png)를 같은 화면에서 네 가지 방식으로 대조해 즉시 발견한다. */
+const CMP_MODES = [
+  { id: 'final', label: '최종' },
+  { id: 'original', label: '원본' },
+  { id: 'side', label: '나란히' },
+  { id: 'diff', label: '겹쳐보기' }
+];
+
+const LOST_RGB = [206, 48, 56];      /* 원본에만 있는 픽셀 = 제거로 사라진 부분 */
+const KEPT_RGB = [86, 214, 198];     /* 최종에 남은 실루엣 */
+const FADE_RGB = [236, 233, 225];    /* 배경은 눌러서 실루엣을 도드라지게 */
+const BG_TOL = 40;                   /* 테두리 최빈색과 이 거리 안쪽은 배경으로 본다 */
+const SILHOUETTE_A = 128;            /* 최종 실루엣 판정 알파 */
+
+/* 오버레이 색 — 지시된 정본(앵커 노랑 / bounds 청록 점선 / 캔버스 회색). */
+const OV_ANCHOR = '#ffd44d';
+const OV_BOUNDS = '#4fd1c5';
+const OV_CANVAS = '#9aa0a8';
+
 /* ==================================================================
    2. 상태 (메모리 전용)
    ================================================================== */
@@ -108,6 +128,7 @@ const state = {
   assets: [],
   byId: new Map(),
   images: new Map(),
+  originals: new Map(),
   sheets: new Map(),
   metrics: new Map(),
   qa: new Map(),
@@ -119,7 +140,8 @@ const state = {
   hall: 'all',
   sub: null,
   overrides: new Map(),
-  view: { id: null, anim: null, frame: 0, playing: true, acc: 0, last: 0, raf: 0 }
+  overlay: { anchor: false, bounds: false, canvas: false },
+  view: { id: null, anim: null, frame: 0, playing: true, acc: 0, last: 0, raf: 0, cmp: 'side' }
 };
 
 /* ==================================================================
@@ -638,6 +660,71 @@ function drawFrame(ctx, sheet, fr, cx, groundY, scale, smooth) {
   ctx.restore();
 }
 
+/* --- 앵커·바운즈 오버레이 (meta.json 기하 계약) --- */
+
+/* 「왜」 구 에셋 manifest에는 anchor/bounds/scaleFactor가 아예 없다. 숫자로 검증해 통과한 것만
+   써야 콘솔 에러 없이 조용히 넘어간다. 타일은 원래 anchor가 없는 것이 정상이다. */
+function geomAnchor(asset) {
+  const a = asset && asset.anchor;
+  if (!a || !Number.isFinite(a.x) || !Number.isFinite(a.y)) return null;
+  return { x: a.x, y: a.y };
+}
+
+function geomBounds(asset) {
+  const b = asset && asset.bounds;
+  if (!b || !Number.isFinite(b.w) || !Number.isFinite(b.h)) return null;
+  return { x: num(b.x, 0), y: num(b.y, 0), w: b.w, h: b.h };
+}
+
+function geomFactor(asset) {
+  const f = asset && asset.scaleFactor;
+  if (!Number.isFinite(f) || f < 1) return null;
+  return Math.round(f);
+}
+
+/* 스프라이트가 실제로 그려진 사각형 — 오버레이는 이 원점 기준으로 얹어야 어긋나지 않는다. */
+function spriteRect(canvasW, groundY, src, scale) {
+  const dw = Math.round(src.w * scale);
+  const dh = Math.round(src.h * scale);
+  return { x: Math.round(canvasW / 2 - dw / 2), y: Math.round(groundY - dh), w: dw, h: dh };
+}
+
+function paintOverlays(ctx, asset, rect, scale) {
+  const ov = state.overlay;
+  if (ov.canvas) strokeBox(ctx, rect.x, rect.y, rect.w, rect.h, OV_CANVAS, [3, 3]);
+  const b = ov.bounds ? geomBounds(asset) : null;
+  if (b) strokeBox(ctx, rect.x + b.x * scale, rect.y + b.y * scale, b.w * scale, b.h * scale, OV_BOUNDS, [4, 3]);
+  const a = ov.anchor ? geomAnchor(asset) : null;
+  if (a) paintAnchorCross(ctx, rect.x + a.x * scale, rect.y + a.y * scale);
+}
+
+function strokeBox(ctx, x, y, w, h, color, dash) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.setLineDash(dash);
+  ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, Math.max(1, Math.round(w) - 1), Math.max(1, Math.round(h) - 1));
+  ctx.restore();
+}
+
+/* 「왜」 앵커는 콘텐츠 하단 중앙이라 어두운 픽셀 위에 얹히기 쉽다 — 검은 밑선을 깔아야 노랑이 읽힌다. */
+function paintAnchorCross(ctx, x, y) {
+  const cx = Math.round(x) + 0.5;
+  const cy = Math.round(y) + 0.5;
+  ctx.save();
+  ctx.setLineDash([]);
+  strokeCrossAt(ctx, cx, cy, 'rgba(18, 11, 6, 0.85)', 3);
+  strokeCrossAt(ctx, cx, cy, OV_ANCHOR, 1);
+  ctx.restore();
+}
+
+function strokeCrossAt(ctx, cx, cy, color, width) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  strokeLine(ctx, cx, cy - 10, cx, cy + 10);
+  strokeLine(ctx, cx - 10, cy, cx + 10, cy);
+}
+
 /* --- 환경 합성 (SPEC 4번) — 전시대 캔버스 전체에 적용한다 --- */
 function applyEnv(ctx, w, h, env) {
   if (env === 'night') return tint(ctx, w, h, NIGHT.hex, NIGHT.alpha);
@@ -728,8 +815,18 @@ function assetURL(asset, file) {
   return base + file;
 }
 
+/* 「왜」 originalPng은 게시 파이프라인이 나중에 추가한 키다. 구 에셋에는 없거나 파일이 빠져 있을 수
+   있으니 실패를 정상 경로로 흡수하고, 없으면 대조 UI 자체를 감춘다. */
+async function loadOriginal(asset) {
+  if (!asset.originalPng) return null;
+  const img = await loadImage(assetURL(asset, asset.originalPng));
+  if (img) state.originals.set(asset.id, img);
+  return img;
+}
+
 async function prepareAsset(asset) {
   const img = await loadImage(assetURL(asset, asset.still || 'base.png'));
+  await loadOriginal(asset);
   if (!img) return markBroken(asset);
   state.images.set(asset.id, img);
   const sheet = await loadSheet(asset);
@@ -1066,8 +1163,18 @@ function fillViewer(asset) {
   fillInfo(asset);
   fillQA(asset);
   fillAnimButtons(asset);
+  fillOriginal(asset);
+  updateOverlayNote(asset);
   fillCompareSelect(asset);
   fillSizeControls(asset);
+}
+
+function updateOverlayNote(asset) {
+  const has = [];
+  if (geomAnchor(asset)) has.push('anchor');
+  if (geomBounds(asset)) has.push('bounds');
+  const txt = has.length > 0 ? has.join(' · ') + ' 기록됨' : 'anchor·bounds 미기록 (타일 또는 구 에셋)';
+  $('#ov-note').textContent = txt;
 }
 
 function fillInfo(asset) {
@@ -1081,6 +1188,34 @@ function fillInfo(asset) {
 }
 
 function infoRows(asset, m) {
+  return baseRows(asset, m).concat(geometryRows(asset));
+}
+
+/* 「왜」 필드가 없는 구 에셋에서도 표는 같은 모양을 유지해야 "빠졌다"는 사실이 눈에 띈다. */
+function geometryRows(asset) {
+  const b = geomBounds(asset);
+  const a = geomAnchor(asset);
+  return [
+    ['픽셀 밀도', densityText(asset)],
+    ['bounds', b ? `${b.w}×${b.h} @ (${b.x}, ${b.y})` : '— (미기록)'],
+    ['anchor', a ? `(${a.x}, ${a.y})` : '— (타일 또는 미기록)'],
+    ['raw.png', rawText(asset)]
+  ];
+}
+
+function densityText(asset) {
+  const f = geomFactor(asset);
+  if (!f) return '— (미기록)';
+  return `1/${f} (정수 축소 배율 ${f}×)`;
+}
+
+function rawText(asset) {
+  if (!asset.originalPng) return '없음 (구 에셋)';
+  if (state.originals.has(asset.id)) return `있음 · ${asset.originalPng}`;
+  return `${asset.originalPng} — 로드 실패`;
+}
+
+function baseRows(asset, m) {
   const px = asset.pixelSize || (m ? [m.contentW, m.contentH] : null);
   return [
     ['이름', asset.name || '—'],
@@ -1225,6 +1360,8 @@ function paintStage(canvas, asset, smooth) {
   paintBackdrop(ctx, w, h);
   paintStageSprite(ctx, asset, w, groundY, smooth);
   applyEnv(ctx, w, h, state.env);
+  /* 「왜」 환경 합성 뒤에 그려야 밤·횃불에서 오버레이 선까지 같이 어두워지지 않는다. */
+  paintOverlays(ctx, asset, spriteRect(w, groundY, spriteSize(asset), state.zoom), state.zoom);
 }
 
 /* 「왜」 400% 배율에서 스프라이트가 잘리면 외곽선 검수를 못 한다 — 무대를 배율에 맞춰 넓힌다. */
@@ -1272,6 +1409,158 @@ function updateAnimInfo(asset) {
 function loopLabel(name) {
   if (ANIM_LOOP.has(name)) return '루프';
   return '1회';
+}
+
+/* --- 원본 대조 (배경 제거 전 raw.png ↔ 최종 base.png) --- */
+
+function srcW(img) { return img.naturalWidth || img.width; }
+function srcH(img) { return img.naturalHeight || img.height; }
+
+function fillOriginal(asset) {
+  const has = state.originals.has(asset.id);
+  $('#orig-panel').classList.toggle('hidden', !has);
+  if (!has) return;
+  fillCmpModes();
+  renderOriginal(asset);
+}
+
+function fillCmpModes() {
+  const host = $('#orig-modes');
+  clear(host);
+  host.appendChild(el('span', 'group-label', '보기'));
+  buildToggleGroup(host, CMP_MODES, (i) => i.id === state.view.cmp, (i) => setCmpMode(i.id));
+}
+
+function setCmpMode(id) {
+  state.view.cmp = id;
+  syncToggleGroup($('#orig-modes'), id);
+  renderOriginal(state.byId.get(state.view.id));
+}
+
+function renderOriginal(asset) {
+  if (!asset) return;
+  const raw = state.originals.get(asset.id);
+  if (!raw) return;
+  const c = $('#orig-canvas');
+  const ctx = c.getContext('2d');
+  const fin = state.images.get(asset.id);
+  paintBackdrop(ctx, c.width, c.height);
+  paintCmpMode(ctx, c, raw, fin);
+  $('#orig-note').textContent = cmpNote(asset, raw, fin);
+}
+
+function paintCmpMode(ctx, c, raw, fin) {
+  const mode = state.view.cmp;
+  if (mode === 'original') return paintFitted(ctx, raw, 0, c.width, c.height, '원본 raw.png (배경 제거 전)');
+  if (mode === 'final') return paintFitted(ctx, fin, 0, c.width, c.height, '최종 base.png (배경 제거 후)');
+  if (mode === 'side') return paintSideBySide(ctx, c, raw, fin);
+  paintDiff(ctx, c, raw, fin);
+}
+
+function paintSideBySide(ctx, c, raw, fin) {
+  const half = c.width / 2;
+  paintFitted(ctx, raw, 0, half, c.height, 'ORIGINAL · raw.png');
+  paintFitted(ctx, fin, half, half, c.height, 'FINAL · base.png');
+  paintCompareDivider(ctx, half, c.height);
+}
+
+function paintDiff(ctx, c, raw, fin) {
+  if (!fin) return paintFitted(ctx, raw, 0, c.width, c.height, '최종 base.png 없음 — 원본만 표시');
+  const merged = diffCanvas(raw, fin);
+  paintFitted(ctx, merged, 0, c.width, c.height, '겹쳐보기 · 빨강=제거로 사라진 픽셀 · 청록=최종 실루엣');
+}
+
+/* 「왜」 검수용이라 nearest 고정이다 — 보간이 끼면 실루엣 경계가 거짓말을 한다. */
+function paintFitted(ctx, img, x0, w, h, label) {
+  if (!img) return;
+  const s = Math.min((w - 24) / srcW(img), (h - 36) / srcH(img));
+  const dw = Math.max(1, Math.round(srcW(img) * s));
+  const dh = Math.max(1, Math.round(srcH(img) * s));
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, Math.round(x0 + (w - dw) / 2), Math.round((h - 28 - dh) / 2) + 6, dw, dh);
+  ctx.restore();
+  paintCmpLabel(ctx, label, x0 + w / 2, h - 10);
+}
+
+function paintCmpLabel(ctx, text, cx, y) {
+  ctx.save();
+  ctx.fillStyle = '#3b2318';
+  ctx.font = '12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, cx, y);
+  ctx.restore();
+}
+
+/* 「왜」 raw.png는 알파 없는 RGB로 저장된다. 그래서 "원본에만 있는 픽셀"을 알파로는 못 가른다 —
+   테두리 최빈색을 배경으로 보고 실루엣을 추정한 뒤, 최종을 원본 크기에 nearest로 맞춰 픽셀 대 픽셀로 비교한다. */
+function diffCanvas(raw, fin) {
+  const w = srcW(raw);
+  const h = srcH(raw);
+  const src = drawToCanvas(raw, w, h);
+  const dst = drawToCanvas(fin, w, h);
+  const a = src.ctx.getImageData(0, 0, w, h);
+  const b = dst.ctx.getImageData(0, 0, w, h);
+  markLostPixels(a.data, b.data, backgroundOf(a.data, w, h));
+  src.ctx.putImageData(a, 0, 0);
+  return src.canvas;
+}
+
+function drawToCanvas(img, w, h) {
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = false;
+  if (img) ctx.drawImage(img, 0, 0, w, h);
+  return { canvas, ctx };
+}
+
+function markLostPixels(a, b, bg) {
+  for (let i = 0; i < a.length; i += 4) {
+    if (b[i + 3] >= SILHOUETTE_A) { blendPixel(a, i, KEPT_RGB, 0.3); continue; }
+    if (colorDist(a[i], a[i + 1], a[i + 2], bg) > BG_TOL) { blendPixel(a, i, LOST_RGB, 0.72); continue; }
+    blendPixel(a, i, FADE_RGB, 0.9);
+  }
+}
+
+function blendPixel(d, i, rgb, k) {
+  d[i] = Math.round(d[i] * (1 - k) + rgb[0] * k);
+  d[i + 1] = Math.round(d[i + 1] * (1 - k) + rgb[1] * k);
+  d[i + 2] = Math.round(d[i + 2] * (1 - k) + rgb[2] * k);
+  d[i + 3] = 255;
+}
+
+function colorDist(r, g, b, c) {
+  return Math.sqrt((r - c[0]) ** 2 + (g - c[1]) ** 2 + (b - c[2]) ** 2);
+}
+
+function borderKey(data, w, x, y) {
+  const i = (y * w + x) * 4;
+  return (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
+}
+
+function borderHistogram(data, w, h) {
+  const map = new Map();
+  const bump = (k) => map.set(k, (map.get(k) || 0) + 1);
+  for (let x = 0; x < w; x++) { bump(borderKey(data, w, x, 0)); bump(borderKey(data, w, x, h - 1)); }
+  for (let y = 0; y < h; y++) { bump(borderKey(data, w, 0, y)); bump(borderKey(data, w, w - 1, y)); }
+  return map;
+}
+
+function backgroundOf(data, w, h) {
+  const best = topColors(borderHistogram(data, w, h), 1)[0];
+  if (!best) return [255, 0, 255];
+  const k = best[0];
+  return [(k >> 16) & 255, (k >> 8) & 255, k & 255];
+}
+
+function cmpNote(asset, raw, fin) {
+  const f = geomFactor(asset);
+  const dens = f ? ` · 픽셀 밀도 1/${f}` : '';
+  const rw = raw ? `${srcW(raw)}×${srcH(raw)}` : '—';
+  const fw = fin ? `${srcW(fin)}×${srcH(fin)}` : '—';
+  return `원본 ${rw} → 최종 ${fw}${dens} · 원본은 최대 변 256 축소본이라 정렬은 근사다. 빨강 덩어리가 보이면 배경 제거가 콘텐츠를 삼킨 것이다.`;
 }
 
 /* --- 스타일 비교 (SPEC 7번) --- */
@@ -1630,12 +1919,14 @@ function redrawAll() {
   if (state.view.id === null) return;
   const asset = state.byId.get(state.view.id);
   renderStages();
+  renderOriginal(asset);
   renderCompare(asset, state.byId.get($('#cmp-select').value));
 }
 
 function bindEvents() {
   bindSearch();
   bindViewerControls();
+  bindOverlayControls();
   bindSizeControls();
   $('#btn-export').addEventListener('click', exportOverrides);
   $('#size-export').addEventListener('click', exportOverrides);
@@ -1667,6 +1958,19 @@ function bindViewerControls() {
   $('#cmp-select').addEventListener('change', (e) => {
     renderCompare(state.byId.get(state.view.id), state.byId.get(e.target.value));
   });
+}
+
+function bindOverlayControls() {
+  ['anchor', 'bounds', 'canvas'].forEach(bindOverlayToggle);
+}
+
+function bindOverlayToggle(key) {
+  $('#ov-' + key).addEventListener('change', (e) => setOverlay(key, e.target.checked));
+}
+
+function setOverlay(key, on) {
+  state.overlay[key] = on;
+  renderStages();
 }
 
 function togglePlay() {

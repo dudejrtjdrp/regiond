@@ -14,12 +14,15 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import re
 import shutil
 import sys
 from pathlib import Path
 
 # 「왜」 의존성 미설치가 첫 실행에서 가장 흔한 실패라, traceback 대신 해결 명령을 바로 보여준다.
 try:
+    from PIL import Image
+
     import animslice
     import postprocess as pp
     import qa
@@ -68,6 +71,24 @@ STYLE_BACKGROUND = (
     "no ground plane, no scenery, no studio backdrop"
 )
 
+# 「왜」 건물이 가장 많이 깨진다(마을 장면·부분 건물·지붕 없음·사람 침입). 전용 상수로 분리해
+#      "완전한 건물 하나"를 반복해서 못 박는다.
+BUILDING_TEMPLATE = {
+    "view": ("exactly one single subject, a single isolated game building sprite, one complete building, "
+             "the entire building fully visible, complete roof and walls and windows and doors, "
+             "full architectural silhouette, seen from a top-down three-quarter view"),
+    "extra": ("korean-style timber and stone construction, warm glowing windows, "
+              "unoccupied, no people anywhere, "
+              "no other buildings and no street around it, nothing else in the frame"),
+}
+
+# 「왜」 나무·식물·바위가 사람 형상(얼굴·팔다리)으로 변형되는 사례가 있었다. 해부를 부정한다.
+ANTI_HUMAN = {
+    "tree": "botanical structure, rooted tree silhouette, no humanoid features, no face, no arms, no legs",
+    "plant": "botanical growth, no humanoid form, no limbs, no face",
+    "mineral": "geological shape, no face, no eyes, no limbs",
+}
+
 CATEGORY_PROMPTS: dict[str, dict] = {
     "player":     {"view": "top-down three-quarter view game character sprite, facing the camera, full body, feet visible", "extra": "adventurer proportions, readable silhouette, gear details"},
     "npc":        {"view": "top-down three-quarter view villager sprite, facing the camera, full body, feet visible", "extra": "everyday clothing, profession tool in hand"},
@@ -79,11 +100,11 @@ CATEGORY_PROMPTS: dict[str, dict] = {
     "food":       {"view": "exactly one single subject, a single game inventory icon, one appetizing item floating alone", "extra": "soft warm ramps, glossy 1px highlight"},
     "consumable": {"view": "exactly one single subject, a single game inventory icon, one potion or flask floating alone", "extra": "glass transparency suggested with blue ramps and diagonal highlight"},
     "material":   {"view": "exactly one single subject, a single game inventory icon, one crafting material floating alone", "extra": "clear material identity, chunky readable shape"},
-    "mineral":    {"view": "exactly one single subject, one top-down three-quarter view ore node resource object, a single connected rock mass", "extra": "rock facets with chipped corners, embedded glinting ore veins"},
-    "tree":       {"view": "exactly one single subject, one top-down three-quarter view tree, full trunk and canopy, roots at the base", "extra": "leaf clusters of 3-6 pixels, no individual leaves"},
-    "plant":      {"view": "exactly one single subject, one top-down three-quarter view small plant or crop, a single connected patch", "extra": "compact leafy clusters"},
+    "mineral":    {"view": "exactly one single subject, one top-down three-quarter view ore node resource object, a single connected rock mass", "extra": "rock facets with chipped corners, embedded glinting ore veins, " + ANTI_HUMAN["mineral"]},
+    "tree":       {"view": "exactly one single subject, one top-down three-quarter view tree, full trunk and canopy, roots at the base", "extra": "leaf clusters of 3-6 pixels, no individual leaves, " + ANTI_HUMAN["tree"]},
+    "plant":      {"view": "exactly one single subject, one top-down three-quarter view small plant or crop, a single connected patch", "extra": "compact leafy clusters, " + ANTI_HUMAN["plant"]},
     "furniture":  {"view": "exactly one single subject, one top-down three-quarter view furniture piece standing alone", "extra": "wood grain strokes, plank seams, unoccupied, no people, no room and no floor around it"},
-    "building":   {"view": "exactly one single subject, one standalone building seen from a top-down three-quarter view, the whole building alone, front facade and roof visible", "extra": "stone and timber construction, warm glowing windows, unoccupied, no people anywhere, no other buildings and no street around it"},
+    "building":   BUILDING_TEMPLATE,
     "tileset":    {"view": "seamless repeating natural ground surface texture, (orthographic view pointing straight down at flat ground:1.3), (close-up macro texture of the ground itself:1.2), filling the entire frame edge to edge", "extra": "the camera looks straight down, the ground fills the whole frame at one constant distance, a natural terrain surface and not a man-made floor or wall, not a landscape and not a scene, no horizon and no sky, no outline, no border, uniform density across the whole frame, no large focal object, repeats seamlessly on all four sides"},
     "ui":         {"view": "exactly one single subject, a single flat game UI skill icon, one centered emblem", "extra": "bold readable symbol, subtle bevel"},
     "effect":     {"view": "exactly one single subject, one magical effect burst alone in an empty frame", "extra": "additive-friendly bright core with 1-2px glow, no figures and no people"},
@@ -107,6 +128,11 @@ NEGATIVE_NO_MASONRY = ("brick, bricks, brickwork, masonry, mortar, grout, cobble
 
 # 「왜」 rock이 항공 지도, ash가 석양 산 풍경, desert_b가 횡스크롤 장면으로 나왔다.
 #      '지면을 위에서 본 텍스처'가 아니라 '어떤 장소를 그린 그림'이 되는 실패 모드다.
+# 「왜」 건물 실패 모드가 뚜렷하다: 마을 풍경 / 반쪽 건물 / 지붕 없음 / 부유 조각.
+NEGATIVE_BUILDING = ("multiple buildings, village, town, city, street, house group, "
+                     "partial building, missing roof, missing wall, destroyed structure, "
+                     "floating parts, vehicle")
+
 NEGATIVE_NO_SCENE = ("landscape, scenery, horizon, sky, sun, moon, clouds, mountains, cliffs, "
                      "valley, river, lake, coastline, aerial map, world map, side view, "
                      "side-scroller level, isometric scene, diorama, vignette, "
@@ -138,6 +164,8 @@ def _negatives_for(category: str) -> list[str]:
     if category == "tileset":
         out.append(NEGATIVE_NO_MASONRY)
         out.append(NEGATIVE_NO_SCENE)
+    if category == "building":
+        out.append(NEGATIVE_BUILDING)
     return out
 
 
@@ -323,9 +351,10 @@ def _save_images(blobs: list[bytes], out_dir: Path, index: int) -> list[Path]:
 
 # ------------------------------------------------------------------ 후처리 + 랭킹
 
-def refine_and_rank(raws: list[Path], spec: dict, cfg: dict, args, out_dir: Path) -> dict:
+def refine_and_rank(raws: list[Path], spec: dict, cfg: dict, args, out_dir: Path,
+                    key_delta: int = 0) -> dict:
     """후보를 규격화·검수한다. 게시 가능(PASS/WARNING)과 기각(FAIL)을 나눠서 돌려준다."""
-    scored = [_refine_one(raw, spec, cfg, args, out_dir) for raw in raws]
+    scored = [_refine_one(raw, spec, cfg, args, out_dir, key_delta) for raw in raws]
     alive = [s for s in scored if s.get("report")]
     ok = sorted((s for s in alive if s["report"]["result"] != qa.FAIL), key=_by_score)
     bad = sorted((s for s in alive if s["report"]["result"] == qa.FAIL), key=_by_score)
@@ -340,27 +369,98 @@ def _fail_reasons(report: dict) -> str:
     return ", ".join(k for k, v in report["checks"].items() if v == qa.FAIL) or "(사유 없음)"
 
 
-def _reason_summary(rejected: list[dict]) -> str:
-    """기각 사유를 검사 항목별로 집계한다 — 무인 실행 로그에서 원인을 바로 읽으려고."""
+# 「왜」 같은 프롬프트로 시드만 바꿔 다시 뽑으면 같은 실패가 반복된다. 사유별로 프롬프트를
+#      고쳐서 다시 뽑아야 라운드가 의미를 갖는다. 아래가 사유→보정 테이블이다.
+ADAPTIVE_FIXES = {
+    "backgroundResidue": {
+        "weights": {"completely flat solid magenta background": 1.4},
+        "negative": "detailed background, textured background, studio backdrop, gradient backdrop",
+        "note": "마젠타 가중 1.3→1.4 + 배경 네거티브 강화",
+    },
+    "singleSubject": {
+        "prefix": "only one single object in the whole image",
+        "negative": "collage, sprite sheet, multiple objects, item set, grid of items, several copies",
+        "note": "문두에 단일 오브젝트 강제 + 콜라주 네거티브 강화",
+    },
+    "silhouette": {
+        "keyToleranceDelta": -20,
+        "note": "keyTolerance -20 (배경 제거를 덜 공격적으로)",
+    },
+    "tileComposition": {
+        "weights": {"orthographic view pointing straight down at flat ground": 1.4},
+        "negative": "landscape painting, wide shot, distant view, scene composition",
+        "note": "직교 하향 가중 1.3→1.4 + 장면 네거티브 강화",
+    },
+}
+
+
+def fail_tally(rejected: list[dict]) -> dict[str, int]:
+    """기각 후보들의 FAIL 사유를 검사 항목별로 센다."""
     tally: dict[str, int] = {}
     for entry in rejected:
         for key, value in entry["report"]["checks"].items():
             if value == qa.FAIL:
                 tally[key] = tally.get(key, 0) + 1
+    return tally
+
+
+def dominant_reasons(rejected: list[dict], limit: int = 2) -> list[str]:
+    """보정 테이블에 있는 사유 중 많이 나온 순으로 최대 limit개."""
+    tally = fail_tally(rejected)
+    known = [(k, n) for k, n in tally.items() if k in ADAPTIVE_FIXES]
+    return [k for k, _ in sorted(known, key=lambda kv: -kv[1])][:limit]
+
+
+def adapt(prompt: str, cfg: dict, args, reasons: list[str]) -> dict:
+    """사유에 맞춰 프롬프트·네거티브·후처리 옵션을 보정한 '이번 라운드 설정'을 만든다."""
+    plan = {"prompt": prompt, "negativeExtra": [], "keyToleranceDelta": 0, "notes": []}
+    for reason in reasons:
+        _apply_fix(plan, ADAPTIVE_FIXES[reason], reason)
+    return plan
+
+
+def _apply_fix(plan: dict, fix: dict, reason: str) -> None:
+    plan["prompt"] = _reweight(plan["prompt"], fix.get("weights") or {})
+    plan["prompt"] = _prefix(plan["prompt"], fix.get("prefix"))
+    if fix.get("negative"):
+        plan["negativeExtra"].append(fix["negative"])
+    plan["keyToleranceDelta"] += fix.get("keyToleranceDelta", 0)
+    plan["notes"].append(f"{reason}: {fix['note']}")
+
+
+def _reweight(prompt: str, weights: dict) -> str:
+    """(문구:1.3) → (문구:1.4) 처럼 기존 가중치만 갈아끼운다."""
+    for phrase, value in weights.items():
+        prompt = re.sub(rf"\({re.escape(phrase)}:[0-9.]+\)", f"({phrase}:{value})", prompt)
+    return prompt
+
+
+def _prefix(prompt: str, text: str | None) -> str:
+    if not text or prompt.startswith(text):
+        return prompt
+    return f"{text}, {prompt}"
+
+
+def _reason_summary(rejected: list[dict]) -> str:
+    """기각 사유를 검사 항목별로 집계한다 — 무인 실행 로그에서 원인을 바로 읽으려고."""
+    tally = fail_tally(rejected)
     if not tally:
         return "(사유 없음)"
     return ", ".join(f"{k}x{n}" for k, n in sorted(tally.items(), key=lambda kv: -kv[1]))
 
 
-def _refine_one(raw: Path, spec: dict, cfg: dict, args, out_dir: Path) -> dict:
+def _refine_one(raw: Path, spec: dict, cfg: dict, args, out_dir: Path, key_delta: int = 0) -> dict:
     dst = out_dir / f"refined_{raw.stem}.png"
     opts = _postprocess_options(cfg, args)
+    opts["key_tolerance"] = max(30, opts["key_tolerance"] + key_delta)
     try:
         info = pp.process_image(raw, dst, spec, opts)
     except ValueError as err:
         print(f"  ! {raw.name}: {err}")
         return {"raw": raw, "report": None}
-    report = qa.run_checks(dst, args.category, args.subcategory, root=pp.project_root(cfg.get("projectRoot")))
+    report = qa.run_checks(dst, args.category, args.subcategory,
+                           root=pp.project_root(cfg.get("projectRoot")),
+                           silhouette=info.get("silhouette"))
     mark = " · 배경폴백" if info.get("bgFallback") else ""
     print(f"  · {raw.name} → {report['result']} 점수 {report['score']} "
           f"(축소 1/{info['factor']}, {info['contentFit']}{mark})")
@@ -382,19 +482,29 @@ def _postprocess_options(cfg: dict, args) -> dict:
 # ------------------------------------------------------------------ 배치/등록
 
 def publish(best: dict, args, root: Path, sheet_meta: dict | None) -> list[str]:
-    """1위 후보를 public/assets/<id>/base.png로 복사한다."""
+    """1위 후보를 base.png로, 그 후보의 **배경 제거 전 원본**을 raw.png로 저장한다."""
     asset_dir = root / "public/assets" / args.id
     asset_dir.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(best["refined"], asset_dir / "base.png")
-    written = [str(asset_dir / "base.png")]
+    written = [str(asset_dir / "base.png")] + _publish_reference(best, asset_dir)
     if sheet_meta:
         written.append(str(asset_dir / sheet_meta["sheet"]))
     return written
 
 
+def _publish_reference(best: dict, asset_dir: Path) -> list[str]:
+    """「왜」 박물관이 '제거 전/후'를 나란히 놓고 눈으로 검수하는 계약(originalPng)."""
+    source = best.get("raw")
+    if not source or not Path(source).exists():
+        return []
+    with Image.open(source) as handle:
+        pp.save_reference(handle.convert("RGB"), asset_dir / "raw.png")
+    return [str(asset_dir / "raw.png")]
+
+
 def build_info(best: dict, args, sheet_meta: dict | None) -> dict:
     report = best["report"]
-    return {
+    info = {
         "id": args.id, "name": args.name, "category": args.category,
         "subcategory": args.subcategory, "grade": args.grade,
         "size": report["canvas"], "pixelSize": report["pixelSize"],
@@ -402,6 +512,23 @@ def build_info(best: dict, args, sheet_meta: dict | None) -> dict:
         "tags": args.tags.split(",") if args.tags else [],
         "qa": {"result": report["result"], "checks": report["checks"], "notes": args.notes or ""},
     }
+    info.update(geometry_of(best, args.category))
+    return info
+
+
+def geometry_of(best: dict, category: str) -> dict:
+    """meta.json 기하 계약 — anchor(타일 제외)·bounds·scaleFactor·originalPng."""
+    info = best.get("info") or {}
+    bounds = info.get("bounds")
+    out = {"scaleFactor": int(info.get("factor", 1))}
+    if best.get("raw"):
+        out["originalPng"] = "raw.png"
+    if not bounds:
+        return out
+    out["bounds"] = bounds
+    if pp.CATEGORY_SPECS.get(category, {}).get("anchor") != "fill":
+        out["anchor"] = {"x": bounds["x"] + bounds["w"] // 2, "y": bounds["y"] + bounds["h"]}
+    return out
 
 
 def make_sheet(args, root: Path) -> dict | None:
@@ -907,49 +1034,75 @@ def _run(args, cfg: dict, root: Path, spec: dict, prompt: str) -> int:
 def _pipeline(args, cfg: dict, root: Path, spec: dict, prompt: str, out_dir: Path) -> int:
     """「왜」 무인 실행에서는 FAIL을 절대 게시하면 안 된다. 통과작이 나올 때까지 라운드를 돈다."""
     client = _connect(cfg)
-    best, rejected = _rounds(client, cfg, args, prompt, spec, out_dir)
+    best, rejected, plan = _rounds(client, cfg, args, prompt, spec, out_dir)
     client.close()
     if best is None:
         _cleanup(args, out_dir)
-        return _skip(args, root, rejected)
+        return _skip(args, root, rejected, plan)
     written = _finish(best, args, root)
     _cleanup(args, out_dir)
-    _report(best, written)
+    _report(best, written, plan)
     return 0
 
 
 def _rounds(client, cfg: dict, args, prompt: str, spec: dict, out_dir: Path):
-    """라운드마다 새 시드로 후보를 뽑고, 게시 가능한 게 나오면 즉시 멈춘다."""
+    """라운드마다 새 시드 + **사유 기반 프롬프트 보정**으로 후보를 뽑는다."""
     total = 1 + max(0, int(cfg.get("retryRounds", 2)))
     rejected: list[dict] = []
+    plan = {"prompt": prompt, "negativeExtra": [], "keyToleranceDelta": 0, "notes": []}
     for index in range(total):
-        raws = _round_candidates(client, cfg, args, prompt, out_dir, index, total)
-        graded = refine_and_rank(raws, spec, cfg, args, out_dir)
+        raws = _round_candidates(client, cfg, args, plan, out_dir, index, total)
+        graded = refine_and_rank(raws, spec, cfg, args, out_dir, plan["keyToleranceDelta"])
         rejected.extend(graded["rejected"])
         if graded["publishable"]:
-            return (graded["publishable"][0], rejected)
-        _announce_retry(index, total, graded["rejected"])
-    return (None, rejected)
+            return (graded["publishable"][0], rejected, plan)
+        plan = _next_plan(prompt, cfg, args, graded["rejected"], index, total)
+    return (None, rejected, plan)
 
 
-def _announce_retry(index: int, total: int, rejected: list[dict]) -> None:
+def _next_plan(prompt: str, cfg: dict, args, rejected: list[dict], index: int, total: int) -> dict:
+    """직전 라운드 사유를 보고 다음 라운드 설정을 만든다(결정론: 사유가 같으면 보정도 같다)."""
+    reasons = dominant_reasons(rejected)
+    plan = adapt(prompt, cfg, args, reasons)
+    _announce_retry(index, total, rejected, plan)
+    return plan
+
+
+def _announce_retry(index: int, total: int, rejected: list[dict], plan: dict) -> None:
     if index + 1 >= total:
         return
     print(f"  ! 라운드 {index + 1}/{total} 전 후보 FAIL ({_reason_summary(rejected)}) — 새 시드로 재시도")
+    for note in plan["notes"]:
+        print(f"    · 보정 {note}")
+    if not plan["notes"]:
+        print("    · 보정 없음(알려진 사유 아님) — 시드만 바꿔 재시도")
 
 
-def _round_candidates(client, cfg: dict, args, prompt: str, out_dir: Path,
+def _round_candidates(client, cfg: dict, args, plan: dict, out_dir: Path,
                       index: int, total: int) -> list[Path]:
     """「왜」 라운드마다 시드를 크게 밀어야 같은 그림이 다시 나오지 않는다."""
     if index > 0:
         print(f"  == 재시도 라운드 {index + 1}/{total}")
-    return generate_candidates(client, cfg, args, prompt, out_dir / f"r{index}",
+    tuned = _with_extra_negative(cfg, plan["negativeExtra"])
+    return generate_candidates(client, tuned, args, plan["prompt"], out_dir / f"r{index}",
                                seed_offset=index * 100003)
 
 
-def _skip(args, root: Path, rejected: list[dict]) -> int:
+def _with_extra_negative(cfg: dict, extra: list[str]) -> dict:
+    """「왜」 config를 직접 고치면 다음 에셋까지 오염된다. 이번 라운드용 사본을 만든다."""
+    if not extra:
+        return cfg
+    merged = dict(cfg)
+    parts = [cfg.get("negativeExtra", "")] + extra
+    merged["negativeExtra"] = ", ".join(p for p in parts if p)
+    return merged
+
+
+def _skip(args, root: Path, rejected: list[dict], plan: dict | None = None) -> int:
     """게시하지 않고 넘어간다. 기존 발행물이 있으면 그대로 둔다(덮어쓰지 않는다)."""
     print(f"!! SKIP {args.id}: 전 후보 FAIL ({_reason_summary(rejected)})")
+    for note in (plan or {}).get("notes", []):
+        print(f"   시도한 보정: {note}")
     existing = root / "public/assets" / args.id / "base.png"
     if existing.exists():
         print(f"   기존 발행물을 유지합니다(덮어쓰지 않음): {existing}")
@@ -972,7 +1125,9 @@ def _cleanup(args, out_dir: Path) -> None:
     shutil.rmtree(out_dir, ignore_errors=True)
 
 
-def _report(chosen: dict, written: list[str]) -> None:
+def _report(chosen: dict, written: list[str], plan: dict | None = None) -> None:
+    for note in (plan or {}).get("notes", []):
+        print(f"  · 적용된 보정: {note}")
     best = chosen["report"]
     print(f"\n## 선정: {Path(chosen['refined']).name} — QA {best['result']} (점수 {best['score']})")
     for key in qa.CHECK_ORDER:

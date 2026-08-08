@@ -288,6 +288,87 @@ def _border_indices(w: int, h: int) -> list[int]:
     return top + bottom + sides
 
 
+# ------------------------------------------------------- 실루엣 보존 측정
+
+# 「왜」 배경 제거가 피사체 일부를 같이 지우는 일이 있다(건물 벽이 배경색과 가까울 때 특히).
+#      결과만 보면 '원래 그런 모양'과 구분이 안 되므로, 제거 전/후를 비교해야만 잡힌다.
+
+
+def _border_connected(transparent: list, w: int, h: int) -> bytearray:
+    """테두리에서 출발해 투명 영역을 타고 닿을 수 있는 픽셀 표시 — 나머지 투명은 '구멍'이다."""
+    seen = bytearray(len(transparent))
+    queue = deque(i for i in _border_indices(w, h) if transparent[i])
+    for i in queue:
+        seen[i] = 1
+    while queue:
+        i = queue.popleft()
+        for n in _neighbors(i, w, h):
+            if transparent[n] and not seen[n]:
+                seen[n] = 1
+                queue.append(n)
+    return seen
+
+
+def silhouette_metrics(before: Image.Image, after: Image.Image, opts: dict) -> dict:
+    """제거 전(before, 불투명 원본)과 제거 후(after)를 비교해 훼손 정도를 잰다."""
+    src = pixels(before.convert("RGB"))
+    dst = pixels(after.convert("RGBA"))
+    w, h = after.size
+    was_key = _key_mask(src, opts)
+    transparent = [p[3] == 0 for p in dst]
+    return _score_damage(transparent, was_key, w, h)
+
+
+def _key_mask(src: list, opts: dict) -> list:
+    """제거 전에 이미 키 색(마젠타)이던 픽셀 — 여기가 뚫리는 것은 정상이다."""
+    key = opts.get("key", MAGENTA_KEY)
+    limit = opts.get("key_tolerance", KEY_TOLERANCE) ** 2
+    return [_sq_dist(p[:3], key) <= limit for p in src]
+
+
+def _score_damage(transparent: list, was_key: list, w: int, h: int) -> dict:
+    outside = _border_connected(transparent, w, h)
+    box = _opaque_box(transparent, w, h)
+    holes = _new_holes(transparent, was_key, outside, box, w)
+    subject_total = sum(1 for k in was_key if not k)
+    lost = sum(1 for i, k in enumerate(was_key) if not k and transparent[i])
+    area = max(1, (box[2] - box[0]) * (box[3] - box[1]))
+    return {
+        "newHoleRatio": round(holes / area, 4),
+        "subjectLoss": round(lost / max(1, subject_total), 4),
+        "holePixels": holes, "boxArea": area, "subjectPixels": subject_total,
+    }
+
+
+def _new_holes(transparent: list, was_key: list, outside: bytearray,
+               box: tuple, w: int) -> int:
+    """콘텐츠 bbox 안에서 '제거 과정에 새로 생긴' 막힌 구멍의 픽셀 수."""
+    count = 0
+    for y in range(box[1], box[3]):
+        row = y * w
+        count += sum(1 for x in range(box[0], box[2])
+                     if transparent[row + x] and not outside[row + x] and not was_key[row + x])
+    return count
+
+
+def _opaque_box(transparent: list, w: int, h: int) -> tuple:
+    """불투명 픽셀의 bbox. 전부 투명이면 캔버스 전체를 돌려준다."""
+    xs = [i % w for i, t in enumerate(transparent) if not t]
+    ys = [i // w for i, t in enumerate(transparent) if not t]
+    if not xs:
+        return (0, 0, w, h)
+    return (min(xs), min(ys), max(xs) + 1, max(ys) + 1)
+
+
+def save_reference(raw: Image.Image, dst: Path, max_side: int = 256) -> dict:
+    """게시용 원본 사본(raw.png) — 박물관이 '제거 전'과 나란히 비교하는 계약."""
+    factor = max(1, -(-max(raw.size) // max_side))
+    size = (max(1, raw.width // factor), max(1, raw.height // factor))
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    raw.convert("RGB").resize(size, Image.Resampling.NEAREST).save(dst, "PNG", optimize=True)
+    return {"path": str(dst), "size": list(size), "factor": factor}
+
+
 # ------------------------------------------------------- 타일 심리스화 (§8 지형)
 
 # 「왜」 생성 모델은 "seamless"를 프롬프트로 시켜도 상하/좌우 랩을 맞춰 주지 않는다.
@@ -594,7 +675,8 @@ def _merged_options(options: dict | None) -> dict:
 
 def _process_sprite(raw: Image.Image, dst: Path, spec: dict, opts: dict) -> dict:
     """캐릭터·오브젝트·아이콘 경로: 배경 제거 → 트림 → 정수 축소 → 양자화 → 앵커."""
-    cleaned, fallback = _clean_background(raw, opts)
+    cleaned, fallback, box = _clean_background(raw, opts)
+    damage = silhouette_metrics(raw.crop(box), cleaned, opts)
     trimmed = trim_content(cleaned)
     if trimmed.getchannel("A").getbbox() is None:
         raise ValueError(f"{src_name(dst)}: 배경을 지우고 나니 남은 픽셀이 없습니다 — 마젠타 배경 프롬프트나 임계값을 확인하세요.")
@@ -602,7 +684,16 @@ def _process_sprite(raw: Image.Image, dst: Path, spec: dict, opts: dict) -> dict
     small = integer_downscale(trimmed, factor, opts["downscale_filter"])
     small = trim_content(quantize_to_palette(small, opts["palette"], opts["quantize_strength"]))
     final = place_on_canvas(small, spec["canvas"], spec["anchor"], opts["margin"])
-    return _write_report(final, dst, factor, small.size, spec, fallback)
+    report = _write_report(final, dst, factor, small.size, spec, fallback)
+    report["silhouette"] = damage
+    report["bounds"] = _bounds_of(final)
+    return report
+
+
+def _bounds_of(final: Image.Image) -> dict:
+    """콘텐츠 bbox(캔버스 좌표) — meta.json의 bounds/anchor 계약 원천."""
+    box = final.getchannel("A").getbbox() or (0, 0, 0, 0)
+    return {"x": box[0], "y": box[1], "w": box[2] - box[0], "h": box[3] - box[1]}
 
 
 def _process_tile(raw: Image.Image, dst: Path, spec: dict, opts: dict) -> dict:
@@ -630,13 +721,18 @@ def _seamless_pass(small: Image.Image, opts: dict) -> tuple[Image.Image, dict]:
     return (final, {"applied": True, "before": before, "after": wrap_metrics(final)})
 
 
-def _clean_background(raw: Image.Image, opts: dict) -> tuple[Image.Image, bool]:
-    """배경을 지우고, 마젠타가 아니라 테두리 폴백을 썼는지 여부를 함께 돌려준다."""
+def _clean_background(raw: Image.Image, opts: dict) -> tuple[Image.Image, bool, tuple]:
+    """배경을 지우고, 폴백 사용 여부와 '조기 트림에 쓴 상자'를 함께 돌려준다.
+
+    「왜」 상자를 같이 주는 이유: 실루엣 훼손을 재려면 제거 전/후를 **같은 좌표계**로
+         맞춰야 하는데, 속도를 위해 중간에 여백을 잘라내기 때문이다.
+    """
     keyed, coverage = _key_pass(raw, opts)
     keyed, fallback = _fallback_if_needed(raw, keyed, coverage, opts)
-    early = trim_content(keyed)  # 「왜」 halo 검사는 픽셀 단위라 먼저 여백을 버려 시간을 줄인다.
+    box = keyed.getchannel("A").getbbox() or (0, 0, keyed.width, keyed.height)
+    early = keyed.crop(box)  # 「왜」 halo 검사는 픽셀 단위라 먼저 여백을 버려 시간을 줄인다.
     haloed = strip_halo(early, opts["key"], opts["halo_tolerance"], opts["halo_rounds"])
-    return (bleed_rgb(binarize_alpha(despeckle(haloed))), fallback)
+    return (bleed_rgb(binarize_alpha(despeckle(haloed))), fallback, box)
 
 
 def _key_pass(raw: Image.Image, opts: dict) -> tuple[Image.Image, float]:

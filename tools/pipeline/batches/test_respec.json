@@ -1,0 +1,52 @@
+{
+  "assets": [
+    {
+      "id": "test/probe_tree",
+      "name": "시험 나무",
+      "category": "tree",
+      "size": "128x192",
+      "candidates": 4,
+      "desc": "a single broadleaf tree, one thick gnarled trunk with bark texture rising into a wide canopy of clustered leaf masses in layered summer greens, small root flare at the base, one single subject only, not a row, not a set of variations, not multiple drawings, base flush with the bottom edge"
+    },
+    {
+      "id": "test/probe_plant",
+      "name": "시험 식물",
+      "category": "plant",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "one small leafy crop plant, a rosette of broad green leaves opening from a short central stalk, growing directly from the ground, no pot, no planter, no container, one single subject only, not a row, not a set of variations, not multiple drawings, base flush with the bottom edge"
+    },
+    {
+      "id": "test/probe_rock",
+      "name": "시험 바위",
+      "category": "mineral",
+      "size": "96x96",
+      "candidates": 4,
+      "desc": "a single cluster of three large angular boulders fused into one mass, big faceted planes of gray stone with chipped edges and small cracks, a few pebbles at the base, one single subject only, not a row, not a set of variations, not multiple drawings, base flush with the bottom edge"
+    },
+    {
+      "id": "test/probe_hut",
+      "name": "시험 오두막(소)",
+      "category": "building",
+      "size": "96x128",
+      "candidates": 4,
+      "desc": "one small thatched hut, a complete conical straw roof over round mud-plaster walls, one dark doorway and one small square window, an unoccupied building, the building is empty, nobody present, no people, no figures, no surrounding village, no street, no other buildings, nothing else around it, the building stands completely alone, one single subject only, not a row, not a set of variations, not multiple drawings, base flush with the bottom edge"
+    },
+    {
+      "id": "test/probe_hall",
+      "name": "시험 회관(중)",
+      "category": "building",
+      "size": "128x224",
+      "candidates": 4,
+      "desc": "one two-storey timber hall, a complete tiled roof with upturned eaves over whitewashed walls between dark wooden posts, a wide central doorway and four lattice windows, an unoccupied building, the building is empty, nobody present, no people, no figures, no surrounding village, no street, no other buildings, nothing else around it, the building stands completely alone, one single subject only, not a row, not a set of variations, not multiple drawings, base flush with the bottom edge"
+    },
+    {
+      "id": "test/probe_item",
+      "name": "시험 아이템",
+      "category": "material",
+      "size": "64x64",
+      "candidates": 4,
+      "desc": "one single iron ingot lying alone, a bar of dull gray metal with a bright bevelled top edge and a stamped mark on its face, an inanimate object only, no people, no figures, no hands, one single subject only, not a row, not a set of variations, not multiple drawings"
+    }
+  ]
+}

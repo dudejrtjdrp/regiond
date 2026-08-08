@@ -16,6 +16,10 @@ setlocal
 set PYTHONUTF8=1
 set PYTHONIOENCODING=utf-8
 
+REM  Self-locate: this file lives at <root>\tools\pipeline\, so the project
+REM  root is two levels up. Works when double-clicked from Explorer too.
+pushd "%~dp0..\.."
+
 set OUTDIR=tools\pipeline\out
 set LOG=%OUTDIR%\overnight_log.txt
 set REPORT=%OUTDIR%\overnight_report.txt
@@ -33,16 +37,9 @@ echo Log:    %LOG%
 echo Report: %REPORT%
 echo Do not close this window.
 
-REM --- batch1: keep the approved probes (wolf, hut, iron_sword_common, wood_log)
-REM     and redo only the two known failures.
->>%LOG% echo.
->>%LOG% echo ------------------------------------------------------------
->>%LOG% echo STEP batch1 probe partial START %time%
-echo [%time%] batch1 probe (oak_large, grass)
-python "%RUNNER%" "%BATCHES%\batch1_probe.json" --only "tree/oak_large,tileset/grass" --force >>%LOG% 2>&1
->>%LOG% echo STEP batch1 probe partial END %time% exit code %errorlevel%
+REM --- tilesets (batch2) are approved and are NOT regenerated here.
+REM --- batch1 probes are all approved and kept as-is.
 
-call :RUN batch2_terrain.json
 call :RUN batch3_nodes_flora.json
 call :RUN batch4_buildings.json
 call :RUN batch5_connect.json
@@ -82,10 +79,15 @@ goto :eof
 
 REM ------------------------------------------------------------
 :NOTROOT
-echo ERROR: run this from the project root, not from tools\pipeline.
-echo     cd C:\path\to\toji
-echo     tools\pipeline\regen_overnight.bat
+echo ERROR: could not find %RUNNER% - the script expected the project root at:
+echo     %CD%
+echo Move regen_overnight.bat back to tools\pipeline\ inside the project.
+popd
+pause
 exit /b 1
 
 :END
+popd
 endlocal
+echo.
+pause

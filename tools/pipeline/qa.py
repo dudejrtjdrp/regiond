@@ -49,6 +49,12 @@ THRESHOLDS = {
     "secondBlobWarn": 0.12, "secondBlobFail": 0.22,
     "secondBlobEffect": 0.50,   # 이펙트는 파편이 흩어지는 게 정상이라 완화
     "dominantExempt": 0.70,     # 최대 성분이 전체의 70%+면 나머지는 소품·그림자로 본다
+    # 「왜」 배경 제거가 피사체를 같이 깎아내는 사고(건물 벽이 배경색과 가까울 때)를 잡는다.
+    #      제거 전/후 비교라 파이프라인 안에서만 잴 수 있다 — 단독 QA에서는 SKIP.
+    "subjectLossWarn": 0.06, "subjectLossFail": 0.15,
+    "newHoleWarn": 0.015, "newHoleFail": 0.04,
+    # 「왜」 건물 지붕이 떨어져 나가거나 픽셀이 떠 있는 경우 — 2위 성분 기준으로는 너무 작다.
+    "floatingWarn": 0.01, "floatingCap": 0.12,
     "opaqueAlpha": 250,            # museum.js OPAQUE_A
     "runLengthCap": 16,            # 대면적 단색을 그리드 추정에서 제외
     "gridDivisibleRatio": 0.80,
@@ -467,6 +473,26 @@ def _dominant_note(opaque: list) -> str:
     return f" · 지배색 {hexed} 점유 {count / len(opaque):.0%}"
 
 
+# ------------------------------------------------------------- 실루엣 보존 검사
+
+def check_silhouette(metrics: dict | None) -> dict:
+    """postprocess가 잰 제거 전/후 훼손 수치를 판정한다. 수치가 없으면 잴 수 없으므로 SKIP."""
+    if not metrics:
+        return _result(SKIP, "제거 전 원본이 없어 잴 수 없습니다(단독 QA).", None)
+    loss = metrics.get("subjectLoss", 0.0)
+    holes = metrics.get("newHoleRatio", 0.0)
+    status = worst([_over(loss, "subjectLossWarn", "subjectLossFail"),
+                    _over(holes, "newHoleWarn", "newHoleFail")])
+    detail = f"피사체 손실 {_pct(loss)} · 새로 생긴 구멍 {_pct(holes)}"
+    return _result(status, _silhouette_note(status, detail), metrics)
+
+
+def _silhouette_note(status: str, detail: str) -> str:
+    if status == PASS:
+        return detail
+    return detail + " — 배경 제거가 피사체를 깎았습니다(keyTolerance를 낮추세요)"
+
+
 # ------------------------------------------------------------- 단일 피사체 검사
 
 # 「왜」 실측(콜라주 표본): sawmill 2위/1위 0.240 · pine_snow 0.301 · grain_bread 0.805 ·
@@ -523,10 +549,24 @@ def _subject_verdict(areas: list[int], category: str) -> dict:
     top = areas[0]
     second = areas[1] if len(areas) > 1 else 0
     stats = {"blobs": len(areas), "top": top, "second": second,
-             "ratio": round(second / top, 3), "dominance": round(top / total, 3)}
+             "ratio": round(second / top, 3), "dominance": round(top / total, 3),
+             "floating": round(sum(areas[1:]) / total, 4)}
     detail = (f"성분 {stats['blobs']}개 · 1위 {top}px · 2위 {second}px · "
-              f"2위/1위 {stats['ratio']} · 1위/전체 {stats['dominance']}")
-    return _result(_subject_status(stats, category), detail, stats)
+              f"2위/1위 {stats['ratio']} · 1위/전체 {stats['dominance']} · "
+              f"잔조각 {_pct(stats['floating'])}")
+    status = worst([_subject_status(stats, category), _floating_status(stats, category)])
+    return _result(status, detail, stats)
+
+
+def _floating_status(stats: dict, category: str) -> str:
+    """「왜」 지붕이 떨어져 나가거나 픽셀이 떠 있으면 2위 성분 비율로는 안 잡힌다.
+       잔조각 총량이 1~12% 구간이면 '부유 조각'으로 보고 경고한다(이펙트는 정상이라 제외)."""
+    if category == "effect":
+        return PASS
+    share = stats["floating"]
+    if THRESHOLDS["floatingWarn"] < share <= THRESHOLDS["floatingCap"]:
+        return WARNING
+    return PASS
 
 
 def _subject_status(stats: dict, category: str) -> str:
@@ -823,16 +863,17 @@ def _shared_problems(s: dict, lim: dict) -> list[str]:
 
 CHECK_ORDER = ("palette", "translucent", "resolution", "pixelGrid",
                "outline", "light", "night", "frames", "sizeRatio",
-               "backgroundResidue", "seamScore", "tileComposition", "singleSubject")
+               "backgroundResidue", "seamScore", "tileComposition",
+               "singleSubject", "silhouette")
 
 # museum.js가 계산할 수 없는(정지 1장 분석으로는 불가능한) 파이프라인 전용 검사 목록.
 PIPELINE_ONLY_CHECKS = ("backgroundResidue", "seamScore", "tileComposition",
-                        "singleSubject", "frameConsistency")
+                        "singleSubject", "silhouette", "frameConsistency")
 
 
 def run_checks(png: Path, category: str, subcategory: str | None = None,
                sheet: Path | None = None, frames: dict | None = None,
-               root: Path | None = None) -> dict:
+               root: Path | None = None, silhouette: dict | None = None) -> dict:
     """에셋 1점에 §11 전 항목을 돌려 종합 판정을 만든다."""
     palette = pp.load_palette(root)
     with Image.open(png) as raw:
@@ -840,11 +881,11 @@ def run_checks(png: Path, category: str, subcategory: str | None = None,
     metrics = scan(img, palette, outline_colors(root))
     spec = spec_for(category, subcategory)
     box = img.getchannel("A").getbbox() or (0, 0, 0, 0)
-    checks = _collect(metrics, spec, box, sheet, frames, category, img)
+    checks = _collect(metrics, spec, box, sheet, frames, category, img, silhouette)
     return _summarize(checks, metrics, box)
 
 
-def _collect(m: dict, spec, box, sheet, frames, category, img) -> dict:
+def _collect(m: dict, spec, box, sheet, frames, category, img, silhouette) -> dict:
     return {
         "palette": check_palette(m),
         "translucent": check_translucent(m),
@@ -859,6 +900,7 @@ def _collect(m: dict, spec, box, sheet, frames, category, img) -> dict:
         "seamScore": check_seam(img, category),
         "tileComposition": check_tile_composition(img, category),
         "singleSubject": check_single_subject(img, category),
+        "silhouette": check_silhouette(silhouette),
     }
 
 

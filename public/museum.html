@@ -59,11 +59,27 @@
           <canvas id="stage-smooth" class="smooth" width="470" height="430"></canvas>
         </div>
       </div>
+      <!-- 「왜」 앵커·바운즈는 게임 배치의 계약값이다. 눈으로 겹쳐 봐야 어긋남을 잡는다. -->
+      <div class="row overlay-row">
+        <span class="group-label">오버레이</span>
+        <label class="chk"><input type="checkbox" id="ov-anchor"> <span class="dot dot-anchor"></span>앵커 십자</label>
+        <label class="chk"><input type="checkbox" id="ov-bounds"> <span class="dot dot-bounds"></span>bounds 사각</label>
+        <label class="chk"><input type="checkbox" id="ov-canvas"> <span class="dot dot-canvas"></span>캔버스 테두리</label>
+        <span class="vid" id="ov-note"></span>
+      </div>
       <p class="stage-note">
         1:1(100%)에서는 두 화면이 완전히 동일하다. 그 이상 배율에서는 오른쪽(브라우저 기본)이 보간을 넣어
         가장자리가 물러지고, 특히 비정수배인 150%에서 픽셀 뭉침·계단 왜곡이 뚜렷하게 보인다.
         검수·게임의 정본은 언제나 왼쪽(nearest, 정수배)이다.
       </p>
+      <!-- 「왜」 배경 제거가 건물 일부를 삼키는 사고를 즉시 발견하려면 제거 전 원본과 나란히 놓아야 한다. -->
+      <div class="panel hidden" id="orig-panel" style="margin-top:16px">
+        <h3>원본 대조 (배경 제거 전 raw.png)</h3>
+        <div class="row" id="orig-modes"></div>
+        <canvas id="orig-canvas" width="720" height="320"></canvas>
+        <p class="vid" id="orig-note"></p>
+      </div>
+
       <div class="panel" style="margin-top:16px">
         <h3>스타일 비교 (나란히)</h3>
         <div class="row">

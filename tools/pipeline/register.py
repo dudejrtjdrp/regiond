@@ -76,8 +76,22 @@ def build_entry(info: dict) -> dict:
         "offsetX": int(info.get("offsetX", 0)),
         "offsetY": int(info.get("offsetY", 0)),
     }
+    entry.update(_geometry(info))
     _validate_entry(entry)
     return entry
+
+
+# 「왜」 박물관과 공유하는 계약 키다. 이름을 바꾸면 박물관 쪽도 같이 바꿔야 한다.
+GEOMETRY_KEYS = ("anchor", "bounds", "scaleFactor", "originalPng")
+
+
+def _geometry(info: dict) -> dict:
+    """anchor/bounds/scaleFactor/originalPng — 있는 것만 실어 나른다(타일은 anchor 생략)."""
+    out = {}
+    for key in GEOMETRY_KEYS:
+        if info.get(key) is not None:
+            out[key] = info[key]
+    return out
 
 
 def _default_subcategory(info: dict) -> str:

@@ -348,6 +348,22 @@ input[type="range"] { flex: 1 1 120px; min-width: 100px; accent-color: var(--acc
 .swatches { display: flex; gap: 3px; }
 .sw { width: 16px; height: 16px; border-radius: 3px; border: 1px solid #00000055; }
 
+/* ---------- 원본 대조 · 오버레이 ---------- */
+/* 「왜」 대조 캔버스는 벽 색 위에 그대로 놓이면 가장자리가 어디까지인지 안 보인다. */
+#orig-canvas { max-width: 100%; border: 1px solid var(--line); border-radius: 8px; }
+.overlay-row { margin: 12px 0 0; }
+.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 4px;
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+.dot-anchor { background: #ffd44d; }
+.dot-bounds { background: #4fd1c5; }
+.dot-canvas { background: #9aa0a8; }
+
 .cmp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .cmp-table th, .cmp-table td { padding: 3px 4px; border-bottom: 1px solid #34373d; text-align: left; vertical-align: middle; }
 .cmp-table th { color: var(--text-mute); font-weight: 500; }
