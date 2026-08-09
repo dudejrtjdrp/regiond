@@ -15,6 +15,7 @@
     "harness": "node harness/check_ui.mjs && node --test harness/client_harness.mjs",
     "check:ui": "node harness/check_ui.mjs",
     "smoke": "node harness/smoke_browser.mjs",
+    "check:deploy": "node harness/check_deploy.mjs",
     "simulate:full": "node server/sim/run.js --runs 20 --seed 42"
   },
   "dependencies": {
