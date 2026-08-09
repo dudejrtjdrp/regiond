@@ -1,0 +1,40 @@
+{
+  "id": "monster/wolf",
+  "name": "늑대",
+  "category": "monster",
+  "subcategory": "normal",
+  "grade": "common",
+  "path": "assets/monster/wolf/",
+  "still": "base.png",
+  "size": [
+    128,
+    128
+  ],
+  "pixelSize": [
+    102,
+    102
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-07",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0
+}

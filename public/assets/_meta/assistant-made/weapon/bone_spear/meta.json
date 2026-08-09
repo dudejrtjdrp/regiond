@@ -1,0 +1,43 @@
+{
+  "id": "weapon/bone_spear",
+  "name": "뼈창",
+  "category": "weapon",
+  "subcategory": "tier1",
+  "grade": "common",
+  "path": "assets/weapon/bone_spear/",
+  "still": "base.png",
+  "size": [
+    64,
+    64
+  ],
+  "pixelSize": [
+    53,
+    53
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "FAIL",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "PASS",
+      "light": "PASS",
+      "night": "FAIL",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0
+}

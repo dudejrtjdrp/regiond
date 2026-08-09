@@ -1,0 +1,1640 @@
+[
+  {
+    "key": "asset/artifact/horn_of_plenty/base.png",
+    "name": "유물 · 풍요의 뿔",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/ancient_furnace_plan/base.png",
+    "name": "유물 · 고대 용광로 설계도",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/immortal_cornerstone/base.png",
+    "name": "유물 · 불멸의 주춧돌",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/travelers_seal/base.png",
+    "name": "유물 · 여행자의 인장",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/dragon_tooth/base.png",
+    "name": "유물 · 용의 이빨",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/orb_of_prophecy/base.png",
+    "name": "유물 · 예언의 구슬",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/worldtree_shard/base.png",
+    "name": "유물 · 세계수의 파편",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/eastern_seal/base.png",
+    "name": "유물 · 동방의 인장",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/crown_shard/base.png",
+    "name": "유물 · 왕관의 조각",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/swift_boots/base.png",
+    "name": "유물 · 신속의 신발",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/scholars_lens/base.png",
+    "name": "유물 · 학자의 돋보기",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/merchants_scale/base.png",
+    "name": "유물 · 상인의 저울",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/watchers_cloak/base.png",
+    "name": "유물 · 파수꾼의 망토",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/hourglass_of_time/base.png",
+    "name": "유물 · 시간의 모래시계",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/lucky_charm/base.png",
+    "name": "유물 · 행운의 부적",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/broken_pirate_flag/base.png",
+    "name": "유물 · 부러진 해적깃발",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/frozen_war_horn/base.png",
+    "name": "유물 · 얼어붙은 전투나팔",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/sealed_dragon_scale/base.png",
+    "name": "유물 · 봉인된 용의 비늘",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/scouts_telescope/base.png",
+    "name": "유물 · 정찰병의 망원경",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/captured_helm/base.png",
+    "name": "유물 · 노획한 투구",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/battlefield_talisman/base.png",
+    "name": "유물 · 전장의 부적",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/bell_of_vigil/base.png",
+    "name": "유물 · 파수의 종",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/banner_of_valor/base.png",
+    "name": "유물 · 용맹의 깃발",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/spring_rain_seed/base.png",
+    "name": "유물 · 봄비의 씨앗",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/clear_sky_map/base.png",
+    "name": "유물 · 청명한 하늘 지도",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/eye_of_storm/base.png",
+    "name": "유물 · 폭풍의 눈",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/dawn_dewdrop/base.png",
+    "name": "유물 · 새벽이슬 방울",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/dry_firewood/base.png",
+    "name": "유물 · 마른 장작더미",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/star_chart/base.png",
+    "name": "유물 · 별자리 지도",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/ripe_seed_pouch/base.png",
+    "name": "유물 · 여문 씨앗 주머니",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/abyssal_oil_pool/base.png",
+    "name": "유물 · 심연의 원유 웅덩이",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/steel_essence/base.png",
+    "name": "유물 · 강철의 정수",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/goldrush_memory/base.png",
+    "name": "유물 · 골드러시의 기억",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/merchants_will/base.png",
+    "name": "유물 · 상인의 유언장",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/carpenters_worn_tools/base.png",
+    "name": "유물 · 목수의 손때묻은 도구",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/border_seal/base.png",
+    "name": "유물 · 국경의 인장",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/stone_of_tongues/base.png",
+    "name": "유물 · 언어의 돌",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/old_treaty/base.png",
+    "name": "유물 · 오래된 조약서",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/ambassadors_seal/base.png",
+    "name": "유물 · 대사의 인장",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/oath_of_friendship/base.png",
+    "name": "유물 · 우정의 서약서",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/ring_of_greed/base.png",
+    "name": "유물 · 탐욕의 반지",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/tyrants_crown/base.png",
+    "name": "유물 · 폭군의 왕관",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/cursed_map/base.png",
+    "name": "유물 · 저주받은 지도",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/devils_contract/base.png",
+    "name": "유물 · 악마와의 계약서",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/broken_crown_fragment/base.png",
+    "name": "유물 · 깨진 왕관 파편",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/royal_robe/base.png",
+    "name": "유물 · 왕의 예복",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/golden_banner/base.png",
+    "name": "유물 · 황금 깃발",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/legendary_portrait/base.png",
+    "name": "유물 · 전설의 초상화",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/old_songbook/base.png",
+    "name": "유물 · 오래된 노래책",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/glass_craft/base.png",
+    "name": "유물 · 유리 공예품",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/crown_of_ignis/base.png",
+    "name": "유물 · 이그니스의 왕관",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/storm_cloak/base.png",
+    "name": "유물 · 폭풍의 망토",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/worldtree_seed/base.png",
+    "name": "유물 · 세계수의 씨앗",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/reapers_scythe/base.png",
+    "name": "유물 · 죽음의 낫",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/sigil_of_aros/base.png",
+    "name": "유물 · 아로스의 성표",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/hunters_oath/base.png",
+    "name": "유물 · 사냥꾼의 맹세",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/spear_of_levin/base.png",
+    "name": "유물 · 번개의 창끝",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/pathfinders_compass/base.png",
+    "name": "유물 · 개척자의 나침반",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/stationmasters_sigil/base.png",
+    "name": "유물 · 기관장의 인장",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/dragon_heart/base.png",
+    "name": "유물 · 용의 심장",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/frozen_kings_scepter/base.png",
+    "name": "유물 · 얼어붙은 왕의 홀",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/chalice_of_aqua/base.png",
+    "name": "유물 · 아쿠아의 성배",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/eye_of_aros/base.png",
+    "name": "유물 · 아로스의 눈",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/cornerstone_of_terra/base.png",
+    "name": "유물 · 테라의 주춧돌",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/droplet_of_aqua/base.png",
+    "name": "유물 · 아쿠아의 물방울",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/ember_of_ignis/base.png",
+    "name": "유물 · 이그니스의 불씨",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/feather_of_wind/base.png",
+    "name": "유물 · 바람의 깃",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/captains_journal/base.png",
+    "name": "유물 · 원정대장의 일지",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/broken_pickaxe/base.png",
+    "name": "유물 · 부러진 곡괭이",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/starving_crown/base.png",
+    "name": "유물 · 굶주린 왕관",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/artifact/blood_pact/base.png",
+    "name": "유물 · 피의 계약서",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/building/consulate/tier-4.png",
+    "name": "영사관 · 4단계",
+    "category": "collection",
+    "footprint": [
+      6,
+      6
+    ]
+  },
+  {
+    "key": "asset/building/consulate/tier-5.png",
+    "name": "영사관 · 5단계",
+    "category": "collection",
+    "footprint": [
+      6,
+      6
+    ]
+  },
+  {
+    "key": "asset/building/campfire/ruined.png",
+    "name": "건물 폐허 · campfire",
+    "category": "collection",
+    "footprint": [
+      4,
+      4
+    ]
+  },
+  {
+    "key": "asset/building/hq_camp/ruined.png",
+    "name": "건물 폐허 · hq_camp",
+    "category": "collection",
+    "footprint": [
+      4,
+      4
+    ]
+  },
+  {
+    "key": "asset/building/hq_city/ruined.png",
+    "name": "건물 폐허 · hq_city",
+    "category": "collection",
+    "footprint": [
+      4,
+      4
+    ]
+  },
+  {
+    "key": "asset/building/hq_royal/ruined.png",
+    "name": "건물 폐허 · hq_royal",
+    "category": "collection",
+    "footprint": [
+      4,
+      4
+    ]
+  },
+  {
+    "key": "asset/building/hq_town/ruined.png",
+    "name": "건물 폐허 · hq_town",
+    "category": "collection",
+    "footprint": [
+      4,
+      4
+    ]
+  },
+  {
+    "key": "asset/building/hq_village/ruined.png",
+    "name": "건물 폐허 · hq_village",
+    "category": "collection",
+    "footprint": [
+      4,
+      4
+    ]
+  },
+  {
+    "key": "asset/building/site/phase-1.png",
+    "name": "건설 현장 · 1단계",
+    "category": "collection",
+    "footprint": [
+      4,
+      4
+    ]
+  },
+  {
+    "key": "asset/building/site/phase-2.png",
+    "name": "건설 현장 · 2단계",
+    "category": "collection",
+    "footprint": [
+      4,
+      4
+    ]
+  },
+  {
+    "key": "asset/building/site/phase-3.png",
+    "name": "건설 현장 · 3단계",
+    "category": "collection",
+    "footprint": [
+      4,
+      4
+    ]
+  },
+  {
+    "key": "asset/building/site/phase-4.png",
+    "name": "건설 현장 · 4단계",
+    "category": "collection",
+    "footprint": [
+      4,
+      4
+    ]
+  },
+  {
+    "key": "asset/building/fence/damaged.png",
+    "name": "피해 상태 · fence damaged",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/building/fence/broken.png",
+    "name": "피해 상태 · fence broken",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/building/gate/damaged.png",
+    "name": "피해 상태 · gate damaged",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/building/gate/broken.png",
+    "name": "피해 상태 · gate broken",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/building_parts/fence_h.png",
+    "name": "성벽 부속 · fence_h",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/building_parts/fence_v.png",
+    "name": "성벽 부속 · fence_v",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/building_parts/fence_post.png",
+    "name": "성벽 부속 · fence_post",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/building_parts/wall_h.png",
+    "name": "성벽 부속 · wall_h",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/building_parts/wall_v.png",
+    "name": "성벽 부속 · wall_v",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/building_parts/wall_post.png",
+    "name": "성벽 부속 · wall_post",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/building_parts/gate_wood.png",
+    "name": "성벽 부속 · gate_wood",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/building_parts/gate_stone.png",
+    "name": "성벽 부속 · gate_stone",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/creature/chicken/sheet.png",
+    "name": "생물 · 닭",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/rabbit/sheet.png",
+    "name": "생물 · 토끼",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/sheep/sheet.png",
+    "name": "생물 · 양",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/pig/sheet.png",
+    "name": "생물 · 돼지",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/cow/sheet.png",
+    "name": "생물 · 소",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/deer/sheet.png",
+    "name": "생물 · 사슴",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/wolf/sheet.png",
+    "name": "생물 · 굶주린 늑대",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/boar/sheet.png",
+    "name": "생물 · 멧돼지",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/stray_dog/sheet.png",
+    "name": "생물 · 들개",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/bear/sheet.png",
+    "name": "생물 · 곰",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/bandit_scout/sheet.png",
+    "name": "생물 · 도적 정찰꾼",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/direwolf/sheet.png",
+    "name": "생물 · 다이어울프",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/_biomeNote/sheet.png",
+    "name": "생물 · _biomeNote",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/snow_fox/sheet.png",
+    "name": "생물 · 눈여우",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/sand_lizard/sheet.png",
+    "name": "생물 · 모래도마뱀",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/jungle_panther/sheet.png",
+    "name": "생물 · 밀림 표범",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/marsh_lurker/sheet.png",
+    "name": "생물 · 진창 매복꾼",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/ash_hound/sheet.png",
+    "name": "생물 · 잿빛 사냥개",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/spore_walker/sheet.png",
+    "name": "생물 · 홀씨 걷는 것",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/creature/ash_wyrm/sheet.png",
+    "name": "생물 · ash_wyrm",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/enemy/wolf/sheet.png",
+    "name": "침공 적 · wolf",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/enemy/bandit/sheet.png",
+    "name": "침공 적 · bandit",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/enemy/pirate/sheet.png",
+    "name": "침공 적 · pirate",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/enemy/viking/sheet.png",
+    "name": "침공 적 · viking",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/enemy/ogre/sheet.png",
+    "name": "침공 적 · ogre",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/enemy/dragon/sheet.png",
+    "name": "침공 적 · dragon",
+    "category": "collection",
+    "footprint": [
+      3,
+      3
+    ]
+  },
+  {
+    "key": "asset/enemy/camp/base.png",
+    "name": "침공 · 선발대 야영지",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/ruin_card/altar/base.png",
+    "name": "유적 카드 · 무너진 제단",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/ruin_card/well/base.png",
+    "name": "유적 카드 · 마른 우물",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/ruin_card/statue/base.png",
+    "name": "유적 카드 · 얼굴 없는 석상",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/ruin_card/barrow/base.png",
+    "name": "유적 카드 · 봉분",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/ruin_card/gate/base.png",
+    "name": "유적 카드 · 선 채로 남은 문",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/ruin_card/furnace/base.png",
+    "name": "유적 카드 · 식은 가마",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/ruin_card/granary/base.png",
+    "name": "유적 카드 · 무너진 곳간",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/ruin_card/cairn/base.png",
+    "name": "유적 카드 · 돌무지",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/ruin_card/vault/base.png",
+    "name": "유적 카드 · 잠긴 지하실",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/ruin_card/bones/base.png",
+    "name": "유적 카드 · 짐승의 뼈밭",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/ruin_card/market/base.png",
+    "name": "유적 카드 · 버려진 저잣거리",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/ruin_card/obelisk/base.png",
+    "name": "유적 카드 · 쪼개진 비석",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/research/tidy_stores/base.png",
+    "name": "연구 · tidy_stores",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/research/whetstone/base.png",
+    "name": "연구 · whetstone",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/research/coal_mining/base.png",
+    "name": "연구 · coal_mining",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/research/steam_engine/base.png",
+    "name": "연구 · steam_engine",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/research/railway/base.png",
+    "name": "연구 · railway",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/research/refining/base.png",
+    "name": "연구 · refining",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/research/bridgeworks/base.png",
+    "name": "연구 · bridgeworks",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/research/landfill/base.png",
+    "name": "연구 · landfill",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/research/agronomy/base.png",
+    "name": "연구 · agronomy",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/research/masonry/base.png",
+    "name": "연구 · masonry",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/research/city_planning/base.png",
+    "name": "연구 · city_planning",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/research/internal_combustion/base.png",
+    "name": "연구 · internal_combustion",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/pirate/base.png",
+    "name": "UI · pirate",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/viking/base.png",
+    "name": "UI · viking",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/dragon/base.png",
+    "name": "UI · dragon",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/sprout/base.png",
+    "name": "UI · sprout",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/sun/base.png",
+    "name": "UI · sun",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/leaf/base.png",
+    "name": "UI · leaf",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/moon/base.png",
+    "name": "UI · moon",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/sheep/base.png",
+    "name": "UI · sheep",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/gem/base.png",
+    "name": "UI · gem",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/anvil/base.png",
+    "name": "UI · anvil",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/sword/base.png",
+    "name": "UI · sword",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/castle/base.png",
+    "name": "UI · castle",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/dice/base.png",
+    "name": "UI · dice",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/hoe/base.png",
+    "name": "UI · hoe",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/pickaxe/base.png",
+    "name": "UI · pickaxe",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/wall/base.png",
+    "name": "UI · wall",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/road/base.png",
+    "name": "UI · road",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/farmTile/base.png",
+    "name": "UI · farmTile",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/axe/base.png",
+    "name": "UI · axe",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/rail/base.png",
+    "name": "UI · rail",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/person/base.png",
+    "name": "UI · person",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/bandit/base.png",
+    "name": "UI · bandit",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/ui/generated/ogre/base.png",
+    "name": "UI · ogre",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  },
+  {
+    "key": "asset/cutscene/spark/base.png",
+    "name": "챕터 · spark",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/cutscene/first_roof/base.png",
+    "name": "챕터 · first_roof",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/cutscene/hunger/base.png",
+    "name": "챕터 · hunger",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/cutscene/first_neighbor/base.png",
+    "name": "챕터 · first_neighbor",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/cutscene/shape_of_town/base.png",
+    "name": "챕터 · shape_of_town",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/cutscene/secret_of_land/base.png",
+    "name": "챕터 · secret_of_land",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/cutscene/strange_tracks/base.png",
+    "name": "챕터 · strange_tracks",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/cutscene/traders_road/base.png",
+    "name": "챕터 · traders_road",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/cutscene/dignity/base.png",
+    "name": "챕터 · dignity",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/cutscene/endless/base.png",
+    "name": "챕터 · endless",
+    "category": "collection",
+    "footprint": [
+      5,
+      3
+    ]
+  },
+  {
+    "key": "asset/building/construction_site_v2/base.png",
+    "name": "건설 비계",
+    "category": "collection",
+    "footprint": [
+      4,
+      4
+    ]
+  },
+  {
+    "key": "asset/building/construction_foundation_v2/base.png",
+    "name": "석조 기초 공사",
+    "category": "collection",
+    "footprint": [
+      4,
+      3
+    ]
+  },
+  {
+    "key": "asset/node/supply_chest_v2/base.png",
+    "name": "보급 상자",
+    "category": "collection",
+    "footprint": [
+      2,
+      2
+    ]
+  }
+]

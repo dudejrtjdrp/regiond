@@ -1,0 +1,57 @@
+{
+  "id": "building/workshop",
+  "name": "공방",
+  "category": "building",
+  "subcategory": "research",
+  "grade": "common",
+  "path": "assets/building/workshop/",
+  "still": "base.png",
+  "size": [
+    192,
+    256
+  ],
+  "pixelSize": [
+    170,
+    213
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-09",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "WARNING",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP",
+      "singleSubject": "PASS",
+      "silhouette": "PASS"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": {
+    "x": 96,
+    "y": 256
+  },
+  "bounds": {
+    "x": 11,
+    "y": 43,
+    "w": 170,
+    "h": 213
+  },
+  "scaleFactor": 6,
+  "originalPng": "raw.png"
+}

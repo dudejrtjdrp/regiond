@@ -1,0 +1,43 @@
+{
+  "id": "building/claim_flag",
+  "name": "개척 깃발",
+  "category": "building",
+  "subcategory": "civic",
+  "grade": "common",
+  "path": "assets/building/claim_flag/",
+  "still": "base.png",
+  "size": [
+    64,
+    128
+  ],
+  "pixelSize": [
+    63,
+    78
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "FAIL",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "FAIL",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "FAIL",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0
+}

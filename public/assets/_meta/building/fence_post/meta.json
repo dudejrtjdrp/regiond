@@ -1,0 +1,43 @@
+{
+  "id": "building/fence_post",
+  "name": "목책 기둥",
+  "category": "building",
+  "subcategory": "fence_wood",
+  "grade": "common",
+  "path": "assets/building/fence_post/",
+  "still": "base.png",
+  "size": [
+    64,
+    96
+  ],
+  "pixelSize": [
+    60,
+    74
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "FAIL",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "PASS",
+      "night": "FAIL",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0
+}

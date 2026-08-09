@@ -1,0 +1,43 @@
+{
+  "id": "ui/warn",
+  "name": "경고",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "path": "assets/ui/warn/",
+  "still": "base.png",
+  "size": [
+    64,
+    64
+  ],
+  "pixelSize": [
+    53,
+    50
+  ],
+  "frames": null,
+  "paletteUsed": 9,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0
+}

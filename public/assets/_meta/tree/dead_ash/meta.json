@@ -1,0 +1,57 @@
+{
+  "id": "tree/dead_ash",
+  "name": "화산재 고사목",
+  "category": "tree",
+  "subcategory": "biome",
+  "grade": "common",
+  "path": "assets/tree/dead_ash/",
+  "still": "base.png",
+  "size": [
+    128,
+    192
+  ],
+  "pixelSize": [
+    124,
+    135
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP",
+      "singleSubject": "PASS",
+      "silhouette": "WARNING"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": {
+    "x": 64,
+    "y": 192
+  },
+  "bounds": {
+    "x": 2,
+    "y": 57,
+    "w": 124,
+    "h": 135
+  },
+  "scaleFactor": 8,
+  "originalPng": "raw.png"
+}

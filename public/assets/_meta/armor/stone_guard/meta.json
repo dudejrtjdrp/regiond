@@ -1,0 +1,57 @@
+{
+  "id": "armor/stone_guard",
+  "name": "가죽 덧대개",
+  "category": "armor",
+  "subcategory": "tier1",
+  "grade": "common",
+  "path": "assets/armor/stone_guard/",
+  "still": "base.png",
+  "size": [
+    64,
+    64
+  ],
+  "pixelSize": [
+    53,
+    53
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-09",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "WARNING",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP",
+      "singleSubject": "PASS",
+      "silhouette": "PASS"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": {
+    "x": 31,
+    "y": 58
+  },
+  "bounds": {
+    "x": 5,
+    "y": 5,
+    "w": 53,
+    "h": 53
+  },
+  "scaleFactor": 19,
+  "originalPng": "raw.png"
+}

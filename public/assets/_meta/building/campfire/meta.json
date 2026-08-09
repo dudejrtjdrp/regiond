@@ -1,0 +1,28 @@
+{
+  "id": "building/campfire",
+  "name": "모닥불",
+  "category": "building",
+  "subcategory": "civic",
+  "grade": "common",
+  "path": "assets/building/campfire/",
+  "still": "base.png",
+  "size": [256, 256],
+  "pixelSize": [216, 240],
+  "frames": { "sheet": "idle.png", "count": 4, "columns": 4, "rows": 1, "fps": 7 },
+  "paletteUsed": 24,
+  "version": "2.0.0",
+  "updated": "2026-08-08",
+  "tags": ["handmade", "starting-hq", "game-ready"],
+  "qa": {
+    "result": "미검사",
+    "checks": {},
+    "notes": "수작업 생성본 — 투명 배경, 2×2 시작 본부 배치, 앵커 검증"
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": { "x": 128, "y": 256 },
+  "bounds": { "x": 20, "y": 16, "w": 216, "h": 240 },
+  "footprint": [2, 2],
+  "handmade": true
+}

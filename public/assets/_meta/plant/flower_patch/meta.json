@@ -1,0 +1,57 @@
+{
+  "id": "plant/flower_patch",
+  "name": "들꽃",
+  "category": "plant",
+  "subcategory": "prop",
+  "grade": "common",
+  "path": "assets/plant/flower_patch/",
+  "still": "base.png",
+  "size": [
+    64,
+    64
+  ],
+  "pixelSize": [
+    46,
+    58
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "PASS",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "PASS",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP",
+      "singleSubject": "PASS",
+      "silhouette": "PASS"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": {
+    "x": 32,
+    "y": 64
+  },
+  "bounds": {
+    "x": 9,
+    "y": 6,
+    "w": 46,
+    "h": 58
+  },
+  "scaleFactor": 22,
+  "originalPng": "raw.png"
+}

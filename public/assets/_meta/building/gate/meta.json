@@ -1,0 +1,43 @@
+{
+  "id": "building/gate",
+  "name": "문",
+  "category": "building",
+  "subcategory": "military",
+  "grade": "common",
+  "path": "assets/building/gate/",
+  "still": "base.png",
+  "size": [
+    96,
+    128
+  ],
+  "pixelSize": [
+    82,
+    111
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "FAIL",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "FAIL",
+      "pixelGrid": "PASS",
+      "outline": "PASS",
+      "light": "PASS",
+      "night": "FAIL",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0
+}

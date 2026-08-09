@@ -1,0 +1,43 @@
+{
+  "id": "tileset/path_dirt",
+  "name": "흙길 직선",
+  "category": "furniture",
+  "subcategory": "path",
+  "grade": "common",
+  "path": "assets/tileset/path_dirt/",
+  "still": "base.png",
+  "size": [
+    64,
+    64
+  ],
+  "pixelSize": [
+    46,
+    58
+  ],
+  "frames": null,
+  "paletteUsed": 19,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "FAIL",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "FAIL",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0
+}

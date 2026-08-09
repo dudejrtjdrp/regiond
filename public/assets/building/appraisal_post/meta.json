@@ -1,0 +1,44 @@
+{
+  "id": "building/appraisal_post",
+  "name": "감정소",
+  "category": "building",
+  "subcategory": "civic",
+  "grade": "common",
+  "path": "assets/building/appraisal_post/",
+  "still": "base.png",
+  "size": [
+    128,
+    176
+  ],
+  "pixelSize": [
+    120,
+    158
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "WARNING",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP",
+      "singleSubject": "PASS"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0
+}

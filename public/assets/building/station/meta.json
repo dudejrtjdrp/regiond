@@ -1,0 +1,57 @@
+{
+  "id": "building/station",
+  "name": "정거장",
+  "category": "building",
+  "subcategory": "civic",
+  "grade": "common",
+  "path": "assets/building/station/",
+  "still": "base.png",
+  "size": [
+    128,
+    176
+  ],
+  "pixelSize": [
+    124,
+    156
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-09",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP",
+      "singleSubject": "PASS",
+      "silhouette": "PASS"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": {
+    "x": 64,
+    "y": 176
+  },
+  "bounds": {
+    "x": 2,
+    "y": 20,
+    "w": 124,
+    "h": 156
+  },
+  "scaleFactor": 8,
+  "originalPng": "raw.png"
+}

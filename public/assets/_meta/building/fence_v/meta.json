@@ -1,0 +1,44 @@
+{
+  "id": "building/fence_v",
+  "name": "목책 세로",
+  "category": "building",
+  "subcategory": "fence_wood",
+  "grade": "common",
+  "path": "assets/building/fence_v/",
+  "still": "base.png",
+  "size": [
+    64,
+    96
+  ],
+  "pixelSize": [
+    61,
+    78
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "WARNING",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP",
+      "singleSubject": "PASS"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0
+}

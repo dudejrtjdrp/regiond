@@ -1,0 +1,43 @@
+{
+  "id": "plant/field_wild",
+  "name": "야생 밭",
+  "category": "plant",
+  "subcategory": "node",
+  "grade": "common",
+  "path": "assets/plant/field_wild/",
+  "still": "base.png",
+  "size": [
+    96,
+    96
+  ],
+  "pixelSize": [
+    68,
+    85
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "FAIL",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "FAIL",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "WARNING",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0
+}

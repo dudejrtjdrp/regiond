@@ -1,0 +1,55 @@
+{
+  "id": "effect/campfire_flame",
+  "name": "모닥불 불꽃",
+  "category": "effect",
+  "subcategory": "flame",
+  "grade": "common",
+  "path": "assets/effect/campfire_flame/",
+  "still": "base.png",
+  "size": [
+    128,
+    128
+  ],
+  "pixelSize": [
+    88,
+    114
+  ],
+  "frames": {
+    "sheet": "sheet.png",
+    "frameW": 128,
+    "frameH": 128,
+    "anims": {
+      "burn": {
+        "row": 0,
+        "count": 8,
+        "fps": 12
+      }
+    }
+  },
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "SKIP",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP",
+      "frameConsistency": "WARNING"
+    },
+    "notes": "IoU 최소 1.00/평균 1.00/최대 1.00 · 색편차 0.70 · 크기편차 0.00 · 8프레임 — 이펙트 실루엣 변화가 부족합니다(IoU 1.00, §7은 30%+ 변화) / 프레임 간 색 구성이 흔들립니다(0.70)"
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0
+}

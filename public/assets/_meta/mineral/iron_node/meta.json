@@ -1,0 +1,57 @@
+{
+  "id": "mineral/iron_node",
+  "name": "철광맥",
+  "category": "mineral",
+  "subcategory": "node",
+  "grade": "common",
+  "path": "assets/mineral/iron_node/",
+  "still": "base.png",
+  "size": [
+    96,
+    96
+  ],
+  "pixelSize": [
+    62,
+    78
+  ],
+  "frames": null,
+  "paletteUsed": 19,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP",
+      "singleSubject": "PASS",
+      "silhouette": "WARNING"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": {
+    "x": 48,
+    "y": 96
+  },
+  "bounds": {
+    "x": 17,
+    "y": 18,
+    "w": 62,
+    "h": 78
+  },
+  "scaleFactor": 16,
+  "originalPng": "raw.png"
+}

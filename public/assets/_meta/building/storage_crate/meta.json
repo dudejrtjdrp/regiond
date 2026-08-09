@@ -1,0 +1,43 @@
+{
+  "id": "building/storage_crate",
+  "name": "저장 궤짝",
+  "category": "building",
+  "subcategory": "production",
+  "grade": "common",
+  "path": "assets/building/storage_crate/",
+  "still": "base.png",
+  "size": [
+    160,
+    136
+  ],
+  "pixelSize": [
+    148,
+    124
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "2.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "FAIL",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "FAIL",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "FAIL",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0
+}

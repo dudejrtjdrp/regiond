@@ -1,0 +1,57 @@
+{
+  "id": "test/probe_rock",
+  "name": "시험 바위",
+  "category": "mineral",
+  "subcategory": "general",
+  "grade": "common",
+  "path": "assets/test/probe_rock/",
+  "still": "base.png",
+  "size": [
+    96,
+    96
+  ],
+  "pixelSize": [
+    65,
+    83
+  ],
+  "frames": null,
+  "paletteUsed": 19,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP",
+      "singleSubject": "PASS",
+      "silhouette": "PASS"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": {
+    "x": 47,
+    "y": 96
+  },
+  "bounds": {
+    "x": 15,
+    "y": 13,
+    "w": 65,
+    "h": 83
+  },
+  "scaleFactor": 15,
+  "originalPng": "raw.png"
+}

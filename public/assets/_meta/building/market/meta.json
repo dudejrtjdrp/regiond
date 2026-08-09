@@ -1,0 +1,57 @@
+{
+  "id": "building/market",
+  "name": "시장",
+  "category": "building",
+  "subcategory": "civic",
+  "grade": "common",
+  "path": "assets/building/market/",
+  "still": "base.png",
+  "size": [
+    192,
+    304
+  ],
+  "pixelSize": [
+    165,
+    209
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-09",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP",
+      "singleSubject": "WARNING",
+      "silhouette": "WARNING"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": {
+    "x": 95,
+    "y": 304
+  },
+  "bounds": {
+    "x": 13,
+    "y": 95,
+    "w": 165,
+    "h": 209
+  },
+  "scaleFactor": 6,
+  "originalPng": "raw.png"
+}

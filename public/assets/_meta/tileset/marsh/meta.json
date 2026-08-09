@@ -1,0 +1,44 @@
+{
+  "id": "tileset/marsh",
+  "name": "습지",
+  "category": "tileset",
+  "subcategory": "base",
+  "grade": "common",
+  "path": "assets/tileset/marsh/",
+  "still": "base.png",
+  "size": [
+    64,
+    64
+  ],
+  "pixelSize": [
+    64,
+    64
+  ],
+  "frames": null,
+  "paletteUsed": 13,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "SKIP",
+      "light": "WARNING",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "SKIP",
+      "seamScore": "PASS",
+      "tileComposition": "WARNING",
+      "singleSubject": "SKIP"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0
+}

@@ -1,0 +1,57 @@
+{
+  "id": "material/wood_log",
+  "name": "통나무",
+  "category": "material",
+  "subcategory": "general",
+  "grade": "common",
+  "path": "assets/material/wood_log/",
+  "still": "base.png",
+  "size": [
+    64,
+    64
+  ],
+  "pixelSize": [
+    55,
+    54
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "WARNING",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP",
+      "singleSubject": "PASS",
+      "silhouette": "PASS"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": {
+    "x": 31,
+    "y": 59
+  },
+  "bounds": {
+    "x": 4,
+    "y": 5,
+    "w": 55,
+    "h": 54
+  },
+  "scaleFactor": 18,
+  "originalPng": "raw.png"
+}

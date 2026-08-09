@@ -1,0 +1,40 @@
+{
+  "id": "building/tent",
+  "name": "천막",
+  "category": "building",
+  "subcategory": "housing",
+  "grade": "common",
+  "path": "assets/building/tent/",
+  "still": "base.png",
+  "size": [
+    160,
+    160
+  ],
+  "pixelSize": [
+    148,
+    128
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "2.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "미검사",
+    "checks": {},
+    "notes": "수작업 생성본 — 투명 배경과 앵커는 검증, 아트 QA는 후속 검수"
+  },
+  "scale": 2.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": {
+    "x": 80,
+    "y": 152
+  },
+  "bounds": {
+    "x": 6,
+    "y": 24,
+    "w": 148,
+    "h": 128
+  }
+}

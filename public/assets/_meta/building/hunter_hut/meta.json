@@ -1,0 +1,57 @@
+{
+  "id": "building/hunter_hut",
+  "name": "사냥꾼 오두막",
+  "category": "building",
+  "subcategory": "production",
+  "grade": "common",
+  "path": "assets/building/hunter_hut/",
+  "still": "base.png",
+  "size": [
+    128,
+    176
+  ],
+  "pixelSize": [
+    118,
+    153
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "WARNING",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP",
+      "singleSubject": "PASS",
+      "silhouette": "PASS"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": {
+    "x": 64,
+    "y": 176
+  },
+  "bounds": {
+    "x": 5,
+    "y": 23,
+    "w": 118,
+    "h": 153
+  },
+  "scaleFactor": 8,
+  "originalPng": "raw.png"
+}

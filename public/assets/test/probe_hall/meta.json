@@ -1,0 +1,57 @@
+{
+  "id": "test/probe_hall",
+  "name": "시험 회관(중)",
+  "category": "building",
+  "subcategory": "general",
+  "grade": "common",
+  "path": "assets/test/probe_hall/",
+  "still": "base.png",
+  "size": [
+    128,
+    224
+  ],
+  "pixelSize": [
+    122,
+    157
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP",
+      "singleSubject": "PASS",
+      "silhouette": "PASS"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": {
+    "x": 64,
+    "y": 224
+  },
+  "bounds": {
+    "x": 3,
+    "y": 67,
+    "w": 122,
+    "h": 157
+  },
+  "scaleFactor": 8,
+  "originalPng": "raw.png"
+}

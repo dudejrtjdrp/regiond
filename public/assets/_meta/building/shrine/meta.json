@@ -1,0 +1,57 @@
+{
+  "id": "building/shrine",
+  "name": "성지",
+  "category": "building",
+  "subcategory": "civic",
+  "grade": "common",
+  "path": "assets/building/shrine/",
+  "still": "base.png",
+  "size": [
+    256,
+    352
+  ],
+  "pixelSize": [
+    248,
+    315
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-09",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP",
+      "singleSubject": "PASS",
+      "silhouette": "PASS"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": {
+    "x": 128,
+    "y": 352
+  },
+  "bounds": {
+    "x": 4,
+    "y": 37,
+    "w": 248,
+    "h": 315
+  },
+  "scaleFactor": 4,
+  "originalPng": "raw.png"
+}

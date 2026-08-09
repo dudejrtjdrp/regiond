@@ -1,0 +1,3009 @@
+[
+ {
+  "path": "assets/armor/elite_guard",
+  "id": "armor/elite_guard",
+  "name": "정예 갑옷",
+  "category": "armor",
+  "subcategory": "tier4",
+  "grade": "epic",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/armor/fur_coat",
+  "id": "armor/fur_coat",
+  "name": "털외투",
+  "category": "armor",
+  "subcategory": "tier1",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/armor/hide_brigandine",
+  "id": "armor/hide_brigandine",
+  "name": "가죽 미늘 갑옷",
+  "category": "armor",
+  "subcategory": "tier2",
+  "grade": "uncommon",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/armor/iron_guard",
+  "id": "armor/iron_guard",
+  "name": "쇠비늘 갑옷",
+  "category": "armor",
+  "subcategory": "tier2",
+  "grade": "uncommon",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/armor/master_guard",
+  "id": "armor/master_guard",
+  "name": "명품 갑옷",
+  "category": "armor",
+  "subcategory": "tier5",
+  "grade": "legendary",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/armor/steel_guard",
+  "id": "armor/steel_guard",
+  "name": "강철 갑옷",
+  "category": "armor",
+  "subcategory": "tier3",
+  "grade": "rare",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/armor/stone_guard",
+  "id": "armor/stone_guard",
+  "name": "가죽 덧대개",
+  "category": "armor",
+  "subcategory": "tier1",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/armor/wyrm_scale",
+  "id": "armor/wyrm_scale",
+  "name": "용린 갑옷",
+  "category": "armor",
+  "subcategory": "tier6",
+  "grade": "legendary",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/building/academy",
+  "id": "building/academy",
+  "name": "대학당",
+  "category": "building",
+  "subcategory": "research",
+  "grade": "common",
+  "size": [
+   256,
+   352
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/appraisal_post",
+  "id": "building/appraisal_post",
+  "name": "감정소",
+  "category": "building",
+  "subcategory": "civic",
+  "grade": "common",
+  "size": [
+   128,
+   176
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/arrow_tower",
+  "id": "building/arrow_tower",
+  "name": "화살탑",
+  "category": "building",
+  "subcategory": "military",
+  "grade": "common",
+  "size": [
+   96,
+   160
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/ballista",
+  "id": "building/ballista",
+  "name": "노포",
+  "category": "building",
+  "subcategory": "military",
+  "grade": "common",
+  "size": [
+   128,
+   176
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/banner",
+  "id": "building/banner",
+  "name": "깃발",
+  "category": "building",
+  "subcategory": "decor",
+  "grade": "common",
+  "size": [
+   64,
+   128
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/barracks",
+  "id": "building/barracks",
+  "name": "병영",
+  "category": "building",
+  "subcategory": "military",
+  "grade": "common",
+  "size": [
+   192,
+   304
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/building/bloomery",
+  "id": "building/bloomery",
+  "name": "무쇠 화로",
+  "category": "building",
+  "subcategory": "production",
+  "grade": "common",
+  "size": [
+   128,
+   176
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/campfire",
+  "id": "building/campfire",
+  "name": "모닥불",
+  "category": "building",
+  "subcategory": "civic",
+  "grade": "common",
+  "size": [
+   256,
+   256
+  ],
+  "frames": {
+   "sheet": "idle.png",
+   "count": 4,
+   "columns": 4,
+   "rows": 1,
+   "fps": 7
+  },
+  "qa": "미검사",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/cannon",
+  "id": "building/cannon",
+  "name": "화포",
+  "category": "building",
+  "subcategory": "military",
+  "grade": "common",
+  "size": [
+   128,
+   256
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/claim_flag",
+  "id": "building/claim_flag",
+  "name": "개척 깃발",
+  "category": "building",
+  "subcategory": "civic",
+  "grade": "common",
+  "size": [
+   64,
+   128
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/consulate",
+  "id": "building/consulate",
+  "name": "영사관",
+  "category": "building",
+  "subcategory": "civic",
+  "grade": "common",
+  "size": [
+   256,
+   352
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/building/fence",
+  "id": "building/fence",
+  "name": "울타리",
+  "category": "building",
+  "subcategory": "military",
+  "grade": "common",
+  "size": [
+   96,
+   128
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/fence_h",
+  "id": "building/fence_h",
+  "name": "목책 가로",
+  "category": "building",
+  "subcategory": "fence_wood",
+  "grade": "common",
+  "size": [
+   64,
+   96
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/fence_post",
+  "id": "building/fence_post",
+  "name": "목책 기둥",
+  "category": "building",
+  "subcategory": "fence_wood",
+  "grade": "common",
+  "size": [
+   64,
+   96
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/fence_v",
+  "id": "building/fence_v",
+  "name": "목책 세로",
+  "category": "building",
+  "subcategory": "fence_wood",
+  "grade": "common",
+  "size": [
+   64,
+   96
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/flame_tower",
+  "id": "building/flame_tower",
+  "name": "화염탑",
+  "category": "building",
+  "subcategory": "military",
+  "grade": "common",
+  "size": [
+   128,
+   176
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/building/fountain",
+  "id": "building/fountain",
+  "name": "분수",
+  "category": "building",
+  "subcategory": "decor",
+  "grade": "common",
+  "size": [
+   96,
+   128
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/frost_tower",
+  "id": "building/frost_tower",
+  "name": "서리탑",
+  "category": "building",
+  "subcategory": "military",
+  "grade": "common",
+  "size": [
+   96,
+   160
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/garden",
+  "id": "building/garden",
+  "name": "정원",
+  "category": "building",
+  "subcategory": "decor",
+  "grade": "common",
+  "size": [
+   96,
+   128
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/gate",
+  "id": "building/gate",
+  "name": "문",
+  "category": "building",
+  "subcategory": "military",
+  "grade": "common",
+  "size": [
+   96,
+   128
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/gate_stone",
+  "id": "building/gate_stone",
+  "name": "돌문",
+  "category": "building",
+  "subcategory": "fence_stone",
+  "grade": "common",
+  "size": [
+   64,
+   96
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/gate_wood",
+  "id": "building/gate_wood",
+  "name": "나무 문",
+  "category": "building",
+  "subcategory": "fence_wood",
+  "grade": "common",
+  "size": [
+   64,
+   96
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/granary",
+  "id": "building/granary",
+  "name": "곡창",
+  "category": "building",
+  "subcategory": "production",
+  "grade": "common",
+  "size": [
+   128,
+   256
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/house",
+  "id": "building/house",
+  "name": "가옥",
+  "category": "building",
+  "subcategory": "housing",
+  "grade": "common",
+  "size": [
+   240,
+   176
+  ],
+  "frames": null,
+  "qa": "미검사",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/hunter_hut",
+  "id": "building/hunter_hut",
+  "name": "사냥꾼 오두막",
+  "category": "building",
+  "subcategory": "production",
+  "grade": "common",
+  "size": [
+   128,
+   176
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/hut",
+  "id": "building/hut",
+  "name": "움집",
+  "category": "building",
+  "subcategory": "general",
+  "grade": "common",
+  "size": [
+   128,
+   176
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/lamp",
+  "id": "building/lamp",
+  "name": "가로등",
+  "category": "building",
+  "subcategory": "decor",
+  "grade": "common",
+  "size": [
+   64,
+   128
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/library",
+  "id": "building/library",
+  "name": "서고",
+  "category": "building",
+  "subcategory": "research",
+  "grade": "common",
+  "size": [
+   192,
+   256
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/manor",
+  "id": "building/manor",
+  "name": "저택",
+  "category": "building",
+  "subcategory": "housing",
+  "grade": "common",
+  "size": [
+   240,
+   305
+  ],
+  "frames": null,
+  "qa": "미검사",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/market",
+  "id": "building/market",
+  "name": "시장",
+  "category": "building",
+  "subcategory": "civic",
+  "grade": "common",
+  "size": [
+   192,
+   304
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/building/mill",
+  "id": "building/mill",
+  "name": "방앗간",
+  "category": "building",
+  "subcategory": "production",
+  "grade": "common",
+  "size": [
+   192,
+   256
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/building/mine_shaft",
+  "id": "building/mine_shaft",
+  "name": "광산 갱도",
+  "category": "building",
+  "subcategory": "production",
+  "grade": "common",
+  "size": [
+   192,
+   256
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/building/monument",
+  "id": "building/monument",
+  "name": "기념비",
+  "category": "building",
+  "subcategory": "civic",
+  "grade": "common",
+  "size": [
+   192,
+   256
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/building/quarry_camp",
+  "id": "building/quarry_camp",
+  "name": "채석장",
+  "category": "building",
+  "subcategory": "production",
+  "grade": "common",
+  "size": [
+   192,
+   224
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/ranch",
+  "id": "building/ranch",
+  "name": "목장",
+  "category": "building",
+  "subcategory": "production",
+  "grade": "common",
+  "size": [
+   192,
+   256
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/sawmill",
+  "id": "building/sawmill",
+  "name": "제재소",
+  "category": "building",
+  "subcategory": "production",
+  "grade": "common",
+  "size": [
+   192,
+   224
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/shrine",
+  "id": "building/shrine",
+  "name": "성지",
+  "category": "building",
+  "subcategory": "civic",
+  "grade": "common",
+  "size": [
+   256,
+   352
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/building/smelter",
+  "id": "building/smelter",
+  "name": "제련소",
+  "category": "building",
+  "subcategory": "production",
+  "grade": "common",
+  "size": [
+   192,
+   256
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/building/smithy",
+  "id": "building/smithy",
+  "name": "대장간",
+  "category": "building",
+  "subcategory": "production",
+  "grade": "common",
+  "size": [
+   192,
+   256
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/building/station",
+  "id": "building/station",
+  "name": "정거장",
+  "category": "building",
+  "subcategory": "civic",
+  "grade": "common",
+  "size": [
+   128,
+   176
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/building/storage",
+  "id": "building/storage",
+  "name": "저장고",
+  "category": "building",
+  "subcategory": "production",
+  "grade": "common",
+  "size": [
+   192,
+   256
+  ],
+  "frames": null,
+  "qa": "PASS",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/storage_crate",
+  "id": "building/storage_crate",
+  "name": "저장 궤짝",
+  "category": "building",
+  "subcategory": "production",
+  "grade": "common",
+  "size": [
+   160,
+   136
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/tent",
+  "id": "building/tent",
+  "name": "천막",
+  "category": "building",
+  "subcategory": "housing",
+  "grade": "common",
+  "size": [
+   160,
+   160
+  ],
+  "frames": null,
+  "qa": "미검사",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/trading_post",
+  "id": "building/trading_post",
+  "name": "교역소",
+  "category": "building",
+  "subcategory": "civic",
+  "grade": "common",
+  "size": [
+   192,
+   256
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/wall_h",
+  "id": "building/wall_h",
+  "name": "석벽 가로",
+  "category": "building",
+  "subcategory": "fence_stone",
+  "grade": "common",
+  "size": [
+   64,
+   96
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/wall_post",
+  "id": "building/wall_post",
+  "name": "석벽 기둥",
+  "category": "building",
+  "subcategory": "fence_stone",
+  "grade": "common",
+  "size": [
+   64,
+   96
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/building/wall_v",
+  "id": "building/wall_v",
+  "name": "석벽 세로",
+  "category": "building",
+  "subcategory": "fence_stone",
+  "grade": "common",
+  "size": [
+   64,
+   96
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/watchpost",
+  "id": "building/watchpost",
+  "name": "초소",
+  "category": "building",
+  "subcategory": "military",
+  "grade": "common",
+  "size": [
+   96,
+   160
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/well",
+  "id": "building/well",
+  "name": "우물",
+  "category": "building",
+  "subcategory": "production",
+  "grade": "common",
+  "size": [
+   137,
+   160
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/woodpile",
+  "id": "building/woodpile",
+  "name": "장작더미",
+  "category": "building",
+  "subcategory": "production",
+  "grade": "common",
+  "size": [
+   96,
+   176
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/building/workshop",
+  "id": "building/workshop",
+  "name": "공방",
+  "category": "building",
+  "subcategory": "research",
+  "grade": "common",
+  "size": [
+   192,
+   256
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/consumable/bandage",
+  "id": "consumable/bandage",
+  "name": "붕대",
+  "category": "material",
+  "subcategory": "supply",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/consumable/meal_stew",
+  "id": "consumable/meal_stew",
+  "name": "고기죽",
+  "category": "food",
+  "subcategory": "meal",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/consumable/medicine_herb",
+  "id": "consumable/medicine_herb",
+  "name": "약초 묶음",
+  "category": "material",
+  "subcategory": "supply",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/consumable/torch_item",
+  "id": "consumable/torch_item",
+  "name": "횃불",
+  "category": "material",
+  "subcategory": "supply",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/effect/buff_aura",
+  "id": "effect/buff_aura",
+  "name": "강화 오라",
+  "category": "effect",
+  "subcategory": "cast",
+  "grade": "common",
+  "size": [
+   128,
+   128
+  ],
+  "frames": {
+   "sheet": "sheet.png",
+   "frameW": 128,
+   "frameH": 128,
+   "anims": {
+    "cast": {
+     "row": 0,
+     "count": 6,
+     "fps": 12
+    }
+   }
+  },
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/effect/campfire_flame",
+  "id": "effect/campfire_flame",
+  "name": "모닥불 불꽃",
+  "category": "effect",
+  "subcategory": "flame",
+  "grade": "common",
+  "size": [
+   128,
+   128
+  ],
+  "frames": {
+   "sheet": "sheet.png",
+   "frameW": 128,
+   "frameH": 128,
+   "anims": {
+    "burn": {
+     "row": 0,
+     "count": 8,
+     "fps": 12
+    }
+   }
+  },
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/effect/craft_hammer_glint",
+  "id": "effect/craft_hammer_glint",
+  "name": "제작 불티",
+  "category": "effect",
+  "subcategory": "impact",
+  "grade": "common",
+  "size": [
+   128,
+   128
+  ],
+  "frames": {
+   "sheet": "sheet.png",
+   "frameW": 128,
+   "frameH": 128,
+   "anims": {
+    "impact": {
+     "row": 0,
+     "count": 5,
+     "fps": 15
+    }
+   }
+  },
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/effect/debris_burst",
+  "id": "effect/debris_burst",
+  "name": "파편 폭발",
+  "category": "effect",
+  "subcategory": "impact",
+  "grade": "common",
+  "size": [
+   128,
+   128
+  ],
+  "frames": {
+   "sheet": "sheet.png",
+   "frameW": 128,
+   "frameH": 128,
+   "anims": {
+    "impact": {
+     "row": 0,
+     "count": 6,
+     "fps": 15
+    }
+   }
+  },
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/effect/debuff_cloud",
+  "id": "effect/debuff_cloud",
+  "name": "약화 안개",
+  "category": "effect",
+  "subcategory": "cast",
+  "grade": "common",
+  "size": [
+   128,
+   128
+  ],
+  "frames": {
+   "sheet": "sheet.png",
+   "frameW": 128,
+   "frameH": 128,
+   "anims": {
+    "cast": {
+     "row": 0,
+     "count": 6,
+     "fps": 12
+    }
+   }
+  },
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/effect/dust_puff",
+  "id": "effect/dust_puff",
+  "name": "흙먼지",
+  "category": "effect",
+  "subcategory": "impact",
+  "grade": "common",
+  "size": [
+   128,
+   128
+  ],
+  "frames": {
+   "sheet": "sheet.png",
+   "frameW": 128,
+   "frameH": 128,
+   "anims": {
+    "impact": {
+     "row": 0,
+     "count": 5,
+     "fps": 15
+    }
+   }
+  },
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/effect/gather_sparkle",
+  "id": "effect/gather_sparkle",
+  "name": "채집 반짝임",
+  "category": "effect",
+  "subcategory": "impact",
+  "grade": "common",
+  "size": [
+   128,
+   128
+  ],
+  "frames": {
+   "sheet": "sheet.png",
+   "frameW": 128,
+   "frameH": 128,
+   "anims": {
+    "impact": {
+     "row": 0,
+     "count": 5,
+     "fps": 15
+    }
+   }
+  },
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/effect/heal_ring",
+  "id": "effect/heal_ring",
+  "name": "치유 고리",
+  "category": "effect",
+  "subcategory": "cast",
+  "grade": "common",
+  "size": [
+   128,
+   128
+  ],
+  "frames": {
+   "sheet": "sheet.png",
+   "frameW": 128,
+   "frameH": 128,
+   "anims": {
+    "cast": {
+     "row": 0,
+     "count": 6,
+     "fps": 12
+    }
+   }
+  },
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/effect/hit_spark",
+  "id": "effect/hit_spark",
+  "name": "타격 불꽃",
+  "category": "effect",
+  "subcategory": "impact",
+  "grade": "common",
+  "size": [
+   128,
+   128
+  ],
+  "frames": {
+   "sheet": "sheet.png",
+   "frameW": 128,
+   "frameH": 128,
+   "anims": {
+    "impact": {
+     "row": 0,
+     "count": 5,
+     "fps": 15
+    }
+   }
+  },
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/effect/slash_arc",
+  "id": "effect/slash_arc",
+  "name": "참격 궤적",
+  "category": "effect",
+  "subcategory": "impact",
+  "grade": "common",
+  "size": [
+   128,
+   128
+  ],
+  "frames": {
+   "sheet": "sheet.png",
+   "frameW": 128,
+   "frameH": 128,
+   "anims": {
+    "impact": {
+     "row": 0,
+     "count": 5,
+     "fps": 15
+    }
+   }
+  },
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/effect/torch_flame",
+  "id": "effect/torch_flame",
+  "name": "횃불 불꽃",
+  "category": "effect",
+  "subcategory": "flame",
+  "grade": "common",
+  "size": [
+   128,
+   128
+  ],
+  "frames": {
+   "sheet": "sheet.png",
+   "frameW": 128,
+   "frameH": 128,
+   "anims": {
+    "flicker": {
+     "row": 0,
+     "count": 6,
+     "fps": 10
+    }
+   }
+  },
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/food/berry_bowl",
+  "id": "food/berry_bowl",
+  "name": "열매 그릇",
+  "category": "food",
+  "subcategory": "meal",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/food/grain_bread",
+  "id": "food/grain_bread",
+  "name": "보리빵",
+  "category": "food",
+  "subcategory": "meal",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/food/roast_meat",
+  "id": "food/roast_meat",
+  "name": "구운 고기",
+  "category": "food",
+  "subcategory": "meal",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/material/coal",
+  "id": "material/coal",
+  "name": "석탄",
+  "category": "material",
+  "subcategory": "resource",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/material/fuel",
+  "id": "material/fuel",
+  "name": "연료",
+  "category": "material",
+  "subcategory": "resource",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/material/gold",
+  "id": "material/gold",
+  "name": "금화",
+  "category": "material",
+  "subcategory": "resource",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/material/grain",
+  "id": "material/grain",
+  "name": "곡물",
+  "category": "material",
+  "subcategory": "resource",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/material/hide",
+  "id": "material/hide",
+  "name": "가죽",
+  "category": "material",
+  "subcategory": "resource",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/material/ironOre",
+  "id": "material/ironOre",
+  "name": "철광석",
+  "category": "material",
+  "subcategory": "resource",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/material/meat",
+  "id": "material/meat",
+  "name": "고기",
+  "category": "material",
+  "subcategory": "resource",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/material/oil",
+  "id": "material/oil",
+  "name": "기름",
+  "category": "material",
+  "subcategory": "resource",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/material/steel",
+  "id": "material/steel",
+  "name": "강철",
+  "category": "material",
+  "subcategory": "resource",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/material/stone",
+  "id": "material/stone",
+  "name": "석재",
+  "category": "material",
+  "subcategory": "resource",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/material/wood_log",
+  "id": "material/wood_log",
+  "name": "통나무",
+  "category": "material",
+  "subcategory": "general",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/material/wool",
+  "id": "material/wool",
+  "name": "양털",
+  "category": "material",
+  "subcategory": "resource",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/mineral/cache_mound",
+  "id": "mineral/cache_mound",
+  "name": "숨은 궤",
+  "category": "mineral",
+  "subcategory": "node",
+  "grade": "common",
+  "size": [
+   96,
+   96
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/mineral/coal_node",
+  "id": "mineral/coal_node",
+  "name": "석탄 노두",
+  "category": "mineral",
+  "subcategory": "node",
+  "grade": "common",
+  "size": [
+   96,
+   96
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/mineral/iron_node",
+  "id": "mineral/iron_node",
+  "name": "철광맥",
+  "category": "mineral",
+  "subcategory": "node",
+  "grade": "common",
+  "size": [
+   96,
+   96
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/mineral/oil_seep",
+  "id": "mineral/oil_seep",
+  "name": "유막",
+  "category": "mineral",
+  "subcategory": "node",
+  "grade": "common",
+  "size": [
+   96,
+   96
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/mineral/pebbles",
+  "id": "mineral/pebbles",
+  "name": "자갈",
+  "category": "mineral",
+  "subcategory": "prop",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/mineral/rock_node",
+  "id": "mineral/rock_node",
+  "name": "바위 노드",
+  "category": "mineral",
+  "subcategory": "general",
+  "grade": "common",
+  "size": [
+   96,
+   96
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/mineral/ruin_block",
+  "id": "mineral/ruin_block",
+  "name": "고대 유적",
+  "category": "mineral",
+  "subcategory": "node",
+  "grade": "common",
+  "size": [
+   96,
+   96
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/monster/wolf",
+  "id": "monster/wolf",
+  "name": "늑대",
+  "category": "monster",
+  "subcategory": "normal",
+  "grade": "common",
+  "size": [
+   128,
+   128
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-07"
+ },
+ {
+  "path": "assets/plant/berry_bush",
+  "id": "plant/berry_bush",
+  "name": "딸기 들",
+  "category": "plant",
+  "subcategory": "node",
+  "grade": "common",
+  "size": [
+   96,
+   96
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/plant/bush_small",
+  "id": "plant/bush_small",
+  "name": "작은 덤불",
+  "category": "plant",
+  "subcategory": "prop",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/plant/crop_barley",
+  "id": "plant/crop_barley",
+  "name": "보리",
+  "category": "plant",
+  "subcategory": "crop",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/plant/crop_vegetable",
+  "id": "plant/crop_vegetable",
+  "name": "채소밭 작물",
+  "category": "plant",
+  "subcategory": "crop",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/plant/field_wild",
+  "id": "plant/field_wild",
+  "name": "야생 밭",
+  "category": "plant",
+  "subcategory": "node",
+  "grade": "common",
+  "size": [
+   96,
+   96
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/plant/flower_patch",
+  "id": "plant/flower_patch",
+  "name": "들꽃",
+  "category": "plant",
+  "subcategory": "prop",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "PASS",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/plant/reed",
+  "id": "plant/reed",
+  "name": "갈대",
+  "category": "plant",
+  "subcategory": "prop",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/player/hero_base",
+  "id": "player/hero_base",
+  "name": "기준 영웅",
+  "category": "player",
+  "subcategory": "male",
+  "grade": "common",
+  "size": [
+   128,
+   128
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-07"
+ },
+ {
+  "path": "assets/test/probe_hall",
+  "id": "test/probe_hall",
+  "name": "시험 회관(중)",
+  "category": "building",
+  "subcategory": "general",
+  "grade": "common",
+  "size": [
+   128,
+   224
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/test/probe_plant",
+  "id": "test/probe_plant",
+  "name": "시험 식물",
+  "category": "plant",
+  "subcategory": "general",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/test/probe_rock",
+  "id": "test/probe_rock",
+  "name": "시험 바위",
+  "category": "mineral",
+  "subcategory": "general",
+  "grade": "common",
+  "size": [
+   96,
+   96
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/test/probe_tree",
+  "id": "test/probe_tree",
+  "name": "시험 나무",
+  "category": "tree",
+  "subcategory": "general",
+  "grade": "common",
+  "size": [
+   128,
+   192
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/test/style_probe",
+  "id": "test/style_probe",
+  "name": "스타일 시험",
+  "category": "weapon",
+  "subcategory": "general",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-07"
+ },
+ {
+  "path": "assets/tileset/apron_dirt",
+  "id": "tileset/apron_dirt",
+  "name": "다짐흙 기초",
+  "category": "furniture",
+  "subcategory": "apron",
+  "grade": "common",
+  "size": [
+   128,
+   128
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/apron_stone",
+  "id": "tileset/apron_stone",
+  "name": "석재 기초",
+  "category": "furniture",
+  "subcategory": "apron",
+  "grade": "common",
+  "size": [
+   128,
+   128
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/ash",
+  "id": "tileset/ash",
+  "name": "화산재 땅",
+  "category": "tileset",
+  "subcategory": "base",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/ash_b",
+  "id": "tileset/ash_b",
+  "name": "화산재 땅 변주",
+  "category": "tileset",
+  "subcategory": "variant",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/desert",
+  "id": "tileset/desert",
+  "name": "사막",
+  "category": "tileset",
+  "subcategory": "base",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "PASS",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/desert_b",
+  "id": "tileset/desert_b",
+  "name": "사막 변주",
+  "category": "tileset",
+  "subcategory": "variant",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/dusk",
+  "id": "tileset/dusk",
+  "name": "황혼 골짜기",
+  "category": "tileset",
+  "subcategory": "base",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/dusk_b",
+  "id": "tileset/dusk_b",
+  "name": "황혼 골짜기 변주",
+  "category": "tileset",
+  "subcategory": "variant",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/fertile",
+  "id": "tileset/fertile",
+  "name": "기름진 땅",
+  "category": "tileset",
+  "subcategory": "base",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "PASS",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/fertile_b",
+  "id": "tileset/fertile_b",
+  "name": "기름진 땅 변주",
+  "category": "tileset",
+  "subcategory": "variant",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/forest",
+  "id": "tileset/forest",
+  "name": "숲",
+  "category": "tileset",
+  "subcategory": "base",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "PASS",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/forest_b",
+  "id": "tileset/forest_b",
+  "name": "숲 변주",
+  "category": "tileset",
+  "subcategory": "variant",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/grass",
+  "id": "tileset/grass",
+  "name": "풀 지형 타일",
+  "category": "tileset",
+  "subcategory": "general",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "PASS",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/grass_b",
+  "id": "tileset/grass_b",
+  "name": "풀밭 변주",
+  "category": "tileset",
+  "subcategory": "variant",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "PASS",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/jungle",
+  "id": "tileset/jungle",
+  "name": "밀림",
+  "category": "tileset",
+  "subcategory": "base",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/jungle_b",
+  "id": "tileset/jungle_b",
+  "name": "밀림 변주",
+  "category": "tileset",
+  "subcategory": "variant",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/marsh",
+  "id": "tileset/marsh",
+  "name": "습지",
+  "category": "tileset",
+  "subcategory": "base",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/marsh_b",
+  "id": "tileset/marsh_b",
+  "name": "습지 변주",
+  "category": "tileset",
+  "subcategory": "variant",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/mush",
+  "id": "tileset/mush",
+  "name": "버섯 숲",
+  "category": "tileset",
+  "subcategory": "base",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "PASS",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/mush_b",
+  "id": "tileset/mush_b",
+  "name": "버섯 숲 변주",
+  "category": "tileset",
+  "subcategory": "variant",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/path_dirt",
+  "id": "tileset/path_dirt",
+  "name": "흙길 직선",
+  "category": "furniture",
+  "subcategory": "path",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/path_dirt_corner",
+  "id": "tileset/path_dirt_corner",
+  "name": "흙길 모서리",
+  "category": "furniture",
+  "subcategory": "path",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/path_dirt_cross",
+  "id": "tileset/path_dirt_cross",
+  "name": "흙길 사거리",
+  "category": "furniture",
+  "subcategory": "path",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/path_dirt_end",
+  "id": "tileset/path_dirt_end",
+  "name": "흙길 끝",
+  "category": "furniture",
+  "subcategory": "path",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/rock",
+  "id": "tileset/rock",
+  "name": "바위 노두",
+  "category": "tileset",
+  "subcategory": "base",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/rock_b",
+  "id": "tileset/rock_b",
+  "name": "바위 노두 변주",
+  "category": "tileset",
+  "subcategory": "variant",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/salt",
+  "id": "tileset/salt",
+  "name": "소금 평원",
+  "category": "tileset",
+  "subcategory": "base",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/salt_b",
+  "id": "tileset/salt_b",
+  "name": "소금 평원 변주",
+  "category": "tileset",
+  "subcategory": "variant",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "PASS",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/snow",
+  "id": "tileset/snow",
+  "name": "설산",
+  "category": "tileset",
+  "subcategory": "base",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/snow_b",
+  "id": "tileset/snow_b",
+  "name": "설산 변주",
+  "category": "tileset",
+  "subcategory": "variant",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "PASS",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/water",
+  "id": "tileset/water",
+  "name": "물",
+  "category": "tileset",
+  "subcategory": "base",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tileset/water_b",
+  "id": "tileset/water_b",
+  "name": "물 변주",
+  "category": "tileset",
+  "subcategory": "variant",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "PASS",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tree/cactus_desert",
+  "id": "tree/cactus_desert",
+  "name": "사막 선인장",
+  "category": "tree",
+  "subcategory": "biome",
+  "grade": "common",
+  "size": [
+   128,
+   192
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tree/dead_ash",
+  "id": "tree/dead_ash",
+  "name": "화산재 고사목",
+  "category": "tree",
+  "subcategory": "biome",
+  "grade": "common",
+  "size": [
+   128,
+   192
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tree/dusk_tree",
+  "id": "tree/dusk_tree",
+  "name": "황혼 나무",
+  "category": "tree",
+  "subcategory": "biome",
+  "grade": "common",
+  "size": [
+   128,
+   192
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tree/forest_node",
+  "id": "tree/forest_node",
+  "name": "숲 노드",
+  "category": "tree",
+  "subcategory": "node",
+  "grade": "common",
+  "size": [
+   128,
+   192
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tree/jungle_canopy",
+  "id": "tree/jungle_canopy",
+  "name": "밀림 활엽수",
+  "category": "tree",
+  "subcategory": "biome",
+  "grade": "common",
+  "size": [
+   128,
+   192
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tree/marsh_willow",
+  "id": "tree/marsh_willow",
+  "name": "습지 버드나무",
+  "category": "tree",
+  "subcategory": "biome",
+  "grade": "common",
+  "size": [
+   128,
+   192
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tree/mushroom_giant",
+  "id": "tree/mushroom_giant",
+  "name": "거대 버섯",
+  "category": "tree",
+  "subcategory": "biome",
+  "grade": "common",
+  "size": [
+   128,
+   192
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tree/oak_large",
+  "id": "tree/oak_large",
+  "name": "큰 참나무",
+  "category": "tree",
+  "subcategory": "general",
+  "grade": "common",
+  "size": [
+   128,
+   192
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tree/pine_snow",
+  "id": "tree/pine_snow",
+  "name": "설산 침엽수",
+  "category": "tree",
+  "subcategory": "biome",
+  "grade": "common",
+  "size": [
+   128,
+   192
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/tree/stump",
+  "id": "tree/stump",
+  "name": "그루터기",
+  "category": "tree",
+  "subcategory": "prop",
+  "grade": "common",
+  "size": [
+   96,
+   96
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/bell",
+  "id": "ui/bell",
+  "name": "알림",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/book",
+  "id": "ui/book",
+  "name": "연대기",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/chat",
+  "id": "ui/chat",
+  "name": "대화",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/check",
+  "id": "ui/check",
+  "name": "완료",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/crown",
+  "id": "ui/crown",
+  "name": "왕관",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/eye",
+  "id": "ui/eye",
+  "name": "정찰",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/flag",
+  "id": "ui/flag",
+  "name": "깃발",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/folk",
+  "id": "ui/folk",
+  "name": "백성",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/gear",
+  "id": "ui/gear",
+  "name": "설정",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/hammer",
+  "id": "ui/hammer",
+  "name": "건설 망치",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/heart",
+  "id": "ui/heart",
+  "name": "체력",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/lock",
+  "id": "ui/lock",
+  "name": "잠금",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/morale",
+  "id": "ui/morale",
+  "name": "사기",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/repair",
+  "id": "ui/repair",
+  "name": "수리",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/research",
+  "id": "ui/research",
+  "name": "연구",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "PASS",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/scroll",
+  "id": "ui/scroll",
+  "name": "국법",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/shield",
+  "id": "ui/shield",
+  "name": "방어",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/ship",
+  "id": "ui/ship",
+  "name": "무역",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/skill_build",
+  "id": "ui/skill_build",
+  "name": "건설",
+  "category": "ui",
+  "subcategory": "skill",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/skill_combat",
+  "id": "ui/skill_combat",
+  "name": "전투",
+  "category": "ui",
+  "subcategory": "skill",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/skill_farm",
+  "id": "ui/skill_farm",
+  "name": "농사",
+  "category": "ui",
+  "subcategory": "skill",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/ui/skill_lumber",
+  "id": "ui/skill_lumber",
+  "name": "벌목",
+  "category": "ui",
+  "subcategory": "skill",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/ui/skill_mining",
+  "id": "ui/skill_mining",
+  "name": "채광",
+  "category": "ui",
+  "subcategory": "skill",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/star",
+  "id": "ui/star",
+  "name": "레벨업",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/swords",
+  "id": "ui/swords",
+  "name": "웨이브 경보",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/tier",
+  "id": "ui/tier",
+  "name": "성장",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/tools",
+  "id": "ui/tools",
+  "name": "도구",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/up",
+  "id": "ui/up",
+  "name": "개축",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/wagon",
+  "id": "ui/wagon",
+  "name": "마차",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/ui/warn",
+  "id": "ui/warn",
+  "name": "경고",
+  "category": "ui",
+  "subcategory": "hud",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/weapon/bone_spear",
+  "id": "weapon/bone_spear",
+  "name": "뼈창",
+  "category": "weapon",
+  "subcategory": "tier1",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/weapon/elite_blade",
+  "id": "weapon/elite_blade",
+  "name": "정예검",
+  "category": "weapon",
+  "subcategory": "tier4",
+  "grade": "epic",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/weapon/hunters_bow",
+  "id": "weapon/hunters_bow",
+  "name": "사냥활",
+  "category": "weapon",
+  "subcategory": "tier2",
+  "grade": "uncommon",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/weapon/iron_blade",
+  "id": "weapon/iron_blade",
+  "name": "철검",
+  "category": "weapon",
+  "subcategory": "tier2",
+  "grade": "uncommon",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/weapon/iron_sword_common",
+  "id": "weapon/iron_sword_common",
+  "name": "철검",
+  "category": "weapon",
+  "subcategory": "general",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/weapon/master_blade",
+  "id": "weapon/master_blade",
+  "name": "명품검",
+  "category": "weapon",
+  "subcategory": "tier5",
+  "grade": "legendary",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/weapon/steel_axe",
+  "id": "weapon/steel_axe",
+  "name": "강철 도끼",
+  "category": "weapon",
+  "subcategory": "tier3",
+  "grade": "rare",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-08"
+ },
+ {
+  "path": "assets/weapon/steel_blade",
+  "id": "weapon/steel_blade",
+  "name": "강철검",
+  "category": "weapon",
+  "subcategory": "tier3",
+  "grade": "rare",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/weapon/stone_blade",
+  "id": "weapon/stone_blade",
+  "name": "돌칼",
+  "category": "weapon",
+  "subcategory": "tier1",
+  "grade": "common",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "WARNING",
+  "updated": "2026-08-09"
+ },
+ {
+  "path": "assets/weapon/wyrm_fang",
+  "id": "weapon/wyrm_fang",
+  "name": "용아검",
+  "category": "weapon",
+  "subcategory": "tier6",
+  "grade": "legendary",
+  "size": [
+   64,
+   64
+  ],
+  "frames": null,
+  "qa": "FAIL",
+  "updated": "2026-08-08"
+ }
+]

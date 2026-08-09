@@ -1,0 +1,57 @@
+{
+  "id": "building/consulate",
+  "name": "영사관",
+  "category": "building",
+  "subcategory": "civic",
+  "grade": "common",
+  "path": "assets/building/consulate/",
+  "still": "base.png",
+  "size": [
+    256,
+    352
+  ],
+  "pixelSize": [
+    248,
+    304
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-09",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "WARNING",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP",
+      "singleSubject": "PASS",
+      "silhouette": "PASS"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": {
+    "x": 128,
+    "y": 352
+  },
+  "bounds": {
+    "x": 4,
+    "y": 48,
+    "w": 248,
+    "h": 304
+  },
+  "scaleFactor": 4,
+  "originalPng": "raw.png"
+}

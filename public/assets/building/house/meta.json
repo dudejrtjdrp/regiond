@@ -1,0 +1,42 @@
+{
+  "id": "building/house",
+  "name": "가옥",
+  "category": "building",
+  "subcategory": "housing",
+  "grade": "common",
+  "path": "assets/building/house/",
+  "still": "base.png",
+  "size": [
+    240,
+    176
+  ],
+  "pixelSize": [
+    224,
+    134
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "2.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "미검사",
+    "checks": {},
+    "notes": "수작업 생성본 — 투명 배경과 앵커는 검증, 아트 QA는 후속 검수"
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": {
+    "x": 120,
+    "y": 168
+  },
+  "bounds": {
+    "x": 8,
+    "y": 34,
+    "w": 224,
+    "h": 134
+  },
+  "footprint": [4, 3],
+  "handmade": true
+}

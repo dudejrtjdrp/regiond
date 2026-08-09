@@ -1,0 +1,59 @@
+{
+  "id": "building/hut",
+  "name": "움집",
+  "category": "building",
+  "subcategory": "general",
+  "grade": "common",
+  "path": "assets/building/hut/",
+  "still": "base.png",
+  "size": [
+    128,
+    176
+  ],
+  "pixelSize": [
+    121,
+    158
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "WARNING",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "WARNING",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "PASS",
+      "seamScore": "SKIP",
+      "tileComposition": "SKIP",
+      "singleSubject": "PASS",
+      "silhouette": "PASS"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": {
+    "x": 63,
+    "y": 176
+  },
+  "bounds": {
+    "x": 3,
+    "y": 18,
+    "w": 121,
+    "h": 158
+  },
+  "scaleFactor": 8,
+  "originalPng": "raw.png",
+  "footprint": [3, 3],
+  "handmade": true
+}

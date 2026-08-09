@@ -1,0 +1,44 @@
+{
+  "id": "tileset/forest",
+  "name": "숲",
+  "category": "tileset",
+  "subcategory": "base",
+  "grade": "common",
+  "path": "assets/tileset/forest/",
+  "still": "base.png",
+  "size": [
+    64,
+    64
+  ],
+  "pixelSize": [
+    64,
+    64
+  ],
+  "frames": null,
+  "paletteUsed": 20,
+  "version": "1.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "PASS",
+    "checks": {
+      "palette": "PASS",
+      "translucent": "PASS",
+      "resolution": "PASS",
+      "pixelGrid": "PASS",
+      "outline": "SKIP",
+      "light": "PASS",
+      "night": "PASS",
+      "frames": "SKIP",
+      "sizeRatio": "PASS",
+      "backgroundResidue": "SKIP",
+      "seamScore": "PASS",
+      "tileComposition": "PASS",
+      "singleSubject": "SKIP"
+    },
+    "notes": ""
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0
+}

@@ -1,0 +1,42 @@
+{
+  "id": "building/manor",
+  "name": "저택",
+  "category": "building",
+  "subcategory": "housing",
+  "grade": "common",
+  "path": "assets/building/manor/",
+  "still": "base.png",
+  "size": [
+    240,
+    305
+  ],
+  "pixelSize": [
+    230,
+    288
+  ],
+  "frames": null,
+  "paletteUsed": 22,
+  "version": "2.0.0",
+  "updated": "2026-08-08",
+  "tags": [],
+  "qa": {
+    "result": "미검사",
+    "checks": {},
+    "notes": "수작업 생성본 — 투명 배경과 4×5 풋프린트에 맞춰 갱신"
+  },
+  "scale": 1.0,
+  "offsetX": 0,
+  "offsetY": 0,
+  "anchor": {
+    "x": 120,
+    "y": 297
+  },
+  "bounds": {
+    "x": 5,
+    "y": 9,
+    "w": 230,
+    "h": 288
+  },
+  "footprint": [4, 5],
+  "handmade": true
+}
