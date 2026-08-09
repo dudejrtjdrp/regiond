@@ -163,6 +163,12 @@
     }
     /* Match the server's PERSON_OCCUPIED rule so the ghost is denied immediately. */
     var people = (S.residents() || []).concat(S.S.avatars || []);
+    /* 내 움직임은 서버 중계보다 먼저 화면에서 보간된다. 목록에 아직 반영되지 않은
+       한 박자도 놓치지 않도록 실제 조작 중인 좌표를 함께 검사한다. */
+    if (GM.avatar && GM.avatar.pos) {
+      var me = GM.avatar.pos();
+      if (me) people.push(me);
+    }
     for (var p = 0; p < people.length; p++) {
       var person = people[p];
       if (!Number.isFinite(person.x) || !Number.isFinite(person.y)) continue;
@@ -445,6 +451,12 @@
   function commit(x, y) {
     var pl = S.S.placing;
     if (!pl) return false;
+    /* 위치 보고는 저빈도라 막 움직인 직후에는 서버가 한 칸 전의 나를 알고 있을 수 있다.
+       착공보다 먼저 현재 발 위치를 보내면 같은 소켓 순서로 서버 판정도 최신 좌표를 쓴다. */
+    if (pl.kind === 'build' && GM.avatar && GM.avatar.pos) {
+      var me = GM.avatar.pos();
+      if (me) GM.net.send('lordMove', { x: Math.round(me.x), y: Math.round(me.y) });
+    }
     var v = validate(pl, x, y);
     if (!v.ok) {
       U.toast(v.reason || '그 자리에는 놓을 수 없습니다.', 'bad', 2600);

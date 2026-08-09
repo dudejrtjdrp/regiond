@@ -832,6 +832,23 @@
   function nodeX(n) { return n.x; }
   function nodeY(n) { return n.y; }
 
+  /* Resource art is authored for its map footprint, not as a one-cell icon.
+     A per-type value in data/world.json can override these defaults later. */
+  var NODE_RENDER_FOOTPRINT = {
+    forest: [4, 4], berry: [2, 2], rock: [2, 2], fertile: [2, 2], water: [2, 2],
+    iron: [2, 2], coal: [2, 2], oil: [2, 2], ruin: [2, 2], cache: [2, 2], field: [3, 2]
+  };
+  function nodeRenderFootprint(n) {
+    var world = S.worldCfg && S.worldCfg();
+    var def = world && world.nodes && world.nodes.types && world.nodes.types[n.type];
+    var f = Array.isArray(def && def.renderFootprint) ? def.renderFootprint : NODE_RENDER_FOOTPRINT[n.type];
+    return { w: Math.max(1, Math.round((f && f[0]) || 1)), h: Math.max(1, Math.round((f && f[1]) || 1)) };
+  }
+  function nodeRenderRect(n, f) {
+    /* Keep the base centered on the node coordinate; larger art grows up and sideways. */
+    return { x: n.x - f.w / 2, y: n.y + 0.5 - f.h, w: f.w, h: f.h };
+  }
+
   function drawNodes() {
     var t0 = nowMs();
     drawNodesInner();
@@ -848,19 +865,24 @@
     for (var pi = 0; pi < pick.length; pi++) {
       var i = pick[pi];
       var n = list[i];
-      if (!GM.camera.onScreen(n.x, n.y, t)) continue;
+      var fp = nodeRenderFootprint(n);
+      var rect = nodeRenderRect(n, fp);
+      if (!GM.camera.onScreen(n.x, n.y - (fp.h - 1) / 2, t * (Math.max(fp.w, fp.h) + 1))) continue;
       if (S.fogAt(n.x, n.y) < 1) continue;
       var sh = GM.fx ? GM.fx.nodeShake(n.id) : 0;
+      P2.x = GM.camera.worldToScreenX(rect.x + sh);
       var p = P2;                                       // 되쓰는 점 하나 — 프레임마다 쓰레기를 안 남긴다
-      p.x = GM.camera.worldToScreenX(n.x - 0.5 + sh);
-      p.y = GM.camera.worldToScreenY(n.y - 0.5);
+      p.x = GM.camera.worldToScreenX(rect.x + sh);
+      p.y = GM.camera.worldToScreenY(rect.y);
       /* ★ §13-B-3 — 다 캔 자리는 **그루터기**다. 아이콘을 어둡게 덮는 게 아니라 그루터기를 그린다. */
       if (n.depleted) {
+        var stumpX = GM.camera.worldToScreenX(n.x - 0.5 + sh);
+        var stumpY = GM.camera.worldToScreenY(n.y - 0.5);
         ctx.save();
         ctx.globalAlpha = 0.85;
-        try { ctx.drawImage(GM.atlas.stump(n.type), Math.round(p.x), Math.round(p.y), Math.ceil(t), Math.ceil(t)); } catch (e0) {}
+        try { ctx.drawImage(GM.atlas.stump(n.type), Math.round(stumpX), Math.round(stumpY), Math.ceil(t), Math.ceil(t)); } catch (e0) {}
         ctx.restore();
-        drawRegrowClock(n, p, t);
+        drawRegrowClock(n, { x: stumpX, y: stumpY }, t);
         continue;
       }
       var sp = GM.atlas.node(n.type, {
@@ -873,14 +895,14 @@
       var ratio = (n.ratio == null) ? 1 : n.ratio;
       var faded = ratio < fadeAt;
       if (faded) { ctx.save(); ctx.globalAlpha = 0.42 + 0.58 * (ratio / Math.max(0.01, fadeAt)); }
-      try { ctx.drawImage(sp, Math.round(p.x), Math.round(p.y), Math.ceil(t), Math.ceil(t)); } catch (e) {}
+      try { ctx.drawImage(sp, Math.round(p.x), Math.round(p.y), Math.ceil(t * fp.w), Math.ceil(t * fp.h)); } catch (e) {}
       if (faded) ctx.restore();
       if (n.harvestReady) {
         var g = 0.5 + 0.5 * Math.sin(animT / 260 + n.x);
         ctx.save();
         ctx.globalAlpha = 0.35 + g * 0.5;
         ctx.fillStyle = '#f6e6a8';
-        ctx.fillRect(p.x + t * 0.34, p.y - t * 0.28, t * 0.3, t * 0.3);
+        ctx.fillRect(p.x + t * fp.w * 0.34, p.y - t * 0.28, t * 0.3, t * 0.3);
         ctx.restore();
       }
       /* 스윙 진행 — 몇 번 더 치면 되는가 */
@@ -888,7 +910,7 @@
         var per = n.swingsPerCycle;
         var dotW = Math.max(3, t * 0.14);
         var totalW = per * (dotW + 2) - 2;
-        var bx = p.x + (t - totalW) / 2, by = p.y - 6;
+        var bx = p.x + (t * fp.w - totalW) / 2, by = p.y - 6;
         for (var k = 0; k < per; k++) {
           ctx.fillStyle = k < n.swings ? '#f6cf7a' : 'rgba(20,14,8,.5)';
           ctx.fillRect(bx + k * (dotW + 2), by, dotW, 3);
@@ -896,9 +918,9 @@
       }
       if (n.workers > 0 && t >= 24) {
         ctx.fillStyle = 'rgba(20,14,8,.6)';
-        ctx.fillRect(p.x, p.y + t - 5, t, 5);
+        ctx.fillRect(p.x, p.y + t * fp.h - 5, t * fp.w, 5);
         ctx.fillStyle = '#8dbb6d';
-        ctx.fillRect(p.x, p.y + t - 5, t * Math.min(1, n.workers / Math.max(1, n.slots)), 5);
+        ctx.fillRect(p.x, p.y + t * fp.h - 5, t * fp.w * Math.min(1, n.workers / Math.max(1, n.slots)), 5);
       }
     }
   }
