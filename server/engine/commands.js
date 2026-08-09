@@ -10,7 +10,7 @@ import {
   // ★ §20-R4b — 국가 이벤트 보상도 같은 문을 쓴다
   grantVia,
 } from './artifacts.js';
-import { resolveTempleChoice } from './temple.js';   // ★ §20-R4b — 고대 신전의 세 단
+import { resolveTempleChoice, enterTemple } from './temple.js';   // ★ §20-R4b — 고대 신전의 세 단
 import { localPrice, importPrice, exportPrice, round2, clamp } from './economy.js';
 import { validateOrders } from './orders.js';
 import { reassign } from './npc.js';
@@ -831,6 +831,8 @@ function runCommand(world, nationId, cmd, data, rng) {
         id: who, name: cmd.playerName ?? prev?.name ?? '개척자',
         x, y, tick: world.tick, appearance: look.appearance,
       };
+      /* 첫 자리 보고는 오프닝 마차에서 내렸다는 서버 쪽 신호다. */
+      if (nation.companions && !nation.companions.awake) nation.companions.awake = true;
       // ★ 안개 즉시 스탬프 — 걸어 들어간 자리는 그 자리에서 밝아진다.
       //   (예전에는 recomputeFog 가 일 틱에만 돌아, 새 지역의 노드가 최대 10분 뒤에야 내려갔다)
       //   같은 칸을 다시 보고하면 아무 일도 하지 않는다 = 이동 스로틀.
@@ -1113,6 +1115,15 @@ function runCommand(world, nationId, cmd, data, rng) {
     }
 
     // ── 왕의 하루 (AP) — 격려 순행 · 유적 탐사 · 조사 ─────────────
+    /* ★ §20-R4e — 신전 문 앞에서 E. 어전 행동이 아니라 **군주의 발**이 여는 문이다
+       (explore 는 영토 안만 고를 수 있어 200타일 밖 신전에는 닿지 않는다). */
+    case 'enterTemple': {
+      const avatarId = cmd.avatarId ?? cmd.payload?.avatarId ?? 'lord';
+      const nodeId = cmd.nodeId ?? cmd.payload?.nodeId ?? null;
+      const res = enterTemple(world, nation, avatarId, nodeId, data);
+      if (!res.ok) return err(res.code, res.message);
+      return ok({ card: res.card, events: [{ kind: 'ruin_event', nationId: nation.id, data: { card: res.card } }] });
+    }
     case 'apAction': {
       const res = performApAction(world, nation, cmd, data, rng);
       if (!res.ok) return res;

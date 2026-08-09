@@ -351,6 +351,60 @@
     queuePrebake(cx0, cx1, cy0, cy1);
   }
 
+  /* Sparse environmental overlays turn repeating ground into a readable
+     biome.  Coordinate hashes make every placement stable across scrolling. */
+  function dressingNoise(x, y, salt) {
+    return GM.atlas.hash01(x + salt * 137, y - salt * 271);
+  }
+
+  function sameTerrainAround(m, codes, x, y, code) {
+    var d = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+    for (var i = 0; i < d.length; i++) {
+      var nx = x + d[i][0], ny = y + d[i][1];
+      if (nx < 0 || ny < 0 || nx >= m.size || ny >= m.size) return false;
+      if ((codes[m.terrain[ny * m.size + nx]] || 'grass') !== code) return false;
+    }
+    return true;
+  }
+
+  function drawBiomeDressing() {
+    var m = S.S.map;
+    if (!m || !GM.atlas.dressing) return;
+    var codes = m.codes, vis = GM.camera.visible(), t = GM.camera.cam.tile;
+    var x0 = Math.max(0, vis.x0 - 1), x1 = Math.min(m.size - 1, vis.x1 + 1);
+    var y0 = Math.max(0, vis.y0 - 2), y1 = Math.min(m.size - 1, vis.y1 + 1);
+    ctx.save();
+    for (var y = y0; y <= y1; y++) {
+      for (var x = x0; x <= x1; x++) {
+        var code = codes[m.terrain[y * m.size + x]] || 'grass';
+        if (code !== 'forest' && code !== 'grass' && code !== 'jungle') continue;
+        var edge = !sameTerrainAround(m, codes, x, y, code);
+        if (dressingNoise(x, y, 4) < (edge ? 0.31 : 0.13)) {
+          var p = GM.camera.worldToScreen(x - 0.5, y - 0.5);
+          var decal = GM.atlas.dressing(code, Math.floor(dressingNoise(x, y, 9) * 4));
+          try { ctx.drawImage(decal, Math.round(p.x), Math.round(p.y), Math.ceil(t), Math.ceil(t)); } catch (e) {}
+        }
+        /* Rare trees belong inside continuous forest masses; the shadow and
+           silhouette create depth without becoming an obstacle layer. */
+        if (code === 'forest' && !edge && dressingNoise(x, y, 18) > 0.982) {
+          var tree = GM.atlas.decorTree(Math.floor(dressingNoise(x, y, 22) * 3));
+          if (tree) {
+            var q = GM.camera.worldToScreen(x, y + 0.1);
+            var sw = t * (2.7 + dressingNoise(x, y, 24) * 0.55);
+            var sh = t * (3.15 + dressingNoise(x, y, 25) * 0.6);
+            ctx.save();
+            ctx.globalAlpha = 0.24;
+            ctx.fillStyle = '#172316';
+            ctx.beginPath(); ctx.ellipse(q.x, q.y + t * 0.26, sw * 0.38, t * 0.16, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+            try { ctx.drawImage(tree, Math.round(q.x - sw / 2), Math.round(q.y - sh + t * 0.28), Math.ceil(sw), Math.ceil(sh)); } catch (e2) {}
+          }
+        }
+      }
+    }
+    ctx.restore();
+  }
+
   /* ══════════ 자원 군락 바닥 (GDD3 §13-B-1) ══════════
      군락은 '노드 여럿'이 아니라 **지역**이다. 그 지역이 지역으로 읽히려면 발밑이 달라야 한다 —
      숲 군락은 짙은 이끼, 딸기 들은 붉은 기, 바위 지대는 잿빛 자갈, 강가 어장은 젖은 모래.
@@ -1154,15 +1208,14 @@
       a.x = pos.x; a.y = pos.y;
       if (Math.hypot(mx, my) > 0.0015) {
         var ax = Math.abs(mx), ay = Math.abs(my);
-        if (!v.role) a.dir = ax > ay ? (mx > 0 ? 2 : 1) : (my > 0 ? 0 : 3);
-        else if (ax > ay * 2) a.dir = mx > 0 ? 6 : 2;
+        if (ax > ay * 2) a.dir = mx > 0 ? 6 : 2;
         else if (ay > ax * 2) a.dir = my > 0 ? 0 : 4;
         else if (mx > 0) a.dir = my > 0 ? 7 : 5;
         else a.dir = my > 0 ? 1 : 3;
         a.ft += dt;
-        if (a.ft > (v.role ? 0.1 : 0.18)) {
+        if (a.ft > 0.1) {
           a.ft = 0;
-          a.frame = v.role ? (a.frame + 1) % 9 : (a.frame ? 0 : 1);
+          a.frame = (a.frame + 1) % 9;
         }
       } else a.frame = 0;
     }
@@ -1187,7 +1240,11 @@
       var p = P2;                                                    // ★ Sprint 3 — 되쓰는 점
       p.x = GM.camera.worldToScreenX(a.x - 0.5);
       p.y = GM.camera.worldToScreenY(a.y - 0.5);
-      var img = GM.atlas.wild(c.sp, a.frame, { hurt: a.hurt > 0 });
+      /* 월드 쪽은 왼쪽 이동을 캔버스 반전으로 처리한다. 시트에서 left 열을 다시
+         고르면 반전이 두 번 적용돼 오른쪽을 보는 문제가 생긴다. 기준 right 열만
+         쓰고 이 아래의 단 한 번 반전으로 좌우를 결정한다. */
+      var img = GM.atlas.wild(c.sp, a.frame, { hurt: a.hurt > 0,
+        attack: c.state === 'attack' || c.state === 'chase', direction: 1 });
       ctx.save();
       if (a.dir < 0) {
         ctx.translate(Math.round(p.x) + t, Math.round(p.y));
@@ -1647,7 +1704,11 @@
   }
 
   function faceTo(a, dx, dy) {
-    a.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 2 : 1) : (dy > 0 ? 0 : 3);
+    var ax = Math.abs(dx), ay = Math.abs(dy);
+    if (ax > ay * 2) a.dir = dx > 0 ? 6 : 2;
+    else if (ay > ax * 2) a.dir = dy > 0 ? 0 : 4;
+    else if (dx > 0) a.dir = dy > 0 ? 7 : 5;
+    else a.dir = dy > 0 ? 1 : 3;
   }
 
   /** 목표점으로 한 걸음. 닿았으면 true */
@@ -1659,7 +1720,7 @@
     a.x += dx / d * mv; a.y += dy / d * mv;
     faceTo(a, dx, dy);
     a.ft += dt;
-    if (a.ft > 0.22) { a.ft = 0; a.frame = a.frame ? 0 : 1; }
+    if (a.ft > 0.1) { a.ft = 0; a.frame = (a.frame + 1) % 9; }
     return false;
   }
 
@@ -1737,7 +1798,7 @@
     a.x = nx; a.y = ny;
     faceTo(a, dx, dy);
     a.ft += dt;
-    if (a.ft > 0.22) { a.ft = 0; a.frame = a.frame ? 0 : 1; }
+    if (a.ft > 0.1) { a.ft = 0; a.frame = (a.frame + 1) % 9; }
     return false;
   }
 
@@ -1997,9 +2058,18 @@
       try { ctx.ellipse(p.x + w / 2, p.y + h - 1, w * 0.35, w * 0.15, 0, 0, Math.PI * 2); } catch (e2) {}
       ctx.fill();
       ctx.restore();
-      var sp = v.appearance
-        ? GM.atlas.avatar(v.appearance, a.dir, a.frame, { crown: false })
-        : GM.atlas.folk(v.job, a.dir, a.frame);
+      /* 주민은 직업과 무관하게 새 남녀 NPC 8방향 도트만 쓴다. 기존 아틀라스는 폴백하지 않는다. */
+      var sp = GM.npcSprites && GM.npcSprites.get(v.id, a.dir, a.frame);
+      var workNode = v.targetId && S.nodeById(v.targetId);
+      var workKind = workNode && workNode.type === 'forest' ? 'wood'
+        : (workNode && (workNode.type === 'field' || workNode.type === 'grain') ? 'grain' : 'stone');
+      var action = a.pose > 0 && GM.actionSprites
+        ? GM.actionSprites.get(null, v.id, a.dir, workKind, a.pose > 0.5 ? 1 : 0) : null;
+      var npcCrop = GM.npcSprites && GM.npcSprites.cropFor(v.id, a.dir);
+      var npcH = t * 2;
+      var npcW = npcCrop ? npcH * npcCrop[2] / npcCrop[3] : t;
+      var npcX = p.x - (npcW - w) / 2;
+      var npcY = p.y - (npcH - h) + t * 0.1;
       /* ★ §12-9 — 작업 중이면 몸이 앞으로 기울고(스윙), 짐을 지면 살짝 눌린다 */
       var lean = (a.pose || 0) * 0.28;
       if (lean > 0.01) {
@@ -2008,7 +2078,11 @@
         ctx.rotate((a.dir === 1 ? lean : -lean) * 0.5);
         ctx.translate(-(p.x + w / 2), -(p.y + h));
       }
-      try { ctx.drawImage(sp, Math.round(p.x), Math.round(p.y), Math.ceil(w), Math.ceil(h)); } catch (e3) {}
+      if (action) {
+        try { ctx.drawImage(action.image, action.sx, action.sy, action.sw, action.sh, Math.round(npcX), Math.round(npcY), Math.ceil(npcW), Math.ceil(npcH)); } catch (e3) {}
+      } else if (sp) {
+        try { ctx.drawImage(sp, npcCrop[0], npcCrop[1], npcCrop[2], npcCrop[3], Math.round(npcX), Math.round(npcY), Math.ceil(npcW), Math.ceil(npcH)); } catch (e3) {}
+      }
       if (lean > 0.01) ctx.restore();
       /* 들짐 — 머리 위 자루 */
       if ((a.carry || 0) > 0 && (a.phase === 'haul' || a.phase === 'unload')) {
@@ -2117,13 +2191,23 @@
     ctx.save();
     var mine = GM.avatar && avatarId === (S.you() && S.you().avatarId);
     var roleSprite = role && GM.roleSprites ? GM.roleSprites.get(role, dir, frame) : null;
+    /* 역할이 정해지기 전의 모든 플레이어·봇은 주민과 같은 NPC 도트를 쓴다. */
+    var npcSprite = !role && GM.npcSprites ? GM.npcSprites.get(avatarId, dir, frame) : null;
+    var characterSprite = roleSprite || npcSprite;
+    var actionKind = tool === 'axe' ? 'wood' : (tool === 'pick' ? 'stone' : (tool === 'hoe' ? 'grain' : 'attack'));
+    var actionSprite = swingPhase && GM.actionSprites ? GM.actionSprites.get(role, avatarId, dir, actionKind, swingPhase - 1) : null;
+    var npcCrop = npcSprite && GM.npcSprites.cropFor(avatarId, dir);
+    var spriteCrop = roleSprite ? [50, 55, 144, 135] : npcCrop;
+    var spriteH = roleSprite ? roleH : t * 2;
+    var spriteW = roleSprite ? roleW : (npcCrop ? spriteH * npcCrop[2] / npcCrop[3] : w);
+    var spriteX = roleSprite ? roleX : p.x - (spriteW - w) / 2;
+    var spriteY = roleSprite ? roleY : p.y - (spriteH - h) + t * 0.1;
     if (down) {
       ctx.translate(p.x + w / 2, p.y + h);
       ctx.rotate(-Math.PI / 2.2);
       ctx.globalAlpha = 0.75;
       try {
-        if (roleSprite) ctx.drawImage(roleSprite, 50, 55, 144, 135, 0, -roleW / 2, Math.ceil(roleW), Math.ceil(roleH));
-        else ctx.drawImage(GM.atlas.avatar(app, dir, 0), 0, -w / 2, Math.ceil(w), Math.ceil(h));
+        if (characterSprite) ctx.drawImage(characterSprite, spriteCrop[0], spriteCrop[1], spriteCrop[2], spriteCrop[3], 0, -spriteW / 2, Math.ceil(spriteW), Math.ceil(spriteH));
       } catch (e1) {}
       ctx.restore();
       label(name + ' — 쓰러짐', x, y - 2.05, '#ff9d99');
@@ -2132,12 +2216,10 @@
     try {
       /* ★ GDD3 §13-D-3 — 내 아바타에는 벼린 것이 그대로 실린다(동료의 장비는 서로 보이지 않는다) */
       var gear = mine && GM.avatar.gear ? GM.avatar.gear() : null;
-      if (roleSprite) {
-        ctx.drawImage(roleSprite, 50, 55, 144, 135, Math.round(roleX), Math.round(roleY), Math.ceil(roleW), Math.ceil(roleH));
-      } else {
-        ctx.drawImage(GM.atlas.avatar(app, dir, frame, { swing: swingPhase, tool: tool, gear: gear }),
-          Math.round(p.x), Math.round(p.y), Math.ceil(w), Math.ceil(h));
-      }
+      if (actionSprite) ctx.drawImage(actionSprite.image, actionSprite.sx, actionSprite.sy, actionSprite.sw, actionSprite.sh,
+        Math.round(spriteX), Math.round(spriteY), Math.ceil(spriteW), Math.ceil(spriteH));
+      else if (characterSprite) ctx.drawImage(characterSprite, spriteCrop[0], spriteCrop[1], spriteCrop[2], spriteCrop[3],
+        Math.round(spriteX), Math.round(spriteY), Math.ceil(spriteW), Math.ceil(spriteH));
     } catch (e2) {}
     ctx.restore();
     if (name && t >= 16) label(name, x, y - 2.05, nameColor || '#f4e4bc');
@@ -2600,6 +2682,8 @@
   function verbFor(t) {
     if (!t) return null;
     if (t.kind === 'enemy') return VERB.enemy;
+    /* ★ §20-R4e — 세상에 셋뿐인 고대 신전. 여느 유적과 같은 「살피기」가 아니라 **문을 두드린다**. */
+    if (t.obj && t.obj.temple) return 'E — ' + (t.obj.name || '고대 신전') + ' 문을 두드린다';
     /* ★ §19-F1(F08-4) — 목장이 서 있고 온순한 짐승이면 「키우기」가 한 줄 더 붙는다(사냥과 병존). */
     if (t.kind === 'wild') {
       var nm = (t.obj && t.obj.name) ? t.obj.name : '짐승';
@@ -2784,6 +2868,7 @@
 
     var tile = GM.camera.cam.tile;
     drawTerrain();
+    drawBiomeDressing();
     drawClusters();
     drawTerritory();
     if (GM.fx) GM.fx.drawStumps(ctx, tile);

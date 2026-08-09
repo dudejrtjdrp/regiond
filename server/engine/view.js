@@ -18,6 +18,7 @@ import { townOf, territoryRadius, encodeTerrain, dist, ringRadii } from './world
 // ★ GDD3 §13-C — 상시 생태계 · 도감
 import { creatureViews } from './ecology.js';
 import { codexView } from './codex.js';
+import { templeNodes } from './temple.js';   // ★ §20-R4e — 지도에서 신전을 알아보게 한다
 // ★ GDD3 §13-D — RPG 계층. 장비는 사람의 것, 연구·철로는 나라의 것이다.
 import { equipmentView } from './equipment.js';
 import {
@@ -99,6 +100,18 @@ function setsWithSteps(sets, data) {
     out[key] = { ...s, steps };
   }
   return out;
+}
+
+/* ★ §20-R4e — 세 곳뿐인 신전에 이름표를 붙인다. 한 번만 골라 훑는다(노드마다 다시 고르면 제곱이 된다). */
+function markTemples(world, nation, data, views) {
+  const picked = templeNodes(world, nation, data);
+  const byId = new Map(Object.values(picked).map((p) => [p.node.id, p.kind]));
+  if (!byId.size) return views;
+  for (const v of views) {
+    const kind = byId.get(v.id);
+    if (kind) { v.temple = kind.id; v.name = kind.name; }
+  }
+  return views;
 }
 
 export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
@@ -665,9 +678,12 @@ export function buildWorldSnapshot(world, nationId, data) {
     size: map.size,
     seed: map.seed,
     terrain: { codes: [...data.world.terrain.codes], rle: encodeTerrain(map) },
-    nodes: (map.nodes || [])
+    /* ★ §20-R4e — 신전은 지도에서 알아볼 수 있어야 한다. 유적 198곳이 다 같은 모양이면
+       세 곳뿐인 신전을 찾는 것은 놀이가 아니라 노동이다. 안개 규칙은 그대로 —
+       걸어 본 자리(isExplored)의 노드만 나가므로 가 보지 않은 신전은 애초에 오지 않는다. */
+    nodes: markTemples(world, nation, data, (map.nodes || [])
       .filter((n) => nodeVisible(n) && isExplored(nation, n.x, n.y))
-      .map((n) => nodeView(world, nation, n, data)),
+      .map((n) => nodeView(world, nation, n, data))),
     // ★ GDD3 §13-B-1 — 자원 군락. 숲 군락·딸기 들·바위 지대·강가 어장이 '지역'으로 읽히게 한다.
     clusters: clusterViews(world, nation),
     // ★ §18-D2 — 앞마당의 흔적(가 본 자리의 것만)

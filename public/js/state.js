@@ -707,6 +707,18 @@
   /** ★ §18-D2 — 앞마당의 흔적 목록(서버가 보낸 그대로). 안개 밖의 것은 애초에 오지 않는다. */
   function trailList() { return (S.map && S.map.trails) || []; }
 
+  /** ★ §20-R4e — 손 닿는 곳의 고대 신전. 서버가 노드에 붙여 준 temple 표만 본다(세 곳뿐이다). */
+  function templeNear(x, y, reach) {
+    var list = nodeList(), best = null, bd = 1e9;
+    for (var i = 0; i < list.length; i++) {
+      var n = list[i];
+      if (!n.temple) continue;
+      var d = Math.hypot(n.x - x, n.y - y);
+      if (d <= reach && d < bd) { bd = d; best = n; }
+    }
+    return best;
+  }
+
   /** 손이 닿는 흔적 하나 — 가장 가까운 것. 오늘 못 쓰는 것(ready:false)도 말은 걸린다. */
   function trailNear(x, y, reach) {
     var list = trailList(), best = null, bd = 1e9;
@@ -1777,7 +1789,7 @@
     fogAt: fogAt, nodeList: nodeList, nodeById: nodeById, nodeAt: nodeAt, nodeMeta: nodeMeta,
     applyCreatures: applyCreatures, creatureList: creatureList, clusterList: clusterList,
     /* ★ §18-D2 — 앞마당의 흔적 */
-    trailList: trailList, trailNear: trailNear,
+    trailList: trailList, trailNear: trailNear, templeNear: templeNear,
     ringOfPoint: ringOfPoint, codex: codex, regrowCfg: regrowCfg, ringsCfg: ringsCfg,
     workReach: workReach, inWorkRange: inWorkRange,
     myTown: myTown, territory: territory, inTerritory: inTerritory,

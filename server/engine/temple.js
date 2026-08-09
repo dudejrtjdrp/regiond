@@ -14,23 +14,57 @@ import { dropPool, grantArtifact, artifactFoundEvent } from './artifacts.js';
 export const templeCfg = (data) => data.ruins.temple ?? null;
 
 /**
- * 이 자취가 신전인가 — 자리 하나로 답한다.
- * 바이옴 신전(설산·밀림)이 먼저고, 둘 다 아니면 **본영에서 아주 먼 곳**만 신전이다.
- * 「왜」 가까운 자취는 아닌가 — 신전은 뒤지다 보면 나오는 것이 아니라 찾아가는 곳이다.
+ * ★ §20-R4e — 세상에 신전은 **종류마다 하나뿐**이다: 설산 가장 깊은 곳, 밀림 가장 깊은 곳,
+ * 그리고 들판에서 가장 먼 자취. 「왜」 조건만으로 흩뿌리지 않나 — 유적 198곳 가운데 백 곳이
+ * 신전이면 그것은 신전이 아니라 그냥 유적이다. 셋뿐이어야 「저기 있더라」가 값을 갖는다
+ * (유물기획 §20-4 설산 최심부·밀림 심장·링3). 자리가 정하므로 같은 씨앗은 언제나 같은 세 곳이다.
  */
-export function templeKindAt(world, nation, node, data) {
+/* 「왜」 기억해 두나 — 신전은 **지도가 태어날 때 정해진다**(유적 자리도 본영 자리도 안 움직인다).
+   그런데 이 문은 탐사할 때마다·판을 그릴 때마다 불린다. 매번 노드 오천을 훑으면 시뮬이 기어간다.
+   씨앗과 나라와 유적 수가 같으면 답도 같다 — 그 셋을 열쇠로 한 번만 셈한다. */
+const pickCache = new Map();
+
+export function templeNodes(world, nation, data) {
   const cfg = templeCfg(data);
-  if (!cfg || !node) return null;
+  const town = townOf(world, nation.id);
+  if (!cfg || !town) return {};
+  const key = `${world.seed}:${nation.id}:${town.x},${town.y}:${(world.map.nodes || []).length}`;
+  const hit = pickCache.get(key);
+  if (hit) return hit;
+  const best = computeTemples(world, data, cfg, town);
+  if (pickCache.size > 64) pickCache.clear();      // 방이 오래 돌아도 표가 불어나지 않게
+  pickCache.set(key, best);
+  return best;
+}
+
+function computeTemples(world, data, cfg, town) {
+  const best = {};
+  for (const node of world.map.nodes || []) {
+    if (node.type !== 'ruin') continue;
+    const kind = kindFor(world, node, data, cfg, town);
+    if (!kind) continue;
+    const d = Math.hypot(town.x - node.x, town.y - node.y);
+    const cur = best[kind.id];
+    if (!cur || d > cur.d || (d === cur.d && node.id < cur.node.id)) best[kind.id] = { node, d, kind };
+  }
+  return best;
+}
+
+/* 이 자리가 어느 신전의 **후보**인가 — 바이옴이 먼저고, 아니면 아주 먼 들판이다. */
+function kindFor(world, node, data, cfg, town) {
   const code = terrainNameAt(world.map, Math.round(node.x), Math.round(node.y), data);
   const byBiome = (cfg.kinds || []).find((k) => k.biome && k.biome === code);
   if (byBiome) return byBiome;
-  return farEnough(world, nation, node, cfg) ? (cfg.kinds || []).find((k) => !k.biome) ?? null : null;
+  const far = Math.hypot(town.x - node.x, town.y - node.y) >= (cfg.ringRadius ?? 140);
+  return far ? (cfg.kinds || []).find((k) => !k.biome) ?? null : null;
 }
 
-function farEnough(world, nation, node, cfg) {
-  const town = townOf(world, nation.id);
-  if (!town) return false;
-  return Math.hypot(town.x - node.x, town.y - node.y) >= (cfg.ringRadius ?? 140);
+/** 이 자취가 신전인가 — 제 종류의 **가장 깊은 곳**일 때만 그렇다 */
+export function templeKindAt(world, nation, node, data) {
+  if (!node || node.type !== 'ruin') return null;
+  const picked = templeNodes(world, nation, data);
+  const hit = Object.values(picked).find((p) => p.node.id === node.id);
+  return hit ? hit.kind : null;
 }
 
 /** 이 나라가 이 신전에서 어디까지 왔는가(저장된다) */
@@ -138,3 +172,24 @@ function pickVaultKey(world, nation, data, node, kind) {
 }
 
 const done = (result, events = []) => ({ ok: true, result, events });
+
+/**
+ * ★ §20-R4e — 신전 앞에 서서 문을 두드린다.
+ * 「왜」 어전 행동(explore)으로는 안 되나 — 그 문은 **영토 안**의 자취만 고를 수 있다(반경 49+26).
+ * 신전은 200타일 밖에 있다. 나라의 일이 아니라 **군주가 제 발로 가는 일**이라, 손 닿는 거리에서
+ * 손잡이를 잡는다(흔적·손일과 같은 자). 다음 단은 결정 큐에 올라 여느 안건처럼 답한다.
+ */
+export function enterTemple(world, nation, avatarId, nodeId, data) {
+  const node = (world.map.nodes || []).find((n) => n.id === nodeId);
+  if (!node) return { ok: false, code: 'BAD_NODE', message: '그런 자리가 없습니다.' };
+  const av = nation.avatars?.[avatarId];
+  const reach = data.balance.handWork?.reachTiles ?? 3.2;
+  if (av && Math.hypot(av.x - node.x, av.y - node.y) > reach + 0.6) {
+    return { ok: false, code: 'OUT_OF_RANGE', message: '더 가까이 가야 합니다.' };
+  }
+  const card = templeCard(world, nation, node, data);
+  if (!card) return { ok: false, code: 'NO_TEMPLE', message: '지금은 열리지 않습니다.' };
+  const already = (nation.decisionQueue || []).some((d) => d.decisionId === card.decisionId);
+  if (!already) (nation.decisionQueue ||= []).push({ ...card, createdTick: world.tick });
+  return { ok: true, card };
+}

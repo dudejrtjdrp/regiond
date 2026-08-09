@@ -47,6 +47,8 @@
     /* ★ §19-F3 — 특산품 · 연구 가속 · 재감정 · 주민 꾸미기 */
     'buySpecialty', 'hastenResearch', 'reappraiseLand', 'customizeResident',
     'ordersSet', 'saintBuff', 'useArtifact', 'councilAck',
+    /* ★ §20-R4e — 신전 문 두드리기(걸어가서 E) */
+    'enterTemple',
     /* ★ §20-R4c — 저주 봉인 · 세계수 심기 · 폭군의 왕관이 쓸 자리 고르기 */
     'sealArtifact', 'plantArtifact', 'tyrantPick',
     'setAutoExport', 'setExportFloor', 'pickRole', 'delegate',

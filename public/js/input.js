@@ -6,7 +6,7 @@
   var GM = global.GM = global.GM || {};
   var S = GM.state, U = GM.ui;
 
-  var keys = { up: 0, down: 0, left: 0, right: 0, camUp: 0, camDown: 0, camLeft: 0, camRight: 0 };
+  var keys = { up: 0, down: 0, left: 0, right: 0, run: 0, camUp: 0, camDown: 0, camLeft: 0, camRight: 0 };
   var cv = null;
   var drag = null;          // {sx, sy, x, y, moved, mode}
   var pointerIn = false, px = 0, py = 0, lastPointerAt = 0;
@@ -29,7 +29,7 @@
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
     window.addEventListener('blur', function () {
-      keys.up = keys.down = keys.left = keys.right = 0;
+      keys.up = keys.down = keys.left = keys.right = keys.run = 0;
       keys.camUp = keys.camDown = keys.camLeft = keys.camRight = 0;
       eHeld = false;
       if (GM.swing) GM.swing.stopHold();
@@ -53,9 +53,14 @@
     return Math.max(Math.abs(t.x - tx), Math.abs(t.y - ty)) <= 1.2;
   }
 
+  function introLocked() {
+    return !!(GM.opening && GM.opening.busy && GM.opening.busy() && !GM.opening.dropped());
+  }
+
   /* ══════════ 마우스 ══════════ */
   function onDown(e) {
     if (e.button === 2) return;
+    if (introLocked()) return;
     try { cv.setPointerCapture(e.pointerId); } catch (err) {}
     var l = localXY(e);
     var t = tileFrom(e);
@@ -121,6 +126,11 @@
 
   function onUp(e) {
     if (GM.swing) GM.swing.stopHold();
+    if (introLocked()) {
+      drag = null;
+      GM.world.setDragBox(null);
+      return;
+    }
     if (!drag) return;
     var d = drag;
     drag = null;
@@ -263,6 +273,7 @@
    */
   function onContext(e) {
     e.preventDefault();
+    if (introLocked()) return;
     var t = tileFrom(e);
     if (S.S.placing) { S.setPlacing(null); GM.build.close(); return; }
     var ids = S.S.selection.residents || [];
@@ -419,6 +430,7 @@
     }
     if (typing(e)) return;
     if (!GM.app.inGame()) return;
+    if (introLocked()) return;
     if (U.anyModalOpen()) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     var k = e.key.toLowerCase();
@@ -430,6 +442,7 @@
       case 's': keys.down = 1; break;
       case 'a': keys.left = 1; break;
       case 'd': keys.right = 1; break;
+      case 'shift': keys.run = 1; break;
       case 'arrowup': keys.camUp = 1; e.preventDefault(); break;
       case 'arrowdown': keys.camDown = 1; e.preventDefault(); break;
       case 'arrowleft': keys.camLeft = 1; e.preventDefault(); break;
@@ -465,6 +478,7 @@
       (문 앞이나 발자국 위에서 허공을 도끼질하지 않게 — 화면의 말머리 상자도 같은 순서로 고른다.
        흔적을 도읍보다 뒤에 두는 까닭: 도읍 앞은 오직 한 자리뿐이고, 흔적은 어디에나 있다.) */
   function startInteract() {
+    if (introLocked()) return;
     /* ★ §19-F4(F09-2) — 기차가 먼저다. 승강장 앞은 오직 그 한 자리뿐이고(도읍 앞과 같은 이유),
        타고 있는 동안에는 E 가 「내린다」가 된다 — 같은 손잡이로 타고 내린다. */
     if (trainInteract()) return;
@@ -472,6 +486,9 @@
     if (tw) { GM.diplomacy.visit(tw); return; }
     var tr = GM.trails && GM.trails.near();
     if (tr) { GM.trails.investigate(tr); return; }
+    /* ★ §20-R4e — 신전 문 앞. 흔적보다 뒤에 두는 까닭은 신전이 셋뿐이라 겹칠 일이 없고,
+       겹친다면 발밑의 흔적을 먼저 보는 편이 놀라움을 덜 깨기 때문이다. */
+    if (templeInteract()) return;
     var hw = handWorkTarget();
     if (hw) { GM.structure.runHandWork(hw); return; }
     GM.swing.startHold();
@@ -522,6 +539,21 @@
   /** ★ §19-D(F03-6) — 건물 위에서 E 면 그 건물의 대표 행동(손수 제련한다 · 톱질을 거든다 …)을 곧바로.
       「왜」 휘두를 것이 있으면 비켜 주나 — 제련소 곁의 나무를 베려던 손을 건물이 가로채면
       「E 가 엉뚱한 일을 한다」가 된다. 손에 잡히는 것이 없을 때만 건물 차례다. */
+  /** 신전 앞에서 E — 문을 두드린다. 판정(거리·단계)은 전부 서버가 다시 한다. */
+  function templeInteract() {
+    var me = GM.avatar && GM.avatar.pos();
+    if (!me || !S.templeNear) return false;
+    var c = S.cfg();
+    var reach = (c && c.balance && c.balance.handWork && c.balance.handWork.reachTiles) || 3.2;
+    var t = S.templeNear(me.x, me.y, reach);
+    if (!t) return false;
+    GM.net.send('enterTemple', { nodeId: t.id }, function (r) {
+      if (r && r.ok) { GM.sfx.play('unlock'); return; }
+      U.toast((r && r.error && r.error.message) || '지금은 열리지 않습니다.', 'warn');
+    });
+    return true;
+  }
+
   function handWorkTarget() {
     if (!GM.structure || !GM.structure.handWorkNear) return null;
     if (GM.swing && GM.swing.target()) return null;
@@ -534,6 +566,7 @@
     if (k === 's') keys.down = 0;
     if (k === 'a') keys.left = 0;
     if (k === 'd') keys.right = 0;
+    if (k === 'shift') keys.run = 0;
     if (k === 'e') { eHeld = false; if (GM.swing) GM.swing.stopHold(); }
     if (k === 'arrowup') keys.camUp = 0;
     if (k === 'arrowdown') keys.camDown = 0;

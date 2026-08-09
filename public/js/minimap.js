@@ -272,6 +272,15 @@
       ctx.restore();
     }
 
+    /* ★ §20-R4e — 고대 신전. 세상에 셋뿐이라 한 번 본 자리는 축소 지도에 남는다 —
+       200타일 밖을 다시 걸어 찾게 하면 그것은 탐험이 아니라 길잃음이다(안개 규칙은 그대로:
+       가 본 적 없는 자리의 노드는 애초에 오지 않는다). */
+    ctx.fillStyle = '#e8a33d';
+    S.nodeList().forEach(function (n) {
+      if (!n.temple) return;
+      ctx.fillRect(n.x * k - 2, n.y * k - 2, 5, 5);
+    });
+
     /* 도읍 */
     (m.towns || []).forEach(function (tw) {
       if (!tw.isPlayer && !tw.known) return;
