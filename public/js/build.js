@@ -161,6 +161,16 @@
         return { ok: false, reason: '자원이 나는 자리입니다' };
       }
     }
+    /* Match the server's PERSON_OCCUPIED rule so the ghost is denied immediately. */
+    var people = (S.residents() || []).concat(S.S.avatars || []);
+    for (var p = 0; p < people.length; p++) {
+      var person = people[p];
+      if (!Number.isFinite(person.x) || !Number.isFinite(person.y)) continue;
+      if (person.x >= rect.x0 - 0.5 && person.x < rect.x1 + 0.5
+        && person.y >= rect.y0 - 0.5 && person.y < rect.y1 + 0.5) {
+        return { ok: false, reason: '사람이 서 있는 자리에는 지을 수 없습니다.' };
+      }
+    }
     if (pl.kind === 'relocate') return { ok: true, note: '여기로 옮긴다' };
     var bi = S.buildableOf(key);
     if (bi && !bi.affordable) return { ok: false, reason: shortText(bi.cost, bi.gold) + ' 가 모자랍니다' };
@@ -213,10 +223,12 @@
     GM.sfx.play('page');
   }
 
-  function close() {
+  function close(keepPlacing) {
     open_ = false;
-    S.setPlacing(null);
-    GM.world.setFencePath(null);
+    if (!keepPlacing) {
+      S.setPlacing(null);
+      GM.world.setFencePath(null);
+    }
     if (bar) { bar.hidden = true; U.clear(bar); }
   }
 
@@ -418,11 +430,8 @@
 
   function pick(pl) {
     S.setPlacing(pl);
-    var label = pl.kind === 'reclaim' ? '개간' : nameOf(pl.key);
-    U.qsa('#place-bar .pb-item').forEach(function (x) {
-      var t = x.getAttribute('data-place') || '';
-      x.classList.toggle('on', !!label && t.indexOf(label) === 0);
-    });
+    // Hide the catalog while keeping placement mode active; B opens it again.
+    close(true);
     U.toast(pl.kind === 'reclaim' ? '풀밭을 끌어서 밭을 일구세요.' : '지도에서 자리를 골라 누르세요.', 'good', 2400);
   }
 

@@ -425,6 +425,15 @@ export function validatePlacement(world, nation, key, x, y, data, opts = {}) {
       return { ok: false, code: 'ON_NODE', message: '자원이 나는 자리입니다.' };
     }
   }
+  // Prevent buildings from appearing beneath residents or any connected player.
+  for (const owner of Object.values(world.nations || {})) {
+    const people = [...Object.values(owner.avatars || {}), ...(owner.villagers || [])];
+    if (people.some((person) => Number.isFinite(person.x) && Number.isFinite(person.y)
+      && person.x >= rect.x0 - 0.5 && person.x < rect.x1 + 0.5
+      && person.y >= rect.y0 - 0.5 && person.y < rect.y1 + 0.5)) {
+      return { ok: false, code: 'PERSON_OCCUPIED', message: '사람이 서 있는 자리에는 지을 수 없습니다.' };
+    }
+  }
   return { ok: true };
 }
 

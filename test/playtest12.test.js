@@ -80,6 +80,30 @@ test('§12-1 배치 — 풋프린트 전체가 영토·지형·간격을 지켜�
   assert.equal(structureAtCell(n, t.x, t.y, data)?.id, hq.id);
 });
 
+test('건설 위치에 서 있는 아바타나 주민이 있으면 착공할 수 없다', () => {
+  const w = newWorld(102);
+  const n = w.nations.player;
+  const t = townOf(w, 'player');
+  let spot = null;
+  for (let r = 5; r < 20 && !spot; r += 1) {
+    for (let dx = -r; dx <= r && !spot; dx += 1) {
+      for (let dy = -r; dy <= r && !spot; dy += 1) {
+        const x = t.x + dx, y = t.y + dy;
+        if (validatePlacement(w, n, 'tent', x, y, data).ok) spot = { x, y };
+      }
+    }
+  }
+  assert.ok(spot, '비어 있는 건설 칸을 찾는다');
+  n.avatars.lord = { id: 'lord', x: spot.x, y: spot.y };
+  let v = validatePlacement(w, n, 'tent', spot.x, spot.y, data);
+  assert.deepEqual({ ok: v.ok, code: v.code }, { ok: false, code: 'PERSON_OCCUPIED' }, '플레이어 아바타');
+
+  delete n.avatars.lord;
+  n.villagers.push({ id: 'v1', x: spot.x, y: spot.y, job: 'idle' });
+  v = validatePlacement(w, n, 'tent', spot.x, spot.y, data);
+  assert.deepEqual({ ok: v.ok, code: v.code }, { ok: false, code: 'PERSON_OCCUPIED' }, '주민');
+});
+
 // ────────────────────────────────────────────────────────────────
 // §12-2 정착지 본부 · 승격
 // ────────────────────────────────────────────────────────────────
