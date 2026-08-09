@@ -89,8 +89,9 @@ const ok = (data = {}) => ({ ok: true, ...data });
 
 function structureBlocks(nation, data, x, y) {
   for (const s of nation.structures || []) {
-    if ((s.key ?? s.building) === 'campfire') continue;
-    const { w, h } = footprint(s.key ?? s.building, data);
+    // `campfire` remains the persistent key of the settlement HQ after
+    // promotion, so it must block avatar position reports like any building.
+    const { w, h } = footprint(s.key ?? s.building, data, s.tier);
     if (x >= s.x && x < s.x + w && y >= s.y && y < s.y + h) return true;
   }
   for (const site of nation.construction || []) {
@@ -313,7 +314,7 @@ export function applyCommand(world, nationId, cmd, data, rng) {
   const nation = world.nations[nationId];
   if (!nation) return err('NO_NATION', '국가를 찾을 수 없습니다.');
   if (!commandUnlocked(nation, cmd.type, data)) {
-    return err('CHAPTER_LOCKED', '아직 그럴 때가 아닙니다.');
+    return err('CHAPTER_LOCKED', `${commandLabel(cmd.type)}은(는) 아직 열리지 않았습니다. 왼쪽 목표를 완료해 다음 단계로 진행하세요.`);
   }
   const res = runCommand(world, nationId, cmd, data, rng);
   if (!res.ok || !nation.isPlayer) return res;
@@ -321,6 +322,11 @@ export function applyCommand(world, nationId, cmd, data, rng) {
   const progressed = evaluateProgress(world, nation, data);
   if (progressed.length) res.events = [...(res.events || []), ...progressed];
   return res;
+}
+
+function commandLabel(type) {
+  return ({ placeBuilding: '건설', startResearch: '연구', trade: '교역',
+    recruitResident: '주민 모집', councilAck: '어전 회의', enterTemple: '신전 조사' })[type] || '이 행동';
 }
 
 function runCommand(world, nationId, cmd, data, rng) {
@@ -875,25 +881,10 @@ function runCommand(world, nationId, cmd, data, rng) {
       });
     }
 
-    case 'setAppearance': {
-      const input = cmd.appearance ?? cmd.payload?.appearance ?? null;
-      const v = validateAppearance(input, data);
-      if (!v.ok) return v;
-      const who = cmd.avatarId ?? cmd.playerName ?? 'lord';
-      const name = cmd.playerName ?? null;
-      const base = memberAppearance(nation, who, data);
-      const { appearance } = normalizeAppearance(input, data, base);
-      const avatars = (nation.avatars ||= {});
-      const prev = avatars[who] ?? null;
-      const town = townOf(world, nation.id);
-      avatars[who] = {
-        id: who, name: name ?? prev?.name ?? '개척자',
-        x: prev?.x ?? town?.x ?? 0, y: prev?.y ?? town?.y ?? 0,
-        tick: world.tick, appearance,
-      };
-      upsertMember(nation, { avatarId: who, name: name ?? undefined, appearance }, data);
-      return ok({ avatarId: who, appearance, avatar: avatars[who], members: normalizeMembers(nation, data) });
-    }
+    case 'setAppearance':
+      /* 플레이 중 외형·이름 변경은 제공하지 않는다. 역할을 맡으면 그 역할의 고정 스프라이트와
+         초상을 사용하며, 클라이언트가 남아 있더라도 서버에서 변경을 받아들이지 않는다. */
+      return err('APPEARANCE_LOCKED', '플레이 중 이름과 모습은 바꿀 수 없습니다.');
 
     case 'chat': {
       const who = cmd.avatarId ?? cmd.playerName ?? 'lord';

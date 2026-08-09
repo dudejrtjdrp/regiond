@@ -16,7 +16,7 @@
 //   · 지켜보는 동안 — server/index.js 의 생태계 1초 루프가 stepCompanions 를 부른다. 실제로 걷고 휘두른다.
 //   · 아무도 없을 때 — tick.js 의 일 틱이 stepCompanionsDay 로 **안 본 만큼만** 몰아 돌린다
 //     (liveSeconds 를 세어 두고 하루에서 뺀다). 그래서 방치가 이득도 손해도 되지 않는다.
-import { townOf, territoryRadius, dist, terrainAt, terrainIndex } from './world.js';
+import { townOf, territoryRadius, dist, terrainAt, terrainIndex, isWaterMargin } from './world.js';
 // ★ Sprint 3 — 노드 조회·둘레 훑기는 파생 색인 하나로 모은다(spatial.js 머리말 참고)
 import { nodeById, nodesNear } from './spatial.js';
 import { rngFromState } from './rng.js';
@@ -33,7 +33,7 @@ import { isFull } from './storage.js';
 import { grainDays, freeBeds, recruitResident, recruitStatus } from './residents.js';
 import { defaultName } from './npc.js';
 import { revealAvatar } from './fog.js';
-import { startResearch, RESEARCH_KEYS, onBridge, onFill } from './research.js';
+import { startResearch, RESEARCH_KEYS } from './research.js';
 import { commandUnlocked, featureUnlocked, buildingUnlocked, currentChapter, measure } from './progression.js';
 import { round2 } from './economy.js';
 // ★ Sprint 2 — 곧장이 막히면 길을 내서 돌아간다(주민·아바타와 같은 A*). 물가 정지 종결.
@@ -327,10 +327,38 @@ export function walkable(world, data, x, y, nation = null) {
   const list = data.world.terrain.walkable || ['grass', 'forest', 'rock', 'fertile'];
   const idx = terrainIndex(data);
   const t = terrainAt(world.map, Math.round(x), Math.round(y));
-  if (list.some((c) => idx[c] === t)) return true;
   /* ★ §17-13 — 다리·매립 위의 물은 **사람에게만** 길이다(avatar.walkable 과 같은 규칙).
      짐승(ecology.creatureMayStand)과 적(battle)은 이 문을 타지 않는다 — 다리를 못 쓴다. */
-  return nation != null && t === idx.water && (onBridge(nation, x, y) || onFill(nation, x, y));
+  // Companions never stand on water, including bridge/fill terrain cells.
+  if (t === idx.water) return false;
+  if (isWaterMargin(world.map, x, y, data)) return false;
+  return list.some((c) => idx[c] === t);
+}
+
+function drySpotNear(world, nation, data, x, y, maxR = world.map?.size ?? 64) {
+  const cx = Math.round(x);
+  const cy = Math.round(y);
+  for (let r = 0; r <= maxR; r += 1) {
+    for (let dy = -r; dy <= r; dy += 1) {
+      for (let dx = -r; dx <= r; dx += 1) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const px = cx + dx;
+        const py = cy + dy;
+        if (walkable(world, data, px, py, nation)) return { x: px, y: py };
+      }
+    }
+  }
+  return null;
+}
+
+function evacuateFromWater(world, nation, data, av) {
+  if (!av || terrainAt(world.map, Math.round(av.x), Math.round(av.y)) !== terrainIndex(data).water) return false;
+  const spot = drySpotNear(world, nation, data, av.x, av.y);
+  if (!spot) return false;
+  av.x = spot.x;
+  av.y = spot.y;
+  av.tick = world.tick;
+  return true;
 }
 
 /** 이 자리의 사람이 즐겨 머무는 건물 — 공장장은 대장간 곁에서 일한다(§15-C) */
@@ -611,7 +639,9 @@ function aimPoint(world, nation, data, tgt) {
   switch (tgt.kind) {
     case 'node': {
       const n = nodeById(world, tgt.id);           // ★ Sprint 3 — targetValid 와 같은 색인
-      return n ? { x: n.x, y: n.y } : null;
+      if (!n) return null;
+      return terrainAt(world.map, Math.round(n.x), Math.round(n.y)) === terrainIndex(data).water
+        ? drySpotNear(world, nation, data, n.x, n.y) : { x: n.x, y: n.y };
     }
     case 'site': {
       const s = (nation.construction || []).find((x) => x.id === tgt.id);
@@ -956,7 +986,8 @@ export function stepCompanions(world, nation, data, dt = 1, opts = {}) {
      갓 연 세상(tick 0)에서는 사람의 첫 발걸음(lordMove — 하차 순간 클라가 보낸다)이 닿기 전까지
      동료도 잠들어 있다. 하루가 지나면(일 틱) 어차피 깬다 — 방치해도 세상이 영영 멎지는 않는다. */
   if (!st.awake) {
-    st.awake = (world.tick ?? 0) > 0 || humanAvatarCount(nation) > 0;
+    /* 접속으로 생긴 아바타는 아직 마차에서 내린 것이 아니다. 첫 lordMove 가 깨운다. */
+    st.awake = (world.tick ?? 0) > 0;
     if (!st.awake) return out;
   }
 
@@ -965,6 +996,7 @@ export function stepCompanions(world, nation, data, dt = 1, opts = {}) {
 
   for (const comp of st.list) {
     if (!comp.active) continue;
+    evacuateFromWater(world, nation, data, nation.avatars?.[comp.id]);
     driveActor(world, nation, data, { id: comp.id, comp, now: st.clock, budgeted: true, human: false }, dt, out);
   }
 
@@ -1030,6 +1062,7 @@ export function stepCompanionsDay(world, nation, data) {
     if ((player.downUntil || 0) > 0) continue;
     const av = nation.avatars?.[comp.id];
     if (!av) continue;
+    evacuateFromWater(world, nation, data, av);
     /* 많이 다친 사람은 그날은 모닥불 곁에서 쉰다 — 거기서만 기운이 돈다(§14-6 부활과 같은 자리) */
     const maxHp = playerMaxHp(player, data);
     if ((player.hp ?? maxHp) / Math.max(1, maxHp) < (brainCfg(data).fleeHpRatio ?? 0.35)) {

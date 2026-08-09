@@ -770,9 +770,9 @@
   },
   "territory": {
     "_note": "영토 = 정착지 중심 반경. ★ GDD3 §1 — 티어가 오르면 자동으로 넓어진다(data/tiers.json levels[].radius). 개척령(expand)은 폐기됐다. ★ §17-8 피드백 — 시작 영토를 6→9로 넓히고 티어별 폭도 키웠다. spawnWaterClearMargin: 시작 영토+이 값 안의 물은 월드 생성 때 풀밭으로 메운다(첫 땅에 물이 차면 이동·건설이 다 막힌다).",
-    "baseRadius": 9,
+    "baseRadius": 22,
     "aiBaseRadius": 14,
-    "spawnWaterClearMargin": 2,
+    "spawnWaterClearMargin": 8,
     "claim": {
       "_note": "★ §17-14 — 깃발 멀티. 본영 밖에 개척 깃발 flagsRequired개를 groupRadius 안에 모아 세우고, 건축가·국방대신 역할의 동료(또는 그 역할을 든 아바타)가 둘 다 무리 중심 escortRadius 안에 서면 그 자리가 새 영토(claimRadius)로 편입된다.",
       "flagsRequired": 3,

@@ -140,6 +140,18 @@ export function isWaterAt(map, x, y, data) {
   return terrainAt(map, Math.round(x), Math.round(y)) === terrainIndex(data).water;
 }
 
+export function isWaterMargin(map, x, y, data) {
+  const cx = Math.round(x);
+  const cy = Math.round(y);
+  const water = terrainIndex(data).water;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (terrainAt(map, cx + dx, cy + dy) === water) return true;
+    }
+  }
+  return false;
+}
+
 export const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
 export const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
 
@@ -289,6 +301,27 @@ function clearRadiusOf(town, data) {
   return town.isPlayer ? (c?.clearRadius ?? 0) : (c?.aiClearRadius ?? 0);
 }
 
+/** 시작 본부의 최종 확장 부지(8×8)는 자원 노드가 절대 생기지 않는 성역이다. */
+export function playerHqReserveRect(town, data) {
+  const reserve = data.buildings?.campfire?.reserveFootprint ?? [8, 8];
+  const base = data.buildings?.campfire?.tierFootprints?.[0]
+    ?? data.buildings?.campfire?.footprint
+    ?? [1, 1];
+  const w = Math.max(1, Math.round(reserve[0]));
+  const h = Math.max(1, Math.round(reserve[1]));
+  const cx = (town?.x ?? 0) + (Math.max(1, Math.round(base[0])) - 1) / 2;
+  const cy = (town?.y ?? 0) + (Math.max(1, Math.round(base[1])) - 1) / 2;
+  const x0 = Math.round(cx - (w - 1) / 2);
+  const y0 = Math.round(cy - (h - 1) / 2);
+  return { x0, y0, x1: x0 + w - 1, y1: y0 + h - 1 };
+}
+
+function inPlayerHqReserve(town, x, y, data) {
+  if (!town?.isPlayer) return false;
+  const reserve = playerHqReserveRect(town, data);
+  return x >= reserve.x0 && x <= reserve.x1 && y >= reserve.y0 && y <= reserve.y1;
+}
+
 /**
  * 노드 하나가 앉을 수 있는 자리인가.
  * ① 지도 안 ② 지형이 맞다 ③ 어느 도읍의 빈 땅(clearRadius)도 아니다
@@ -300,6 +333,7 @@ function spotOk(ctx, type, def, x, y, relax = false) {
   if (x < 1 || y < 1 || x >= size - 1 || y >= size - 1) return false;
   const minTown = def.minTownDistance ?? 0;
   if (minTown > 0 && playerTown && dist(playerTown.x, playerTown.y, x, y) < minTown) return false;
+  if (inPlayerHqReserve(playerTown, x, y, data)) return false;
   const terr = terrainAt(map, x, y);
   const wants = def.terrains || (def.terrain != null ? [def.terrain] : null);
   // ★ 첫 군락 보장(nearGuarantee)은 지형을 느슨하게 본다 — 마차가 어디에 서든 8~13타일 안에
@@ -655,6 +689,16 @@ function clearWaterAround(map, town, data) {
       if (chars[i].charCodeAt(0) - 48 === idx.water) { chars[i] = grassCh; changed = true; }
     }
   }
+  // The circular spawn cleanup can miss a corner of the square reserved for the
+  // final headquarters, so dry the full parcel as well.
+  const reserve = playerHqReserveRect(town, data);
+  for (let y = reserve.y0; y <= reserve.y1; y += 1) {
+    for (let x = reserve.x0; x <= reserve.x1; x += 1) {
+      if (x < 0 || y < 0 || x >= map.size || y >= map.size) continue;
+      const i = y * map.size + x;
+      if (chars[i].charCodeAt(0) - 48 === idx.water) { chars[i] = grassCh; changed = true; }
+    }
+  }
   if (changed) map.terrain = chars.join('');
 }
 
@@ -766,6 +810,9 @@ export function removeNode(world, id) {
 
 /** 새 노드 추가(개간 등) */
 export function addNode(world, type, x, y, data, { rich = false, tick = 0 } = {}) {
+  const playerTown = (world.map?.towns || []).find((town) => town.isPlayer);
+  // 이벤트·유적 보상으로 새 노드를 만들 때도 본부의 최종 확장 부지는 지킨다.
+  if (inPlayerHqReserve(playerTown, x, y, data)) return null;
   const def = data.world.nodes.types[type];
   const id = `n${world.map.nextNodeId++}`;
   const node = {

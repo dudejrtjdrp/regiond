@@ -37,6 +37,7 @@ import { rolePerk } from './npc.js';
    않는다: 거울(nation.artifactCombat)만 읽고, 굴림은 combat.js 의 공용 한 벌을 쓴다. */
 import { artifactCritRoll, artifactDodgeRoll } from './combat.js';
 import { consumeRevive, speciesDamageMultiplier } from './artifacts.js';
+import { respawnSpot } from './path.js';
 
 export const creatureCfg = (data) => data.creatures;
 export const creatureDefs = (data) => data.creatures.defs;
@@ -215,12 +216,12 @@ function spawnOne(world, nation, data, key, ring, rng, at = null) {
  * 이것은 세상이 낳은 것이 아니라 **신전이 세워 둔 것**이다. 자리를 옮기면 지킬 것을 지키지 못한다.
  * 정원(ensureCreatures)과도 무관하다 — 눕히면 그 자리는 다시 채워지지 않는다.
  */
-export function spawnGuardian(world, nation, data, speciesKey, at) {
+export function spawnGuardian(world, nation, data, speciesKey, at, theme = null) {
   const def = creatureDefs(data)[speciesKey];
   if (!def || !at) return null;
   const w = ensureWild(nation);
   const c = {
-    id: `w${w.nextId++}`, sp: speciesKey, guardian: true,
+    id: `w${w.nextId++}`, sp: speciesKey, guardian: theme || true,
     x: at.x, y: at.y, tx: at.x, ty: at.y,
     hp: def.hp, maxHp: def.hp, ring: 3,
     state: 'wander', retarget: 0, atkCd: 0, provoked: 0, seen: false,
@@ -675,13 +676,14 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
     p.hp = round2(p.maxHp * (cCfg.reviveHpRatio ?? 0.5));
     p.invulnUntil = cCfg.invulnSeconds ?? 3;
     const av = nation.avatars?.[p.id];
-    if (av && town0) { av.x = town0.x; av.y = town0.y; }
+    const at = respawnSpot(world, nation, data) ?? town0;
+    if (av && at) { av.x = at.x; av.y = at.y; }
     events.push({
       kind: 'player_revived', nationId: nation.id,
       data: {
         avatarId: p.id, hp: p.hp, maxHp: p.maxHp,
         invulnSeconds: p.invulnUntil,
-        x: town0?.x ?? av?.x ?? 0, y: town0?.y ?? av?.y ?? 0,
+        x: at?.x ?? av?.x ?? 0, y: at?.y ?? av?.y ?? 0,
       },
     });
   }
@@ -917,7 +919,8 @@ function bite(world, nation, def, avatar, data) {
   p.downUntil = c.downSeconds;
   nation.morale = Math.max(data.balance.morale.min, (nation.morale ?? 1) - c.downMoralePenalty);
   const town = townOf(world, nation.id);
-  if (town) { avatar.x = town.x; avatar.y = town.y; }
+  const at = respawnSpot(world, nation, data) ?? town;
+  if (at) { avatar.x = at.x; avatar.y = at.y; }
   return {
     kind: 'player_down', nationId: nation.id,
     data: {
@@ -925,7 +928,7 @@ function bite(world, nation, def, avatar, data) {
       reviveHpRatio: c.reviveHpRatio ?? 0.5,
       invulnSeconds: c.invulnSeconds ?? 3,
       moralePenalty: c.downMoralePenalty,
-      x: town?.x ?? avatar.x, y: town?.y ?? avatar.y,
+      x: at?.x ?? avatar.x, y: at?.y ?? avatar.y,
     },
   };
 }
@@ -1156,6 +1159,8 @@ export function creatureViews(world, nation, data) {
       x: c.x, y: c.y, hp: round2(c.hp), maxHp: c.maxHp, ring: c.ring, state: c.state,
       /* ★ §19-F1(F08-4) — 기르는 것인가. 화면은 이 한 칸으로 「사냥」과 「키우기」를 가른다. */
       tamed: c.tamed ? true : undefined,
+      /* 신전 수호병은 종(species)과 별개로 신전별 외형 시트를 쓴다. */
+      guardianTheme: typeof c.guardian === 'string' ? c.guardian : undefined,
     });
   }
   return out;

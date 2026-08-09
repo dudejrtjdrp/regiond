@@ -15,6 +15,7 @@ import { statRng } from './traits.js';
 import { terrainNameAt } from './world.js';
 import { stampVisionDisc } from './fog.js';
 import { record as chronicle } from './chronicle.js';
+import { templeNodes } from './temple.js';
 
 export const clueCfg = (data) => data.ruins?.clue ?? null;
 
@@ -28,18 +29,37 @@ export function dropClue(world, nation, data, node) {
   /* ★ 한 자취는 **한 곳만** 가리킨다. 돌에 새겨진 지도는 물을 때마다 다른 곳을 가리키지 않고,
      방이 넷인 성채에서 깊은 카드를 둘 뽑았다고 갈 곳이 둘로 늘어서도 안 된다(단서 농사 금지). */
   if (node.clueGiven) return null;
-  const target = pickTarget(world, nation, data, node, cfg);
+  /* 깊은 유적의 세 번째 단서는 다음 유적이 아니라 신전으로 이어진다.
+     궤·유적을 여는 행동이 "언젠가 좋은 게 나오겠지"에서 명확한 원정 목표로 바뀐다. */
+  const count = (nation.templeClues ?? 0) + 1;
+  const temple = count % 3 === 0 ? pickTemple(world, nation, data, count) : null;
+  const target = temple?.node ?? pickTarget(world, nation, data, node, cfg);
   if (target) node.clueGiven = true;
   if (!target) return null;
+  nation.templeClues = count;
   const dir = dirWord(cfg, target.x - node.x, target.y - node.y);
   const land = landWord(world, data, cfg, target);
-  const text = lineFor(cfg, node, dir, land);
+  const text = temple ? templeLine(cfg, temple.kind, dir, land) : lineFor(cfg, node, dir, land);
   const revealed = stampVisionDisc(nation, data, world.tick, target.x, target.y, cfg.revealRadius ?? 9);
   chronicle(world, {
     kind: 'discovery', title: cfg.chronicleTitle ?? '옮겨 적은 선', text,
     data: { from: node.id },
   }, data);
-  return { text, dir, land, revealed };
+  return { text, dir, land, revealed, temple: Boolean(temple), templeId: temple?.kind?.id ?? null };
+}
+
+function pickTemple(world, nation, data, count) {
+  const pool = Object.values(templeNodes(world, nation, data))
+    .filter((p) => !nation.temples?.[p.node.id]?.done);
+  if (!pool.length) return null;
+  return pool[Math.floor((count - 1) / 3) % pool.length];
+}
+
+function templeLine(cfg, kind, dir, land) {
+  const lines = cfg.templeLines || [];
+  if (!lines.length) return `${dir} ${land}, ${kind.name}의 문양이 보인다.`;
+  return lines[Math.abs(hash(String(kind.id))) % lines.length]
+    .replace('{dir}', dir).replace('{land}', land).replace('{temple}', kind.name);
 }
 
 /**

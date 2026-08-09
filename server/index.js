@@ -51,6 +51,7 @@ import { claimStep } from './engine/claims.js';
 import { stepTrains, trainViews } from './engine/train.js';
 import { stampVisionDisc } from './engine/fog.js';
 import { chronicleView, record as chronicleRecord } from './engine/chronicle.js';
+import { artifactFoundEvent } from './engine/artifacts.js';
 import {
   upsertMember as upsertMemberEntry, normalizeAppearance, defaultAppearance, chatHistory,
 } from './engine/social.js';
@@ -59,6 +60,7 @@ import { saveSnapshot, markDirty, loadSnapshot, appendEvents, listGames, savesDi
 import { ExpressionQueue } from './expression/index.js';
 // ★ §20-R1.5 — 언어의 돌(expressionQuality)이 표현 계층까지 닿게 하는 한 칸
 import { expressionQualityOf } from './engine/artifacts.js';
+import { respawnSpot } from './engine/path.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(here, '..', 'public');
@@ -132,7 +134,22 @@ app.use('/api', (req, res, next) => {
 });
 app.use(express.static(PUBLIC_DIR, {
   etag: true,
-  setHeaders(res) { res.setHeader('Cache-Control', 'no-cache'); },
+  setHeaders(res, path) {
+    /* Images are immutable for the lifetime of a versioned URL.  Keeping
+       scripts and HTML revalidated preserves fast deploys, while this avoids
+       revalidating and re-downloading sprite sheets whenever a player enters
+       the game again.  Assets without a version query still receive a short,
+       safe cache window so replacing a file cannot leave clients stale for
+       long. */
+    if (/[/\\]assets[/\\]/.test(path)) {
+      var versioned = /[?&]v=/.test((res.req && res.req.originalUrl) || '');
+      res.setHeader('Cache-Control', versioned
+        ? 'public, max-age=31536000, immutable'
+        : 'public, max-age=86400, stale-while-revalidate=604800');
+      return;
+    }
+    res.setHeader('Cache-Control', 'no-cache');
+  },
 }));
 const http = createServer(app);
 // ★ 프록시 뒤(Render 등)에서도 그대로 돈다 — 소켓은 같은 출처(`/socket.io`)로 붙고,
@@ -514,6 +531,7 @@ class GameRuntime {
       .map((e) => ({ tick: this.world.tick, ...e }));
     // ★ §세계관 W2 — 첫 결전의 승패가 이야기의 갈래(막음/무너짐)를 고른다
     const waveBatch = [ev, ...progressed];
+    if (result.artifact) waveBatch.push(artifactFoundEvent(this.world, nation, result.artifact.key, 'battle', data));
     waveBatch.push(...storyEvents(this.world, data, waveBatch));
     const decorated = this.#decorate(waveBatch, nation.id);
     this.world.log = [...(this.world.log || []), ...decorated].slice(-400);
@@ -867,6 +885,21 @@ function livePlayerProgress(nation, avatarId, data) {
 }
 
 /** 역할 갱신 통지 — pickRole/delegate 로 자리 배치가 바뀌면 방 전체가 자기 역할을 다시 파생한다 */
+function roleForAvatar(nation, avatarId) {
+  const roles = nation?.roles ?? {};
+  const exact = data.roles.order.find((key) => roles[key]?.holder === 'player'
+    && (roles[key].owner == null || roles[key].owner === avatarId));
+  if (exact) return exact;
+
+  /* 이전 저장본은 재입장 때 임시 avatarId가 달라질 수 있다. 명부에 남은 역할을 먼저
+     되살리고, 혼자 이어 하는 나라라면 유일한 사람 역할도 안전하게 되찾는다. */
+  const member = (nation?.members ?? []).find((m) => !m.bot && m.avatarId === avatarId);
+  if (member?.role && roles[member.role]?.holder === 'player') return member.role;
+  const playerRoles = data.roles.order.filter((key) => roles[key]?.holder === 'player');
+  const humans = (nation?.members ?? []).filter((m) => !m.bot && m.avatarId);
+  return playerRoles.length === 1 && humans.length === 1 ? playerRoles[0] : null;
+}
+
 function refreshRoles(rt, nationId, { actorSocketId = null, takenFrom = null } = {}) {
   const nation = rt.world.nations[nationId];
   if (!nation) return null;
@@ -877,8 +910,7 @@ function refreshRoles(rt, nationId, { actorSocketId = null, takenFrom = null } =
   for (const [socketId, session] of sessions) {
     if (session.gameId !== rt.gameId || session.nationId !== nationId) continue;
     const who = session.avatarId ?? session.playerName;
-    const mine = data.roles.order
-      .find((k) => roles[k]?.holder === 'player' && (roles[k].owner ?? who) === who) ?? null;
+    const mine = roleForAvatar(nation, who);
     const changed = session.role !== mine;
     const before = session.role;
     session.role = mine;
@@ -1007,9 +1039,30 @@ io.on('connection', (socket) => {
     /* ★ GDD3 §15-C — 동료의 아이디를 사람이 가로챌 수 없다. 그 자리는 서버가 세는 「정원」의
        기준이므로, 사람이 봇 아이디로 들어오면 자리 계산이 통째로 어긋난다. */
     let avatarId = payload.avatarId != null ? String(payload.avatarId).slice(0, 40) : playerName;
+    /* 로비는 재입장 때 avatarId를 보내지 않는다. 같은 이름의 기존 명부 ID를 되살려야
+       감정의 날에 맡은 역할(owner)과 플레이어 장부가 끊기지 않는다. */
+    if (payload.avatarId == null) {
+      const remembered = (nation.members || []).find((m) => m && !m.bot && m.name === playerName && m.avatarId);
+      if (remembered) avatarId = remembered.avatarId;
+      /* A continued solo settlement must retain its identity even when the
+         lobby name was changed or local storage was cleared.  Do not apply
+         this fallback to multiplayer saves: only reclaim the sole known human
+         who owns a player role and is not currently connected. */
+      if (!remembered) {
+        const humans = (nation.members || []).filter((m) => m && !m.bot && m.avatarId);
+        const owners = [...new Set(data.roles.order
+          .map((key) => nation.roles?.[key])
+          .filter((seat) => seat?.holder === 'player' && seat.owner)
+          .map((seat) => seat.owner))];
+        const sole = humans.length === 1 && owners.length === 1 && humans[0].avatarId === owners[0]
+          ? owners[0] : null;
+        const connected = sole && [...sessions.values()].some((s) => s.gameId === rt.gameId
+          && s.nationId === nationId && (s.avatarId ?? s.playerName) === sole);
+        if (sole && !connected) avatarId = sole;
+      }
+    }
     if (isCompanionId(nation, avatarId)) avatarId = `${avatarId}#`;
-    const role = data.roles.order
-      .find((k) => nation.roles?.[k]?.holder === 'player' && (nation.roles[k].owner ?? avatarId) === avatarId) ?? null;
+    const role = roleForAvatar(nation, avatarId);
     const { appearance } = normalizeAppearance(payload.appearance, data, defaultAppearance(data));
 
     /* ★ §19-A — 한 소켓은 한 방에만 있는다. socket.io 의 join 은 예전 방을 떠나지 않으므로,
@@ -1028,11 +1081,11 @@ io.on('connection', (socket) => {
     ensurePlayer(nation, avatarId, data, playerName);
     const town = rt.world.map?.towns?.find((t) => t.nationId === nationId) ?? null;
     const avatars = (nation.avatars ||= {});
-    const back = nation.players?.[avatarId]?.lastPos ?? null;
+    const entrance = respawnSpot(rt.world, nation, data) ?? town ?? { x: 0, y: 0 };
     avatars[avatarId] = {
       id: avatarId, name: playerName,
-      x: avatars[avatarId]?.x ?? back?.x ?? town?.x ?? 0,
-      y: avatars[avatarId]?.y ?? back?.y ?? town?.y ?? 0,
+      x: entrance.x,
+      y: entrance.y,
       tick: rt.world.tick, appearance,
     };
     /* ★ GDD3 §15-C 멀티 심리스 — 사람이 들어왔으니 동료 하나가 자리를 비킨다.
@@ -1111,7 +1164,10 @@ io.on('connection', (socket) => {
         //   같은 방의 동료들도 'swing' 중계로 같은 잔고를 함께 받는다(창고는 나라 공용이다).
         out.resources = liveResources(rt.world.nations[s.nationId]);
         // ★ §19-C — 눈금(경험치)도 잔고와 **같은 자리에** 싣는다(모든 행동이 이 문을 지난다)
-        out.progress = livePlayerProgress(rt.world.nations[s.nationId], identity?.avatarId, data);
+        // Keep the construction site's numeric `progress` intact.  Player progression
+        // is a separate payload; overwriting it here made site gauges receive an object
+        // and remain visually stuck until the construction completed.
+        out.playerProgress = livePlayerProgress(rt.world.nations[s.nationId], identity?.avatarId, data);
         if (ack) ack(out);
         socket.to(s.gameId).emit('swing', { avatarId: identity.avatarId, type, ...out });
         /* ★ §19-A — 궤를 열면 그 자리는 세상에서 **지워진다**(그루터기가 아니다). 그런데 실시간 경로는

@@ -29,7 +29,8 @@ import {
 import { createRng, rngFromState } from './rng.js';
 import { round2, round3, clamp } from './economy.js';
 // ★ §20-R1 — 격퇴 보상(골드·사기)에 유물이 얹힌다. 결산 한 번에 한 번만 걷는다.
-import { collectHooks } from './artifacts.js';
+import { collectHooks, grantVia } from './artifacts.js';
+import { statRng } from './traits.js';
 /* ★ §20-R4 — 웨이브당 부활 충전. 서브틱은 실시간 경로라 collectHooks 를 부르지 않는다:
    되감기는 startBattle 한 번, 소비는 쓰러지는 순간 한 번(거울 nation.artifactReviveLeft). */
 import { resetReviveCharges, consumeRevive } from './artifacts.js';
@@ -38,7 +39,7 @@ import { artifactCritRoll, artifactDodgeRoll } from './combat.js';
 // ★ Sprint 2 — 전투의 발: 수비는 깃발로, 영토 밖 일꾼은 마을로. 끝나면 제 일터로.
 import { battleStations, standDown } from './assign.js';
 // ★ §19-C — 스폰 자리 검사(물에서 태어나 갇히는 사고를 막는다)
-import { nearestWalkable, findPath } from './path.js';
+import { nearestWalkable, findPath, respawnSpot } from './path.js';
 
 const err = (code, message) => ({ ok: false, error: { code, message } });
 
@@ -355,10 +356,11 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
     p.hp = round2(p.maxHp * (cCfg.reviveHpRatio ?? 0.5));
     p.invulnUntil = cCfg.invulnSeconds ?? 3;
     const av = nation.avatars?.[p.id];
-    if (av) { av.x = b.core.x; av.y = b.core.y; }
+    const at = respawnSpot(world, nation, data) ?? b.core;
+    if (av) { av.x = at.x; av.y = at.y; }
     push(b, {
       t: round2(b.t), kind: 'playerRevived', targetId: p.id,
-      hp: p.hp, maxHp: p.maxHp, invulnSeconds: p.invulnUntil, x: b.core.x, y: b.core.y,
+      hp: p.hp, maxHp: p.maxHp, invulnSeconds: p.invulnUntil, x: at.x, y: at.y,
     }, data);
   }
 
@@ -849,6 +851,8 @@ export function finishBattle(world, nation, data) {
       ? `${b.name} ${b.total}을(를) 모두 막아 냈습니다.`
       : `${b.name} ${b.escaped}이(가) 곳간을 헤집고 물러갔습니다.`,
   };
+  const loot = battleRelic(world, nation, data, result);
+  if (loot) result.artifact = loot;
 
   advanceWave(nation, {
     index: result.index, type: result.type, name: result.name, tick: result.tick,
@@ -868,6 +872,15 @@ export function finishBattle(world, nation, data) {
   /* ★ Sprint 2 — 종이 그쳤다. 저마다 제 일터의 발치로 돌아간다. */
   standDown(world, nation, data);
   return result;
+}
+
+function battleRelic(world, nation, data, result) {
+  const cfg = data.balance.artifacts.battleLoot;
+  if (!cfg || !result.won || result.number < cfg.minWave || result.enemiesTotal < cfg.minEnemies || result.power < cfg.minPower) return null;
+  const flawless = result.playersDowned === 0 && result.militiaDowned === 0 && result.fencesBroken === 0;
+  const chance = Math.min(cfg.cap, cfg.base + Math.max(0, result.number - cfg.minWave) * cfg.perWave + (flawless ? cfg.flawlessBonus : 0));
+  const rng = statRng(`${world.seed}:battleLoot:${nation.id}:${result.index}`);
+  return grantVia(world, nation, data, rng, { via: 'battle:elite', chance }, world.tick);
 }
 
 /**

@@ -282,6 +282,7 @@ test('★ §21-A3 해시 눈금 — 새 코드가 든 chunkHash 는 옛 문자�
 test('★ §21-A3 세이브 왕복 — 한 바퀴 돌고 온 세상과 안 돌고 온 세상이 완전히 같다', () => {
   const a = scene(4545);
   const b = scene(4545);
+  migrateWorld(a.world, data);
   const migrated = migrateWorld(asLegacySave(b.world), data);   // 저장했다 다시 연 세상
   const nb = migrated.nations.player;
 

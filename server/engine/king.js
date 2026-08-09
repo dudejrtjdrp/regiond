@@ -162,25 +162,59 @@ export function openRuinCard(world, nation, data, rng, node = null, room = {}) {
   /* ★ §22 — 같은 날 방 둘을 여는 일은 드물지 않다(방 사이는 4~6 스윙, 한 틱은 게임 하루다).
      여태처럼 `나라_틱_카드` 로만 지으면 두 방의 결정이 같은 열쇠를 갖고 하나가 삼켜진다. */
   const decisionId = `ruin_${nation.id}_${node?.id ?? 'x'}_${room.room ?? 0}_${world.tick}_${def.id}`;
+  /* 유물은 전리품인 동시에 신전으로 이어지는 기록이다. 단서 카드가 뜨는 깊은 방만
+     설명하면 대부분의 탐험은 맥락 없이 끝난다. 어느 유적이든 방을 열 때마다 깊이에
+     맞는 전설 한 조각을 주되, 실제 신전 위치는 세 번째 단서 전까지 감춘다. */
+  const lore = ruinLore(world, room, nation, node, data);
   const card = {
     decisionId,
+    kind: data.ruins.decisionKind,
+    title: data.ruins.title,
     cardId: def.id,
     name: def.name,
-    text: def.text,
+    text: `${def.name} — ${def.text}`,
     room: room.room ?? null,
     rooms: room.rooms ?? null,
     options: def.options.map((o) => ({ key: o.key, label: o.label })),
+    ruin: { cardId: def.id, gradeBoost: room.gradeBoost ?? 0, nodeId: node?.id ?? null }, lore,
   };
   (nation.decisionQueue ||= []).push({
     decisionId,
     kind: data.ruins.decisionKind,
     title: data.ruins.title,
-    text: `${def.name} — ${def.text}`,
+    text: card.text,
     options: def.options.map((o) => o.key),
     createdTick: world.tick,
-    ruin: { cardId: def.id, gradeBoost: room.gradeBoost ?? 0, nodeId: node?.id ?? null },
+    ruin: card.ruin, lore,
   });
   return card;
+}
+
+function ruinLore(world, room, nation, node, data) {
+  const rooms = Math.max(1, room.rooms ?? 1);
+  const progress = (room.room ?? 1) / rooms;
+  const clues = nation.templeClues ?? 0;
+  const temple = data.ruins?.temple ?? {};
+  const biome = node ? terrainNameAt(world.map, Math.round(node.x), Math.round(node.y), data) : null;
+  const kind = (temple.kinds || []).find((k) => k.biome === biome);
+  const phase = progress <= 0.34 ? 'prologue' : (progress <= 0.7 ? 'trace' : 'revelation');
+  const themed = kind && temple.lore?.[kind.id]?.[phase];
+  if (themed) return { id: `${kind.id}:${phase}`, title: `${kind.name}의 기록`, lines: themed };
+  if (progress <= 0.34) return {
+    id: 'legend', title: '낡은 전설',
+    lines: ['벽화에는 열 개의 성소가 서로 다른 땅의 재앙을 봉인했다고 적혀 있습니다.',
+      '사람들이 유물이라 부르는 물건은 그 봉인의 시대에서 흘러나온 흔적입니다.']
+  };
+  if (progress <= 0.7) return {
+    id: 'connection', title: '전설의 해석',
+    lines: ['유물의 문양과 벽화의 문양이 이어집니다. 유적을 뒤지는 일은 물건을 찾는 일만이 아닙니다.',
+      clues ? `지금까지 모은 단서 ${clues}개가 오래된 길의 일부를 복원하고 있습니다.` : '더 깊은 방에는 신전으로 이어지는 길을 적은 단서가 남아 있을 수 있습니다.']
+  };
+  return {
+    id: 'trail', title: '신전으로 가는 길',
+    lines: ['문양 옆에는 “세 조각의 길이 모이면 봉인의 문이 보인다”라고 새겨져 있습니다.',
+      '깊은 방에서 단서를 찾아 3개를 모으면, 지도에 신전 하나가 드러납니다. 그 안의 수호자를 이기면 해당 신전의 유물을 얻습니다.']
+  };
 }
 
 /**

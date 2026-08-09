@@ -114,6 +114,20 @@ function markTemples(world, nation, data, views) {
   return views;
 }
 
+/* 유물 사냥의 목적지는 서버가 정한다. 화면에는 이미 밟아 본 신전만 "발견"으로 보낸다. */
+function artifactHuntView(world, nation, data) {
+  const retryDays = data.balance.artifacts.templeRetryDays ?? 0;
+  const temples = Object.values(templeNodes(world, nation, data)).map((p) => ({
+    id: p.kind.id, nodeId: p.node.id, name: p.kind.name,
+    found: isExplored(nation, p.node.x, p.node.y), completed: Boolean(nation.temples?.[p.node.id]?.done),
+    retryAt: nation.temples?.[p.node.id]?.failedTick != null
+      ? nation.temples[p.node.id].failedTick + retryDays : null,
+    stage: nation.temples?.[p.node.id]?.stage ?? 'riddle',
+  }));
+  const clues = nation.templeClues ?? 0;
+  return { clues, nextAt: 3 - (clues % 3), temples };
+}
+
 export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
   const nation = world.nations[nationId];
   if (!nation) return null;
@@ -247,9 +261,11 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
         survey: nation.survey ?? null,
       } : {}),
       ...(councilOn ? {
+        artifactHunt: artifactHuntView(world, nation, data),
         artifacts: (nation.artifacts || []).map((a) => ({
           key: a.key, name: data.artifactsByKey[a.key]?.name, grade: data.artifactsByKey[a.key]?.grade,
-          desc: data.artifactsByKey[a.key]?.desc, type: data.artifactsByKey[a.key]?.type,
+          desc: data.artifactsByKey[a.key]?.desc, lore: data.artifactsByKey[a.key]?.lore ?? '',
+          type: data.artifactsByKey[a.key]?.type,
           obtainedTick: a.obtainedTick, consumed: a.consumed,
           /* ★ §20-R4 — 심은 것(설치형)의 자리와 자란 단계. 「씨앗을 어디에 심었나」는 화면이
              지도에 그려야 하는 사실이라 뷰에 함께 나간다. 안 심었으면 null 이다. */

@@ -6,7 +6,7 @@
     {
       "tier": 0,
       "name": "야영지",
-      "radius": 9,
+      "radius": 22,
       "requires": {},
       "unlocks": {
         "buildings": [
@@ -32,7 +32,7 @@
     {
       "tier": 1,
       "name": "개척촌",
-      "radius": 12,
+      "radius": 36,
       "requires": {
         "structures": {
           "hut": 1
@@ -65,7 +65,7 @@
     {
       "tier": 2,
       "name": "촌락",
-      "radius": 17,
+      "radius": 56,
       "requires": {
         "population": 5
       },
@@ -101,7 +101,7 @@
     {
       "tier": 3,
       "name": "마을",
-      "radius": 24,
+      "radius": 82,
       "requires": {
         "population": 12
       },
@@ -134,7 +134,7 @@
     {
       "tier": 4,
       "name": "읍",
-      "radius": 33,
+      "radius": 116,
       "requires": {
         "population": 25
       },
@@ -169,7 +169,7 @@
     {
       "tier": 5,
       "name": "도시",
-      "radius": 45,
+      "radius": 156,
       "requires": {
         "population": 45
       },
@@ -197,7 +197,7 @@
     {
       "tier": 6,
       "name": "왕도",
-      "radius": 49,
+      "radius": 202,
       "requires": {
         "population": 70
       },
@@ -221,7 +221,7 @@
   "endless": {
     "_note": "티어 7 이상은 표 없이 이어진다 — 인구 문턱은 populationStep 씩, 반경은 radiusPerTier 씩. 해금은 없고 위신(prestige) 지표만 오른다.",
     "populationStep": 30,
-    "radiusPerTier": 3,
+    "radiusPerTier": 28,
     "namePattern": "왕도 {n}대"
   }
 }

@@ -170,6 +170,11 @@ export function declaredCommands(data) {
 export function commandUnlocked(nation, type, data) {
   if (!nation?.isPlayer) return true;
   const key = COMMAND_ALIAS[type] ?? type;
+  /* 유적을 열고 유물을 얻는 행동은 앞 장부터 가능하다. 그런데 그 결과를 확정하는 decide 와
+     이미 손에 든 유물을 쓰는 useArtifact 를 뒤 장에 묶어 두면, 플레이어는 보상을 본 직후
+     「아직 그럴 때가 아닙니다」라는 설명 없는 거절만 받는다. 두 명령은 각각 대기 중인 결정과
+     보유 여부를 도메인 함수가 다시 검사하므로, 장 잠금보다 그 실제 조건을 우선한다. */
+  if (key === 'decide' || key === 'useArtifact') return true;
   if (!declaredCommands(data).has(key)) return true;
   return unlockedList(nation, data).commands.includes(key);
 }

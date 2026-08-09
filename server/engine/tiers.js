@@ -105,6 +105,22 @@ function applyPromotion(world, nation, data) {
   const from = tierRadius(settlementTier(nation), data);
   nation.tier = st.tier;
   nation.territory = { ...(nation.territory || {}), radius: st.radius };
+  // 본부는 정착지 단계와 함께 외형·내구·효과가 같은 박자로 자란다.
+  // 시작 구조물 tier 1이 정착지 tier 0에 대응하므로 +1을 쓴다.
+  for (const s of nation.structures || []) {
+    /* 기존 세이브는 key 대신 building 필드를 가질 수 있다. 본부 자동 승격은
+       두 모양 모두에서 적용돼야 예전 방의 모닥불이 1단계에 머물지 않는다. */
+    const structureKey = s.key ?? s.building;
+    const def = data.buildings?.[structureKey];
+    if (!def?.autoTier) continue;
+    const nextTier = Math.max(1, Math.min(def.maxTier ?? def.tiers.length, st.tier + 1));
+    const nextSpec = def.tiers?.[nextTier - 1] ?? {};
+    const oldMax = Math.max(1, s.maxHp ?? def.tiers?.[(s.tier ?? 1) - 1]?.hp ?? 1);
+    const health = Math.max(0, Math.min(1, (s.hp ?? oldMax) / oldMax));
+    s.tier = nextTier;
+    s.maxHp = nextSpec.hp ?? s.maxHp;
+    s.hp = Math.round((s.maxHp ?? oldMax) * health * 100) / 100;
+  }
   const gained = nodesGained(world, nation, from, st.radius);
   return {
     tier: st.tier, name: st.name, radius: st.radius, fromRadius: from,

@@ -156,15 +156,26 @@ if (!clientProto || !serverProto) {
   problems.push(`규약 판번호가 어긋난다 — 화면 ${clientProto} ≠ 서버 ${serverProto}.`);
 } else notes.push(`규약 판번호 ${clientProto} 일치`);
 
-const srcRe = /<script src="js\/([^"]+)"><\/script>/g;
+/* 배포 캐시를 끊기 위한 ?v=... 는 파일명이 아니다. 목록 검사는 경로 부분만 본다. */
+const srcRe = /<script src="js\/([^"?]+)(?:\?[^\"]*)?"><\/script>/g;
 const listed = [];
 let sm;
 while ((sm = srcRe.exec(html))) listed.push(sm[1]);
 for (const f of listed) {
   if (!existsSync(join(jsDir, f))) problems.push(`index.html 이 없는 파일을 싣는다: js/${f}`);
 }
+/* 게임 본편 외에 독립 개발 화면도 실제 진입 HTML에서 읽히는지 확인한다. */
+const standaloneEntries = { 'museum.js': 'museum.html', 'building-lab.js': 'building-lab.html' };
+for (const [script, page] of Object.entries(standaloneEntries)) {
+  const pagePath = join(PUB, page);
+  if (!existsSync(pagePath)) { problems.push(`독립 화면 ${page} 이 없다 (js/${script}의 진입점).`); continue; }
+  const pageSrc = readFileSync(pagePath, 'utf8');
+  if (!new RegExp(`<script[^>]*src="js/${script.replace('.', '\\.')}">`).test(pageSrc)) {
+    problems.push(`독립 화면 ${page} 이 js/${script}를 싣지 않는다.`);
+  }
+}
 for (const f of jsFiles) {
-  if (!listed.includes(f)) problems.push(`public/js/${f} 는 index.html 에 실려 있지 않다 (죽은 파일이면 지울 것).`);
+  if (!listed.includes(f) && !standaloneEntries[f]) problems.push(`public/js/${f} 는 index.html 에 실려 있지 않다 (죽은 파일이면 지울 것).`);
 }
 notes.push(`스크립트 ${listed.length}개 — 파일과 목록 일치`);
 

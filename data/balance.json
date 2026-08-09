@@ -443,6 +443,7 @@
     "sealCostGold": 180,
     "plantRadiusTiles": 24,
     "templeRetryDays": 1,
+    "battleLoot": { "minWave": 3, "minEnemies": 18, "minPower": 90, "base": 0.04, "perWave": 0.02, "flawlessBonus": 0.06, "cap": 0.22 },
     "_r4Note": "★ §20-R4 — sealCostGold 는 저주 봉인·해봉 각각에 드는 값이다(§20-6 「버릴 수 있다」의 값). plantRadiusTiles 는 설치형을 본영에서 얼마나 멀리까지 심을 수 있는가(§20-3 세계수의 씨앗). templeRetryDays 는 고대 신전 시련에 실패한 뒤 재도전까지의 날(§20-9 · R4b 에서 쓰인다)."
   },
   "emotionDay": {

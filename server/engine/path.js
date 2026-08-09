@@ -10,19 +10,42 @@
 //   ② nearestWalkable — 물 위(낚시터·잘못 뽑힌 스폰)를 목적지로 받았을 때 가장 가까운 뭍으로 스냅
 //   ③ findPath / advanceAlong — 경계 제한 A*. 주민 걸음(일 틱당 12칸)이 물을 돌아가게 한다.
 // A* 는 결정적이다(힙 동순위는 삽입 순서로 갈린다) — 같은 씨앗은 같은 게임이어야 한다.
-import { terrainAt, terrainIndex } from './world.js';
+import { terrainAt, terrainIndex, isWaterMargin } from './world.js';
 import { onBridge, onFill } from './research.js';
+import { footprint } from './structures.js';
+
+/** Buildings occupy their complete footprint, not just their anchor cell. */
+export function structureBlocks(nation, data, x, y) {
+  const cx = Math.round(x);
+  const cy = Math.round(y);
+  for (const s of nation?.structures || []) {
+    // The settlement HQ is a real building at every tier.  Its spawn point
+    // may be inside the footprint, but actors must not be able to walk
+    // through the rendered building after they have stepped outside.
+    const { w, h } = footprint(s.key ?? s.building, data, s.tier);
+    if (cx >= s.x && cx < s.x + w && cy >= s.y && cy < s.y + h) return true;
+  }
+  for (const site of nation?.construction || []) {
+    if (site.mode !== 'build' || site.x == null || site.y == null) continue;
+    const { w, h } = footprint(site.building, data);
+    if (cx >= site.x && cx < site.x + w && cy >= site.y && cy < site.y + h) return true;
+  }
+  return false;
+}
 
 /** 「사람」이 이 칸에 설 수 있는가 — avatar.walkable(클라)·companions.walkable 과 같은 규칙 */
 export function walkableFor(world, nation, data, x, y) {
   const rx = Math.round(x);
   const ry = Math.round(y);
+  if (structureBlocks(nation, data, rx, ry)) return false;
   const t = terrainAt(world.map, rx, ry);
   if (t == null) return false;
   const idx = terrainIndex(data);
-  for (const c of data.world.terrain.walkable || []) if (idx[c] === t) return true;
   /* §17-13 — 다리·매립 위의 물은 사람에게만 길이다 */
-  return t === idx.water && nation != null && (onBridge(nation, rx, ry) || onFill(nation, rx, ry));
+  if (t === idx.water) return nation != null && (onBridge(nation, rx, ry) || onFill(nation, rx, ry));
+  if (isWaterMargin(world.map, rx, ry, data)) return false;
+  for (const c of data.world.terrain.walkable || []) if (idx[c] === t) return true;
+  return false;
 }
 
 /**
@@ -42,6 +65,27 @@ export function nearestWalkable(world, nation, data, x, y, maxR = 8) {
     }
   }
   return null;
+}
+
+/**
+ * Respawn directly in front of the current settlement HQ. The HQ grows by
+ * tier, so its bottom edge—not the town centre—is the stable reference.
+ */
+export function respawnSpot(world, nation, data, maxR = 8) {
+  const hq = (nation?.structures || []).find((s) => data.buildings?.[s.key ?? s.building]?.hq);
+  if (!hq) return null;
+  const { w, h } = footprint(hq.key ?? hq.building, data, hq.tier);
+  const cx = Math.round(hq.x + (w - 1) / 2);
+  const frontY = hq.y + h;
+  for (let r = 0; r <= maxR; r += 1) {
+    const y = frontY + r;
+    if (walkableFor(world, nation, data, cx, y)) return { x: cx, y };
+    for (let dx = 1; dx <= r; dx += 1) {
+      if (walkableFor(world, nation, data, cx - dx, y)) return { x: cx - dx, y };
+      if (walkableFor(world, nation, data, cx + dx, y)) return { x: cx + dx, y };
+    }
+  }
+  return nearestWalkable(world, nation, data, cx, frontY, maxR);
 }
 
 const SQRT2 = Math.SQRT2;

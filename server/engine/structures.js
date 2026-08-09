@@ -62,26 +62,47 @@ export function findStructure(nation, id) {
 //   1×1 끼리면 간격 = cheb(a,b) 라서 옛 규칙과 정확히 같은 값이 나온다.
 // ────────────────────────────────────────────────────────────────
 /** 그 건물이 차지하는 칸 수 {w,h} (없으면 1×1) */
-export function footprint(key, data) {
-  const f = data.buildings?.[key]?.footprint;
+export function footprint(key, data, tier = null) {
+  const def = data.buildings?.[key];
+  const stage = tier == null ? null : def?.tierFootprints?.[Math.max(0, Math.round(tier) - 1)];
+  const f = stage ?? def?.footprint;
   if (!Array.isArray(f) || f.length < 2) return { w: 1, h: 1 };
   return { w: Math.max(1, Math.round(f[0])), h: Math.max(1, Math.round(f[1])) };
 }
 
 /** 좌상단 앵커에서 잡은 사각형 {x0,y0,x1,y1} (양끝 포함) */
-export function footRect(key, x, y, data) {
-  const { w, h } = footprint(key, data);
+export function footRect(key, x, y, data, tier = null) {
+  const { w, h } = footprint(key, data, tier);
   return { x0: x, y0: y, x1: x + w - 1, y1: y + h - 1 };
+}
+
+/**
+ * 본부는 지금 차지하는 칸보다 훨씬 크게 성장한다. 처음부터 최종 본부 부지를
+ * 비워 둬야 승급 순간 다른 건물·자원을 밀어내지 않는다. 짝수 크기 시작 본부의
+ * 중심과 정확히 겹치도록 최종 예약 사각형도 짝수 크기로 둔다.
+ */
+export function hqReserveRect(s, data) {
+  const key = s?.key ?? s?.building;
+  const reserve = data.buildings?.[key]?.reserveFootprint;
+  if (!data.buildings?.[key]?.hq || !Array.isArray(reserve) || reserve.length < 2) return null;
+  const w = Math.max(1, Math.round(reserve[0]));
+  const h = Math.max(1, Math.round(reserve[1]));
+  const center = centerOf(key, s.x, s.y, data);
+  return {
+    x0: Math.round(center.x - (w - 1) / 2), y0: Math.round(center.y - (h - 1) / 2),
+    x1: Math.round(center.x - (w - 1) / 2) + w - 1,
+    y1: Math.round(center.y - (h - 1) / 2) + h - 1,
+  };
 }
 
 /** 건물 실체(또는 공사 현장)의 사각형 */
 export function rectOf(s, data) {
-  return footRect(s.key ?? s.building, s.x, s.y, data);
+  return footRect(s.key ?? s.building, s.x, s.y, data, s.tier);
 }
 
 /** 렌더·거리 계산이 쓰는 중심 좌표 */
-export function centerOf(key, x, y, data) {
-  const { w, h } = footprint(key, data);
+export function centerOf(key, x, y, data, tier = null) {
+  const { w, h } = footprint(key, data, tier);
   return { x: x + (w - 1) / 2, y: y + (h - 1) / 2 };
 }
 
@@ -407,6 +428,10 @@ export function validatePlacement(world, nation, key, x, y, data, opts = {}) {
   const spacing = placeCfg(data).minSpacing;
   for (const s of nation.structures || []) {
     if (opts.ignoreId && s.id === opts.ignoreId) continue;
+    const reserved = hqReserveRect(s, data);
+    if (reserved && rectGap(reserved, rect) < 1) {
+      return { ok: false, code: 'HQ_RESERVED', message: '본부 확장 예정 부지입니다.' };
+    }
     if (rectGap(rectOf(s, data), rect) < spacing) {
       return { ok: false, code: 'TOO_CLOSE', message: '다른 건물과 너무 가깝습니다.' };
     }
@@ -932,6 +957,10 @@ export function validateReclaim(world, nation, x, y, data) {
     if (cheb(n.x, n.y, x, y) < cfg.minSpacing) return { ok: false, code: 'TOO_CLOSE', message: '이미 무언가 나는 자리입니다.' };
   }
   for (const s of nation.structures || []) {
+    const reserved = hqReserveRect(s, data);
+    if (reserved && rectGap(reserved, cellRect(x, y)) < 1) {
+      return { ok: false, code: 'HQ_RESERVED', message: '본부 확장 예정 부지입니다.' };
+    }
     // ★ §12-1 — 건물이 차지한 사각형 전체에서 떨어져야 한다
     if (rectGap(rectOf(s, data), cellRect(x, y)) < cfg.minSpacing) {
       return { ok: false, code: 'TOO_CLOSE', message: '건물과 너무 가깝습니다.' };
@@ -960,18 +989,23 @@ export function reclaimField(world, nation, x, y, data) {
 // ────────────────────────────────────────────────────────────────
 export function structureView(nation, s, data, { architect = false } = {}) {
   const def = structureDef(s.key, data);
-  const spec = tierSpec(s.key, s.tier, data);
   const auto = Boolean(def?.autoTier);
-  const next = (!auto && s.tier + 1 <= maxTier(s.key, data)) ? tierSpec(s.key, s.tier + 1, data) : null;
-  const fp = footprint(s.key, data);
-  const c = centerOf(s.key, s.x, s.y, data);
+  // 예전 저장본은 본부 tier를 1로만 들고 있을 수 있다. 화면과 판정 뷰에서는
+  // 정착지 단계가 언제나 정본이므로, 다음 저장 때 승급할 때까지도 올바른 모습을 낸다.
+  const effectiveTier = auto
+    ? Math.max(1, Math.min(maxTier(s.key, data), Math.max(s.tier || 1, settlementTier(nation) + 1)))
+    : s.tier;
+  const spec = tierSpec(s.key, effectiveTier, data);
+  const next = (!auto && effectiveTier + 1 <= maxTier(s.key, data)) ? tierSpec(s.key, effectiveTier + 1, data) : null;
+  const fp = footprint(s.key, data, effectiveTier);
+  const c = centerOf(s.key, s.x, s.y, data, effectiveTier);
   const site = siteFor(nation, s.id);
   return {
     id: s.id,
     key: s.key,
-    name: structureName(s.key, s.tier, data),
+    name: structureName(s.key, effectiveTier, data),
     category: def?.category ?? null,
-    tier: s.tier,
+    tier: effectiveTier,
     maxTier: maxTier(s.key, data),
     x: s.x, y: s.y,
     // ★ §12-1 — 클라가 그림 크기·클릭 판정에 쓰는 풋프린트. (x,y)는 좌상단, (cx,cy)는 중심.
@@ -1018,8 +1052,8 @@ export function structureView(nation, s, data, { architect = false } = {}) {
 
 /** 공사 현장 하나의 뷰 — 신축·개축·철거·이전이 같은 그릇을 쓴다 (§12-12) */
 export function siteView(nation, c, data) {
-  const fp = footprint(c.building, data);
-  const center = centerOf(c.building, c.x ?? 0, c.y ?? 0, data);
+  const fp = footprint(c.building, data, c.tier);
+  const center = centerOf(c.building, c.x ?? 0, c.y ?? 0, data, c.tier);
   const mode = c.mode ?? (c.structureId ? 'upgrade' : 'build');
   const MODE_NAME = { build: '공사', upgrade: '개축', demolish: '철거', relocate: '이전' };
   return {

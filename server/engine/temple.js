@@ -39,24 +39,21 @@ export function templeNodes(world, nation, data) {
 
 function computeTemples(world, data, cfg, town) {
   const best = {};
-  for (const node of world.map.nodes || []) {
-    if (node.type !== 'ruin') continue;
-    const kind = kindFor(world, node, data, cfg, town);
-    if (!kind) continue;
-    const d = Math.hypot(town.x - node.x, town.y - node.y);
-    const cur = best[kind.id];
-    if (!cur || d > cur.d || (d === cur.d && node.id < cur.node.id)) best[kind.id] = { node, d, kind };
+  const used = new Set();
+  /* 종류마다 따로 가장 깊은 유적을 고른다. 예전처럼 지형을 처음 만난 한 종류에만
+     귀속하면, 신전 설정을 열 개로 늘려도 실제 세계에는 셋만 남는다. */
+  for (const kind of cfg.kinds || []) {
+    const pool = (world.map.nodes || []).filter((node) => {
+      if (node.type !== 'ruin' || used.has(node.id)) return false;
+      const code = terrainNameAt(world.map, Math.round(node.x), Math.round(node.y), data);
+      return kind.biome ? kind.biome === code : Math.hypot(town.x - node.x, town.y - node.y) >= (cfg.ringRadius ?? 140);
+    }).sort((a, b) => Math.hypot(town.x - b.x, town.y - b.y) - Math.hypot(town.x - a.x, town.y - a.y) || String(a.id).localeCompare(String(b.id)));
+    if (!pool.length) continue;
+    const node = pool[0];
+    used.add(node.id);
+    best[kind.id] = { node, d: Math.hypot(town.x - node.x, town.y - node.y), kind };
   }
   return best;
-}
-
-/* 이 자리가 어느 신전의 **후보**인가 — 바이옴이 먼저고, 아니면 아주 먼 들판이다. */
-function kindFor(world, node, data, cfg, town) {
-  const code = terrainNameAt(world.map, Math.round(node.x), Math.round(node.y), data);
-  const byBiome = (cfg.kinds || []).find((k) => k.biome && k.biome === code);
-  if (byBiome) return byBiome;
-  const far = Math.hypot(town.x - node.x, town.y - node.y) >= (cfg.ringRadius ?? 140);
-  return far ? (cfg.kinds || []).find((k) => !k.biome) ?? null : null;
 }
 
 /** 이 자취가 신전인가 — 제 종류의 **가장 깊은 곳**일 때만 그렇다 */
@@ -142,7 +139,10 @@ function stageRiddle(world, nation, data, { node, st, choice }) {
 function stageTrial(world, nation, data, { node, st, kind, choice }) {
   const cfg = templeCfg(data);
   if (choice !== 'fight') return done({ stage: 'trial', passed: false, text: cfg.trial.leaveText });
-  const c = spawnGuardian(world, nation, data, kind.guardian, { x: node.x, y: node.y });
+  if (st.guardianId && creatureById(nation, st.guardianId)) {
+    return done({ stage: 'trial', passed: false, text: '수호병이 이미 안쪽에서 당신을 기다리고 있습니다.' });
+  }
+  const c = spawnGuardian(world, nation, data, kind.guardian, { x: node.x, y: node.y }, kind.id);
   if (!c) return done({ stage: 'trial', passed: false, text: cfg.trial.leaveText });
   st.guardianId = c.id;
   return done({ stage: 'trial', passed: true, text: cfg.trial.spawnText, guardianId: c.id });
@@ -164,8 +164,13 @@ function stageVault(world, nation, data, { node, st, kind, choice }) {
    이미 이 방에서 나온 전설은 dropPool 이 걸러 내므로, 그때는 고유가 대신 선다. */
 function pickVaultKey(world, nation, data, node, kind) {
   const rng = statRng(`${world.seed}:templeVault:${node.id}`);
-  for (const grade of ['legendary', 'unique']) {
+  for (const grade of ['legendary', 'unique', 'rare']) {
     const pool = dropPool(world, nation, data, grade, kind.via);
+    if (pool.length) return rng.pick(pool).key;
+  }
+  /* 전용 풀이 모두 소진됐을 때만 공용 신전 유물로 물러난다. */
+  for (const grade of ['legendary', 'unique', 'rare']) {
+    const pool = dropPool(world, nation, data, grade, 'temple');
     if (pool.length) return rng.pick(pool).key;
   }
   return null;
@@ -188,7 +193,16 @@ export function enterTemple(world, nation, avatarId, nodeId, data) {
     return { ok: false, code: 'OUT_OF_RANGE', message: '더 가까이 가야 합니다.' };
   }
   const card = templeCard(world, nation, node, data);
-  if (!card) return { ok: false, code: 'NO_TEMPLE', message: '지금은 열리지 않습니다.' };
+  const st = templeState(nation, node.id);
+  if (st.stage === 'trial' && st.guardianId && creatureById(nation, st.guardianId)) {
+    return { ok: false, code: 'GUARDIAN_ACTIVE', message: '수호병이 안쪽에서 기다립니다. 먼저 쓰러뜨리십시오.' };
+  }
+  if (!card && st.failedTick != null) {
+    const retryAt = st.failedTick + (data.balance.artifacts.templeRetryDays ?? 0);
+    if (world.tick < retryAt) return { ok: false, code: 'TEMPLE_RETRY', retryAt,
+      message: `${retryAt}일째에 봉인이 약해집니다. 그때 이 신전으로 돌아와 다시 시도하십시오.` };
+  }
+  if (!card) return { ok: false, code: 'NO_TEMPLE', message: '이 신전에서는 더 할 일이 없습니다.' };
   const already = (nation.decisionQueue || []).some((d) => d.decisionId === card.decisionId);
   if (!already) (nation.decisionQueue ||= []).push({ ...card, createdTick: world.tick });
   return { ok: true, card };

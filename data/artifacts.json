@@ -45,7 +45,8 @@
       "acquireVia": [
         "chest",
         "ruin",
-        "cache"
+        "cache",
+        "temple:fertile"
       ],
       "desc": "즉시 곡물 저장 상한의 40%(최소 150) 획득 + 흉작류 이벤트 2회 무효",
       "lore": "풀의 원소가 처음 생명을 낳던 날, 그 숨결이 뿔 하나에 고였다고 전한다. 곳간이 비어도 이것을 기울이면 낟알이 쏟아졌고, 흉년은 이 집만 비껴갔다. 들고 다니기에는 무겁지만, 굶어 본 사람은 그 무게를 탓하지 않는다.",
@@ -1317,7 +1318,8 @@
       "role": null,
       "type": "permanent",
       "acquireVia": [
-        "temple"
+        "temple",
+        "temple:ash"
       ],
       "desc": "낮 동안 전 자원 생산 **+35%** — 웨이브가 오는 날은 보너스가 붙지 않는다",
       "lore": "이그니스가 세상에 온기를 넣던 날 남은 불티를 모아 관 모양으로 식혔다고 전한다. 이것을 쓴 왕의 나라는 해가 떠 있는 동안 곳간이 저절로 차올랐는데, 대신 아무도 성문 밖으로 나가려 하지 않았다고 한다. 해가 지면 그저 미지근한 쇠붙이가 된다.",
@@ -1340,7 +1342,9 @@
       "type": "permanent",
       "acquireVia": [
         "cache3",
-        "chain:temperate"
+        "chain:temperate",
+        "temple:desert",
+        "battle:elite"
       ],
       "desc": "이동 속도 **+40%**(웨이브 중 추가 **+20%**) + 피격 시 **25%** 확률로 피해를 흘려보낸다",
       "lore": "세 원소가 부딪쳐 순환의 바람이 태어나던 순간, 그 첫 소용돌이가 천 한 장에 감겼다고 전한다. 걸친 사람은 제 발이 땅에 닿는지도 모르게 달렸고, 창끝이 몸을 지나가도 옷자락만 갈라졌다 한다. 바람은 붙잡히지 않으니 그 값을 미리 치른 것이라 했다.",
@@ -1367,7 +1371,8 @@
       "role": "farm",
       "type": "installable",
       "acquireVia": [
-        "chain:jungle"
+        "chain:jungle",
+        "temple:forest"
       ],
       "desc": "본영에 심는 설치형 — 4일마다 한 단계씩 3단계로 자라며, 다 자란 뒤 반경 **6타일** 농정 산출 **+50%**",
       "lore": "풀의 원소가 처음 생명을 낳던 날 떨어뜨린 씨 하나가 아직 싹트지 않은 채 남았다고 전한다. 심은 자리를 중심으로 흙이 검어지고 물길이 스스로 모여든다 해서, 옛사람들은 이것을 「자리를 고르는 씨」라 불렀다 한다. 어디에 심느냐가 곧 그 나라의 모양이 되었다.",
@@ -1395,7 +1400,8 @@
       "role": null,
       "type": "permanent",
       "acquireVia": [
-        "ruin:barrow"
+        "ruin:barrow",
+        "temple:mush"
       ],
       "curse": true,
       "desc": "플레이어 공격력 **+100%**, 사냥 몫 **+50%** / 대신 사기 상시 **−10%p**, 주민 유입 **−25%**",
@@ -1432,7 +1438,9 @@
       "role": null,
       "type": "permanent",
       "acquireVia": [
-        "temple"
+        "temple",
+        "temple:dusk",
+        "battle:elite"
       ],
       "desc": "쓰러져도 그 자리에서 즉시 일어난다 — 웨이브당 **1회**",
       "lore": "아로스가 외로움 끝에 「의미를 붙이는 존재」를 바랐을 때, 그 바람에 새긴 표식이라 전한다. 이것을 지닌 사람은 쓰러져도 그 자리에서 다시 눈을 떴는데, 성지에서는 그것을 되살아남이 아니라 「아직 할 말이 남았음」이라 적었다 한다. 한 밤에 두 번은 봐 주지 않는다.",
@@ -1638,7 +1646,8 @@
       "role": null,
       "type": "permanent",
       "acquireVia": [
-        "temple"
+        "temple",
+        "temple:marsh"
       ],
       "exclusive": "room",
       "desc": "안개가 매일 스스로 걷힘(반경 **2**) + 신탁 상시 + 유물 발견 확률 **+10%p**",
@@ -1670,7 +1679,8 @@
       "role": "build",
       "type": "permanent",
       "acquireVia": [
-        "ruin:snow"
+        "ruin:snow",
+        "temple:rock"
       ],
       "setKey": "genesis",
       "desc": "건설 비용 **−15%**, 성벽 내구 **+20%**",

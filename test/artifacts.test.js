@@ -878,14 +878,14 @@ test('★ §20-R4 명령 3종 — 서버가 다시 잰다(화면이 보낸 말�
   assert.equal(run({ type: 'plantArtifact', key: 'horn_of_plenty', x: 1, y: 1 }).error.code, 'NOT_INSTALLABLE');
 });
 
-test('★ §20-R4 세이브 이관 — 옛 유물에 봉인·설치 칸이 열린다(rev 6)', () => {
+test('★ §20-R4 세이브 이관 — 옛 유물에 봉인·설치 칸이 열린다(rev 8)', () => {
   const { world, n } = nationOf(4210);
   grantArtifact(n, 'horn_of_plenty', 3, data);
   delete n.artifacts[0].sealed;
   delete n.artifacts[0].planted;
   world.migrationRev = 5;
   const m = migrateWorld(world, data);
-  assert.equal(m.migrationRev, 6);
+  assert.equal(m.migrationRev, 8);
   assert.equal(m.nations.player.artifacts[0].sealed, false, '없던 것을 있다고 적지 않는다');
   assert.equal(m.nations.player.artifacts[0].planted, null);
 });
@@ -918,15 +918,19 @@ test('★ §20-R4 부활 충전 — 웨이브당 정해진 횟수만, 그리고 
 // ────────────────────────────────────────────────────────────────
 // ★ §20-R4b 고대 신전 (유물기획 §20-9) — 자리가 신전을 정하고, 세 단을 차례로 지난다
 // ────────────────────────────────────────────────────────────────
-test('★ §20-R4e 신전 — 세상에 셋뿐이고, 종류마다 가장 깊은 곳 하나다', () => {
+test('★ §20-R4e 신전 — 설정된 종류는 가능한 지형마다 가장 깊은 곳 하나다', () => {
   const { world, n } = nationOf(4301);
   const t = townOf(world, n.id);
   const picked = templeNodes(world, n, data);
-  assert.deepEqual(Object.keys(picked).sort(), ['forgotten', 'frost', 'verdant'], '설산·밀림·들판에 하나씩');
+  const configured = data.ruins.temple.kinds.map((k) => k.id).sort();
+  const selected = Object.keys(picked).sort();
+  assert.equal(configured.length, 10, '신전은 정확히 10종이다');
+  assert.ok(selected.length > 0 && selected.every((id) => configured.includes(id)),
+    '현재 지도에서 성립하는 신전만 설정 목록 안에서 골린다');
 
   const ruins = (world.map.nodes || []).filter((x) => x.type === 'ruin');
   const temples = ruins.filter((r) => templeKindAt(world, n, r, data));
-  assert.equal(temples.length, 3, `유적 ${ruins.length}곳 가운데 신전은 셋뿐이다`);
+  assert.equal(temples.length, selected.length, `유적 ${ruins.length}곳에서 신전 노드는 겹치지 않는다`);
 
   for (const p of Object.values(picked)) {
     assert.equal(templeKindAt(world, n, p.node, data).id, p.kind.id);

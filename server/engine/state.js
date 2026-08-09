@@ -4,11 +4,11 @@
 import { createRng } from './rng.js';
 import { defaultName } from './npc.js';
 import { normalizeDifficulty } from './difficulty.js';
-import { generateWorldMap, townOf } from './world.js';
+import { generateWorldMap, townOf, playerHqReserveRect, terrainIndex } from './world.js';
 import { createVillagers } from './villagers.js';
 import { createFog, toRuntimeFog } from './fog.js';
 import { tierRadius, settlementTier } from './tiers.js';
-import { completeStructure, syncLegacyBuildings, anchorFromCell, tierSpec } from './structures.js';
+import { completeStructure, syncLegacyBuildings, anchorFromCell, tierSpec, footprint } from './structures.js';
 // ★ GDD3 §13-D-1 — 옛 세이브의 주민에게 능력치를 채워 넣을 때 쓴다
 import { rollStats, statRng } from './traits.js';
 // ★ §20-R3 — 「N년 M일」의 정본은 유물 계층이 쥔다(표시 전용 달력, balance.time.daysPerYear)
@@ -221,7 +221,6 @@ export function createWorld({ gameId, seed = 42, data, playerName = '플레이�
   for (const nation of Object.values(world.nations)) {
     if (!nation.isPlayer) continue;
     createVillagers(world, nation, data);
-    createFog(world, nation, data);
     // ★ GDD3 §2 · §12-2 — 마차가 멈춘 자리에 모닥불 하나. 게임의 첫 건물이자 부활 지점이고,
     //   정착지가 자라면 그대로 본부(야영 본부→촌락 회관→…)가 되는 4×4 대형 구조물이다.
     //   도읍 좌표가 풋프린트의 **중심**이 되도록 앵커를 물려 잡는다.
@@ -229,6 +228,8 @@ export function createWorld({ gameId, seed = 42, data, playerName = '플레이�
     const anchor = anchorFromCell('campfire', town?.x ?? 0, town?.y ?? 0, data);
     completeStructure(world, nation, { building: 'campfire', tier: 1, x: anchor.x, y: anchor.y, placed: true }, data);
     syncLegacyBuildings(nation, data);
+    clearPlayerHqReserve(world, data);
+    createFog(world, nation, data);
   }
   return world;
 }
@@ -273,7 +274,73 @@ export function isLegacySnapshot(world) {
    ★ §20-R4 — 유물 엔트리에 봉인(sealed)·설치(planted) 칸이 생겼다(§20-6·§20-3).
    둘 다 「없으면 거짓」이 옳은 기본값이라 세이브를 다치게 하지 않지만, 칸이 아예 없으면
    화면이 `undefined` 를 그리고 봉인 토글이 첫 클릭을 삼킨다. 그래서 6. */
-const MIGRATION_REV = 6;
+const MIGRATION_REV = 8;
+
+function restoreRoleOwners(nation, data) {
+  const roles = nation.roles || {};
+  const members = Array.isArray(nation.members) ? nation.members : [];
+  for (const key of data.roles.order) {
+    const seat = roles[key];
+    if (!seat || seat.holder !== 'player' || seat.owner != null) continue;
+    const member = members.find((m) => m && typeof m !== 'string' && !m.bot && m.role === key && m.avatarId);
+    if (member) seat.owner = member.avatarId;
+  }
+}
+
+const pointInRect = (x, y, r) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1;
+const rectOverlaps = (a, b) => a.x0 <= b.x1 && a.x1 >= b.x0 && a.y0 <= b.y1 && a.y1 >= b.y0;
+
+/** Normalize an existing save to the campfire's protected final 13×13 parcel. */
+function clearPlayerHqReserve(world, data) {
+  const nation = world.nations?.player;
+  const map = world.map;
+  const town = townOf(world, 'player');
+  if (!nation || !map || !town) return;
+  const reserve = playerHqReserveRect(town, data);
+  const size = map.size;
+  const terrain = String(map.terrain || '').split('');
+  const terrainIdx = terrainIndex(data);
+  const water = terrainIdx.water;
+  const grass = terrainIdx.grass;
+  if (terrain.length === size * size) {
+    for (let y = reserve.y0; y <= reserve.y1; y += 1) for (let x = reserve.x0; x <= reserve.x1; x += 1) {
+      if (x < 0 || y < 0 || x >= size || y >= size) continue;
+      const i = y * size + x;
+      if (terrain[i].charCodeAt(0) - 48 === water) terrain[i] = String.fromCharCode(48 + grass);
+    }
+    map.terrain = terrain.join('');
+  }
+  map.nodes = (map.nodes || []).filter((node) => !pointInRect(node.x, node.y, reserve));
+  map.nodesStamp = (map.nodesStamp ?? 0) + 1;
+  const overlapsReserve = (thing) => {
+    if (thing.x == null || thing.y == null) return false;
+    const fp = footprint(thing.key ?? thing.building, data, thing.tier);
+    return rectOverlaps({ x0: thing.x, y0: thing.y, x1: thing.x + fp.w - 1, y1: thing.y + fp.h - 1 }, reserve);
+  };
+  nation.structures = (nation.structures || []).filter((s) => s.key === 'campfire' || !overlapsReserve(s));
+  nation.construction = (nation.construction || []).filter((site) => site.building === 'campfire' || !overlapsReserve(site));
+
+  const occupied = new Set();
+  const isExit = (x, y) => x >= 0 && y >= 0 && x < size && y < size
+    && !pointInRect(x, y, reserve)
+    && terrain[y * size + x]?.charCodeAt(0) - 48 !== water
+    && !occupied.has(`${x},${y}`);
+  const moveOutside = (person) => {
+    const px = Math.round(person.x), py = Math.round(person.y);
+    for (let radius = 1; radius < size; radius += 1) for (let dy = -radius; dy <= radius; dy += 1) for (let dx = -radius; dx <= radius; dx += 1) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+      const x = px + dx, y = py + dy;
+      if (isExit(x, y)) { occupied.add(`${x},${y}`); person.x = x; person.y = y; return; }
+    }
+  };
+  for (const owner of Object.values(world.nations || {})) {
+    for (const person of [...Object.values(owner.avatars || {}), ...(owner.villagers || [])]) {
+      if (Number.isFinite(person.x) && Number.isFinite(person.y)
+        && pointInRect(Math.round(person.x), Math.round(person.y), reserve)) moveOutside(person);
+    }
+  }
+  syncLegacyBuildings(nation, data);
+}
 
 /**
  * ★ §19-F1(F08-1) — 옛 세이브의 건물에 체력을 붙인다.
@@ -351,6 +418,7 @@ export function migrateWorld(world, data) {
     nation.nextResidentId ||= 1;
     nation.players ||= {};
     nation.avatars ||= {};
+    restoreRoleOwners(nation, data);
     nation.wave ||= { index: 0, arrivalTick: null, scheduledTick: null, history: [] };
     nation.gatherScale ||= { wood: 1, stone: 1 };
     nation.apState ||= { inspiredDepts: [], workedNodes: [] };
@@ -391,6 +459,7 @@ export function migrateWorld(world, data) {
       if (!u.stats) u.stats = rollStats(statRng(`${world.seed}:${nation.id}:${u.id}`), data);
     }
   }
+  clearPlayerHqReserve(world, data);
   fillArtifactRegistry(world, data);
   // ★ Sprint 3 — 표를 찍는다. structuredClone 이 이 값을 그대로 옮기므로 다음 틱은 위에서 곧장 돌아선다.
   world.migrationRev = MIGRATION_REV;

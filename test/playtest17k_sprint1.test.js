@@ -18,8 +18,8 @@ import { createRng } from '../server/engine/rng.js';
 import { applyCommand } from '../server/engine/commands.js';
 import { townOf, terrainNameAt } from '../server/engine/world.js';
 import { ensurePlayer } from '../server/engine/skills.js';
-import { walkableFor, nearestWalkable, findPath, advanceAlong } from '../server/engine/path.js';
-import { completeStructure } from '../server/engine/structures.js';
+import { walkableFor, nearestWalkable, findPath, advanceAlong, structureBlocks, respawnSpot } from '../server/engine/path.js';
+import { completeStructure, footprint } from '../server/engine/structures.js';
 import { stepVillagers } from '../server/engine/villagers.js';
 import { spawnResident } from '../server/engine/residents.js';
 
@@ -54,9 +54,9 @@ function findWater(world, town, maxR = 120) {
 // ────────────────────────────────────────────────────────────────
 // ① 통행 정본
 // ────────────────────────────────────────────────────────────────
-test('Sprint1 ① walkableFor — 물은 못 밟고, 뭍은 밟는다', () => {
+test('Sprint1 ① walkableFor — 건물과 물은 못 밟고, 뭍은 밟는다', () => {
   const { world, nation, town } = scene(7);
-  assert.equal(walkableFor(world, nation, data, town.x, town.y), true, '도읍이 뭍이 아니다');
+  assert.equal(walkableFor(world, nation, data, town.x, town.y), false, '정착지 본부가 이동을 막지 않는다');
   const w = findWater(world, town);
   assert.ok(w, '이 씨앗의 맵에 물이 없다 — 씨앗을 바꿔야 한다');
   assert.equal(walkableFor(world, nation, data, w.x, w.y), false, '물을 밟았다');
@@ -74,7 +74,9 @@ test('Sprint1 ① findPath — 웨이포인트는 전부 밟을 수 있는 칸�
   const { world, nation, town } = scene(7);
   const w = findWater(world, town);
   const goal = nearestWalkable(world, nation, data, w.x, w.y, 24);
-  const path = findPath(world, nation, data, town.x, town.y, goal.x, goal.y);
+  const start = nearestWalkable(world, nation, data, town.x, town.y, 8);
+  assert.ok(start, '본부 밖에 출발할 뭍이 없다');
+  const path = findPath(world, nation, data, start.x, start.y, goal.x, goal.y);
   assert.ok(path && path.length >= 2, '길이 없다');
   for (let i = 0; i < path.length; i += 1) {
     assert.equal(walkableFor(world, nation, data, path[i].x, path[i].y), true,
@@ -176,6 +178,35 @@ test('building footprint blocks paths and lordMove on every occupied cell', () =
   assert.equal(denied.ok, false);
   assert.equal(denied.error.code, 'STRUCTURE_BLOCKED');
   assert.equal(nation.avatars.lord.x, town.x, 'server keeps the last valid position');
+});
+
+test('upgraded settlement HQ expands its blocking footprint', () => {
+  const { world, nation, town, rng } = scene(37);
+  const hq = nation.structures.find((s) => s.key === 'campfire');
+  hq.tier = 6;
+  const f = footprint('campfire', data, hq.tier);
+  const x = hq.x + f.w - 1;
+  const y = hq.y + f.h - 1;
+
+  assert.deepEqual([f.w, f.h], [11, 9]);
+  assert.equal(structureBlocks(nation, data, x, y), true, 'final HQ footprint is blocked');
+  const denied = applyCommand(world, 'player', { type: 'lordMove', avatarId: 'lord', x, y }, data, rng);
+  assert.equal(denied.ok, false);
+  assert.equal(denied.error.code, 'STRUCTURE_BLOCKED');
+  assert.equal(nation.avatars.lord.x, town.x, 'HQ collision keeps the previous position');
+});
+
+test('respawn appears in front of the upgraded settlement HQ', () => {
+  const { world, nation } = scene(41);
+  const hq = nation.structures.find((s) => s.key === 'campfire');
+  hq.tier = 6;
+  const f = footprint(hq.key, data, hq.tier);
+  const at = respawnSpot(world, nation, data);
+
+  assert.ok(at, 'a respawn spot exists');
+  assert.equal(at.y >= hq.y + f.h, true, 'respawn is below the HQ footprint');
+  assert.equal(structureBlocks(nation, data, at.x, at.y), false, 'respawn is not inside the HQ');
+  assert.equal(walkableFor(world, nation, data, at.x, at.y), true, 'respawn is walkable');
 });
 
 function clientPath() {
