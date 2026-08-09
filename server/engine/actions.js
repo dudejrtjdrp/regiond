@@ -3,7 +3,8 @@
 //   서버가 정본으로 쥐는 것 — 스윙 쿨타임(플레이어 단위) · 사거리 · 노드별 스윙 카운트 · 노드 잔량.
 import { nodeById, townOf, territoryRadius, dist, markDepleted, removeNode } from './world.js';
 // ★ §17-17 — 숨은 궤에서도 유물이 나온다. 등급표를 두 벌 두지 않으려고 유적 쪽 문을 그대로 쓴다.
-import { grantRandomArtifact } from './king.js';
+// ★ §22 — 유적 카드도 여기서 연다. 카드를 짓고 큐에 넣는 일은 king.js 한 곳에만 둔다(중복 금지).
+import { grantRandomArtifact, openRuinCard } from './king.js';
 // ★ §20-R4 — 링3 전용 고유 굴림과 확정 지급. 상자·유적 풀 밖의 것은 여기로만 나온다.
 import { rollRing3Unique, grantArtifact } from './artifacts.js';
 // ★ §17-17 — 궤 보상은 노드 id 로 지은 개인 난수다(월드 난수를 축내면 같은 씨앗이 다른 게임이 된다).
@@ -69,6 +70,10 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
   const spec = nodeSwingSpec(node.type, data);
   if (!spec) return err('NOT_WORKABLE', '여기서는 거둘 것이 없습니다.');
   if (node.depleted) return err('DEPLETED', '다 캐낸 곳입니다.');
+  /* ★ §22 — 다 뒤진 자취는 폐허로 **남되** 다시 두드려지지 않는다. 궤처럼 지우지 않는 까닭은
+     크기다: 궤는 작고 흔해 사라져도 지도에 구멍이 안 나지만, 4×4까지 가는 자취가 사라지면
+     「내가 저기 갔었지」의 좌표가 통째로 없어진다. 지도는 발자취를 기억해야 한다. */
+  if (node.spent) return err('RUIN_SPENT', '이미 다 뒤진 자리입니다.', { nodeId: node.id, spent: true });
 
   /* ★ GDD3 §13-B-2 — **영토 밖 채집은 언제나 허용된다.**
      자원 군락이 영토 바깥 8~20타일에 앉게 된 이상, 「우리 땅이 아닙니다」로 막으면 1장부터 게임이 멎는다.
@@ -170,18 +175,9 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
   }
   node.stamp = world.tick;
 
-  // 유적은 자원 대신 탐사 게이지가 찬다 — ★ §13-B-4 클수록 빨리 차고 값진 것이 나온다
+  // ★ §22 — 유적은 자원 대신 **방**이 열린다. 한 주기를 끝내면 그 자리에서 카드 한 장이 선다.
   let ruin = null;
-  if (spec.ruinGauge && cycleDone) {
-    const gain = node.ruinGauge ?? spec.ruinGauge;
-    nation.ruinGauge = (nation.ruinGauge || 0) + gain;
-    nation.ruinGradeBoost = Math.max(nation.ruinGradeBoost || 0, node.gradeBoost || 0);
-    ruin = {
-      gauge: nation.ruinGauge, threshold: data.ruins.gaugeThreshold,
-      size: node.size ?? 1, name: node.ruinName ?? null, gradeBoost: node.gradeBoost || 0,
-    };
-    recordRuin(nation, node, world.tick);
-  }
+  if (spec.ruinRoom && cycleDone) ruin = openRuinRoom(world, nation, node, data);
 
   // ★ §17-17 — 숨은 궤. 유적과 달리 카드가 없다: 뚜껑이 열리면 값이 나오고 자리는 세상에서 사라진다.
   let cache = null;
@@ -198,7 +194,10 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
     gained,
     cycle: cycleDone,
     swings: node.swings,
-    swingsPerCycle: spec.swings,
+    /* ★ §22 — 노드에 박힌 값이 규격을 이긴다. 여태 spec.swings 를 그대로 실어 보내는 바람에
+       화면의 진행바가 유적에서만 어긋났다(자취는 4~6, 규격은 4). 화면이 「몇 번 남았나」를
+       그리려면 이 값이 **지금 두드리는 자리의 것**이어야 한다. */
+    swingsPerCycle: perCycle,
     amount: round2(node.amount),
     depleted: Boolean(node.depleted),
     // ★ §13-B-3 — 그루터기가 언제 되살아나는지. 화면이 '아직 아니다'를 그 자리에서 안다.
@@ -223,6 +222,56 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
        (없으면 빈 목록이 아니라 아예 실리지 않는다 — 옛 화면과의 계약이 그대로다) */
     ...(cache ? { removedNodes: [node.id] } : {}),
   };
+}
+
+/**
+ * ★ §22 — 유적의 **방 하나**를 연다 (유적개편기획 §22-2 층1·층2).
+ *
+ * 「왜」 나라의 게이지를 버렸나 — 게이지는 국가 누적이라, 지금 두드린 이 자취가 카드를 준 것이
+ * 아니었다. 서로 다른 자취 셋을 하나씩 뒤지면 세 번째에 카드가 뜨는데 그 카드는 어디서 나온
+ * 것도 아니다. 원인과 결과가 끊기면 사람은 인과를 배우지 못한다. 게다가 게이지를 소비하는
+ * 코드가 클라가 부른 적 없는 apAction explore 안에만 있어, 실제로는 아무 카드도 열리지 않았다.
+ *
+ * 굴림이 월드 난수가 아니라 노드 id·방 번호로 지은 개인 난수인 까닭은 openCache 와 같다:
+ * 실시간 스윙이 월드 난수를 축내면 같은 씨앗이 다른 게임이 된다. 덤으로 「같은 지도의 같은 방은
+ * 언제 열어도 같은 카드」가 따라온다.
+ */
+function openRuinRoom(world, nation, node, data) {
+  const rooms = Math.max(1, node.rooms ?? 1);
+  const room = Math.min(rooms, (node.roomsOpened || 0) + 1);
+  node.roomsOpened = room;
+  if (room >= rooms) node.spent = true;
+  const card = ruinRoomCard(world, nation, node, data, room, rooms);
+  recordRuin(nation, node, world.tick, { room, rooms, cardId: card?.cardId ?? null });
+  return {
+    room, rooms, spent: Boolean(node.spent),
+    size: node.size ?? 1, name: node.ruinName ?? null, card,
+  };
+}
+
+/**
+ * 이 방에 설 카드.
+ * ★ §20-R4e 와의 경계 — 신전은 여기서 열지 않는다. 저쪽이 **전용 문**(enterTemple: 걸어가서
+ * 손 닿는 거리에서 E)을 따로 냈고, 세상의 신전은 종류마다 하나씩 셋뿐이다. 방을 뒤지는 일과
+ * 문을 두드리는 일은 다른 동작이라 한 자리에 두 문을 내면 어느 쪽이 열린 건지 알 수 없게 된다.
+ */
+function ruinRoomCard(world, nation, node, data, room, rooms) {
+  const rng = statRng(`${world.seed}:ruin:${node.id}:${room}`);
+  return openRuinCard(world, nation, data, rng, node, {
+    gradeBoost: roomBoost(node, room, rooms, data), room, rooms,
+  });
+}
+
+/**
+ * ★ §22-2 층2 — 깊은 방일수록 등급 보정이 크다. 「크면 항상 좋다」가 아니라 「끝까지 가면 좋다」다.
+ * 방 번호로 표를 직접 인덱싱하지 않고 **0~1 로 정규화해** 읽는 까닭: 방이 둘인 자취의 끝 방이
+ * curve[1]=0.5 를 받아 「끝까지 갔는데 덜 준다」가 된다. 자취마다 끝 방은 언제나 표의 끝이다.
+ */
+function roomBoost(node, room, rooms, data) {
+  const curve = data.world.nodes.ruinSizes?.roomBoostCurve || [];
+  if (!curve.length) return node.gradeBoost || 0;
+  const t = rooms > 1 ? (room - 1) / (rooms - 1) : 1;
+  return Math.round((node.gradeBoost || 0) * (curve[Math.round(t * (curve.length - 1))] ?? 1));
 }
 
 /**

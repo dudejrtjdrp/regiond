@@ -120,6 +120,15 @@
     return s;
   }
 
+  /** ★ §22 — 이 자취가 어디까지 열렸는가. 옛 화면(방 정보 없는 저장)에서는 예전 문구로 돌아간다. */
+  function ruinProgress(r) {
+    if (r.rooms == null) return (r.cycles || 0) > 0 ? '뒤진 횟수 ' + r.cycles : '아직 손대지 않음';
+    if (r.spent) return '다 뒤졌다 (' + r.rooms + '방)';
+    var opened = r.roomsOpened || 0;
+    if (!opened) return '아직 손대지 않음 · ' + r.rooms + '방';
+    return '방 ' + opened + '/' + r.rooms + ' — ' + (r.rooms - opened) + '방 남음';
+  }
+
   function paintRuins(host, c) {
     var list = c.ruins || [];
     if (!list.length) {
@@ -132,7 +141,10 @@
       row.appendChild(U.el('span', 'sz', r.size + '×' + r.size));
       row.appendChild(U.el('span', 'nm', r.name || '옛 자취'));
       row.appendChild(U.el('span', 'pos', '(' + r.x + ', ' + r.y + ')'));
-      row.appendChild(U.el('span', 'cy', (r.cycles || 0) > 0 ? '뒤진 횟수 ' + r.cycles : '아직 손대지 않음'));
+      /* ★ §22 — 도감이 「뒤진 횟수」만 적으면 **기록**이지 지도가 아니다. 아직 방이 남았는지가
+         적혀야 「저기 다시 가야겠다」가 된다 — 유저가 「왜 가야 하는지 모르겠다」던 것의 절반이
+         여기 있었다. 다 뒤진 자취는 끝났다고 분명히 말한다(회색 폐허와 같은 말). */
+      row.appendChild(U.el('span', 'cy', ruinProgress(r)));
       if (r.concealed) row.appendChild(U.el('span', 'hid', '숨어 있던 곳'));
       row.onclick = function () {
         U.closeTopModal();

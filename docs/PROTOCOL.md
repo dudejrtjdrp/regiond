@@ -434,7 +434,8 @@ ack 확장뿐이다.
 - **문은 발이 연다** (★ R4e): 신전은 본영에서 200타일 안팎이라 어전 행동 `explore` 로는 **닿지 않는다**(그 문은 영토 반경 49 + 일자리 26 안의 자취만 고른다). 걸어가서 손 닿는 거리(`balance.handWork.reachTiles`)에서 **E** — 명령 `enterTemple {nodeId}`. 서버가 거리를 다시 재고 결정 큐에 카드를 올린다(두 번 두드려도 안건은 하나).
 - **지도에서 알아볼 수 있다** (★ R4e): 걸어 본 자리의 신전 노드에는 `temple`(종류 id)과 신전 이름이 실려 나가고(`worldState.nodes[]`), 화면은 E 안내를 「문을 두드린다」로 바꾸고 축소 지도에 금색 점을 남긴다. 안개 규칙은 그대로 — 가 본 적 없는 자리의 노드는 애초에 오지 않는다.
 - **신전마다 내어주는 것이 다르다**(§20-4): 설산 `temple:snow`→얼어붙은 왕의 홀 · 밀림 `temple:jungle`→아쿠아의 성배 · 들판 `temple`→아로스의 눈. 「어느 신전을 찾아갔나」가 무엇을 얻는지 정한다.
-- 신전은 **유적 게이지를 기다리지 않는다** — 뒤지다 보면 나오는 것이 아니라 찾아가는 곳이라, 탐사한 그 자리에서 다음 단이 열린다.
+- 신전은 **뒤지다 보면 나오는 것이 아니라 찾아가는 곳**이라, 걸어가서 문을 두드린 그 자리에서 다음 단이 열린다(§20-R4e `enterTemple`).
+- ★ §22 — 여느 자취를 뒤지는 일(스윙 → 방 → 카드)과 신전의 문을 두드리는 일은 **다른 동작**이다. 한 자리에 두 문을 내지 않는다.
 - 지키는 것은 `spawnGuardian` 이 **정해진 자리에** 세운다(여느 짐승의 띠 판정을 지나지 않는다 — 세상이 낳은 것이 아니라 신전이 세워 둔 것이다). 눕히면 그 자리는 다시 채워지지 않는다.
 - 진행은 `nation.temples[nodeId] = {stage, failedTick, guardianId, done}` 에 저장된다.
 - 카드는 `options`(열쇠말)와 함께 **`optionLabels`(한국어)** 를 싣는다. 화면은 라벨이 실려 오면 그것을 쓴다 — 한국어가 서버와 화면 두 곳에 살면 언젠가 갈린다(`council.js normDecision`).
@@ -1202,7 +1203,50 @@ event: { kind: "biome_found", nationId, data: {위와 같음} }
 `actionSwing` 이 뒤진 유적의 `gradeBoost` 를 `nation.ruinGradeBoost` 에 쌓아 두기만 하고,
 유적 카드를 여는 `decide` 경로가 그것을 **읽지 않았다**. 「죽은 자의 성채」를 스무 번 두드려도 나오는 물건의 급이
 「옛 자취」와 같았다. 이제 `artifactRoll` 이 그 값을 등급표 위에 얹고(common→rare — ★ §20-R1 이후 상자 풀이 두 등급뿐이라 천장이 레어다),
-**쓴 즉시 0 으로 되돌린다**. 규약 표면(ack 모양)은 그대로다 — 나오는 물건의 등급 분포만 스펙대로 움직인다.
+규약 표면(ack 모양)은 그대로다 — 나오는 물건의 등급 분포만 스펙대로 움직인다.
+
+> ★ §22 갱신 — 보정을 **나라에 쌓았다가 쓴 즉시 0 으로 되돌리는** 방식은 폐지됐다.
+> 「쓰고 되돌린다」는 규율을 부르는 쪽마다 지켜야 하는데 궤·상자·유적 셋이 같은 통을 보므로
+> 언젠가 두 번 얹히거나 엉뚱한 굴림이 가져간다. 이제 보정은 그것을 번 **방**의 것이고
+> 결정에 실려 다닌다(`decision.ruin.gradeBoost`). `nation.ruinGradeBoost` 는 사라졌다.
+
+---
+
+## 0-X. §22 유적 개편 — **한 자리에서 끝나는 이야기**
+
+설계 정본은 `docs/유적개편기획.md`. 구 `docs/GAMEPLAY2.md §C-4`(게이지 3 → 카드)를 대체한다.
+
+**고친 것 — 도달 불가능했던 콘텐츠.** 게이지를 소비하고 카드를 뽑는 코드가 오직
+`apAction {type:'explore'}` 안에만 있었는데 클라가 그 명령을 **한 번도 부르지 않았다**.
+카드 12장과 `gradeBoost` 가 통째로 죽어 있었고, 화면에는 `옛 자취 4/3` 이라는 넘어도
+아무 일 없는 분수만 떴다. (같은 문에 갇혀 있던 신전은 §20-R4e 가 `enterTemple` 로 따로 열었다.)
+
+**새 규칙.** 유적은 **방 단위**로 열린다. 방 하나(`node.swingsPerCycle` = 크기표의 `roomSwings`)를
+다 뒤지면 그 자리에서 카드 한 장이 결정 큐에 오르고 `ruinEvent` 가 나간다 — 나라의 게이지도
+왕의 행동력도 거치지 않는다. 크기가 곧 방의 수다(1·2·3·4방 / 방당 4·4·5·6 스윙).
+
+| 낱말 | 어디에 | 뜻 |
+|---|---|---|
+| `node.rooms` | 노드·노드뷰 | 이 자취의 방 수 |
+| `node.roomsOpened` | 노드·노드뷰 | 이미 연 방 수 |
+| `node.spent` | 노드·노드뷰 | 다 뒤졌다 — 자리는 **남되** 다시 두드려지지 않는다 |
+| `actionSwing.ruin` | ack | `{room, rooms, spent, size, name, card}` (구 `{gauge, threshold}` 폐지) |
+| `decision.ruin.gradeBoost` | 결정 큐 | 그 방이 번 등급 보정 |
+| `ruinSizes.roomBoostCurve` | `data/world.json` | 방 깊이(0~1 정규화)별 보정 비율 |
+| `ruins.roomDepth` | `data/ruins.json` | 얕은 방·깊은 방의 카드 명단 |
+
+- 새 오류: `RUIN_SPENT`(다 뒤진 자리를 또 두드렸다) — `{nodeId, spent:true}` 를 함께 준다.
+- 폐지: `nation.ruinGauge` · `nation.ruinGradeBoost` · `data.ruins.gaugeThreshold` ·
+  `NationView.ruinGauge` · `NationView.ruinThreshold` · `apAction {type:'explore'}` · `consumeRuinGradeBoost()`.
+- 카드 굴림은 **월드 난수를 쓰지 않는다** — `statRng('<씨앗>:ruin:<노드id>:<방번호>')`.
+  실시간 스윙이 월드 난수를 축내면 같은 씨앗이 다른 게임이 된다(궤와 같은 까닭).
+  덤으로 「같은 지도의 같은 방은 언제 열어도 같은 카드」가 따라온다.
+- `decisionId` 가 `ruin_<나라>_<노드>_<방>_<틱>_<카드>` 로 길어졌다. 방 사이가 4~6 스윙이라
+  **같은 틱에 방 둘을 여는 일이 흔한데**, 옛 열쇠(`나라_틱_카드`)로는 하나가 삼켜졌다.
+- `actionSwing.swingsPerCycle` 이 이제 규격이 아니라 **그 노드의 값**이다. 여태 유적에서만
+  진행바가 어긋났다(자취는 4~6, 규격은 4).
+- `apAction` 자체는 남는다 — `'inspire'`·`'survey'` 가 아직 이 문을 쓴다(클라 미연결은 별건).
+- **신전(§20-R4e)과의 경계**: 신전 셋은 이 경로로 열리지 않는다. 저기는 방이 아니라 문이다.
 
 ---
 
@@ -2214,7 +2258,7 @@ ack / `joined` 이벤트 payload:
 | `setAutoExport {enabled}` / `setExportFloor {floors}` | — | |
 | `pickRole {role}` / `delegate {assignments, vacant}` | 티어 3(관제 선포) | 아니면 `ROLE_LOCKED` |
 | `adviceAct {adviceId}` / `setAutoAssist {enabled}` | — | |
-| `apAction {type:'inspire'\|'explore'\|'survey', nodeId?, dept?}` | — | ★ `'work'` 는 폐기 |
+| `apAction {type:'inspire'\|'survey', nodeId?, dept?}` | — | ★ `'work'` 폐기 · ★ §22 `'explore'` 폐기(유적은 스윙이 방 단위로 연다) |
 | `harvestNode {nodeId}` | — | 클릭 수확 보너스 |
 | `setBattlePlan {tactic}` | 티어 2 | ★ 서지 3구간 배분은 폐기 |
 | `setAppearance {appearance}` / `chat {text}` | — | |
@@ -2408,11 +2452,11 @@ ack / `joined` 이벤트 payload:
     "_artifactsNote": "★ §20-R1 — 엔트리는 {key,name,grade,desc,type,obtainedTick,consumed,chargesLeft,charges} (0-U-2)",
     "rationing": false, "autoExport": true, "online": true, "members": [], "stats": {},
     "ap": { "current": 3, "max": 3,
-            "actions": { "inspire": { "cost": 1 }, "explore": { "cost": 1 }, "survey": { "cost": 0 } },
+            "actions": { "inspire": { "cost": 1 }, "survey": { "cost": 0 } },
             "usedDepts": [] },
     "advices": [], "autoAssist": true,
     "battlePlan": { "tactic": null, "setTick": null, "options": [], "bonus": 0.12, "penalty": 0.08 },
-    "ruinGauge": 0, "ruinThreshold": 3, "survey": null, "nodeContribution": {}
+    "survey": null, "nodeContribution": {}
   },
 
   // ★ 웨이브

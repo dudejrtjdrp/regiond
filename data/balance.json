@@ -560,11 +560,7 @@
         },
         "defaultDept": "farm"
       },
-      "explore": {
-        "cost": 1,
-        "gaugeGain": 1,
-        "requiresNodeType": "ruin"
-      },
+      "_exploreNote": "★ §22 — 왕의 행동력 행동 'explore'(유적 탐사)는 폐지됐다. 클라가 한 번도 부른 적 없는 죽은 명령이었고(apAction 호출부 0곳), 그 탓에 카드 12장·신전 3단이 통째로 도달 불가능했다. 이제 유적은 스윙이 방 단위로 연다 — 왕의 행동력을 거치지 않는다.",
       "survey": {
         "cost": 0
       }

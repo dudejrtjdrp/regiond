@@ -378,14 +378,25 @@
     if (res.depleted && node) {
       GM.fx.floatText(t.x, t.y - 1.2, '다 캤다', '#c8bda4', 12);
     }
-    if (res.ruin) {
-      GM.fx.sparkle(t.x, t.y, 10, '#b39ad6');
-      GM.fx.floatText(t.x, t.y - 1.1, '옛 자취 ' + res.ruin.gauge + '/' + res.ruin.threshold, '#d0b8f0', 12);
-    }
+    if (res.ruin) ruinRoomOpened(t, node, res.ruin);
     // ★ §17-17 — 궤가 열렸다. 자리는 그 자리에서 사라지므로 화면 장부에서도 함께 지운다.
     if (res.cache) cacheOpened(t, res.cache);
     checkLevel(res);
     stats.swings++;
+  }
+
+  /* ★ §22 — 방 하나가 열린 순간. 여태 여기 뜨던 것은 `옛 자취 4/3` 이라는 거짓 분수였다:
+     분모는 나라의 문턱이라 이 자취의 것이 아니었고, 넘어도 아무 일이 없었다.
+     이제 뜨는 것은 이 자리의 사실뿐이다 — 몇 번째 방을 열었고 몇이 남았는가.
+     화면 장부의 노드도 그 자리에서 고친다: 일 틱 worldDiff 를 기다리면 방금 연 방이
+     몇 분 동안 안 열린 것처럼 보이고, 「E — 뒤진다」가 다 뒤진 자리에도 계속 뜬다. */
+  function ruinRoomOpened(t, node, r) {
+    GM.fx.sparkle(t.x, t.y, 14, '#b39ad6');
+    GM.fx.ring(t.x, t.y, '#d0b8f0', 0.2, 2.0, 0.65, 3);
+    GM.fx.floatText(t.x, t.y - 1.1, (r.name || '옛 자취') + ' ' + r.room + '/' + r.rooms + ' 번째 방', '#d0b8f0', 13);
+    if (node) { node.roomsOpened = r.room; node.rooms = r.rooms; if (r.spent) node.spent = true; }
+    if (r.spent) GM.fx.floatText(t.x, t.y - 1.9, '더 들어갈 곳이 없다', '#c8bda4', 12);
+    if (GM.sfx) GM.sfx.play('harvest');
   }
 
   /** ★ §17-17 — 뚜껑이 열린 순간. 금빛 한 번, 나온 것 한 줄, 그리고 자리는 사라진다. */

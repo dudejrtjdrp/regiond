@@ -1,8 +1,13 @@
 {
-  "_note": "유적 탐사 카드 — docs/GAMEPLAY2.md §C-4. 유적 게이지가 gaugeThreshold 에 닿으면 카드 1장을 뽑아 결정 큐에 올리고 ruinEvent 를 쏜다. 응답은 기존 decide {decisionId, choice} 로 받는다. 유물 드랍은 기존 등급표(data/balance.json artifacts.gradeWeights)를 그대로 재사용한다.",
-  "gaugeThreshold": 3,
+  "_note": "유적 탐사 카드 — 정본은 docs/유적개편기획.md §22 (구 docs/GAMEPLAY2.md §C-4 를 대체한다). 유적의 **방 하나**를 다 뒤지면 그 자리에서 카드 1장을 뽑아 결정 큐에 올리고 ruinEvent 를 쏜다. 응답은 기존 decide {decisionId, choice} 로 받는다. 유물 드랍은 기존 등급표(data/balance.json artifacts.gradeWeights)를 그대로 재사용하고, 등급 보정은 나라가 아니라 **그 방**이 쥔다(decision.ruin.gradeBoost). 구 gaugeThreshold 는 폐지됐다.",
   "decisionKind": "ruin",
   "title": "유적 탐사",
+  "roomDepth": {
+    "_note": "★ §22-2 층2 — 방 번호별 카드 풀. 얕은 방은 잘고 살가운 것이 나오고(우물·석상·곳간·저잣거리·돌무지), 깊은 방은 값도 위험도 크다(제단·봉분·문·가마·지하실·뼈밭·비석). 「안으로 들어갈수록 무거워진다」를 카드 이름만으로 느끼게 하는 장치다. 목록에 없는 카드나 방이 하나뿐인 자취는 전체 풀에서 뽑는다 — 풀이 비면 언제나 전체로 되돌아온다(빈손 방지).",
+    "shallowRatio": 0.5,
+    "shallow": ["well", "statue", "granary", "market", "cairn"],
+    "deep": ["altar", "barrow", "gate", "furnace", "vault", "bones", "obelisk"]
+  },
   "cards": [
     {
       "id": "altar",

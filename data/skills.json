@@ -321,12 +321,13 @@
       "cacheReward": true
     },
     "ruin": {
+      "_note": "★ §22 유적개편 — 유적은 **방 단위**로 열린다. 한 주기(swings)를 끝내면 그 자리에서 방 하나가 열리고 카드 한 장이 결정 큐에 오른다. swings 는 노드에 박힌 roomSwings 가 덮어쓴다(node.swingsPerCycle) — 여기 값은 크기표가 없을 때의 폴백이다. 채집물이 없으므로 yield 도 drain 도 없다. 구 ruinGauge(나라 누적 게이지)는 폐지됐다: 두드린 자리에서 두드린 사람이 연다.",
       "skill": "build",
-      "swings": 6,
+      "swings": 4,
       "yield": {},
       "cycleBonus": {},
       "drain": 0,
-      "ruinGauge": 1
+      "ruinRoom": true
     },
     "_note": "노드 종류별 스윙 규칙. swings 는 한 주기(나무 한 그루·바위 한 덩이·밭 한 뙈기)를 끝내는 스윙 수, yield 는 스윙 1회 획득량(레벨·도구 배수 곱하기 전), cycleBonus 는 주기를 끝냈을 때의 추가 획득, drain 은 노드 잔량 감소량이다. requiresRipe 인 밭 계열은 여물어야 거둘 수 있고 거두면 곧바로 재파종된다(readyEveryTicks 뒤 다시 여문다)."
   },

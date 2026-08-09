@@ -947,8 +947,10 @@
          비율에 비례해 투명해지므로, 멀리서도 '저 숲은 곧 끝난다'가 눈으로 읽힌다. */
       var fadeAt = S.regrowCfg() ? S.regrowCfg().fadeAt : 0.35;
       var ratio = (n.ratio == null) ? 1 : n.ratio;
-      var faded = ratio < fadeAt;
-      if (faded) { ctx.save(); ctx.globalAlpha = 0.42 + 0.58 * (ratio / Math.max(0.01, fadeAt)); }
+      /* ★ §22 — 다 뒤진 자취는 지워지지 않고 **회색 폐허**로 남는다. 지도가 발자취를 기억해야
+         하기 때문이다(궤와 갈리는 지점). 눈으로는 「여긴 끝났다」가 한 번에 읽혀야 한다. */
+      var faded = ratio < fadeAt || n.spent;
+      if (faded) { ctx.save(); ctx.globalAlpha = n.spent ? 0.4 : (0.42 + 0.58 * (ratio / Math.max(0.01, fadeAt))); }
       try { ctx.drawImage(sp, Math.round(p.x), Math.round(p.y), Math.ceil(t * fp.w), Math.ceil(t * fp.h)); } catch (e) {}
       if (faded) ctx.restore();
       if (n.harvestReady) {
@@ -970,6 +972,7 @@
           ctx.fillRect(bx + k * (dotW + 2), by, dotW, 3);
         }
       }
+      if (n.type === 'ruin' && !n.temple) drawRuinRooms(n, p, t, fp);
       if (n.workers > 0 && t >= 24) {
         ctx.fillStyle = 'rgba(20,14,8,.6)';
         ctx.fillRect(p.x, p.y + t * fp.h - 5, t * fp.w, 5);
@@ -977,6 +980,38 @@
         ctx.fillRect(p.x, p.y + t * fp.h - 5, t * fp.w * Math.min(1, n.workers / Math.max(1, n.slots)), 5);
       }
     }
+  }
+
+  /* ★ §22 — 「아직 몇 방 남았나」. 유저가 유적을 못 알아본 첫째 까닭은 **끝이 안 보인다**였다:
+     화면이 띄우던 `옛 자취 4/3` 은 나라의 누적이라 이 자리와 아무 상관이 없었다.
+     여기 뜨는 것은 이 자취의 사실뿐이다 — 채운 마름모가 아직 안 연 방, 빈 것이 이미 연 방.
+     다 뒤진 자취는 마름모 대신 ✧ 하나만 남는다. 마커가 아니라 **상태 표시**다(§18-3 규율 ①
+     은 「다음 갈 곳을 가리키는 화살표」를 금하지, 눈앞의 자리가 제 상태를 말하는 것은 막지 않는다).
+     신전 셋(§20-R4e)에는 그리지 않는다 — 저기는 방이 아니라 문이다. */
+  function drawRuinRooms(n, p, t, fp) {
+    var rooms = n.rooms || 1;
+    if (t < 18) return;
+    var opened = n.roomsOpened || 0;
+    var cx = p.x + t * fp.w / 2;
+    var cy = p.y - (n.swings > 0 ? 14 : 8);
+    if (n.spent) { ruinGlyph(cx, cy, t, '#6b6358', false); return; }
+    var step = Math.max(7, t * 0.2);
+    for (var k = 0; k < rooms; k++) {
+      ruinGlyph(cx + (k - (rooms - 1) / 2) * step, cy, t, '#d0b8f0', k >= opened);
+    }
+  }
+
+  /** 작은 마름모 하나 — 채우면 아직 안 연 방, 비우면 이미 연 방 */
+  function ruinGlyph(x, y, t, color, filled) {
+    var r = Math.max(2.5, t * 0.07);
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y);
+    ctx.closePath();
+    ctx.fillStyle = filled ? color : 'rgba(20,14,8,.45)';
+    ctx.fill();
+    ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.stroke();
+    ctx.restore();
   }
 
   /* ══════════ ★ §18-D2 앞마당의 흔적 ══════════
@@ -2673,7 +2708,8 @@
 
   var VERB = {
     forest: 'E — 나무 베기', rock: 'E — 돌 캐기', iron: 'E — 광맥 캐기', oil: 'E — 기름 긷기',
-    water: 'E — 물고기 잡기', fertile: 'E — 거두기', field: 'E — 거두기', ruin: 'E — 유적 살피기',
+    // ★ §22 — ruin 은 ruinVerb() 가 자취 이름·진행과 함께 짓는다. 여기 값은 폴백이다.
+    water: 'E — 물고기 잡기', fertile: 'E — 거두기', field: 'E — 거두기', ruin: 'E — 옛 자취를 뒤진다',
     berry: 'E — 열매 따기', site: 'E — 짓기', enemy: 'E — 베기', wild: 'E — 사냥하기',
     // ★ §17-17 — 숨은 궤. 캐는 것이 아니라 여는 것이다(한 번 열면 그 자리는 사라진다).
     cache: 'E — 궤를 연다'
@@ -2693,7 +2729,19 @@
       var name = t.obj && t.obj.name ? t.obj.name : '공사';
       return 'E — ' + name + ' 짓기';
     }
+    if (t.nodeType === 'ruin') return ruinVerb(t.obj);
     return VERB[t.nodeType] || 'E — 일하기';
+  }
+
+  /* ★ §22 — 「유적 살피기」는 무엇을 하는지 알려주지 않는 낱말이었다. 자취의 제 이름을 부르고
+     이 방을 여는 데 몇 번 남았는지를 그 자리에서 말한다 — 끝이 보이지 않던 것이 불만의 뿌리였다.
+     남은 방 수(✦)는 노드 위에 따로 그린다(drawRuinRooms).
+     ★ 신전 셋(§20-R4e)은 위에서 이미 갈라져 나갔다 — 여긴 여느 자취만 온다. */
+  function ruinVerb(n) {
+    if (!n) return 'E — 옛 자취를 뒤진다';
+    if (n.spent) return '다 뒤진 자리다';
+    var per = n.swingsPerCycle || 4;
+    return 'E — ' + (n.ruinName || '옛 자취') + '을(를) 뒤진다 (' + ((n.swings || 0) % per) + '/' + per + ')';
   }
 
   /** ★ §19-F1(F08-4) — 데려올 수 있는가. 판정은 서버가 다시 한다(여기는 말머리를 걸 뿐이다). */

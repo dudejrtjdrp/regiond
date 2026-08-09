@@ -741,7 +741,7 @@
           ap: { current: 3, max: 3, actions: {}, usedDepts: [] },
           advices: [], autoAssist: true,
           battlePlan: { tactic: 'siege', setTick: null, options: cfg.tactics.options, bonus: 0.12, penalty: 0.08 },
-          ruinGauge: 0, ruinThreshold: 3, survey: null, nodeContribution: {}
+          survey: null, nodeContribution: {}   /* ★ §22 — ruinGauge·ruinThreshold 폐지 */
         },
         /* ★ 웨이브·시장은 그 장이 열리기 전에는 블록 자체가 없다(GDD3 §11-1) */
         wave: featOn('waves') ? waveView() : null,

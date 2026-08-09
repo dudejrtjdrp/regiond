@@ -137,7 +137,8 @@
     iron:    { name: '철광맥',    color: '#b07050', job: 'mine',   res: 'ironOre', verb: '캔다',   skill: 'mining', icon: 'ore' },
     coal:    { name: '석탄 노두',  color: '#4a4a52', job: 'mine',   res: 'coal',    verb: '캔다',   skill: 'mining', icon: 'coal' },
     oil:     { name: '유막',      color: '#6f5aa8', job: 'mine',   res: 'oil',     verb: '퍼낸다', skill: 'mining', icon: 'oil' },
-    ruin:    { name: '옛 자취',   color: '#b39ad6', job: 'scout',  res: null,      verb: '살핀다', skill: 'build',  icon: 'gem' },
+    // ★ §22 — 「살핀다」는 무엇을 하는지 안 알려주는 낱말이라 버렸다. 유적은 뒤지는 곳이다.
+    ruin:    { name: '옛 자취',   color: '#b39ad6', job: 'scout',  res: null,      verb: '뒤진다', skill: 'build',  icon: 'gem' },
     /* ★ §17-17 — 숨은 궤. 붙일 사람도 캘 자원도 없다(job·res 가 없다): 왕이 손수 여는 한 번뿐인 자리다. */
     cache:   { name: '숨은 궤',   color: '#d8c070', job: null,     res: null,      verb: '연다',   skill: 'build',  icon: 'gem' },
     field:   { name: '밭',        color: '#e0c65a', job: 'farm',   res: 'grain',   verb: '거둔다', skill: 'farm',   icon: 'farmTile' }

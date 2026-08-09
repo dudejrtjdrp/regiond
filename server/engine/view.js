@@ -273,9 +273,8 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
            「어느 문턱이 켜졌나」를 그리려면 조각 수를 화면이 다시 세면 안 된다(세는 규칙이 둘이
            되면 언젠가 어긋난다). 하나도 안 가졌으면 빈 객체라 옛 화면에도 아무 일이 없다. */
         artifactSets: setsWithSteps(hooks.sets, data),
+        // ★ §22 — ruinGauge·ruinThreshold 송출은 폐지됐다. 유적 진행은 노드 뷰가 쥔다(rooms·roomsOpened·spent).
         decisionQueue: nation.decisionQueue,
-        ruinGauge: nation.ruinGauge || 0,
-        ruinThreshold: data.ruins.gaugeThreshold,
       } : {}),
       ...(on('orders') ? { orders: nation.orders } : {}),
       ...(tradeOn ? {
@@ -630,6 +629,11 @@ function nodeView(world, nation, n, data) {
   if (n.cluster) v.cluster = n.cluster;
   if (n.size != null) v.size = n.size;
   if (n.ruinName) v.ruinName = n.ruinName;
+  /* ★ §22 — 「아직 몇 방 남았나」는 화면이 멀리서도 알아야 갈 이유가 된다(✦ n). 다 뒤진 자취는
+     지워지지 않고 회색 폐허로 남으므로, 그 상태도 함께 실어야 화면이 「비었다」를 그릴 수 있다. */
+  if (n.rooms != null) v.rooms = n.rooms;
+  if (n.roomsOpened) v.roomsOpened = n.roomsOpened;
+  if (n.spent) v.spent = true;
   if (n.concealed) v.wasConcealed = true;
   if (n.workers) v.workers = n.workers;
   if (n.swings) v.swings = n.swings;

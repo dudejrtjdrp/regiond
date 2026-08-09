@@ -658,14 +658,16 @@
       "fadeAt": 0.35
     },
     "ruinSizes": {
-      "_note": "★ GDD3 §13-B-4 — 유적은 1×1부터 4×4까지다. 클수록 뒤지는 데 오래 걸리고(swings), 탐사 게이지가 빨리 차고(gauge), 나오는 물건의 등급이 높다(gradeBoost). 대신 더 멀거나(minDistance) 사나운 땅(minRing)에 있고, 일부는 가까이 가거나 정찰해야 드러난다(concealChance). 무게(weight)는 뽑기 비율이다.",
+      "_note": "★ §22 유적개편 — 유적은 1×1부터 4×4까지고, 크기는 인내력이 아니라 **방의 수**다(rooms). 방 하나를 다 뒤지면(roomSwings) 그 자리에서 카드 한 장이 열린다 — 나라의 게이지를 기다리지 않는다. 안쪽 방일수록 등급 보정이 크다(roomBoostCurve): 「크면 좋다」가 아니라 「끝까지 가면 좋다」. 대신 큰 자취는 더 멀거나(minDistance) 사나운 땅(minRing)에 있고, 일부는 가까이 가거나 정찰해야 드러난다(concealChance). 무게(weight)는 뽑기 비율이다. 구 swings·gauge 는 폐지됐다 — 총 스윙은 rooms × roomSwings 이고 옛 값과 거의 같다(4·8·15·24).",
       "revealRadius": 5,
+      "_curveNote": "★ §22-2 — 방의 깊이를 0~1 로 정규화해 읽는 표다. 방이 둘이면 첫 방 0 · 끝 방 1.0, 넷이면 0 · 0.5 · 0.8 · 1.0. 이 비율을 gradeBoost 에 곱한다. 표를 쓰지 않고 방 번호로 직접 인덱싱하면 방이 둘인 자취의 끝 방이 0.5 를 받아 「끝까지 갔는데 덜 준다」가 된다.",
+      "roomBoostCurve": [0, 0.5, 0.8, 1.0],
       "table": [
         {
           "size": 1,
           "weight": 0.44,
-          "swings": 4,
-          "gauge": 1,
+          "rooms": 1,
+          "roomSwings": 4,
           "gradeBoost": 0,
           "minDistance": 10,
           "minRing": 0,
@@ -675,8 +677,8 @@
         {
           "size": 2,
           "weight": 0.31,
-          "swings": 8,
-          "gauge": 2,
+          "rooms": 2,
+          "roomSwings": 4,
           "gradeBoost": 1,
           "minDistance": 26,
           "minRing": 1,
@@ -686,8 +688,8 @@
         {
           "size": 3,
           "weight": 0.18,
-          "swings": 14,
-          "gauge": 3,
+          "rooms": 3,
+          "roomSwings": 5,
           "gradeBoost": 2,
           "minDistance": 44,
           "minRing": 1,
@@ -697,8 +699,8 @@
         {
           "size": 4,
           "weight": 0.07,
-          "swings": 22,
-          "gauge": 5,
+          "rooms": 4,
+          "roomSwings": 6,
           "gradeBoost": 3,
           "minDistance": 62,
           "minRing": 2,

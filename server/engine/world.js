@@ -505,8 +505,11 @@ function placeRuins(ctx, cfg, rng, data) {
     const node = pushNode(ctx, 'ruin', def, x, y);
     node.size = spec.size;
     node.ruinName = spec.name;
-    node.swingsPerCycle = spec.swings;
-    node.ruinGauge = spec.gauge;
+    /* ★ §22 — 크기는 인내력이 아니라 **방의 수**다. swingsPerCycle 은 이제 자취 전체가 아니라
+       방 하나를 여는 값이라, 22번을 무음으로 두드리는 대신 4~6번마다 카드가 선다. */
+    node.rooms = spec.rooms ?? 1;
+    node.roomsOpened = 0;
+    node.swingsPerCycle = spec.roomSwings ?? spec.swings ?? 4;
     node.gradeBoost = spec.gradeBoost ?? 0;
     node.concealed = rng.chance(spec.concealChance ?? 0);
   }

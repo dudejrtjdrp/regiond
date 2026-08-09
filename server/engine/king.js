@@ -5,7 +5,7 @@
 import { grantArtifact, dropPool, grantVia } from './artifacts.js';
 import { round2 } from './economy.js';
 import { nodeById, townOf, territoryRadius, dist, terrainNameAt } from './world.js';
-import { templeCard } from './temple.js';   // ★ §20-R4b — 자취가 신전이면 게이지 대신 신전이 선다
+
 import {
   resolveTarget, isHarvestReady, markHarvestCycle, fieldStage, fieldStageView,
 } from './villagers.js';
@@ -83,25 +83,9 @@ export function performApAction(world, nation, cmd, data, rng) {
       });
       return { ok: true, ap: { ...ap }, action: 'inspire', dept, bonus: def.outputBonus, nodeId: target?.id ?? null };
     }
-    case 'explore': {
-      if (target.kind !== 'node' || target.nodeType !== def.requiresNodeType) {
-        return { ok: false, error: { code: 'NOT_RUIN', message: '탐사할 유적이 아닙니다.' } };
-      }
-      ap.current -= cost;
-      nation.ruinGauge = (nation.ruinGauge || 0) + (def.gaugeGain ?? 1);
-      const events = [];
-      /* ★ §20-R4b — 이 자취가 신전이면 게이지를 기다리지 않는다. 신전은 「뒤지다 보면 나오는 것」이
-         아니라 **찾아가는 곳**이라, 선 그 자리에서 다음 단이 열린다(수수께끼 → 시련 → 안치소). */
-      let card = templeCard(world, nation, target.node ?? target, data);
-      if (card) {
-        (nation.decisionQueue ||= []).push({ ...card, createdTick: world.tick });
-      } else if (nation.ruinGauge >= data.ruins.gaugeThreshold) {
-        nation.ruinGauge = 0;
-        card = openRuinCard(world, nation, data, rng, target.node ?? null);   // 이 문이 제 손으로 큐에 넣는다
-      }
-      if (card) events.push({ kind: 'ruin_event', nationId: nation.id, data: { card } });
-      return { ok: true, ap: { ...ap }, action: 'explore', nodeId: target.id, ruinGauge: nation.ruinGauge, card, events };
-    }
+    /* ★ §22 — 'explore'(유적 탐사)는 폐지됐다. 클라가 한 번도 부른 적 없는 명령이었고, 게이지를
+       소비하고 카드를 뽑는 코드가 오직 이 안에만 있었던 탓에 카드 12장·신전 3단이 통째로
+       도달 불가능한 콘텐츠였다. 이제 유적은 스윙이 방 단위로 연다(actions.openRuinRoom). */
     case 'survey': {
       const node = target.kind === 'node' ? target.node : null;
       const def2 = node ? data.world.nodes.types[node.type] : null;
@@ -161,18 +145,28 @@ export { isHarvestReady, markHarvestCycle, fieldStage, fieldStageView };
 // ────────────────────────────────────────────────────────────────
 // 유적 카드 (§C-4) — 규칙 그대로
 // ────────────────────────────────────────────────────────────────
-export function openRuinCard(world, nation, data, rng, node = null) {
+/**
+ * 유적 카드 한 장을 세워 결정 큐에 넣는다 — 이 문이 제 손으로 큐에 넣는다.
+ * ★ §22 — 부르는 쪽이 방 정보를 함께 준다(`{gradeBoost, room, rooms}`). 등급 보정을 나라에
+ * 쌓아 두지 않는 까닭: 나라에 쌓으면 「성채를 한 번 뒤진 판」이 그 뒤 모든 굴림에서 영영
+ * 후해진다(§17-17 에서 한 번 겪었다). 보정은 그것을 번 **그 방**의 것이고 카드에 실려 다닌다.
+ */
+export function openRuinCard(world, nation, data, rng, node = null, room = {}) {
   /* ★ §20-R4b — 땅이 카드를 바꾼다(설산 유적 → 「얼음 밑 돌무지」, ruin:snow 풀이 열린다).
      ⚠ 뽑기는 **언제나** 한다. `?? rng.pick(...)` 로 쓰면 단락 평가 때문에 난수를 한 톨 덜 쓰고,
      설산 유적을 한 번 연 판은 그 뒤 모든 굴림이 밀린다(회귀로 붙들었다). 뽑은 뒤에 덮어쓴다. */
-  const picked = rng.pick(data.ruins.cards);
+  const picked = rng.pick(roomPool(data, room));
   const def = biomeCardFor(world, data, node) ?? picked;
-  const decisionId = `ruin_${nation.id}_${world.tick}_${def.id}`;
+  /* ★ §22 — 같은 날 방 둘을 여는 일은 드물지 않다(방 사이는 4~6 스윙, 한 틱은 게임 하루다).
+     여태처럼 `나라_틱_카드` 로만 지으면 두 방의 결정이 같은 열쇠를 갖고 하나가 삼켜진다. */
+  const decisionId = `ruin_${nation.id}_${node?.id ?? 'x'}_${room.room ?? 0}_${world.tick}_${def.id}`;
   const card = {
     decisionId,
     cardId: def.id,
     name: def.name,
     text: def.text,
+    room: room.room ?? null,
+    rooms: room.rooms ?? null,
     options: def.options.map((o) => ({ key: o.key, label: o.label })),
   };
   (nation.decisionQueue ||= []).push({
@@ -182,9 +176,26 @@ export function openRuinCard(world, nation, data, rng, node = null) {
     text: `${def.name} — ${def.text}`,
     options: def.options.map((o) => o.key),
     createdTick: world.tick,
-    ruin: { cardId: def.id },
+    ruin: { cardId: def.id, gradeBoost: room.gradeBoost ?? 0, nodeId: node?.id ?? null },
   });
   return card;
+}
+
+/**
+ * ★ §22-2 층2 — 이 방이 뽑을 카드 명단. 얕은 방은 잘고 살가운 것이, 깊은 방은 값도 위험도
+ * 큰 것이 선다. 「안으로 들어갈수록 무거워진다」를 카드 이름만으로 느끼게 하는 장치다.
+ * 방이 하나뿐이거나 명단이 비면 전체 풀로 되돌아온다 — 좁히다가 빈손이 되는 일은 없어야 한다.
+ * ⚠ 어느 갈래로 가든 rng 소비는 한 톨(pick 한 번)이다. 여기서 갈래마다 굴림 수가 달라지면
+ *   §20-R4b 에서 붙든 「난수 차례가 밀린다」가 되살아난다.
+ */
+function roomPool(data, room = {}) {
+  const cfg = data.ruins.roomDepth;
+  const all = data.ruins.cards;
+  if (!cfg || !(room.rooms > 1) || !room.room) return all;
+  const deep = (room.room - 1) / (room.rooms - 1) > (cfg.shallowRatio ?? 0.5);
+  const names = deep ? cfg.deep : cfg.shallow;
+  const pool = all.filter((c) => (names || []).includes(c.id));
+  return pool.length ? pool : all;
 }
 
 /** decide {decisionId, choice} 로 들어온 유적 카드 선택 처리 */
@@ -203,15 +214,18 @@ export function resolveRuinChoice(world, nation, decision, choice, data, rng) {
           /* ★ §17-17 버그 수정 — 큰 유적의 gradeBoost 가 여태 굴림에 실리지 않았다.
              actions.js 가 뒤진 유적의 등급 보정을 nation.ruinGradeBoost 에 쌓아 두기만 했고
              카드를 여는 이 자리가 그것을 읽지 않았다: 「죽은 자의 성채」를 스무 번 두드려도
-             나오는 물건의 급이 「옛 자취」와 똑같았다. 여기서 넘겨 쓰고 **쓴 즉시 0 으로 되돌린다**
-             (한 번 쌓은 보정은 한 번의 굴림에만 얹힌다 — 안 그러면 성채 하나로 영영 후해진다). */
+             나오는 물건의 급이 「옛 자취」와 똑같았다.
+             ★ §22 — 그 보정은 이제 나라가 아니라 **카드가 지고 다닌다**(decision.ruin.gradeBoost).
+             나라에 쌓으면 「쓴 즉시 0 으로 되돌린다」는 규율을 부르는 쪽마다 지켜야 하는데,
+             궤·상자·유적 셋이 같은 통을 보므로 언젠가 두 번 얹히거나 엉뚱한 굴림이 가져간다.
+             카드에 실으면 그 방이 번 보정이 그 방의 굴림에만 닿는다 — 규율이 필요 없어진다. */
           /* ★ §20-R4b — 카드가 제 풀을 적었으면 그것으로 굴린다(봉분의 금기·제단의 이름 부르기·
              얼음 밑 돌무지). 안 적은 카드는 예전 그대로 'ruin' 이라 열두 장의 옛 굴림은 안 바뀐다.
              제 풀에는 등급 보정을 얹지 않는다 — 그 풀은 등급이 아니라 **경로**로 좁힌 명단이라
              거기에 보정을 또 밀면 「금기 한 번에 전설」이 된다. */
           artifact = out.via
             ? grantVia(world, nation, data, rng, { via: out.via }, world.tick)
-            : grantRandomArtifact(nation, data, rng, world.tick, consumeRuinGradeBoost(nation), { world, via: 'ruin' });
+            : grantRandomArtifact(nation, data, rng, world.tick, decision.ruin?.gradeBoost || 0, { world, via: 'ruin' });
           lines.push(artifact ? `${out.successText} (${artifact.name})` : out.successText);
           applied.push(artifact ? `artifact:${artifact.key}` : 'artifact:none');
         } else {
@@ -255,14 +269,9 @@ function applyRuinEffect(nation, fx, data, applied) {
 }
 
 /**
- * ★ §17-17 — 쌓인 유적 등급 보정을 꺼내 쓰고 그 자리에서 비운다. 「쓰고 되돌린다」가 한 곳에만 있어야
- * 다음에 부르는 쪽(숨은 궤·상자)이 실수로 두 번 얹지 않는다.
+ * ★ §22 — `consumeRuinGradeBoost()` 는 삭제됐다. 등급 보정을 나라에 쌓지 않고 카드가 지고 다니므로
+ * (openRuinCard 의 `room.gradeBoost`), 「쓰고 그 자리에서 비운다」는 규율 자체가 필요 없어졌다.
  */
-export function consumeRuinGradeBoost(nation) {
-  const boost = nation.ruinGradeBoost || 0;
-  nation.ruinGradeBoost = 0;
-  return boost;
-}
 
 /**
  * 기존 등급표(balance.artifacts.gradeWeights)를 그대로 재사용한 유물 드랍.

@@ -129,9 +129,9 @@ export function createNation(id, name, opts, data, rng) {
     members: [],
     ap: { current: b.actionPoints.max, max: b.actionPoints.max, day: 0 },
     apState: { inspiredDepts: [], workedNodes: [] },
-    ruinGauge: 0,
-    // ★ GDD3 §13-B-4 — 뒤진 유적 중 가장 큰 것의 등급 보정. 다음에 열 상자의 급을 밀어 올린다.
-    ruinGradeBoost: 0,
+    /* ★ §22 — ruinGauge·ruinGradeBoost 는 폐지됐다. 유적 진행은 나라가 아니라 **노드**가 쥐고
+       (node.roomsOpened·node.spent), 등급 보정은 그것을 번 카드가 지고 다닌다. 나라의 저금통은
+       「지금 두드린 이 자취가 카드를 준 것이 아니다」를 만들어 인과를 끊었다(유적개편기획 §22-1). */
     /* ★ GDD3 §13-D — RPG 계층. 장비는 사람(players)마다 붙고, 이 셋은 나라의 것이다.
        research.done 은 {열쇠: 끝난 날}, active 는 지금 붙들고 있는 연구 하나. */
     research: { done: {}, active: null },

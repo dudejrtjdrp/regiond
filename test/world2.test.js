@@ -182,7 +182,11 @@ test('★ §13-B-4 유적 — 크기 1~4가 다 나오고, 클수록 멀고 오�
     assert.ok(r.size >= 1 && r.size <= 4);
     assert.ok(r.swingsPerCycle > 0, '뒤지는 데 드는 스윙이 크기마다 다르다');
     const spec = data.world.nodes.ruinSizes.table.find((t) => t.size === r.size);
-    assert.equal(r.swingsPerCycle, spec.swings);
+    /* ★ §22 — swingsPerCycle 은 이제 자취 전체가 아니라 **방 하나**를 여는 값이다.
+       크기는 인내력이 아니라 방의 수로 표현된다(rooms). */
+    assert.equal(r.swingsPerCycle, spec.roomSwings, `크기 ${r.size}: 방 하나의 스윙 수`);
+    assert.equal(r.rooms, spec.rooms, `크기 ${r.size}: 방의 수`);
+    assert.equal(r.roomsOpened, 0, '갓 지은 자취는 아무 방도 안 열려 있다');
     assert.ok(dTown(r, town) >= spec.minDistance, `크기 ${r.size} 유적은 ${spec.minDistance}타일 밖에 있다`);
   }
   const big = ruins.filter((r) => r.size >= 3);

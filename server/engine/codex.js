@@ -67,12 +67,21 @@ export function recordRuinFound(nation, node, tick = 0) {
   return r;
 }
 
-/** 한 주기를 뒤졌다 */
-export function recordRuin(nation, node, tick = 0) {
+/**
+ * 방 하나를 열었다.
+ * ★ §22 — 여태 도감이 적은 것은 「몇 번 뒤졌나」(cycles)뿐이라 **기록**이지 지도가 아니었다.
+ * 방이 몇이고 그중 몇을 열었는지, 거기서 어떤 카드가 섰는지를 함께 적어야 화면이
+ * 「아직 안 뒤진 자취가 저기 있다」를 말할 수 있다.
+ */
+export function recordRuin(nation, node, tick = 0, room = {}) {
   const r = recordRuinFound(nation, node, tick);
   if (!r) return null;
   r.cycles = (r.cycles || 0) + 1;
   r.lastTick = tick;
+  r.rooms = room.rooms ?? node.rooms ?? 1;
+  r.roomsOpened = room.room ?? node.roomsOpened ?? r.roomsOpened ?? 0;
+  r.spent = Boolean(node.spent);
+  if (room.cardId) (r.cards ||= []).push(room.cardId);
   return r;
 }
 

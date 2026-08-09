@@ -117,40 +117,50 @@ test('★ §17-17 숨은 궤 — 연 자리는 그루터기도 남기지 않는�
 // ────────────────────────────────────────────────────────────────
 // ④ 유적 등급 보정 — 전달과 리셋 (버그 회귀)
 // ────────────────────────────────────────────────────────────────
-test('★ §17-17 유적 등급 보정 — 굴림에 실리고, 쓴 즉시 0 으로 돌아간다', () => {
+/* ★ §22 갱신 — 보정을 나라에 쌓았다가 「쓴 즉시 0 으로 되돌리는」 방식은 폐지됐다.
+   규율을 부르는 쪽마다 지켜야 하는데 궤·상자·유적 셋이 같은 통을 봐서 언젠가 어긋난다.
+   이제 보정은 그것을 번 **방**의 것이고 결정에 실려 다닌다 — 되돌릴 것 자체가 없다. */
+test('★ §17-17 유적 등급 보정 — 그 방이 번 보정이 그 방의 굴림에만 실린다', () => {
   const { world, nation } = scene();
   const order = Object.keys(data.balance.artifacts.gradeWeights);
   // 언제나 성공하고 언제나 첫 등급(common)을 뽑는 자 — 보정만이 등급을 움직인다
   const rng = { chance: () => true, weighted: (e) => e[0].value, pick: (a) => a[0] };
-  const decision = { ruin: { cardId: 'altar' } };
 
-  nation.ruinGradeBoost = 0;
-  const plain = resolveRuinChoice(world, nation, decision, 'dig', data, rng);
+  const plain = resolveRuinChoice(world, nation, { ruin: { cardId: 'altar' } }, 'dig', data, rng);
   assert.equal(plain.result.artifact.grade, order[0], '보정이 없으면 뽑힌 등급 그대로다');
 
-  nation.ruinGradeBoost = 3;                    // 「죽은 자의 성채」를 뒤진 뒤
-  const boosted = resolveRuinChoice(world, nation, decision, 'dig', data, rng);
+  const deep = { ruin: { cardId: 'altar', gradeBoost: 3 } };   // 「죽은 자의 성채」의 끝 방
+  const boosted = resolveRuinChoice(world, nation, deep, 'dig', data, rng);
   assert.equal(boosted.result.artifact.grade, order[3], '보정만큼 등급이 밀려 올라간다');
-  assert.equal(nation.ruinGradeBoost, 0, '쓴 보정은 그 자리에서 비워진다');
 
-  const after = resolveRuinChoice(world, nation, decision, 'dig', data, rng);
-  assert.equal(after.result.artifact.grade, order[0], '다음 굴림에는 다시 얹히지 않는다');
+  const after = resolveRuinChoice(world, nation, { ruin: { cardId: 'altar' } }, 'dig', data, rng);
+  assert.equal(after.result.artifact.grade, order[0], '다음 방의 굴림에는 얹히지 않는다');
+  assert.equal(nation.ruinGradeBoost, undefined, '나라에는 아무것도 쌓이지 않는다');
 });
 
-test('★ §17-17 유적 등급 보정 — 유적을 뒤지면 그 크기만큼 보정이 쌓인다', () => {
+test('★ §22 유적 — 큰 자취를 끝까지 뒤지면 끝 방이 제 보정을 지고 나온다', () => {
   const { world, nation } = scene();
   const big = (world.map.nodes || []).filter((n) => n.type === 'ruin' && (n.gradeBoost || 0) >= 2)[0];
   assert.ok(big, '큰 유적이 세상에 있다');
   big.revealed = true;
   nation.avatars.lord = { id: 'lord', name: '개척자', x: big.x, y: big.y, tick: 0 };
-  const per = Math.max(1, big.swingsPerCycle ?? 6);
+  const per = Math.max(1, big.swingsPerCycle ?? 4);
   let res = null;
-  for (let i = 0; i < per; i += 1) {
-    res = actionSwing(world, nation, { nodeId: big.id, avatarId: 'lord' }, data, 1e6 + i * 1e5);
+  let clock = 1e6;
+  for (let i = 0; i < per * big.rooms; i += 1) {
+    clock += 1e5;
+    res = actionSwing(world, nation, { nodeId: big.id, avatarId: 'lord' }, data, clock);
   }
   assert.equal(res.ok, true, JSON.stringify(res.error ?? null));
-  assert.ok(res.ruin, '한 주기를 뒤지면 탐사 게이지가 찬다');
-  assert.equal(nation.ruinGradeBoost, big.gradeBoost, '노드의 등급 보정이 나라에 쌓인다');
+  assert.ok(res.ruin, '한 주기를 뒤지면 방이 하나 열린다');
+  assert.equal(res.ruin.spent, true, '끝 방까지 갔다');
+  assert.equal(big.roomsOpened, big.rooms, '방을 하나도 안 빼놓고 열었다');
+  /* 자리가 신전이면 방 셋은 수수께끼·시련·안치소가 되고 등급 보정을 쓰지 않는다(§20-R4b).
+     그 갈래에서는 「방마다 결정이 하나씩 섰는가」만 본다 — 보정 자체는 §22 회귀가 따로 붙든다. */
+  const cards = nation.decisionQueue.filter((d) => d.ruin);
+  assert.ok(nation.decisionQueue.length >= 1, '방마다 결정이 하나씩 섰다');
+  if (!cards.length) return;
+  assert.equal(cards[cards.length - 1].ruin.gradeBoost, big.gradeBoost, '끝 방이 자취의 보정을 온전히 받는다');
 });
 
 // ────────────────────────────────────────────────────────────────
