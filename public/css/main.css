@@ -448,6 +448,17 @@ button[data-tip],.res-chip[data-tip],.minister[data-tip]{cursor:pointer}
 .goal-card.done{border-color:var(--green-deep); animation:goalPop .55s steps(5)}
 @keyframes goalPop{0%{transform:scale(1)}35%{transform:scale(1.07)}100%{transform:scale(1)}}
 .goal-card .gc-check{position:absolute; top:8px; right:10px; color:var(--green-deep); font-size:19px}
+.artifact-track-card{margin-top:9px; padding:10px 12px; width:min(268px,44vw); background:linear-gradient(180deg,#f9edcb 0 5px,#eee0bc 5px 100%); border:3px solid var(--gold-deep); box-shadow:inset 0 0 0 2px rgba(255,255,255,.45),0 4px 0 var(--wood-deep); color:var(--ink)}
+.artifact-track-card .at-cap{display:block; font-size:11px; letter-spacing:.08em; color:var(--gold-deep)}
+.artifact-track-card .at-title{display:block; margin-top:3px; font-size:15px}
+.artifact-track-card .at-sub{display:block; margin-top:5px; font-size:12px; line-height:1.45; color:var(--ink2)}
+.artifact-track-card .at-why{display:block; margin-top:7px; padding-top:6px; border-top:1px dashed rgba(83,61,31,.38); font-size:11px; line-height:1.45; color:var(--wood-deep)}
+.artifact-track-card .at-journal{margin-top:8px;width:100%;font-size:11px}
+.artifact-journal-btn{display:block;margin-top:9px;padding:7px 10px;border:2px solid var(--gold-deep);background:#f9edcb;color:var(--ink);font:12px Galmuri11,monospace;cursor:pointer;box-shadow:0 2px 0 var(--wood-deep)}.artifact-journal-btn:hover{filter:brightness(1.04)}
+.artifact-track-card.clickable{cursor:pointer}.artifact-track-card.clickable:hover{filter:brightness(1.04); transform:translateY(-1px)}
+.temple-interior{margin:0 0 14px;padding:13px;border:1px solid rgba(246,207,122,.48);background:linear-gradient(135deg,rgba(26,22,31,.96),rgba(49,40,52,.9));box-shadow:inset 0 0 28px rgba(246,207,122,.08)}
+.temple-interior-cap{color:#f6cf7a;font-size:12px;letter-spacing:.08em;margin-bottom:10px}.temple-route{display:flex;gap:5px}.temple-step{flex:1;min-width:0;padding:8px 5px;text-align:center;border:1px solid rgba(210,195,166,.2);color:#958c83;background:rgba(10,8,13,.36)}
+.temple-step-icon{display:block;font-size:17px;line-height:20px}.temple-step-name{display:block;font-size:10px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.temple-step.active{color:#fff0b5;border-color:#f6cf7a;box-shadow:0 0 12px rgba(246,207,122,.3)}.temple-step.passed{color:#a9d48c;border-color:rgba(141,187,109,.52)}.temple-interior-copy{margin:10px 0 0;color:#d7cbb8;font-size:12px;line-height:1.5}
 
 /* 알림 스택 */
 .notices{position:absolute; top:12px; right:12px; z-index:15; display:flex; flex-direction:column;
@@ -719,6 +730,17 @@ button[data-tip],.res-chip[data-tip],.minister[data-tip]{cursor:pointer}
 
 /* ══════════ 유물 ══════════ */
 .art-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(178px,1fr)); gap:10px}
+.artifact-journal{display:flex; flex-direction:column; gap:9px; max-height:min(58vh,520px); overflow:auto; padding-right:3px}
+.artifact-journal-entry{cursor:pointer; padding:10px 12px; border:2px solid var(--paper-deep); background:rgba(255,250,232,.55)}
+.artifact-journal-entry:hover{background:#fff8df; border-color:var(--gold-deep)}
+.artifact-journal-title{font-size:16px; color:var(--wood-dark)}
+.artifact-journal-source{margin-top:2px; font-size:12px; color:var(--ink-dim)}
+.artifact-journal-story{margin:6px 0 0; line-height:1.6; color:var(--ink2)}
+.artifact-journal-effect{margin-top:5px; font-size:12px; color:var(--wood-dark)}
+.a-lore{margin:7px 0 0;font-size:11px;line-height:1.55;color:var(--ink-dim);font-style:italic}
+.ruin-lore{margin:0 0 12px;padding:10px 12px;border:2px solid #a77b3e;background:#fff3cf;color:var(--ink);box-shadow:inset 0 0 0 2px rgba(255,255,255,.45)}
+.ruin-lore-title{display:block;margin-bottom:5px;color:var(--wood-dark);font-size:14px}.ruin-lore p{margin:4px 0;line-height:1.55}
+.ruin-result-modal{padding:6px 2px}.ruin-result-lead{margin:0 0 12px;line-height:1.7;font-size:15px;color:var(--ink)}
 .art{border:4px solid var(--wood); padding:10px; position:relative; overflow:hidden;
   background:linear-gradient(180deg,#fdf1d2 0 6px, var(--paper) 6px 100%);
   box-shadow:inset 0 0 0 2px rgba(255,255,255,.5), 0 4px 0 var(--wood-deep)}
@@ -730,6 +752,7 @@ button[data-tip],.res-chip[data-tip],.minister[data-tip]{cursor:pointer}
 .art.g-unique{color:var(--grade-unique); border-color:var(--grade-unique); box-shadow:inset 0 0 0 2px rgba(255,255,255,.5), 0 4px 0 var(--wood-deep), 0 0 16px rgba(131,103,168,.5)}
 .art.g-legendary{color:var(--grade-legendary); border-color:var(--gold-deep); box-shadow:inset 0 0 0 2px rgba(255,255,255,.5), 0 4px 0 var(--wood-deep), 0 0 18px rgba(232,163,61,.55)}
 .art .a-name{color:var(--wood-dark); font-size:15px; position:relative}
+.art-icon{float:right; width:42px; height:42px; margin:0 0 4px 8px; image-rendering:pixelated}
 .art .a-grade{font-size:11.5px; position:relative}
 .art .a-desc{color:var(--ink2); font-size:12px; margin-top:5px; position:relative}
 .art.used{opacity:.5; filter:grayscale(.6)}
@@ -1681,6 +1704,32 @@ body.cutscene .toasts{bottom:74px}
 .dlg-next{position:absolute; right:13px; bottom:9px; font-size:15px; color:var(--gold); opacity:0}
 .dlg.typed .dlg-next{animation:dlgNext .8s steps(2) infinite}
 @keyframes dlgNext{0%,49%{opacity:.15; transform:translateY(0)}50%,100%{opacity:1; transform:translateY(2px)}}
+/* Supplied character plates are used whole.  The actor image can switch
+   between speaker-left and reply-right without flipping the dialogue text. */
+.dlg-cinematic{width:min(1000px,96vw); aspect-ratio:1.63; height:auto; min-height:0; bottom:0;
+  padding:0; border:0; border-radius:0; background:none; box-shadow:none; color:#231a12; overflow:hidden;
+  isolation:isolate}
+.dlg-scene{display:block; position:absolute; inset:0; z-index:0; width:100%; height:100%;
+  object-fit:contain; pointer-events:none}
+.dlg-cinematic.dlg-left .dlg-scene{transform:scaleX(-1)}
+.dlg-cinematic > :not(.dlg-scene){position:relative; z-index:1}
+.dlg-cinematic .dlg-name{top:66%; left:8%; z-index:1; font-size:clamp(12px,1.5vw,16px)}
+.dlg-cinematic .dlg-body{position:absolute; z-index:1; left:9%; right:9%; top:72%; bottom:9%; display:block}
+.dlg-cinematic .dlg-text{min-height:0; height:100%; padding:0 2%; display:block}
+.dlg-cinematic .dlg-line{margin:0; padding-right:2%; font-size:clamp(13px,1.65vw,18px); line-height:1.55}
+/* Choices live inside the lower-right of the parchment.  At rest they read
+   like quiet reply text; only hover/focus gives them a button treatment. */
+.dlg-cinematic .dlg-choices{position:absolute; right:0; bottom:0; display:flex; flex-direction:column;
+  align-items:flex-end; gap:2px; margin:0; padding:0; max-width:48%}
+.dlg-cinematic .dlg-choices .btn-small{min-height:0; padding:2px 5px; color:#3a2719; background:transparent;
+  border:1px solid transparent; box-shadow:none; text-align:right; font-size:clamp(11px,1.35vw,15px); opacity:.72}
+.dlg-cinematic .dlg-choices .btn-small:hover,
+.dlg-cinematic .dlg-choices .btn-small:focus-visible{background:rgba(255,249,230,.82); border-color:#7d5935;
+  box-shadow:0 1px 3px rgba(40,25,12,.3); opacity:1; outline:none}
+.dlg-cinematic .dlg-next{right:9%; bottom:8%; z-index:2}
+.dlg-cinematic .dlg-portrait{display:none}
+/* 프로필은 이미 얼굴만 정사각으로 뜬 그림이다 — 위쪽으로 당기면 정수리가 잘린다 */
+.officer-portrait{object-fit:cover; object-position:center center; border-radius:50%; background:#f1eee8}
 /* 대화 중에는 하단 HUD 가 뒤로 물러난다 (D-1 하단 배치대와 자리를 다투지 않게) */
 body.dialogue .cabinet,
 body.dialogue .toolbar,
@@ -1692,4 +1741,6 @@ body.dialogue .me-panel{opacity:.16; pointer-events:none; transition:opacity .18
   .dlg-portrait{width:72px; height:72px}
   .dlg-text{min-height:72px}
   .dlg-line{font-size:14px}
+  .dlg-cinematic{width:100vw; max-width:100vw}
+  .dlg-cinematic .dlg-line{font-size:clamp(12px,3vw,15px)}
 }

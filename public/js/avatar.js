@@ -37,8 +37,6 @@
   }
 
   function facing(dx, dy) {
-    var role = S.myRole && S.myRole();
-    if (!role) return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 2 : 1) : (dy > 0 ? 0 : 3);
     var ax = Math.abs(dx), ay = Math.abs(dy);
     if (ax > ay * 2) return dx > 0 ? 6 : 2;
     if (ay > ax * 2) return dy > 0 ? 0 : 4;
@@ -47,8 +45,19 @@
   }
 
   function startPos(town) {
+    /* The server assigns reconnects to the same safe respawn tile used after
+       death. Never replace it with the old town-centre fallback on load. */
+    var server = serverMe();
+    if (server && Number.isFinite(server.x) && Number.isFinite(server.y)) {
+      return { x: server.x, y: server.y };
+    }
     var t = town || S.myTown();
     if (!t) return null;
+    var hq = S.hq && S.hq();
+    if (hq && S.footprintOfThing) {
+      var f = S.footprintOfThing(hq);
+      return { x: Math.round(hq.x + (f.w - 1) / 2), y: hq.y + f.h };
+    }
     return { x: t.x + 3, y: t.y + 2 };
   }
 
@@ -131,7 +140,8 @@
     var list = S.structures ? S.structures() : [];
     for (var i = 0; i < list.length; i++) {
       var b = list[i];
-      if ((b.key || b.building) === 'campfire') continue;
+      /* The persistent campfire key is also used by the upgraded settlement
+         HQ.  Treat its full footprint as solid on the client as well. */
       var f = S.footprintOfThing ? S.footprintOfThing(b) : { w: 1, h: 1 };
       if (cx >= b.x && cx < b.x + f.w && cy >= b.y && cy < b.y + f.h) return true;
     }

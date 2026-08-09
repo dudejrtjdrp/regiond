@@ -18,10 +18,28 @@
   /* 자료가 닿지 않는 자리(구경 모드·옛 세이브)에서도 말은 나와야 한다 */
   var FALLBACK = { typeMs: 18, portraitSize: 88, maxChoices: 4 };
   /* 클릭·E·Space 가 「다음」이다 — 마우스를 쥔 손도, 걷던 손도 그대로 이어 간다 */
-  var SKIP_KEYS = { e: 1, ' ': 1 };
+  /* 대화는 Enter로만 넘긴다. E를 누른 채 대화가 열려도 여러 문장이 지나가지 않게 한다. */
+  var SKIP_KEYS = { enter: 1 };
   var NUM_KEYS = { 1: 1, 2: 2, 3: 3, 4: 4 };
 
   var cur = null;
+
+  /* ★ 말하는 이는 왼쪽, 답하는 이는 오른쪽.
+     「왜」 부르는 쪽에 맡기지 않나 — 한 마디마다 open() 이 새로 불리는 구조라(story.js 는 장면을
+     onClose 로 잇는다) 부르는 자리마다 side 를 적어 두면 같은 대화가 두 손에서 갈라진다.
+     그래서 **자리는 이 파일이 기억한다**: 한 판에서 처음 입을 연 사람이 왼쪽을 잡고,
+     다른 사람이 받으면 오른쪽에 선다. 판이 끊기면 기억도 함께 지운다. */
+  var exchange = { first: '', linked: false, until: 0 };
+
+  function whoOf(o) { return String(o.speaker || o.portraitKey || '?'); }
+
+  function sideFor(o) {
+    if (o.side === 'left' || o.side === 'right') return o.side;   /* 부르는 쪽이 못박으면 그대로 */
+    var who = whoOf(o);
+    var goes_on = exchange.linked || Date.now() < exchange.until;
+    if (!goes_on || !exchange.first) exchange.first = who;
+    return who === exchange.first ? 'left' : 'right';
+  }
 
   function cfg() {
     var c = (S && S.dialogueCfg) ? S.dialogueCfg() : null;
@@ -41,6 +59,10 @@
     var host = root();
     if (!host || !o) return null;
     close();
+    /* 대화가 상호작용(E) 중에 열릴 수 있으므로, 기존 홀드 작업을 먼저 끊는다. */
+    if (GM.swing) GM.swing.stopHold();
+    if (GM.input && GM.input.stopMovement) GM.input.stopMovement();
+    else if (GM.avatar && GM.avatar.stop) GM.avatar.stop();
     cur = newTalk(o);
     U.clear(host);
     host.appendChild(buildBox(o));
@@ -57,7 +79,8 @@
                    .map(function (t) { return String(t); });
     return { lines: lines.length ? lines : ['…'], idx: 0, shown: 0, timer: 0, picked: false,
              choices: (o.choices || []).slice(0, cfg().maxChoices),
-             onClose: o.onClose || null, speaker: o.speaker || '' };
+             onClose: o.onClose || null, speaker: o.speaker || '',
+             portraitKey: o.portraitKey || '', side: sideFor(o) };
   }
 
   /** 대화창을 접는다 — ESC · 마지막 줄 · 전투 경보가 모두 이 문으로 나간다 */
@@ -68,7 +91,11 @@
     cur = null;
     U.clear(root());
     document.body.classList.remove('dialogue');
-    if (end) end();
+    if (!end) { exchange.first = ''; exchange.until = 0; return; }
+    /* onClose 안에서 곧바로 다음 장면이 열리면 같은 판이다 — 그때만 자리 기억을 잇는다 */
+    exchange.linked = true;
+    try { end(); } finally { exchange.linked = false; }
+    if (!cur) { exchange.first = ''; exchange.until = 0; }
   }
 
   /* ══════════ 판 짜기 ══════════ */
@@ -76,15 +103,59 @@
     var box = U.el('div', 'dlg');
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-live', 'polite');
+    box.classList.add('dlg-cinematic', 'dlg-' + cur.side);
+    var scene = document.createElement('img');
+    scene.className = 'dlg-scene decor';
+    scene.src = scenePath(sceneKey(cur.portraitKey, cur.speaker));
+    scene.alt = '';
+    scene.setAttribute('aria-hidden', 'true');
+    /* Each supplied plate has its own native ratio.  Preserve it instead of
+       stretching the character to a generic dialogue-box ratio. */
+    scene.onload = function () {
+      if (scene.naturalWidth && scene.naturalHeight) {
+        box.style.aspectRatio = scene.naturalWidth + ' / ' + scene.naturalHeight;
+      }
+    };
+    box.appendChild(scene);
     box.appendChild(U.el('div', 'dlg-name', cur.speaker || '누군가'));
     var body = U.el('div', 'dlg-body');
-    body.appendChild(portrait(o.portraitKey));
     body.appendChild(textCol());
     box.appendChild(body);
     box.appendChild(U.el('span', 'dlg-next decor', '▼'));
     box.onclick = advance;
     cur.box = box;
     return box;
+  }
+
+  /* The supplied plates include the full character and frame.  Mirroring
+     only the visual layer keeps Korean text and choice buttons readable. */
+  function scenePath(key) { return 'assets/dialogue/portraits-transparent/' + key + '.png?v=2'; }
+
+  /* ★ 관제 여섯의 판은 캐릭터 시트(assets/characters/<역할>/sheet.png)와 **같은 사람**이다.
+     대화창 얼굴과 프로필 얼굴이 어긋나면 「누가 말하는지」가 무너진다. 국방(붉은 머리)은
+     받은 판 여덟 장에 없어 시트 정면을 액자에 세워 red_general.png 를 새로 지었다.
+     남는 셋(green_prince·elf_queen·black_kimono)은 관제가 아닌 바깥 사람들 몫이다. */
+  var OFFICER = { farm: 'blue_mage', factory: 'raider', build: 'young_lord',
+                  defense: 'red_general', trade: 'blue_knight', saint: 'white_priestess' };
+
+  function sceneKey(key, speaker) {
+    var k = String(key || '') + ' ' + String(speaker || '');
+    if (/crew:farm|\bfarm\b|농정/.test(k)) return OFFICER.farm;
+    if (/crew:factory|\bfactory\b|공장/.test(k)) return OFFICER.factory;
+    if (/crew:build|\bbuild\b|건축/.test(k)) return OFFICER.build;
+    if (/crew:defense|\bdefense\b|국방/.test(k)) return OFFICER.defense;
+    if (/crew:trade|\btrade\b|외교/.test(k)) return OFFICER.trade;
+    if (/crew:saint|\bsaint\b|성녀/.test(k)) return OFFICER.saint;
+    if (/세라|sara|crew:/.test(k)) return OFFICER.farm;
+    if (/왕|king|lord|me\b/.test(k)) return OFFICER.build;
+    if (/외교|diplom|ship|교역/.test(k)) return 'green_prince';
+    if (/추적|trail|bandit|산적/.test(k)) return OFFICER.factory;
+    if (/성지|shrine|gem|땅/.test(k)) return OFFICER.saint;
+    /* 이름 없는 손님들은 바깥 사람 셋 중에서 이름값으로 고른다 — 같은 이름은 늘 같은 얼굴이다 */
+    var choices = ['green_prince', 'elf_queen', 'black_kimono'];
+    var hash = 0;
+    for (var i = 0; i < k.length; i++) hash = ((hash * 31) + k.charCodeAt(i)) >>> 0;
+    return choices[hash % choices.length];
   }
 
   function textCol() {
@@ -204,6 +275,8 @@
     if (GM.sfx) GM.sfx.play('click');
     if (c.cmd) GM.net.send(c.cmd, c.payload || {});
     close();
+    /* 고른 답에 서버가 늦게 대답하는 길(흔적 조사 등)도 같은 판이다 — 잠깐 자리를 붙들어 둔다 */
+    exchange.until = Date.now() + 8000;
     if (c.act) c.act();
   }
 
@@ -213,6 +286,8 @@
   function onKey(e) {
     if (!cur || typingInto(e)) return;
     var k = String(e.key || '').toLowerCase();
+    /* 대화가 열린 동안 E/Space는 월드 상호작용으로 새지 않되, 대화를 넘기지도 않는다. */
+    if (k === 'e' || k === ' ') { swallow(e); return; }
     if (SKIP_KEYS[k]) { advance(); swallow(e); return; }
     if (k === 'escape') { close(); swallow(e); return; }
     if (NUM_KEYS[k] && cur.picked) { choose(NUM_KEYS[k] - 1); swallow(e); }

@@ -43,7 +43,8 @@
 
     pick.appearance = loadAppearance();
     renderDifficulty();
-    mountChar();
+    var charHost = U.qs('#found-char');
+    if (charHost) charHost.hidden = true;
     refresh();
 
     window.addEventListener('resize', drawSky);
@@ -137,7 +138,7 @@
     var name = U.qs('#found-name').value.trim();
     if (!name) return;
     try { localStorage.setItem('gm.playerName', name); } catch (e) {}
-    var app = chars ? chars.get() : (pick.appearance || S.defaultAppearance());
+    var app = S.defaultAppearance();
     saveAppearance(app);
     S.set({ joinAppearance: app, you: { role: null, appearance: app } });
     status('#found-status', '마차가 길을 나섭니다…');
@@ -160,7 +161,7 @@
     var gid = U.qs('#load-gameid').value.trim();
     if (!gid) { status('#load-status', '초대 코드를 적어 주세요.'); return; }
     try { localStorage.setItem('gm.playerName', name); } catch (e) {}
-    var app = loadAppearance();
+    var app = S.defaultAppearance();
     S.set({ joinAppearance: app, you: { role: null, appearance: app } });
     status('#load-status', '지난 기록을 펼치는 중…');
     S.set({ joining: true });

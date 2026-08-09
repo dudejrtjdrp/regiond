@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>갈래말래 · Asset Museum</title>
+<title>Toji · 수작업 에셋룸</title>
 <!-- 「왜」 완전 오프라인 동작이 요구사항이라 외부 CDN·폰트를 일절 링크하지 않는다. -->
 <link rel="stylesheet" href="css/museum.css">
 </head>
@@ -11,8 +11,8 @@
 
 <header class="topbar">
   <div class="brand">
-    <span class="brand-mark">갈래말래 · Asset Museum</span>
-    <span class="brand-sub">개발 전용 검수 도구 · 아트바이블 v1.0</span>
+    <span class="brand-mark">Toji · 수작업 에셋룸</span>
+    <span class="brand-sub">이전 자동 생성본은 숨김 · 새 에셋은 실제 게임 배치 기준으로 검수</span>
   </div>
 
   <div class="tool-group">
@@ -24,6 +24,8 @@
   <div class="tool-group" id="env-group"><span class="group-label">환경</span></div>
   <div class="tool-group" id="zoom-group"><span class="group-label">배율</span></div>
 
+  <a class="btn btn-accent" href="/" title="새 에셋이 실제 월드에서 보이는 모습을 확인합니다">게임에서 확인</a>
+  <a class="btn" href="building-lab.html" title="모든 건물을 자유롭게 배치하고 칸 수를 조정합니다">건물 테스트 월드</a>
   <button id="btn-export" class="btn btn-accent" type="button">JSON 내보내기 <span id="export-count">(0)</span></button>
 </header>
 

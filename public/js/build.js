@@ -11,6 +11,9 @@
   var bar = null;
   var open_ = false;
   var cat = 'housing';
+  /* 배치 입력은 서버 확인 전에는 한 건만 보낸다. 빠른 연타가 같은 현장을 여러 번
+     예약해, 화면은 다음 공사 틱까지 멈춘 것처럼 보이던 문제를 막는다. */
+  var pendingCommit = false;
 
   function init() { bar = U.qs('#place-bar'); }
 
@@ -92,6 +95,17 @@
     return code === 'water' && S.onFill(x, y);
   }
 
+  /* 서버의 hqReserveRect와 같은 본부 최종 확장 부지. */
+  function hqReserveRect(s) {
+    var d = S.buildingDef(s && (s.key || s.building)) || {};
+    if (!d.hq || !d.reserveFootprint) return null;
+    var w = Math.max(1, Math.round(d.reserveFootprint[0] || 1));
+    var h = Math.max(1, Math.round(d.reserveFootprint[1] || 1));
+    var c = S.centerOfThing(s);
+    var x0 = Math.round(c.x - (w - 1) / 2), y0 = Math.round(c.y - (h - 1) / 2);
+    return { x0: x0, y0: y0, x1: x0 + w - 1, y1: y0 + h - 1 };
+  }
+
   /** 고스트 유효성 — {ok, reason?, note?} */
   function validate(pl, x, y) {
     if (!pl) return { ok: false };
@@ -147,6 +161,8 @@
     var stl = S.structures();
     for (var a = 0; a < stl.length; a++) {
       if (stl[a].x == null || stl[a].id === ignore) continue;
+      var reserved = hqReserveRect(stl[a]);
+      if (reserved && S.rectGap(reserved, rect) < 1) return { ok: false, reason: '본부 확장 예정 부지입니다' };
       if (S.rectGap(S.rectOfThing(stl[a]), rect) < sp) return { ok: false, reason: '다른 건물과 너무 가깝습니다' };
     }
     var sites = S.sites();
@@ -451,6 +467,7 @@
   function commit(x, y) {
     var pl = S.S.placing;
     if (!pl) return false;
+    if (pendingCommit) return false;
     /* 위치 보고는 저빈도라 막 움직인 직후에는 서버가 한 칸 전의 나를 알고 있을 수 있다.
        착공보다 먼저 현재 발 위치를 보내면 같은 소켓 순서로 서버 판정도 최신 좌표를 쓴다. */
     if (pl.kind === 'build' && GM.avatar && GM.avatar.pos) {
@@ -465,18 +482,23 @@
     }
     /* ★ §12-12 — 이전: 새 자리를 찍으면 해체+재건 현장이 선다 */
     if (pl.kind === 'relocate') {
-      GM.net.send('relocateStructure', { structureId: pl.structureId, x: x, y: y }, function (r) {
+      pendingCommit = true;
+      var sent = GM.net.send('relocateStructure', { structureId: pl.structureId, x: x, y: y }, function (r) {
+        pendingCommit = false;
         if (!r) return;
         if (!r.ok) { U.toast((r.error && r.error.message) || '옮길 수 없습니다.', 'bad', 2800); GM.sfx.play('deny'); return; }
         U.toast('옮기기 시작했습니다 — 해체하고 새 자리에 다시 짓습니다.', 'good', 3200);
         GM.sfx.play('build');
         GM.fx.ring(x, y, '#8dfa8d', 0.2, 1.6, 0.5);
       });
+      if (!sent) pendingCommit = false;
       S.setPlacing(null);
       return true;
     }
     if (pl.kind === 'build') {
-      GM.net.send('placeBuilding', { building: pl.key, x: x, y: y }, function (r) {
+      pendingCommit = true;
+      var sent = GM.net.send('placeBuilding', { building: pl.key, x: x, y: y }, function (r) {
+        pendingCommit = false;
         if (r && r.ok) {
           GM.fx.dust(x, y, 10);
           if (r.instant && r.structure) {
@@ -484,6 +506,7 @@
           }
         }
       });
+      if (!sent) pendingCommit = false;
       GM.sfx.play('build');
       GM.fx.ring(x, y, '#e8a33d', 0.2, 1.4, 0.5);
       S.setPlacing(null);

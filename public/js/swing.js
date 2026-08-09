@@ -160,14 +160,29 @@
   function ready() { return now() >= cdUntil; }
 
   /* ══════════ 스윙 ══════════ */
-  function once() { attempt(); }
-  function startHold() { holding = true; attempt(); }
+  function once() {
+    if (GM.input && GM.input.stopMovement) GM.input.stopMovement();
+    else if (GM.avatar && GM.avatar.stop) GM.avatar.stop();
+    attempt();
+  }
+  function startHold() {
+    /* 상호작용은 서 있던 자리에서 시작한다. 이전 클릭 이동 경로가 남아 있으면
+       망치질·채집·전투 중에도 계속 걸어가 사거리와 입력이 어긋난다. */
+    if (GM.input && GM.input.stopMovement) GM.input.stopMovement();
+    else if (GM.avatar && GM.avatar.stop) GM.avatar.stop();
+    holding = true;
+    attempt();
+  }
   function stopHold() { holding = false; }
   function isHolding() { return holding; }
   function busy() { return pose.phase !== 0; }
   function poseOf() { return { phase: pose.phase, tool: pose.tool }; }
 
   function attempt() {
+    if (GM.opening && GM.opening.busy && GM.opening.busy() && !GM.opening.dropped()) {
+      holding = false;
+      return false;
+    }
     if (GM.avatar && GM.avatar.isFrozen()) return false;
     if (S.downed()) { hint('쓰러졌습니다. 곧 모닥불 곁에서 일어납니다.'); return false; }
     if (!ready()) return false;
@@ -307,6 +322,11 @@
 
   function applyResult(mine, res) {
     var t = mine.target;
+    /* 마지막 행동 뒤 다음 프레임의 hold 루프가 끝난 대상에 한 번 더 명령을 보내지 않게 한다. */
+    if (res.done || res.depleted || res.killed || res.destroyed || res.cache || (res.ruin && res.ruin.spent)) {
+      holding = false;
+      invalidate();
+    }
     /* ★ §13-C-8 사냥 — 맞으면 붉게 튀고, 쓰러지면 드롭이 그 자리에서 자원칸으로 빨려 들어간다 */
     if (t.kind === 'wild') {
       if (GM.world.markWildHurt) GM.world.markWildHurt(t.id);
@@ -395,6 +415,19 @@
     GM.fx.ring(t.x, t.y, '#d0b8f0', 0.2, 2.0, 0.65, 3);
     GM.fx.floatText(t.x, t.y - 1.1, (r.name || '옛 자취') + ' ' + r.room + '/' + r.rooms + ' 번째 방', '#d0b8f0', 13);
     if (node) { node.roomsOpened = r.room; node.rooms = r.rooms; if (r.spent) node.spent = true; }
+    /* 일반 유적도 첫 방부터 신전 전설을 조금씩 보여 준다. 카드에는 같은 문장이 표시되고,
+       발견 기록에는 한 번만 저장되어 나중에 흐름을 다시 읽을 수 있다. */
+    if (r.card && r.card.lore && GM.artifacts && GM.artifacts.rememberLore) {
+      GM.artifacts.rememberLore(r.card.lore, r.name || '유적 탐사');
+    }
+    /* 서버가 방을 열 때 만든 결정 카드를 그 자리에서 연다. 이전에는 알림 목록에만 쌓여
+       마지막 방까지 파고도 토스트만 보이는 것처럼 느껴졌다. */
+    if (r.card && GM.council && GM.council.openDecision) GM.council.openDecision(r.card);
+    if (r.artifact && GM.artifacts && GM.artifacts.discovery) {
+      var a = r.artifact;
+      GM.artifacts.discovery({ key: a.key, artifact: a.name || a.key, grade: a.grade,
+        effect: a.desc || '', source: 'ruin', role: '깊은 유적의 마지막 방' });
+    }
     if (r.spent) GM.fx.floatText(t.x, t.y - 1.9, '더 들어갈 곳이 없다', '#c8bda4', 12);
     if (GM.sfx) GM.sfx.play('harvest');
   }
@@ -404,7 +437,8 @@
     GM.fx.sparkle(t.x, t.y, 16, '#f6cf7a');
     GM.fx.ring(t.x, t.y, '#f6cf7a', 0.2, 2.2, 0.7, 3);
     GM.fx.floatText(t.x, t.y - 1.2, '금 ' + c.gold, '#f6cf7a', 14);
-    if (c.artifact) U.toast(c.artifact.name + ' — 궤 안에 있었다', 'good', 3200);
+    /* 유물 문장은 artifact_found 이벤트가 하단 대화창으로 보여 준다.
+       같은 내용을 월드 위 토스트로 겹쳐 띄우지 않는다. */
     if (GM.sfx) GM.sfx.play('harvest');
     S.dropNode(c.nodeId);
   }

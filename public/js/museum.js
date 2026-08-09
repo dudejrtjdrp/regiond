@@ -8,6 +8,7 @@
    1. 상수 — 아트바이블 정본을 코드로 옮긴 부분
    ================================================================== */
 
+/* 기존 자동 생성본은 보존하되, 전시에는 앞으로 수작업으로 검수해 연결한 에셋만 올린다. */
 const MANIFEST_URL = 'assets/manifest.json';
 const PALETTE_FALLBACK_URL = 'assets/palette/master-v1.json';
 
@@ -2030,7 +2031,12 @@ async function boot() {
 
 async function safeManifest() {
   try {
-    return await loadJSON(MANIFEST_URL);
+    const base = await loadJSON(MANIFEST_URL);
+    const handmade = await loadJSON('assets/handmade-manifest.json').catch(() => ({ assets: [] }));
+    const byId = new Map((base.assets || []).map((asset) => [asset.id, asset]));
+    (handmade.assets || []).forEach((asset) => byId.set(asset.id, asset));
+    base.assets = [...byId.values()];
+    return base;
   } catch (err) {
     toast('manifest.json을 읽지 못했다 — 빈 전시장으로 연다');
     return { version: 1, palette: PALETTE_FALLBACK_URL, reference: null, assets: [] };

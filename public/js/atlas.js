@@ -8,6 +8,111 @@
   var U = GM.ui;
 
   var CACHE = {};
+  /* 개체별 4방향/행동 스프라이트시트. 파일이 아직 읽히기 전에는 아래 절차 스프라이트가
+     그대로 남으므로, 첫 로딩 프레임에서도 짐승이 사라지지 않는다. */
+  var WILD_IMAGES = {};
+  var GUARDIAN_IMAGES = {};
+  function handmadeWild(sp) {
+    var im = WILD_IMAGES[sp];
+    if (!im) {
+      im = new Image();
+      im.onload = function () { try { global.dispatchEvent(new Event('gm:building-asset-ready')); } catch (e) {} };
+      im.onerror = function () { im.failed = true; };
+      im.src = 'assets/creature/' + sp + '/sheet.png?v=wild-set-1';
+      WILD_IMAGES[sp] = im;
+    }
+    return im && im.complete && im.naturalWidth && !im.failed ? im : null;
+  }
+
+  /* 신전 수호병은 일반 야생종과 같은 종값을 공유해도 신전별 전용 시트를 쓴다.
+     시트는 4열 x 5행(대기·이동·공격·피격·사망)으로 고정한다. */
+  function handmadeGuardian(theme) {
+    var im = GUARDIAN_IMAGES[theme];
+    if (!im) {
+      im = new Image();
+      im.onload = function () { try { global.dispatchEvent(new Event('gm:building-asset-ready')); } catch (e) {} };
+      im.onerror = function () { im.failed = true; };
+      im.src = 'assets/temple/' + theme + '/guardian-sheet.png?v=temple-guardian-1';
+      GUARDIAN_IMAGES[theme] = im;
+    }
+    return im && im.complete && im.naturalWidth && !im.failed ? im : null;
+  }
+
+  /* 사람이 새로 만든 건물 PNG만 절차 스프라이트 대신 쓴다. 아직 교체하지 않은
+     건물까지 한꺼번에 바뀌면 품질이 섞이므로, 완료한 id를 여기서 명시적으로 연다. */
+  /* 기존 프로젝트 PNG는 교체 대상이다. 여기에는 이번 Toji 작업에서 새로 만든
+     기본 건물 전종과 본부 진화 단계만 올린다. */
+  var HANDMADE_BUILDINGS = {
+    campfire: true, tent: true, hut: true, house: true, manor: true,
+    well: true, woodpile: true, granary: true, sawmill: true, quarry_camp: true,
+    storage_crate: true, bloomery: true, trading_post: true, market: true,
+    watchpost: true, arrow_tower: true, barracks: true, ballista: true,
+    cannon: true, frost_tower: true, flame_tower: true, fence: true,
+    gate: true, shrine: true, consulate: true, monument: true,
+    appraisal_post: true, claim_flag: true, lamp: true, banner: true,
+    garden: true, fountain: true, library: true, workshop: true,
+    academy: true, station: true,
+    hunter_hut: true, storage: true, smelter: true, smithy: true, mill: true, ranch: true,
+    mine_shaft: true, hq_camp: true,
+    hq_village: true, hq_town: true, hq_city: true, hq_royal: true
+  };
+  var BUILDING_IMAGES = {};
+  var BUILDING_ANIMATIONS = {};
+
+  function buildingImage(key, tier, ruined) {
+    if (!HANDMADE_BUILDINGS[key]) return null;
+    var level = Math.max(1, tier || 1);
+    var cacheKey = key + '@' + level + (ruined ? ':ruined' : '');
+    var image = BUILDING_IMAGES[cacheKey];
+    if (image) return image;
+    image = new Image();
+    image.onload = function () {
+      try { global.dispatchEvent(new Event('gm:building-asset-ready')); } catch (e) {}
+    };
+    image.onerror = function () { image.failed = true; };
+    /* 파일 기반 테스트월드에서도 교체된 투명 PNG를 즉시 다시 읽도록 한다. */
+    var revision = '?v=handmade-buildings-4';
+    image.src = 'assets/building/' + key + '/' + (ruined ? 'ruined.png' : (level > 1 ? 'tier-' + level + '.png' : 'base.png')) + revision;
+    BUILDING_IMAGES[cacheKey] = image;
+    return image;
+  }
+
+  function handmadeBuilding(key, tier, ruined) {
+    var level = Math.max(1, tier || 1);
+    /* 정착지 본부는 구조물 키는 campfire로 유지하지만 단계마다 별도 건물 PNG를 쓴다.
+       campfire/tier-N을 찾으면 기본 모닥불이 큰 칸에 늘어나므로 전용 키로 먼저 바꾼다. */
+    if (key === 'campfire' && level > 1) {
+      var hqKey = { 2: 'hq_camp', 3: 'hq_village', 4: 'hq_town', 5: 'hq_city', 6: 'hq_royal' }[level];
+      if (hqKey) {
+        var hqImage = buildingImage(hqKey, 1, ruined);
+        if (hqImage && hqImage.complete && hqImage.naturalWidth && !hqImage.failed) return hqImage;
+      }
+    }
+    var image = buildingImage(key, level, ruined);
+    if (image && image.failed && level > 1) image = buildingImage(key, 1, ruined);
+    return image && image.complete && image.naturalWidth && !image.failed ? image : null;
+  }
+
+  /* 현재 수작업 건물 중 애니메이션을 가진 것은 시작 모닥불뿐이다.
+     스프라이트시트는 4개의 동일 크기 가로 프레임으로 약속한다. */
+  function buildingAnimation(key) {
+    if (key !== 'campfire') return null;
+    var image = BUILDING_ANIMATIONS[key];
+    if (image) return image;
+    image = new Image();
+    image.onload = function () {
+      try { global.dispatchEvent(new Event('gm:building-asset-ready')); } catch (e) {}
+    };
+    image.onerror = function () { image.failed = true; };
+    image.src = 'assets/building/' + key + '/idle.png';
+    BUILDING_ANIMATIONS[key] = image;
+    return image;
+  }
+
+  function buildingAspect(key, tier) {
+    var image = handmadeBuilding(key, tier);
+    return image ? image.naturalWidth / image.naturalHeight : 0;
+  }
 
   function mk(w, h, draw) {
     var cv = document.createElement('canvas');
@@ -26,6 +131,7 @@
     if (!CACHE[key]) CACHE[key] = mk(w, h, draw);
     return CACHE[key];
   }
+  function emptySprite(w, h) { return cached('empty:' + w + ':' + h, w, h, function () {}); }
 
   function h2(x, y) {
     var n = (x * 73856093) ^ (y * 19349663);
@@ -58,6 +164,7 @@
   /* 지형 바닥은 각 바이옴마다 하나의 심리스 표면만 쓴다. 이전 _b 파일은
      독립 그림이라 이웃 칸 경계가 맞지 않아 의도적으로 사용하지 않는다. */
   var TERRAIN_IMAGES = {};
+  var TERRAIN_VARIANTS = {};
   var terrainExpected = Object.keys(TERRA).length;
   var terrainSettled = 0;
   var terrainAnnounced = false;
@@ -74,10 +181,45 @@
     if (image) return image;
     image = new Image();
     image.onload = settleTerrainImage;
-    image.onerror = settleTerrainImage;
-    image.src = 'assets/tileset/' + code + '/base.png';
+    /* Keep the original source intact.  New terrain packs live alongside it
+       and fall back cleanly on maps that have not been upgraded yet. */
+    image.onerror = function () {
+      var sources = ['base-v4.png', 'base-v3.png', 'base-v2.png', 'base.png'];
+      image._terrainSourceIndex = (image._terrainSourceIndex || 0) + 1;
+      if (image._terrainSourceIndex < sources.length) {
+        image.src = 'assets/tileset/' + code + '/' + sources[image._terrainSourceIndex];
+        return;
+      }
+      settleTerrainImage();
+    };
+    image._terrainSourceIndex = 0;
+    image.src = 'assets/tileset/' + code + '/base-v4.png';
     TERRAIN_IMAGES[code] = image;
     return image;
+  }
+
+  /* 동일한 심리스 원본의 내부에만 아주 약한 색·결 변주를 준다. 가장자리
+     6px은 건드리지 않아, 이웃 칸과 만날 때도 타일 이음새가 생기지 않는다. */
+  function terrainVariant(code, variant) {
+    var image = terrainImage(code);
+    if (!(image.complete && image.naturalWidth) || !variant) return image;
+    var key = code + ':' + (variant % 4);
+    if (TERRAIN_VARIANTS[key]) return TERRAIN_VARIANTS[key];
+    var cv = document.createElement('canvas');
+    cv.width = 64; cv.height = 64;
+    var g = cv.getContext('2d');
+    if (!g) return image;
+    g.imageSmoothingEnabled = false;
+    g.drawImage(image, 0, 0, 64, 64);
+    var r = U.rngFrom(key);
+    var d = TERRA[code] || TERRA.grass;
+    g.globalAlpha = 0.13;
+    for (var i = 0; i < 10; i += 1) {
+      g.fillStyle = d.dots[Math.floor(r() * d.dots.length)];
+      g.fillRect(7 + Math.floor(r() * 48), 7 + Math.floor(r() * 48), 2 + Math.floor(r() * 3), 1 + Math.floor(r() * 2));
+    }
+    TERRAIN_VARIANTS[key] = cv;
+    return cv;
   }
 
   function preloadTerrainImages() {
@@ -148,18 +290,251 @@
 
   function terrain(code, variant) {
     var image = terrainImage(code);
-    if (image.complete && image.naturalWidth) return image;
-    var key = 't:' + code + ':' + variant;
-    var def = TERRA[code] || TERRA.grass;
-    return cached(key, 16, 16, function (P) {
-      P(0, 0, 16, 16, def.base);
-      var r = U.rngFrom(code + variant);
-      for (var i = 0; i < 12; i++) {
-        var x = Math.floor(r() * 16), y = Math.floor(r() * 16);
-        P(x, y, 2, 1, def.dots[Math.floor(r() * def.dots.length)]);
-      }
-      if (MARK[code]) MARK[code](P);
+    if (image.complete && image.naturalWidth) return terrainVariant(code, variant);
+    /* Never flash the old low-detail procedural ground while the authored
+       sheet is loading.  world.js keeps a flat biome-color prefill until the
+       terrain-ready event rebuilds the chunk with the real PNG. */
+    return emptySprite(16, 16);
+  }
+
+  /* Adjacent cells crop adjacent pixels from one shared terrain sheet.  This
+     keeps the texture continuous across a biome instead of repeating a whole
+     base image inside every 16px cell. */
+  function terrainSample(code, worldX, worldY, variant) {
+    var image = terrainImage(code);
+    if (!(image.complete && image.naturalWidth >= 16 && image.naturalHeight >= 16)) return terrain(code, variant);
+    var spanX = Math.max(1, Math.floor(image.naturalWidth / 16));
+    var spanY = Math.max(1, Math.floor(image.naturalHeight / 16));
+    /* Do not mirror a terrain sheet: mirrored return paths create the very
+       obvious 2×2 / four-way symmetry that makes a map read as repeated
+       tiles.  The authored v4 sheets hold 32×32 distinct samples, so a plain
+       wrap occurs far outside a normal viewport. */
+    function phaseAt(n, span) {
+      return { index: ((n % span) + span) % span, flip: false };
+    }
+    var px = phaseAt(worldX, spanX), py = phaseAt(worldY, spanY);
+    var sx = px.index * 16, sy = py.index * 16;
+    var key = 'ts:' + code + ':' + sx + ':' + sy + ':' + (px.flip ? 1 : 0) + ':' + (py.flip ? 1 : 0);
+    return cached(key, 16, 16, function (P, g) {
+      try {
+        g.save();
+        g.translate(px.flip ? 16 : 0, py.flip ? 16 : 0);
+        g.scale(px.flip ? -1 : 1, py.flip ? -1 : 1);
+        g.drawImage(image, sx, sy, 16, 16, 0, 0, 16, 16);
+        g.restore();
+      } catch (e) {}
     });
+  }
+
+  /* Asset-backed 47-blob compositor. sameMask uses N,E,S,W,NE,SE,SW,NW bits. */
+  function terrainBlob(code, backdrop, sameMask, variant, worldX, worldY) {
+    backdrop = backdrop || code;
+    /* v4 terrain sheets carry 32×32 authored samples.  Cache their full
+       variation range so a large source does not collapse back into an 8×8
+       repeated patch on the map. */
+    var shapeX = worldX == null ? 0 : ((worldX % 11) + 11) % 11;
+    var shapeY = worldY == null ? 0 : ((worldY % 11) + 11) % 11;
+    var sampleX = worldX == null ? 0 : ((worldX % 32) + 32) % 32;
+    var sampleY = worldY == null ? 0 : ((worldY % 32) + 32) % 32;
+    var key = 'tb:' + code + ':' + backdrop + ':' + sameMask + ':' + variant + ':' + shapeX + ':' + shapeY + ':' + sampleX + ':' + sampleY;
+    return cached(key, 16, 16, function (P, g) {
+      var bg = terrainSample(backdrop, worldX, worldY, (variant + 1) % 4);
+      var fg = terrainSample(code, worldX, worldY, variant);
+      /* Only one side of a terrain pair owns the blend.  If both tiles paint
+         an inset, a grass/water border becomes a distracting double stripe. */
+      /* Water must remain a continuous surface.  Land owns its shoreline
+         transition into water; letting water own it cuts every water tile
+         inward and makes a connected river look like separate puddles. */
+      var blendRank = { fertile: 1, rock: 2, desert: 3, snow: 4, ash: 5, salt: 6, marsh: 7, mush: 8, grass: 9, forest: 10, jungle: 11, dusk: 12, water: 20 };
+      try { g.drawImage(fg, 0, 0, 16, 16); } catch (e0) {}
+      var codeRank = blendRank[code] == null ? 99 : blendRank[code];
+      var backdropRank = blendRank[backdrop] == null ? 99 : blendRank[backdrop];
+      if (code === backdrop || codeRank > backdropRank) return;
+      var n = !!(sameMask & 1), e = !!(sameMask & 2);
+      var s = !!(sameMask & 4), w = !!(sameMask & 8);
+      var ne = !!(sameMask & 16), se = !!(sameMask & 32);
+      var sw = !!(sameMask & 64), nw = !!(sameMask & 128);
+      /* Let the neighbour reach well into the edge cell.  A deep, round
+         scallop reads as one organic contour across several cells instead of
+         exposing the square grid used by the logical terrain map. */
+      var l = w ? 0 : 4.75, r = e ? 16 : 11.25;
+      var t = n ? 0 : 4.75, b = s ? 16 : 11.25;
+      function radius(a, d, diagonal) {
+        if (a && d) return diagonal ? 0 : 6.1;
+        return a || d ? 4.4 : 6.1;
+      }
+      var rtl = radius(n, w, nw), rtr = radius(n, e, ne);
+      var rbr = radius(s, e, se), rbl = radius(s, w, sw);
+      /* World coordinates make each outer edge breathe independently, but
+         connected sides remain flush so an interior never develops seams. */
+      var j = function (salt) { return U.rngFrom(code + ':' + backdrop + ':' + sameMask + ':' + variant + ':' + shapeX + ':' + shapeY + ':' + salt)() * 0.6 - 0.3; };
+      var mx = (l + r) / 2, my = (t + b) / 2;
+      var topBend = n ? 0 : 4.1 + j(18);
+      var rightBend = e ? 0 : 4.1 + j(19);
+      var bottomBend = s ? 0 : 4.1 + j(20);
+      var leftBend = w ? 0 : 4.1 + j(21);
+      function blobPath(target) {
+        target.beginPath();
+        target.moveTo(l + rtl, t + j(1));
+        target.quadraticCurveTo(mx + j(2), t + topBend, r - rtr, t + j(3));
+        target.quadraticCurveTo(r + j(3), t + j(4), r + j(5), t + rtr);
+        target.quadraticCurveTo(r + rightBend, my + j(6), r + j(7), b - rbr);
+        target.quadraticCurveTo(r + j(7), b + j(8), r - rbr, b + j(9));
+        target.quadraticCurveTo(mx + j(10), b + bottomBend, l + rbl, b + j(11));
+        target.quadraticCurveTo(l + j(11), b + j(12), l + j(13), b - rbl);
+        target.quadraticCurveTo(l + leftBend, my + j(14), l + j(15), t + rtl);
+        target.quadraticCurveTo(l + j(15), t + j(16), l + rtl, t + j(17));
+        target.closePath();
+      }
+      /* Start with the neighbour, then reveal this tile through one rounded,
+         irregular silhouette.  Drawing this in the opposite order hollowed
+         out the centre of the active terrain and made transitions look like
+         square frames rather than a continuous shoreline. */
+      try { g.drawImage(bg, 0, 0, 16, 16); } catch (e1) {}
+      /* A slightly expanded low-alpha silhouette softens the material change
+         before the crisp pixel-art contour arrives. */
+      g.save();
+      g.translate(8, 8);
+      g.scale(1.16, 1.16);
+      g.translate(-8, -8);
+      blobPath(g);
+      g.clip();
+      g.globalAlpha = 0.32;
+      try { g.drawImage(fg, 0, 0, 16, 16); } catch (e2) {}
+      g.restore();
+      g.save();
+      blobPath(g);
+      g.clip();
+      try { g.drawImage(fg, 0, 0, 16, 16); } catch (e3) {}
+      g.restore();
+    });
+  }
+
+  /* Environment dressing deliberately lives apart from the seamless terrain.
+     A ground tile must stay quiet enough to repeat; these sparse overlays add
+     the roots, leaf litter and little height changes that make a biome read as
+     a place rather than a coloured grid. */
+  function dressing(code, variant) {
+    var key = 'dress:' + code + ':' + (variant % 4);
+    return cached(key, 16, 16, function (P) {
+      var v = variant % 4;
+      if (code === 'forest') {
+        if (v === 0) { P(1, 10, 7, 1, '#294722'); P(5, 8, 1, 4, '#294722'); P(10, 4, 2, 2, '#739957'); P(12, 3, 1, 1, '#a7c979'); }
+        if (v === 1) { P(2, 5, 3, 2, '#6d4b2b'); P(5, 7, 5, 1, '#6d4b2b'); P(10, 8, 2, 1, '#7d9b4e'); P(12, 10, 2, 2, '#38592e'); }
+        if (v === 2) { P(2, 11, 4, 1, '#5f8a4c'); P(3, 9, 1, 3, '#8dbb6d'); P(9, 4, 4, 1, '#2f4d27'); P(11, 5, 1, 2, '#2f4d27'); }
+        if (v === 3) { P(1, 6, 2, 2, '#9b7650'); P(4, 8, 2, 1, '#a9875b'); P(10, 10, 4, 1, '#294722'); P(12, 8, 1, 3, '#294722'); }
+      } else if (code === 'grass') {
+        if (v === 0) { P(3, 9, 1, 4, '#527a42'); P(4, 8, 1, 5, '#8dbb6d'); P(10, 10, 1, 3, '#527a42'); }
+        if (v === 1) { P(4, 7, 1, 1, '#f4e4bc'); P(5, 8, 1, 1, '#f4e4bc'); P(10, 10, 2, 2, '#9c968a'); P(11, 9, 1, 1, '#c4cad2'); }
+        if (v === 2) { P(2, 11, 4, 1, '#6d8a42'); P(4, 9, 1, 3, '#8dbb6d'); P(12, 6, 1, 5, '#527a42'); }
+        if (v === 3) { P(3, 6, 3, 1, '#a8701f'); P(4, 5, 1, 3, '#a8701f'); P(10, 10, 3, 1, '#6d8a42'); }
+      } else if (code === 'jungle') {
+        if (v === 0) { P(1, 7, 5, 3, '#436a38'); P(2, 6, 3, 1, '#648a4c'); P(9, 4, 6, 3, '#37592e'); P(10, 3, 3, 1, '#648a4c'); }
+        if (v === 1) { P(2, 11, 8, 1, '#1e3a1a'); P(5, 8, 1, 4, '#1e3a1a'); P(11, 6, 2, 2, '#6a994e'); }
+        if (v === 2) { P(2, 4, 2, 2, '#b8434f'); P(8, 9, 5, 2, '#436a38'); P(10, 8, 2, 1, '#7d9b4e'); }
+        if (v === 3) { P(3, 8, 4, 1, '#294722'); P(10, 5, 1, 6, '#294722'); P(11, 4, 3, 2, '#527a42'); }
+      } else if (code === 'water') {
+        if (v === 0) { P(2, 5, 6, 1, '#8ec4dd'); P(8, 11, 5, 1, '#78aed6'); P(11, 4, 1, 1, '#d7eff0'); }
+        if (v === 1) { P(3, 9, 4, 1, '#2b5d80'); P(4, 8, 2, 1, '#78aed6'); P(10, 5, 3, 2, '#6a994e'); P(11, 4, 1, 1, '#a7c979'); }
+        if (v === 2) { P(1, 12, 7, 1, '#78aed6'); P(9, 7, 5, 1, '#8ec4dd'); P(6, 4, 1, 1, '#d7eff0'); }
+        if (v === 3) { P(3, 5, 3, 2, '#6a994e'); P(4, 4, 1, 1, '#a7c979'); P(10, 11, 4, 1, '#2b5d80'); }
+      } else if (code === 'rock') {
+        if (v === 0) { P(2, 4, 5, 1, '#b0aa9c'); P(3, 5, 1, 5, '#5e646c'); P(10, 9, 4, 1, '#5e646c'); }
+        if (v === 1) { P(2, 11, 4, 2, '#6f6a5e'); P(3, 10, 3, 1, '#a8a294'); P(11, 4, 2, 3, '#456b39'); }
+        if (v === 2) { P(4, 3, 1, 6, '#5e646c'); P(5, 8, 4, 1, '#5e646c'); P(10, 12, 3, 1, '#b0aa9c'); }
+        if (v === 3) { P(2, 7, 3, 2, '#787264'); P(3, 6, 2, 1, '#c4cad2'); P(10, 5, 3, 4, '#6a994e'); }
+      } else if (code === 'snow') {
+        if (v === 0) { P(2, 10, 6, 1, '#b4bcc9'); P(7, 8, 1, 3, '#8f99ad'); P(11, 5, 2, 2, '#5e646c'); }
+        if (v === 1) { P(2, 6, 5, 1, '#eef1f6'); P(10, 11, 4, 1, '#b4bcc9'); P(11, 10, 1, 1, '#8f99ad'); }
+        if (v === 2) { P(3, 12, 2, 1, '#8f99ad'); P(8, 8, 2, 1, '#8f99ad'); P(12, 4, 2, 2, '#5e646c'); }
+        if (v === 3) { P(1, 7, 7, 1, '#eef1f6'); P(9, 4, 1, 4, '#b4bcc9'); P(10, 7, 4, 1, '#b4bcc9'); }
+      } else if (code === 'desert') {
+        if (v === 0) { P(1, 5, 8, 1, '#bfa658'); P(3, 6, 6, 1, '#e0c898'); P(10, 11, 2, 2, '#8a7350'); }
+        if (v === 1) { P(2, 11, 10, 1, '#bfa658'); P(4, 12, 7, 1, '#e0c898'); P(12, 4, 1, 4, '#6e5a2c'); }
+        if (v === 2) { P(3, 6, 2, 1, '#8a7350'); P(9, 9, 4, 1, '#bfa658'); P(10, 8, 1, 3, '#e0c898'); }
+        if (v === 3) { P(1, 9, 7, 1, '#e0c898'); P(2, 10, 8, 1, '#bfa658'); P(12, 5, 2, 1, '#8a7350'); }
+      } else if (code === 'marsh') {
+        if (v === 0) { P(2, 9, 6, 3, '#31474a'); P(3, 8, 5, 1, '#5d8288'); P(11, 4, 1, 7, '#7d9b4e'); }
+        if (v === 1) { P(3, 5, 1, 6, '#7d9160'); P(5, 7, 1, 5, '#8dbb6d'); P(10, 10, 4, 2, '#31474a'); }
+        if (v === 2) { P(2, 11, 5, 1, '#5d8288'); P(8, 5, 5, 3, '#31474a'); P(10, 4, 2, 1, '#6a994e'); }
+        if (v === 3) { P(2, 4, 1, 7, '#7d9160'); P(4, 7, 1, 6, '#8dbb6d'); P(9, 10, 5, 1, '#5d8288'); }
+      } else if (code === 'ash') {
+        if (v === 0) { P(2, 7, 7, 1, '#474240'); P(7, 6, 1, 3, '#2e2a28'); P(12, 11, 1, 1, '#c2481c'); }
+        if (v === 1) { P(3, 11, 4, 1, '#7a736c'); P(9, 4, 5, 1, '#474240'); P(11, 5, 1, 2, '#2e2a28'); }
+        if (v === 2) { P(2, 5, 1, 6, '#2e2a28'); P(3, 8, 5, 1, '#2e2a28'); P(12, 4, 1, 1, '#ff7a30'); }
+        if (v === 3) { P(3, 12, 7, 1, '#474240'); P(11, 7, 3, 1, '#7a736c'); P(12, 6, 1, 3, '#2e2a28'); }
+      } else if (code === 'mush') {
+        if (v === 0) { P(3, 9, 1, 4, '#d8cfc0'); P(1, 6, 6, 3, '#a8425a'); P(2, 6, 4, 1, '#d4657c'); }
+        if (v === 1) { P(9, 10, 1, 3, '#d8cfc0'); P(7, 7, 6, 3, '#8c3a6a'); P(8, 7, 4, 1, '#b45a90'); }
+        if (v === 2) { P(2, 10, 4, 2, '#5b4e70'); P(10, 5, 2, 2, '#d9c8f0'); P(11, 4, 1, 1, '#fdf8ec'); }
+        if (v === 3) { P(2, 5, 7, 1, '#d8cfc0'); P(3, 6, 1, 4, '#5b4e70'); P(11, 10, 3, 2, '#8c3a6a'); }
+      } else if (code === 'salt') {
+        if (v === 0) { P(2, 5, 1, 5, '#ffffff'); P(3, 7, 3, 1, '#eef1f6'); P(11, 10, 3, 1, '#b8c0be'); }
+        if (v === 1) { P(3, 11, 6, 1, '#c9cfcd'); P(10, 4, 2, 3, '#ffffff'); P(11, 3, 1, 1, '#fdf8ec'); }
+        if (v === 2) { P(2, 6, 5, 1, '#b8c0be'); P(8, 10, 1, 3, '#ffffff'); P(9, 11, 4, 1, '#eef1f6'); }
+        if (v === 3) { P(2, 10, 3, 1, '#ffffff'); P(10, 5, 4, 1, '#c9cfcd'); P(12, 3, 1, 3, '#eef1f6'); }
+      } else if (code === 'dusk') {
+        if (v === 0) { P(2, 10, 5, 1, '#3f2b33'); P(4, 8, 1, 3, '#8f6675'); P(11, 5, 1, 1, '#d9c8f0'); }
+        if (v === 1) { P(3, 5, 3, 2, '#5c4a78'); P(4, 4, 1, 1, '#b39ad6'); P(10, 11, 4, 1, '#3f2b33'); }
+        if (v === 2) { P(2, 11, 7, 1, '#4e3540'); P(10, 5, 1, 5, '#8367a8'); P(11, 4, 2, 1, '#b39ad6'); }
+        if (v === 3) { P(2, 6, 1, 5, '#3f2b33'); P(4, 9, 4, 1, '#8f6675'); P(11, 8, 2, 2, '#5c4a78'); }
+      }
+    });
+  }
+
+  function edgeDressing(kind, direction, variant) {
+    var key = 'edge:' + kind + ':' + direction + ':' + (variant % 3);
+    return cached(key, 16, 16, function (P) {
+      var dark = kind === 'rock' ? '#3d4146' : (kind === 'shore' ? '#6e5a2c' : '#355b45');
+      var mid = kind === 'rock' ? '#6f6a5e' : (kind === 'shore' ? '#9c8341' : '#6a994e');
+      var light = kind === 'rock' ? '#a8a294' : (kind === 'shore' ? '#d9c37a' : '#a7c979');
+      function strip(y, h, col) { P(0, y, 16, h, col); }
+      if (direction === 0) { strip(0, 2, dark); strip(2, 1, mid); if (variant % 2) P(3, 3, 2, 1, light); }
+      if (direction === 1) { P(14, 0, 2, 16, dark); P(13, 0, 1, 16, mid); if (variant % 2) P(12, 4, 1, 2, light); }
+      if (direction === 2) { strip(14, 2, dark); strip(13, 1, mid); if (variant % 2) P(10, 12, 2, 1, light); }
+      if (direction === 3) { P(0, 0, 2, 16, dark); P(2, 0, 1, 16, mid); if (variant % 2) P(3, 9, 1, 2, light); }
+    });
+  }
+
+  /* Authored here rather than loaded from an existing raster pack.  These
+     multi-tile silhouettes are the environment's reusable Codex-native props. */
+  function biomeFeature(code, variant) {
+    return cached('feature:' + code + ':' + (variant % 3), 48, 64, function (P) {
+      var v = variant % 3, trunk = '#5d4037', shadow = '#16281a', leaf = '#3f6130', light = '#7d9b4e';
+      function tree(crown, hi) {
+        P(22, 32, 5, 26, trunk); P(17, 51, 14, 4, trunk); P(13, 55, 8, 4, trunk); P(28, 55, 8, 4, trunk);
+        P(7, 18, 34, 28, shadow); P(4, 24, 40, 16, shadow); P(10, 10, 27, 22, shadow);
+        P(8, 17, 31, 25, crown); P(5, 25, 37, 12, crown); P(12, 11, 22, 20, crown);
+        P(10 + v * 2, 16, 13, 8, hi); P(25, 20, 11, 9, hi); P(16, 29, 12, 6, hi);
+      }
+      if (code === 'forest') tree(leaf, light);
+      else if (code === 'jungle') { tree('#24401f', '#648a4c'); P(2, 38, 18, 5, '#2c4a26'); P(29, 35, 16, 6, '#2c4a26'); P(6, 35, 10, 2, '#7d9b4e'); }
+      else if (code === 'snow') { P(22, 14, 4, 44, '#4a5962'); P(8, 30, 32, 16, '#24401f'); P(12, 19, 24, 14, '#24401f'); P(16, 10, 16, 12, '#24401f'); P(10, 29, 28, 4, '#eef1f6'); P(15, 19, 18, 3, '#fdf8ec'); }
+      else if (code === 'desert') { P(22, 20, 5, 38, '#5d4037'); P(12, 28, 10, 5, '#6a994e'); P(27, 24, 10, 5, '#6a994e'); P(10, 31, 5, 17, '#3f6130'); P(34, 27, 5, 14, '#3f6130'); P(19, 18, 11, 5, '#8dbb6d'); }
+      else if (code === 'marsh') { P(21, 27, 6, 31, '#3b2318'); P(7, 15, 35, 22, '#24401f'); P(4, 20, 18, 16, '#2c4a26'); P(26, 12, 17, 24, '#2c4a26'); P(6, 36, 35, 3, '#648a4c'); }
+      else if (code === 'ash') { P(22, 16, 5, 42, '#3b2318'); P(11, 25, 12, 5, '#474240'); P(27, 19, 12, 5, '#474240'); P(8, 29, 6, 20, '#2e333a'); P(36, 23, 5, 19, '#2e333a'); P(14, 13, 1, 2, '#ff7a30'); }
+      else if (code === 'mush') { P(21, 30, 7, 28, '#d8cfc0'); P(8, 17, 32, 17, '#8c3a6a'); P(12, 12, 24, 8, '#b45a90'); P(15, 11, 17, 2, '#d9c8f0'); P(4, 45, 10, 7, '#a8425a'); }
+      else if (code === 'dusk') tree('#3d2f52', '#8367a8');
+      else if (code === 'rock') { P(4, 38, 38, 17, '#5e646c'); P(9, 27, 27, 17, '#6f6a5e'); P(14, 18, 17, 13, '#8b8577'); P(16, 18, 12, 3, '#c4cad2'); P(7, 39, 13, 2, '#9aa0a8'); }
+      else if (code === 'fertile') { P(4, 45, 40, 10, '#6e5a2c'); for (var i = 0; i < 5; i++) { var x = 7 + i * 8; P(x, 27 + (i % 2) * 4, 2, 20, '#3f6130'); P(x - 3, 29 + (i % 2) * 4, 7, 4, '#8dbb6d'); } }
+      else { P(6, 43, 36, 12, '#3f6130'); P(10, 34, 26, 12, '#456b39'); P(16, 24, 14, 13, '#648a4c'); P(18, 22, 10, 3, '#a7c979'); }
+    });
+  }
+
+  /* First production environment pack: real generated raster props only.
+     There is intentionally no procedural substitute while an image loads. */
+  var FOREST_PROP_IMAGES = {};
+  function forestProp(key) {
+    if (['oak', 'shrub', 'boulders', 'fallen_log'].indexOf(key) < 0) return null;
+    var im = FOREST_PROP_IMAGES[key];
+    if (!im) {
+      im = new Image();
+      im.onload = function () { try { global.dispatchEvent(new Event('gm:building-asset-ready')); } catch (e) {} };
+      im.onerror = function () { im.failed = true; };
+      im.src = 'assets/environment/forest_' + key + '/base.png?v=forest-props-1';
+      FOREST_PROP_IMAGES[key] = im;
+    }
+    return im.complete && im.naturalWidth && !im.failed ? im : null;
   }
 
   preloadTerrainImages();
@@ -167,9 +542,20 @@
   /* ══════════ 자원 자리 ══════════ */
   var FIELD_STAGE = { sown: 0, sprout: 1, grow: 2, ripe: 3 };
 
+  var NODE_IMAGES = {};
+  function handmadeNode(key) {
+    var im = NODE_IMAGES[key];
+    if (!im) { im = new Image(); im.onload = function () { try { global.dispatchEvent(new Event('gm:building-asset-ready')); } catch (e) {} }; im.onerror = function () { im.failed = true; }; im.src = 'assets/node/' + key + '/base.png'; NODE_IMAGES[key] = im; }
+    return im.complete && im.naturalWidth && !im.failed ? im : null;
+  }
   function node(type, opts) {
     opts = opts || {};
     var stage = opts.stage || null;
+    var manualKey = { forest: 'forest_oak', berry: 'berry_bush_red', rock: 'rock_granite', iron: 'iron_vein', coal: 'coal_vein', oil: 'oil_pool', ruin: 'ruin_pillar', cache: 'cache_crate', water: 'water_spring' }[type] || (stage ? 'field_' + stage : 'field_ripe');
+    var manual = handmadeNode(manualKey);
+    if (manual) return manual;
+    /* Map nodes must never degrade into the 16px debugging fallback. */
+    return emptySprite(16, 16);
     var thin = opts.thin ? 1 : 0;
     var key = 'n:' + type + ':' + (stage || '-') + ':' + thin + ':' + (opts.rich ? 'r' : '');
     return cached(key, 16, 16, function (P) {
@@ -626,6 +1012,11 @@
 
   function building(key, tier, opts) {
     opts = opts || {};
+    var handmade = handmadeBuilding(key, tier, opts.ruined);
+    if (handmade) return handmade;
+    /* Keep an authored building absent for a moment rather than replacing it
+       with a visibly cheaper procedural sprite. */
+    return emptySprite(24, 24);
     var t = Math.max(1, Math.min(4, tier || 1));
     var ruined = opts.ruined ? 1 : 0;
     var ck = 'b:' + key + ':' + t + ':' + ruined;
@@ -878,8 +1269,55 @@
   }
 
   /** 건설 현장 — 진행도 4단계 */
+  var SITE_IMAGES = {};
+  function handmadeSite(phase) {
+    var im = SITE_IMAGES[phase];
+    if (!im) { im = new Image(); im.onload = function () { try { global.dispatchEvent(new Event('gm:building-asset-ready')); } catch (e) {} }; im.onerror = function () { im.failed = true; }; im.src = 'assets/building/site/phase-' + phase + '.png?v=site-set-2'; SITE_IMAGES[phase] = im; }
+    return im && im.complete && im.naturalWidth && !im.failed ? im : null;
+  }
+
+  /* Biome props are authored project assets.  Keep the list explicit so a
+     missing or experimental folder never appears unexpectedly on the map. */
+  var BIOME_PROP_IMAGES = {};
+  var BIOME_PROP_PATHS = {
+    codex_forest_oak: 'generated/environment/forest-oak.png',
+    codex_snow_pine: 'generated/environment/snow-pine.png',
+    codex_jungle_tree: 'generated/environment/jungle-tree.png'
+  };
+  function biomeProp(key) {
+    if (!BIOME_PROP_PATHS[key]) return null;
+    var im = BIOME_PROP_IMAGES[key];
+    if (!im) {
+      im = new Image();
+      im.onload = function () { try { global.dispatchEvent(new Event('gm:building-asset-ready')); } catch (e) {} };
+      im.onerror = function () { im.failed = true; };
+      im.src = 'assets/' + BIOME_PROP_PATHS[key] + '?v=codex-biome-props-1';
+      BIOME_PROP_IMAGES[key] = im;
+    }
+    return im && im.complete && im.naturalWidth && !im.failed ? im : null;
+  }
+
+  var LANDMARK_IMAGES = {};
+  var LANDMARK_PATHS = {
+    codex_rune_obelisk: 'generated/landmark/rune-obelisk.png'
+  };
+  function landmark(key) {
+    if (!LANDMARK_PATHS[key]) return null;
+    var im = LANDMARK_IMAGES[key];
+    if (!im) {
+      im = new Image();
+      im.onload = function () { try { global.dispatchEvent(new Event('gm:building-asset-ready')); } catch (e) {} };
+      im.onerror = function () { im.failed = true; };
+      im.src = 'assets/' + LANDMARK_PATHS[key] + '?v=codex-landmarks-1';
+      LANDMARK_IMAGES[key] = im;
+    }
+    return im && im.complete && im.naturalWidth && !im.failed ? im : null;
+  }
   function site(progress) {
     var p = Math.round(Math.max(0, Math.min(1, progress || 0)) * 3);
+    var art = handmadeSite(p + 1);
+    if (art) return art;
+    return emptySprite(24, 24);
     return cached('site:' + p, 24, 24, function (P) {
       P(4, 20, 16, 3, '#7a6c44');
       P(4, 6, 2, 15, '#a3703f'); P(18, 6, 2, 15, '#a3703f');
@@ -894,12 +1332,24 @@
 
   /* ══════════ ★ 울타리 조각 ══════════ */
   /** 한 조각(타일 하나)을 방향·재질·상태에 맞춰 그린다 */
+  var FENCE_IMAGES = {};
+  function handmadeFencePart(key) {
+    var im = FENCE_IMAGES[key];
+    if (!im) { im = new Image(); im.onload = function () { try { global.dispatchEvent(new Event('gm:building-asset-ready')); } catch (e) {} }; im.onerror = function () { im.failed = true; }; im.src = 'assets/building_parts/' + key + '.png?v=wall-parts-2'; FENCE_IMAGES[key] = im; }
+    return im && im.complete && im.naturalWidth && !im.failed ? im : null;
+  }
   function fence(opts) {
     opts = opts || {};
     var vertical = opts.vertical ? 1 : 0;
     var tier = opts.tier === 2 ? 2 : 1;
     var gate = opts.gate ? 1 : 0;
     var dmg = opts.damage || 0;                 // 0 온전 · 1 상함 · 2 부서짐
+    /* 정상 목책·석벽은 제작 PNG를 우선한다. 문·피해 상태는 모양이 실시간으로
+       갈려야 하므로 아래의 절차 스프라이트가 계속 담당한다. */
+    if (!dmg) {
+      var part = handmadeFencePart(gate ? (tier === 2 ? 'gate_stone' : 'gate_wood') : (tier === 2 ? (vertical ? 'wall_v' : 'wall_h') : (vertical ? 'fence_v' : 'fence_h')));
+      if (part) return part;
+    }
     var key = 'fc:' + vertical + ':' + tier + ':' + gate + ':' + dmg;
     return cached(key, 16, 16, function (P) {
       var wood = dmg === 2 ? '#6a5442' : (dmg === 1 ? '#8a6a44' : '#a3703f');
@@ -965,6 +1415,10 @@
     opts = opts || {};
     var t = Math.max(0, Math.min(5, tier || 0));
     var ruined = opts.ruined ? 1 : 0;
+    var stageKeys = ['campfire', 'hq_camp', 'hq_village', 'hq_town', 'hq_city', 'hq_royal'];
+    var art = handmadeBuilding(stageKeys[t], 1, ruined);
+    if (art) return art;
+    return emptySprite(48, 48);
     return cached('hall:' + t + ':' + ruined, 48, 48, function (P) {
       var wall = ruined ? '#5a5048' : '#dcc9a0';
       var wood = ruined ? '#4a3a2a' : '#8a5e33';
@@ -1052,6 +1506,13 @@
   }
 
   function camp(type) {
+    if (!camp.__image) {
+      camp.__image = new Image();
+      camp.__image.onload = function () { try { global.dispatchEvent(new Event('gm:building-asset-ready')); } catch (e) {} };
+      camp.__image.onerror = function () { camp.__image.failed = true; };
+      camp.__image.src = 'assets/enemy/camp/base.png?v=camp-art-2';
+    }
+    if (camp.__image.complete && camp.__image.naturalWidth && !camp.__image.failed) return camp.__image;
     return cached('camp:' + type, 24, 24, function (P) {
       var col = type === 'dragon' ? '#4a7040' : type === 'viking' ? '#6b7580'
               : type === 'wolf' ? '#7a7264' : type === 'ogre' ? '#6b7a4a' : '#5a4038';
@@ -1268,7 +1729,18 @@
     viking: '#6b7580', pirate: '#5a4038', bandit: '#7a5a48',
     raider: '#8a4a3a', ironclad: '#4e5a68', slinger: '#7a7048', sapper: '#5c4a5e',
   };
+  var ENEMY_IMAGES = {};
+  function handmadeEnemy(type) {
+    var im = ENEMY_IMAGES[type];
+    if (!im) { im = new Image(); im.onload = function () { try { global.dispatchEvent(new Event('gm:building-asset-ready')); } catch (e) {} }; im.onerror = function () { im.failed = true; }; im.src = 'assets/enemy/' + type + '/sheet.png?v=wave-set-1'; ENEMY_IMAGES[type] = im; }
+    return im && im.complete && im.naturalWidth && !im.failed ? im : null;
+  }
   function enemy(type, frame) {
+    var sheet = handmadeEnemy(type);
+    if (sheet) return cached('enemy-file:' + type + ':' + (frame ? 1 : 0), 32, 32, function (P, g) {
+      var cw = sheet.naturalWidth / 4, ch = sheet.naturalHeight / 6;
+      g.drawImage(sheet, cw, (frame ? 1 : 0) * ch, cw, ch, 0, 0, 32, 32);
+    });
     return cached('e:' + type + ':' + frame, 14, 16, function (P) {
       var bob = frame ? 1 : 0;
       if (type === 'wolf') {
@@ -1355,6 +1827,28 @@
 
   function wild(sp, frame, opts) {
     opts = opts || {};
+    var guardianSheet = opts.guardianTheme ? handmadeGuardian(opts.guardianTheme) : null;
+    if (guardianSheet) {
+      var stateRow = { idle: 0, walk: 1, attack: 2, hurt: 3, death: 4 }[opts.animation] || 0;
+      var guardianCol = Math.max(0, Math.min(3, frame || 0));
+      return cached('guardian-file:' + opts.guardianTheme + ':' + stateRow + ':' + guardianCol, 64, 64, function (P, g) {
+        var gcw = guardianSheet.naturalWidth / 4, gch = guardianSheet.naturalHeight / 5;
+        g.drawImage(guardianSheet, guardianCol * gcw, stateRow * gch, gcw, gch, 0, 0, 64, 64);
+      });
+    }
+    var sheet = handmadeWild(sp);
+    if (sheet) {
+      var row = opts.attack ? 3 + (frame ? 1 : 0) : (frame ? 1 : 0);
+      var col = opts.direction == null ? 1 : opts.direction % 4;
+      /* 닭·토끼 외 동물은 월드에서 2배 크기로 그린다. 여기서 32px로 먼저 줄이면
+         다시 확대할 때 프레임의 상·하 윤곽이 갈라져 보이므로 64px 원본 해상도를 보존한다. */
+      var frameSize = (sp === 'chicken' || sp === 'rabbit') ? 32 : 64;
+      return cached('wild-file:' + sp + ':' + row + ':' + col + (opts.hurt ? ':h' : ''), frameSize, frameSize, function (P, g) {
+        var cw = sheet.naturalWidth / 4, ch = sheet.naturalHeight / 6;
+        g.drawImage(sheet, col * cw, row * ch, cw, ch, 0, 0, frameSize, frameSize);
+        if (opts.hurt) { g.fillStyle = 'rgba(220,80,70,.35)'; g.fillRect(0, 0, frameSize, frameSize); }
+      });
+    }
     var d = WILD[sp] || WILD.rabbit;
     var sil = opts.silhouette ? 1 : 0;
     var key = 'wl:' + sp + ':' + (frame ? 1 : 0) + ':' + sil + (opts.hurt ? ':h' : '');
@@ -1397,7 +1891,8 @@
   function clear() { CACHE = {}; }
 
   GM.atlas = {
-    terrain: terrain, node: node, stump: stump, trail: trail, building: building, site: site, fence: fence,
+    terrain: terrain, terrainSample: terrainSample, terrainBlob: terrainBlob, dressing: dressing, edgeDressing: edgeDressing, biomeFeature: biomeFeature, forestProp: forestProp, biomeProp: biomeProp, landmark: landmark, node: node, stump: stump, trail: trail,
+    building: building, handmadeBuilding: handmadeBuilding, buildingAnimation: buildingAnimation, buildingAspect: buildingAspect, site: site, fence: fence,
     town: town, hall: hall, wagon: wagon, caravan: caravan, camp: camp, folk: folk,
     avatar: avatar, avatarPortrait: avatarPortrait, avatarImg: avatarImg,
     enemy: enemy, wild: wild, variantAt: variantAt, hash01: h2, clear: clear,

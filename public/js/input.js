@@ -479,6 +479,7 @@
        흔적을 도읍보다 뒤에 두는 까닭: 도읍 앞은 오직 한 자리뿐이고, 흔적은 어디에나 있다.) */
   function startInteract() {
     if (introLocked()) return;
+    stopMovement();
     /* ★ §19-F4(F09-2) — 기차가 먼저다. 승강장 앞은 오직 그 한 자리뿐이고(도읍 앞과 같은 이유),
        타고 있는 동안에는 E 가 「내린다」가 된다 — 같은 손잡이로 타고 내린다. */
     if (trainInteract()) return;
@@ -578,6 +579,10 @@
     var t = S.myTown();
     if (t) { GM.camera.moveTo(t.x, t.y); manualPanAt = Date.now(); followUntil = 0; }
   }
+  function stopMovement() {
+    keys.up = keys.down = keys.left = keys.right = keys.run = 0;
+    if (GM.avatar && GM.avatar.stop) GM.avatar.stop();
+  }
   function centerLord() {
     var p = GM.avatar.pos();
     if (p) { GM.camera.moveTo(p.x, p.y); followUntil = Date.now() + 8000; }
@@ -634,7 +639,7 @@
     return p.x >= v.x0 + 2 && p.x <= v.x1 - 2 && p.y >= v.y0 + 2 && p.y <= v.y1 - 2;
   }
 
-  GM.input = { init: init, keys: keys, step: step, centerTown: centerTown, centerLord: centerLord,
+  GM.input = { init: init, keys: keys, step: step, centerTown: centerTown, centerLord: centerLord, stopMovement: stopMovement,
     /* ★ §19-D — 명부·패널이 눈을 옮길 때 쓰는 문 */
     focusAt: focusAt,
     /* ★ §17-19 — 회귀 전용 문. 그려진 사각형과 클릭 판정이 정말 한 자로 재는지 밖에서 확인한다. */

@@ -3,11 +3,43 @@
   'use strict';
   var GM = global.GM = global.GM || {};
   var S = GM.state, U = GM.ui;
+  var JOURNAL_KEY = 'toji.artifact-journal.v1';
+
+  /* 서버의 유물 소유 정보와 분리해, 플레이어가 실제로 읽은 발견 문장만 보관한다. */
+  function journal() {
+    try { return JSON.parse(global.localStorage.getItem(JOURNAL_KEY) || '[]'); }
+    catch (e) { return []; }
+  }
+  function saveJournal(rows) {
+    try { global.localStorage.setItem(JOURNAL_KEY, JSON.stringify(rows.slice(-80))); }
+    catch (e) {}
+  }
+  function remember(found) {
+    if (!found || !found.key) return;
+    var rows = journal();
+    var row = { key: found.key, name: found.artifact || found.key, grade: found.grade || 'common',
+      source: found.role || found.source || '', effect: found.effect || '', narrative: taleOf(found) };
+    var last = rows[rows.length - 1];
+    /* 표현 보강 push가 같은 발견을 다시 보내도 기록은 중복하지 않는다. */
+    if (last && last.key === row.key && last.narrative === row.narrative && last.source === row.source) return;
+    rows.push(row);
+    saveJournal(rows);
+  }
 
   function defOf(key) {
     var d = S.artifactDef(key);
     if (d) return d;
     return { key: key, name: key, grade: 'common', type: 'permanent', desc: '' };
+  }
+
+  function rememberLore(lore, place) {
+    if (!lore || !lore.id) return;
+    var rows = journal();
+    var key = 'lore:' + lore.id;
+    if (rows.some(function (row) { return row.key === key; })) return;
+    rows.push({ key: key, name: lore.title || '탐험 기록', grade: 'common', source: place || '유적 탐사',
+      effect: '', narrative: (lore.lines || []).join('\n'), lore: true });
+    saveJournal(rows);
   }
   function itemDef(a) {
     if (a && a.name) return a;
@@ -17,6 +49,14 @@
   function gradeCls(g) { return S.gradeInfo(g).cls; }
   function gradeName(g) { return S.gradeInfo(g).name; }
   function gradeColor(g) { return S.gradeInfo(g).color; }
+  function artwork(key, px, cls) {
+    var im = document.createElement('img');
+    im.src = 'assets/artifact/' + encodeURIComponent(key || 'crown_shard') + '/base.png?v=artifact-set-1';
+    im.width = px; im.height = px; im.alt = '';
+    im.className = cls || 'art-icon';
+    im.style.imageRendering = 'pixelated';
+    return im;
+  }
 
   function open() {
     if (!S.uiOn('panel.council')) { U.toast('유물함은 읍이 되어야 열립니다.', 'warn'); return; }
@@ -32,6 +72,7 @@
     s.id = 'art-sets';
     body.appendChild(s);
     var foot = U.el('div');
+    foot.appendChild(U.btn('발견 기록', 'btn-ghost', function () { openJournal(); }));
     foot.appendChild(U.btn('덮는다', 'btn-primary', function () { U.closeTopModal(); }));
     U.openModal({ title: '유물함', body: body, footer: foot, width: '760px', key: 'relic',
                   icon: GM.icons.img('gem', 22) });
@@ -51,9 +92,11 @@
     list.forEach(function (a) {
       var d = itemDef(a);
       var c = U.el('div', 'art ' + gradeCls(d.grade) + (a.consumed ? ' used' : '') + (a.sealed ? ' sealed' : ''));
+      c.appendChild(artwork(a.key, 42));
       c.appendChild(U.el('div', 'a-name', d.name || a.key));
       c.appendChild(U.el('div', 'a-grade', gradeName(d.grade) + ' · ' + typeName(d.type)));
       c.appendChild(U.el('div', 'a-desc', d.desc || ''));
+      if (a.lore) c.appendChild(U.el('p', 'a-lore', '「' + a.lore + '」'));
       U.tipSet(c, (d.name || a.key) + ' — ' + gradeName(d.grade),
         (d.desc || '') + (a.obtainedTick !== undefined ? '\n' + a.obtainedTick + '일에 얻었습니다.' : ''));
       if (isConsumable(d) && !a.consumed) {
@@ -189,13 +232,47 @@
 
   function discovery(found) {
     if (!found || !found.artifact) return;
+    remember(found);
     /* 궁정 서기가 글을 고쳐 보내오면(표현 계층) 카드를 새로 띄우지 않고 그 줄만 갈아 끼운다 */
     var open = U.modalOpen('relic-found');
     if (open && open.__relicKey === found.key) { type.start(open.__relicLine, taleOf(found)); return; }
     var tier = tierOf(found);
     /* ★ §20-R2 — 남이 찾은 것은 **남의 화면을 빼앗지 않는다**: 방 배너와 작은 빛기둥뿐이다 */
     if (!foundByMe(found)) { echoOther(found, tier); return; }
-    seq.run(found, tier);
+    /* 탐험 궤에서는 월드 위의 짧은 토스트 대신, 놓치기 어려운 하단 대화창으로 읽는다. */
+    /* 모든 획득은 읽을 수 있는 대화창으로 열고, 발견 기록에 남긴다. */
+    cacheDialogue(found);
+  }
+
+  function cacheDialogue(found) {
+    if (!GM.dialogue || !GM.dialogue.open) { seq.run(found, tierOf(found)); return; }
+    var place = found.role || '탐험 궤';
+    var story = taleOf(found);
+    var lines = [place + '가 비워진 자리에서 「' + (found.artifact || found.key) + '」을(를) 발견했습니다.'];
+    if (story) lines.push(story);
+    if (found.effect && found.effect !== story) lines.push('효과 — ' + found.effect);
+    GM.dialogue.open({ speaker: '발견 기록', portraitKey: 'icon:gem', lines: lines });
+  }
+
+  function openJournal() {
+    var rows = journal().slice().reverse();
+    var body = U.el('div', 'artifact-journal');
+    body.appendChild(U.el('p', 'hint', '발견한 유물과 그 자리에 남았던 기록입니다. 항목을 누르면 다시 대화로 읽습니다.'));
+    if (!rows.length) body.appendChild(U.el('p', 'empty', '아직 남겨진 발견 기록이 없습니다.'));
+    rows.forEach(function (row) {
+      var entry = U.el('article', 'artifact-journal-entry ' + gradeCls(row.grade));
+      entry.appendChild(U.el('div', 'artifact-journal-title', row.name));
+      if (row.source) entry.appendChild(U.el('div', 'artifact-journal-source', row.source));
+      if (row.narrative) entry.appendChild(U.el('p', 'artifact-journal-story', row.narrative));
+      if (row.effect) entry.appendChild(U.el('div', 'artifact-journal-effect', '효과 — ' + row.effect));
+      entry.onclick = function () { U.closeTopModal(); cacheDialogue({ key: row.key, artifact: row.name, grade: row.grade,
+        role: row.source, narrative: row.narrative, effect: row.effect, source: 'cache' }); };
+      body.appendChild(entry);
+    });
+    var foot = U.el('div');
+    foot.appendChild(U.btn('닫기', 'btn-primary', function () { U.closeTopModal(); }));
+    U.openModal({ title: '유물 발견 기록', body: body, footer: foot, width: '560px', key: 'artifact-journal',
+                  icon: GM.icons.img('book', 22) });
   }
 
   function card(found, tier) {
@@ -331,7 +408,7 @@
   function plate(found, color) {
     var wrap = U.el('div', 'af-plate');
     wrap.style.borderColor = color;
-    var im = GM.icons.img(CAT_ICON[found.category] || 'gem', 24, '');
+    var im = artwork(found.key, 96, 'af-dot');
     im.className = 'af-dot';
     im.style.width = '96px';
     im.style.height = '96px';
@@ -449,9 +526,58 @@
     return stage;
   }
 
-  function update() { if (U.modalOpen('relic')) paint(); }
+  function paintHunt() {
+    var card = U.qs('#artifact-track-card');
+    var n = S.nation() || {}, hunt = n.artifactHunt;
+    if (!card) return;
+    if (!hunt) { card.hidden = true; return; }
+    var open = (hunt.temples || []).filter(function (t) { return t.found && !t.completed; })[0];
+    var done = (hunt.temples || []).filter(function (t) { return t.completed; }).length;
+    var sig = [hunt.clues, hunt.nextAt, open && open.nodeId, open && open.retryAt, done].join('|');
+    if (card.getAttribute('data-sig') === sig) return;
+    card.setAttribute('data-sig', sig); card.hidden = false; U.clear(card);
+    card.appendChild(U.el('span', 'at-cap', '유물 원정 · 탐험의 이유'));
+    card.appendChild(U.el('span', 'at-why', '유적의 전설 → 깊은 방의 단서 3개 → 신전 수호자 → 신전 전용 유물'));
+    if (open) {
+      card.appendChild(U.el('strong', 'at-title', open.name + ' 발견'));
+      var now = (S.S.view && S.S.view.tick) || 0;
+      if (open.retryAt && now < open.retryAt) {
+        card.appendChild(U.el('span', 'at-sub', open.retryAt + '일째에 봉인이 약해집니다. 그때 이 신전으로 돌아와 재도전할 수 있습니다.'));
+      } else {
+        card.appendChild(U.el('span', 'at-sub', '수호병을 쓰러뜨리면 이 신전 테마의 희귀·유니크·전설 유물을 얻습니다.'));
+      }
+      card.appendChild(U.el('span', 'at-why', '왜 가나요? 유물은 전투·생산·탐험 방식을 영구적으로 바꿉니다.'));
+      card.classList.add('clickable');
+      card.onclick = function () {
+        var node = S.nodeById(open.nodeId);
+        if (node && GM.camera) GM.camera.moveTo(node.x, node.y);
+      };
+      U.tipSet(card, open.name, '누르면 발견한 신전으로 시선을 옮깁니다.');
+    } else {
+      card.appendChild(U.el('strong', 'at-title', '신전으로 가는 단서 ' + (hunt.clues % 3) + ' / 3'));
+      card.appendChild(U.el('span', 'at-sub', '맵을 탐험해 깊은 유적을 찾고, 마지막 방까지 캐내세요. ' + hunt.nextAt + '번째 단서가 다음 신전의 길을 드러냅니다.'));
+      card.appendChild(U.el('span', 'at-why', '흐름: 깊은 유적 탐사 → 단서 3개 → 신전 발견 → 수호병 격파 → 테마 유물 획득'));
+      card.classList.remove('clickable'); card.onclick = null;
+      U.tipSet(card, '신전으로 가는 단서', '설산·밀림·먼 들판에 각각 하나씩 있는 신전을 찾습니다.');
+    }
+    var journalBtn = U.btn('발견 기록 다시 읽기', 'btn-sm at-journal', function (ev) {
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+      openJournal();
+    });
+    card.appendChild(journalBtn);
+  }
 
-  GM.artifacts = { open: open, update: update, openChest: openChest, discovery: discovery,
+  function update() { if (U.modalOpen('relic')) paint(); paintHunt(); }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var b = U.qs('#artifact-journal-btn');
+    if (b) b.onclick = openJournal;
+    var inventory = U.qs('#artifact-inventory-btn');
+    if (inventory) inventory.onclick = open;
+  });
+
+  GM.artifacts = { open: open, update: update, openChest: openChest, discovery: discovery, openJournal: openJournal,
+                   rememberLore: rememberLore,
                    /* ★ §20-R2 — 전투 경보가 오면 연출을 접는다(app.js 가 부른다) */
                    endShow: function () { seq.finish(); }, tierOf: tierOf,
                    gradeColor: gradeColor, defOf: defOf, itemDef: itemDef };

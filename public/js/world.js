@@ -188,21 +188,29 @@
   }
 
   function terrainBackdrop(m, codes, wx, wy, code) {
-    /* A single blob can only reveal one backing terrain correctly.  At a
-       three-way junction, choosing the "most common" neighbour leaks water
-       into an unrelated land-to-land edge.  Blend only unambiguous cardinal
-       borders; the junction itself remains its real terrain tile. */
+    /* A blob can reveal only one backing terrain.  At a mixed three-way
+       junction, choosing water by priority makes it leak onto a land-facing
+       side, so blend only a genuinely dominant neighbour. */
     var dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
-    var backdrop = null;
+    var counts = {}, order = [];
     for (var i = 0; i < dirs.length; i += 1) {
       var nx = wx + dirs[i][0], ny = wy + dirs[i][1];
       if (nx < 0 || ny < 0 || nx >= m.size || ny >= m.size) continue;
       var other = codes[m.terrain[ny * m.size + nx]] || code;
       if (other === code) continue;
-      if (backdrop && backdrop !== other) return code;
-      backdrop = other;
+      if (!counts[other]) { counts[other] = 0; order.push(other); }
+      counts[other] += 1;
     }
-    return backdrop || code;
+    if (!order.length) return code;
+    var rank = { fertile: 1, rock: 2, desert: 3, snow: 4, ash: 5, salt: 6,
+      marsh: 7, mush: 8, grass: 9, forest: 10, jungle: 11, dusk: 12, water: 20 };
+    order.sort(function (a, b) {
+      var byCount = counts[b] - counts[a];
+      if (byCount) return byCount;
+      return (rank[b] || 0) - (rank[a] || 0);
+    });
+    if (order.length > 1 && counts[order[0]] === counts[order[1]]) return code;
+    return order[0];
   }
 
   /** 한 줄(16칸)을 진짜 도트로 굽는다 — 다 구웠으면 true */
@@ -367,31 +375,67 @@
     return true;
   }
 
+  function landmarkAnchor(m, codes, x, y, code) {
+    if (dressingNoise(x, y, 47) < 0.996) return false;
+    /* A local maximum turns a random probability field into separated scene
+       stamps: one memorable grove, rock outcrop or giant mushroom clearing,
+       rather than a row of equally important props. */
+    var self = dressingNoise(x, y, 47);
+    for (var oy = -3; oy <= 3; oy++) {
+      for (var ox = -3; ox <= 3; ox++) {
+        if (!ox && !oy) continue;
+        var nx = x + ox, ny = y + oy;
+        if (nx < 0 || ny < 0 || nx >= m.size || ny >= m.size) continue;
+        if ((codes[m.terrain[ny * m.size + nx]] || 'grass') !== code) continue;
+        if (dressingNoise(nx, ny, 47) > self) return false;
+      }
+    }
+    return true;
+  }
+
   function drawBiomeDressing() {
     var m = S.S.map;
     if (!m || !GM.atlas.dressing) return;
     var codes = m.codes, vis = GM.camera.visible(), t = GM.camera.cam.tile;
     var x0 = Math.max(0, vis.x0 - 1), x1 = Math.min(m.size - 1, vis.x1 + 1);
     var y0 = Math.max(0, vis.y0 - 2), y1 = Math.min(m.size - 1, vis.y1 + 1);
+    var density = { grass: 0.13, forest: 0.13, rock: 0.16, water: 0.14, fertile: 0.12,
+      snow: 0.10, jungle: 0.15, desert: 0.11, marsh: 0.17, ash: 0.12, mush: 0.16, salt: 0.10, dusk: 0.14 };
+    var featureChance = { forest: 0.018, jungle: 0.014, snow: 0.016, desert: 0.012, marsh: 0.012,
+      ash: 0.012, mush: 0.014, dusk: 0.013, rock: 0.012, grass: 0.010, fertile: 0.009 };
+    var dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
     ctx.save();
     for (var y = y0; y <= y1; y++) {
       for (var x = x0; x <= x1; x++) {
         var code = codes[m.terrain[y * m.size + x]] || 'grass';
-        if (code !== 'forest' && code !== 'grass' && code !== 'jungle') continue;
         var edge = !sameTerrainAround(m, codes, x, y, code);
-        if (dressingNoise(x, y, 4) < (edge ? 0.31 : 0.13)) {
+        if (dressingNoise(x, y, 4) < (edge ? Math.min(0.32, (density[code] || 0.1) + 0.12) : (density[code] || 0.1))) {
           var p = GM.camera.worldToScreen(x - 0.5, y - 0.5);
           var decal = GM.atlas.dressing(code, Math.floor(dressingNoise(x, y, 9) * 4));
           try { ctx.drawImage(decal, Math.round(p.x), Math.round(p.y), Math.ceil(t), Math.ceil(t)); } catch (e) {}
         }
-        /* Rare trees belong inside continuous forest masses; the shadow and
-           silhouette create depth without becoming an obstacle layer. */
-        if (code === 'forest' && !edge && dressingNoise(x, y, 18) > 0.982) {
-          var tree = GM.atlas.decorTree(Math.floor(dressingNoise(x, y, 22) * 3));
+        /* Land owns its waterline and rock owns its raised rim.  This gives
+           shorelines and high ground a readable border without changing the
+           authoritative terrain or walkability data. */
+        for (var di = 0; di < dirs.length; di++) {
+          var nx = x + dirs[di][0], ny = y + dirs[di][1];
+          if (nx < 0 || ny < 0 || nx >= m.size || ny >= m.size) continue;
+          var next = codes[m.terrain[ny * m.size + nx]] || 'grass';
+          var edgeKind = code !== 'water' && next === 'water' ? 'shore' : (code === 'rock' && next !== 'rock' ? 'rock' : null);
+          if (!edgeKind || !GM.atlas.edgeDressing) continue;
+          var ep = GM.camera.worldToScreen(x - 0.5, y - 0.5);
+          var rim = GM.atlas.edgeDressing(edgeKind, di, Math.floor(dressingNoise(x, y, 31 + di) * 3));
+          try { ctx.drawImage(rim, Math.round(ep.x), Math.round(ep.y), Math.ceil(t), Math.ceil(t)); } catch (e1) {}
+        }
+        /* One rare large feature per biome is enough to establish scale.
+           It stays away from transition cells, preserving a clear traversable rim. */
+        if (!edge && featureChance[code] && dressingNoise(x, y, 18) < featureChance[code]) {
+          var tree = GM.atlas.biomeFeature && GM.atlas.biomeFeature(code, Math.floor(dressingNoise(x, y, 22) * 3));
           if (tree) {
             var q = GM.camera.worldToScreen(x, y + 0.1);
-            var sw = t * (2.7 + dressingNoise(x, y, 24) * 0.55);
-            var sh = t * (3.15 + dressingNoise(x, y, 25) * 0.6);
+            var tall = code !== 'rock' && code !== 'grass' && code !== 'fertile';
+            var sw = t * (tall ? 2.35 + dressingNoise(x, y, 24) * 0.5 : 1.65 + dressingNoise(x, y, 24) * 0.35);
+            var sh = t * (tall ? 3.5 + dressingNoise(x, y, 25) * 0.6 : 1.6 + dressingNoise(x, y, 25) * 0.25);
             ctx.save();
             ctx.globalAlpha = 0.24;
             ctx.fillStyle = '#172316';
@@ -399,6 +443,140 @@
             ctx.restore();
             try { ctx.drawImage(tree, Math.round(q.x - sw / 2), Math.round(q.y - sh + t * 0.28), Math.ceil(sw), Math.ceil(sh)); } catch (e2) {}
           }
+        }
+        if (!edge && featureChance[code] && landmarkAnchor(m, codes, x, y, code)) {
+          var landmark = GM.atlas.biomeFeature && GM.atlas.biomeFeature(code, Math.floor(dressingNoise(x, y, 53) * 3));
+          if (landmark) {
+            var lp = GM.camera.worldToScreen(x, y + 0.2);
+            var lw = t * (3.4 + dressingNoise(x, y, 55) * 0.7);
+            var lh = t * (4.7 + dressingNoise(x, y, 56) * 0.8);
+            ctx.save();
+            ctx.globalAlpha = 0.28;
+            ctx.fillStyle = '#142014';
+            ctx.beginPath(); ctx.ellipse(lp.x, lp.y + t * 0.25, lw * 0.46, t * 0.24, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+            try { ctx.drawImage(landmark, Math.round(lp.x - lw / 2), Math.round(lp.y - lh + t * 0.38), Math.ceil(lw), Math.ceil(lh)); } catch (e3) {}
+          }
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  /* Existing authored tree and plant PNGs establish each biome's silhouette.
+     Props stay sparse and deterministic, so they enrich a region without
+     becoming a second set of gameplay nodes. */
+  var BIOME_PROP_RULES = {
+    forest: [{ key: 'codex_forest_oak', until: 0.006, w: 3.25, h: 3.7, inner: true }],
+    snow: [{ key: 'codex_snow_pine', until: 0.007, w: 2.8, h: 3.4, inner: true }],
+    jungle: [{ key: 'codex_jungle_tree', until: 0.006, w: 3.35, h: 3.8, inner: true }]
+  };
+  function drawBiomeProps() {
+    var m = S.S.map;
+    if (!m || !GM.atlas.biomeProp) return;
+    var codes = m.codes, vis = GM.camera.visible(), t = GM.camera.cam.tile;
+    var x0 = Math.max(0, vis.x0 - 2), x1 = Math.min(m.size - 1, vis.x1 + 2);
+    var y0 = Math.max(0, vis.y0 - 3), y1 = Math.min(m.size - 1, vis.y1 + 2);
+    ctx.save();
+    for (var y = y0; y <= y1; y++) {
+      for (var x = x0; x <= x1; x++) {
+        var code = codes[m.terrain[y * m.size + x]] || 'grass';
+        var rules = BIOME_PROP_RULES[code];
+        if (!rules) continue;
+        var roll = dressingNoise(x, y, 71), inner = sameTerrainAround(m, codes, x, y, code);
+        var rule = null;
+        for (var ri = 0; ri < rules.length; ri++) {
+          if (roll < rules[ri].until && (!rules[ri].inner || inner)) { rule = rules[ri]; break; }
+        }
+        if (!rule) continue;
+        var image = GM.atlas.biomeProp(rule.key);
+        if (!image) continue;
+        var w = t * rule.w, h = t * rule.h;
+        var p = GM.camera.worldToScreen(x, y + 0.15);
+        ctx.save();
+        ctx.globalAlpha = rule.h > 2 ? 0.28 : 0.18;
+        ctx.fillStyle = '#142014';
+        ctx.beginPath(); ctx.ellipse(p.x, p.y + t * 0.25, w * 0.38, t * 0.15, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        try { ctx.drawImage(image, Math.round(p.x - w / 2), Math.round(p.y - h + t * 0.35), Math.ceil(w), Math.ceil(h)); } catch (e) {}
+      }
+    }
+    ctx.restore();
+  }
+
+  /* Landmarks are visual wayfinding only.  Their low frequency keeps the
+     world readable, while the actual interaction still belongs to server
+     nodes and structures drawn above them. */
+  var LANDMARK_RULES = {
+    forest: 'codex_rune_obelisk', jungle: 'codex_rune_obelisk', snow: 'codex_rune_obelisk',
+    desert: 'codex_rune_obelisk', marsh: 'codex_rune_obelisk', ash: 'codex_rune_obelisk',
+    mush: 'codex_rune_obelisk', dusk: 'codex_rune_obelisk', rock: 'codex_rune_obelisk', fertile: 'codex_rune_obelisk'
+  };
+  function drawLandmarks() {
+    var m = S.S.map;
+    if (!m || !GM.atlas.landmark) return;
+    var codes = m.codes, vis = GM.camera.visible(), t = GM.camera.cam.tile;
+    var x0 = Math.max(2, vis.x0 - 2), x1 = Math.min(m.size - 3, vis.x1 + 2);
+    var y0 = Math.max(2, vis.y0 - 3), y1 = Math.min(m.size - 3, vis.y1 + 2);
+    var town = S.myTown && S.myTown();
+    for (var y = y0; y <= y1; y++) {
+      for (var x = x0; x <= x1; x++) {
+        var code = codes[m.terrain[y * m.size + x]] || 'grass';
+        var key = LANDMARK_RULES[code];
+        if (!key || !sameTerrainAround(m, codes, x, y, code)) continue;
+        if (town && Math.hypot(x - town.x, y - town.y) < ((town.radius || 3) + 4)) continue;
+        if (dressingNoise(x, y, 93) >= 0.00075) continue;
+        var image = GM.atlas.landmark(key);
+        if (!image) continue;
+        var p = GM.camera.worldToScreen(x, y + 0.25), w = t * 3.15, h = t * 4.4;
+        ctx.save();
+        ctx.globalAlpha = 0.26;
+        ctx.fillStyle = '#11150f';
+        ctx.beginPath(); ctx.ellipse(p.x, p.y + t * 0.25, w * 0.36, t * 0.16, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        try { ctx.drawImage(image, Math.round(p.x - w / 2), Math.round(p.y - h + t * 0.32), Math.ceil(w), Math.ceil(h)); } catch (e) {}
+      }
+    }
+  }
+
+  /* Ambient motion is deliberately sparse: it gives water and low foliage a
+     living quality without covering the authored tile texture or affecting
+     any simulation state. */
+  function drawTerrainAtmosphere() {
+    var m = S.S.map;
+    if (!m) return;
+    var codes = m.codes, vis = GM.camera.visible(), t = GM.camera.cam.tile;
+    var x0 = Math.max(0, vis.x0 - 1), x1 = Math.min(m.size - 1, vis.x1 + 1);
+    var y0 = Math.max(0, vis.y0 - 2), y1 = Math.min(m.size - 1, vis.y1 + 1);
+    var wave = animT / 700;
+    ctx.save();
+    for (var y = y0; y <= y1; y++) {
+      for (var x = x0; x <= x1; x++) {
+        var code = codes[m.terrain[y * m.size + x]] || 'grass';
+        var noise = dressingNoise(x, y, 117);
+        var p = GM.camera.worldToScreen(x - 0.5, y - 0.5);
+        if (code === 'water' && noise < 0.19) {
+          var shimmer = 0.45 + Math.sin(wave + x * 1.71 + y * 0.83) * 0.25;
+          ctx.globalAlpha = Math.max(0.07, shimmer * 0.26);
+          ctx.fillStyle = '#d7f2ee';
+          var sx = p.x + t * (0.18 + ((noise * 31) % 0.45));
+          var sy = p.y + t * (0.24 + ((noise * 47) % 0.5));
+          ctx.fillRect(Math.round(sx), Math.round(sy), Math.max(1, Math.round(t * 0.18)), Math.max(1, Math.round(t * 0.035)));
+        } else if ((code === 'grass' || code === 'fertile' || code === 'marsh') && noise < 0.045) {
+          var sway = Math.sin(wave * 1.35 + x * 1.19 + y * 0.61) * t * 0.055;
+          ctx.globalAlpha = 0.16;
+          ctx.fillStyle = code === 'marsh' ? '#a5bc65' : '#d2df87';
+          var gx = p.x + t * (0.38 + ((noise * 71) % 0.26));
+          var gy = p.y + t * 0.58;
+          ctx.fillRect(Math.round(gx + sway), Math.round(gy - t * 0.14), Math.max(1, Math.round(t * 0.035)), Math.max(1, Math.round(t * 0.15)));
+        }
+        if ((code === 'forest' || code === 'marsh') && noise > 0.992) {
+          var drift = Math.sin(wave * 0.24 + x * 0.37 + y * 0.29) * t * 0.18;
+          ctx.globalAlpha = 0.055;
+          ctx.fillStyle = code === 'marsh' ? '#c4d6c1' : '#d5e2c7';
+          ctx.beginPath();
+          ctx.ellipse(p.x + t * 0.5 + drift, p.y + t * 0.42, t * 1.15, t * 0.28, 0, 0, Math.PI * 2);
+          ctx.fill();
         }
       }
     }
@@ -952,6 +1130,7 @@
       var faded = ratio < fadeAt || n.spent;
       if (faded) { ctx.save(); ctx.globalAlpha = n.spent ? 0.4 : (0.42 + 0.58 * (ratio / Math.max(0.01, fadeAt))); }
       try { ctx.drawImage(sp, Math.round(p.x), Math.round(p.y), Math.ceil(t * fp.w), Math.ceil(t * fp.h)); } catch (e) {}
+      if (n.temple) drawTempleEntrance(n, p, t, fp);
       if (faded) ctx.restore();
       if (n.harvestReady) {
         var g = 0.5 + 0.5 * Math.sin(animT / 260 + n.x);
@@ -1014,6 +1193,32 @@
     ctx.restore();
   }
 
+  /* 신전은 일반 유적의 방 표시를 쓰지 않는다. 지도 위에서 "들어갈 문"임을
+     먼저 읽게 하는 작은 내부 전경: 두 기둥·어두운 문·맥박치는 룬이다. */
+  function drawTempleEntrance(n, p, t, fp) {
+    var w = t * fp.w, h = t * fp.h;
+    var cx = p.x + w / 2, base = p.y + h * 0.9;
+    var pulse = 0.5 + 0.5 * Math.sin(animT / 350 + n.x * 0.31 + n.y * 0.17);
+    ctx.save();
+    ctx.globalAlpha = 0.20 + pulse * 0.18;
+    ctx.fillStyle = '#f6cf7a';
+    ctx.beginPath(); ctx.ellipse(cx, base, w * 0.46, h * 0.16, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#4c4948';
+    ctx.fillRect(Math.round(cx - w * 0.23), Math.round(base - h * 0.66), Math.max(3, Math.round(w * 0.12)), Math.max(6, Math.round(h * 0.62)));
+    ctx.fillRect(Math.round(cx + w * 0.11), Math.round(base - h * 0.66), Math.max(3, Math.round(w * 0.12)), Math.max(6, Math.round(h * 0.62)));
+    ctx.fillStyle = '#181720';
+    ctx.fillRect(Math.round(cx - w * 0.11), Math.round(base - h * 0.48), Math.max(4, Math.round(w * 0.22)), Math.max(5, Math.round(h * 0.46)));
+    ctx.strokeStyle = '#f6cf7a'; ctx.lineWidth = Math.max(1, t * 0.045); ctx.globalAlpha = 0.58 + pulse * 0.36;
+    ctx.beginPath(); ctx.arc(cx, base - h * 0.30, Math.max(2, w * 0.055), 0, Math.PI * 2); ctx.stroke();
+    if (t >= 18) {
+      ctx.globalAlpha = 0.92; ctx.font = Math.max(9, Math.round(t * 0.28)) + 'px Galmuri11, monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillStyle = '#f6e6a8';
+      ctx.fillText(n.name || '고대 신전', cx, p.y - 3);
+    }
+    ctx.restore();
+  }
+
   /* ══════════ ★ §18-D2 앞마당의 흔적 ══════════
      자원 자리보다 **작게, 낮게** 그린다(0.72칸). 흔적은 지형에 얹힌 자국이지 지형이 아니다 —
      발자국이 나무만 하면 앞마당이 흔적 밭으로 보인다.
@@ -1063,6 +1268,7 @@
        그래서 화면은 제 렌더 좌표를 따로 들고 서버 좌표로 **다가간다**(lerp).
        처음 본 놈과 너무 멀리 벌어진 놈만 스냅한다 — §12-11 텔레포트 사고의 해법을 그대로 뒤집어 쓴 것이다. */
   var wild = {};
+  var fallenGuardians = [];
   var WILD_SNAP = 12;
 
   /* ★ GDD3 §14-3 — 뚝뚝 끊기던 까닭과 고친 규칙.
@@ -1116,6 +1322,7 @@
   function newWild(c, now) {
     var a = GM.interp.create(c.x, c.y, now, null);
     a.dir = 1; a.face = 0; a.frame = 0; a.ft = 0; a.hurt = 0;
+    a.sp = c.sp; a.guardianTheme = c.guardianTheme || null;
     return a;
   }
 
@@ -1135,7 +1342,15 @@
     }
     for (var k in wild) {
       if (!Object.prototype.hasOwnProperty.call(wild, k)) continue;
-      if (alive[k] !== 1) delete wild[k];
+      if (alive[k] !== 1) {
+        /* 서버에서 처치된 수호병은 목록에서 즉시 빠진다. 마지막 위치를 0.6초만
+           남겨 전용 시트의 사망 4프레임을 보여 준 뒤 정리한다. */
+        if (wild[k].guardianTheme) {
+          fallenGuardians.push({ x: wild[k].x, y: wild[k].y, sp: wild[k].sp,
+            guardianTheme: wild[k].guardianTheme, age: 0 });
+        }
+        delete wild[k];
+      }
     }
   }
 
@@ -1161,11 +1376,16 @@
         if (cosF > 0.22) a.dir = 1;
         else if (cosF < -0.22) a.dir = -1;
         a.ft += dt;
-        if (a.ft > 0.22) { a.ft = 0; a.frame = a.frame ? 0 : 1; }
-      }
+        if (a.ft > 0.14) { a.ft = 0; a.frame = (a.frame + 1) % 4; }
+        a.moving = true;
+      } else a.moving = false;
       if (a.hurt > 0) a.hurt = Math.max(0, a.hurt - dt);
     }
     for (var id in wild) if (Object.prototype.hasOwnProperty.call(wild, id) && !seen[id]) delete wild[id];
+    for (var fi = fallenGuardians.length - 1; fi >= 0; fi--) {
+      fallenGuardians[fi].age += dt;
+      if (fallenGuardians[fi].age >= 0.64) fallenGuardians.splice(fi, 1);
+    }
   }
 
   function markWildHurt(id) { if (wild[id]) wild[id].hurt = 0.35; }
@@ -1259,7 +1479,7 @@
 
   function drawWild() {
     var list = S.creatureList();
-    if (!list.length) return;
+    if (!list.length && !fallenGuardians.length) return;
     var t = GM.camera.cam.tile;
     /* ★ Sprint 1 — §11-1 「잠긴 것은 부재다」를 짐승에도 적용한다. 사냥(hunt)은 3장 해금인데
        짐승은 1장부터 그려져, 보이는 것을 때릴 수 없는 채 「가까이 가라」는 엉뚱한 안내만 났다
@@ -1278,15 +1498,25 @@
       /* 월드 쪽은 왼쪽 이동을 캔버스 반전으로 처리한다. 시트에서 left 열을 다시
          고르면 반전이 두 번 적용돼 오른쪽을 보는 문제가 생긴다. 기준 right 열만
          쓰고 이 아래의 단 한 번 반전으로 좌우를 결정한다. */
+      var animation = a.hurt > 0 ? 'hurt'
+        : ((c.state === 'attack' || c.state === 'chase') ? 'attack'
+          : (a.moving ? 'walk' : 'idle'));
       var img = GM.atlas.wild(c.sp, a.frame, { hurt: a.hurt > 0,
-        attack: c.state === 'attack' || c.state === 'chase', direction: 1 });
+        attack: c.state === 'attack' || c.state === 'chase', direction: 1,
+        guardianTheme: c.guardianTheme, animation: animation });
+      /* 닭·토끼는 작은 동물로 남기고, 나머지 가축·야생동물·포식자는 두 배 크기로
+         발 위치를 같은 타일 바닥에 고정한다. */
+      var creatureScale = (c.sp === 'chicken' || c.sp === 'rabbit') ? 1 : 2;
+      var drawSize = t * creatureScale;
+      var drawX = p.x - (drawSize - t) / 2;
+      var drawY = p.y - (drawSize - t);
       ctx.save();
       if (a.dir < 0) {
-        ctx.translate(Math.round(p.x) + t, Math.round(p.y));
+        ctx.translate(Math.round(drawX) + drawSize, Math.round(drawY));
         ctx.scale(-1, 1);
-        try { ctx.drawImage(img, 0, 0, Math.ceil(t), Math.ceil(t)); } catch (e) {}
+        try { ctx.drawImage(img, 0, 0, Math.ceil(drawSize), Math.ceil(drawSize)); } catch (e) {}
       } else {
-        try { ctx.drawImage(img, Math.round(p.x), Math.round(p.y), Math.ceil(t), Math.ceil(t)); } catch (e2) {}
+        try { ctx.drawImage(img, Math.round(drawX), Math.round(drawY), Math.ceil(drawSize), Math.ceil(drawSize)); } catch (e2) {}
       }
       ctx.restore();
       /* 성이 난 놈은 발밑이 붉다 — 쫓기고 있다는 것을 한눈에 */
@@ -1296,17 +1526,37 @@
         ctx.strokeStyle = '#bc4749';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.ellipse(p.x + t / 2, p.y + t * 0.92, t * 0.34, t * 0.16, 0, 0, Math.PI * 2);
+        ctx.ellipse(drawX + drawSize / 2, drawY + drawSize * 0.92, drawSize * 0.34, drawSize * 0.16, 0, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
       }
       if (c.hp < c.maxHp && t >= 18) {
-        var w = t * 0.7;
+        var w = drawSize * 0.7;
         ctx.fillStyle = 'rgba(20,14,8,.65)';
-        ctx.fillRect(p.x + (t - w) / 2, p.y - 5, w, 3);
+        ctx.fillRect(drawX + (drawSize - w) / 2, drawY - 5, w, 3);
         ctx.fillStyle = c.kind === 'predator' ? '#bc4749' : '#8dbb6d';
-        ctx.fillRect(p.x + (t - w) / 2, p.y - 5, w * Math.max(0, c.hp / c.maxHp), 3);
+        ctx.fillRect(drawX + (drawSize - w) / 2, drawY - 5, w * Math.max(0, c.hp / c.maxHp), 3);
       }
+    }
+    /* 살아 있는 수호병 위에 사망 잔상을 따로 그려, 처치 프레임이 서버 갱신에
+       잘려 나가지 않게 한다. */
+    for (var di = 0; di < fallenGuardians.length; di++) {
+      var dead = fallenGuardians[di];
+      if (!GM.camera.onScreen(dead.x, dead.y, t * 2)) continue;
+      var dp = P2;
+      dp.x = GM.camera.worldToScreenX(dead.x - 0.5);
+      dp.y = GM.camera.worldToScreenY(dead.y - 0.5);
+      var deadSize = t * 2;
+      var deadX = dp.x - (deadSize - t) / 2;
+      var deadY = dp.y - (deadSize - t);
+      var deadFrame = Math.min(3, Math.floor(dead.age / 0.16));
+      var deadImg = GM.atlas.wild(dead.sp, deadFrame, {
+        guardianTheme: dead.guardianTheme, animation: 'death'
+      });
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - Math.max(0, dead.age - 0.42) / 0.22);
+      try { ctx.drawImage(deadImg, Math.round(deadX), Math.round(deadY), Math.ceil(deadSize), Math.ceil(deadSize)); } catch (e3) {}
+      ctx.restore();
     }
   }
 
@@ -1370,10 +1620,12 @@
     return f ? { w: f[0], h: f[1] } : fallback;
   }
   function structureRenderFootprint(b) {
-    if (b && b.hq) {
+    if (b && (b.hq || (b.key || b.building) === 'campfire' || String(b.key || b.building || '').indexOf('hq_') === 0)) {
       var hqDef = S.buildingDef(b.key || b.building) || {};
       var hqSizes = hqDef.tierFootprints || HQ_STAGE_FOOTPRINTS;
-      var hqSize = hqSizes[Math.max(0, Math.min(hqSizes.length - 1, (b.tier || 1) - 1))];
+      var nTier = ((S.nation && S.nation() || {}).tier || 0);
+      var hqTier = Math.max(b.tier || 1, (S.tierNo ? S.tierNo() : 0) + 1, nTier + 1);
+      var hqSize = hqSizes[Math.max(0, Math.min(hqSizes.length - 1, hqTier - 1))];
       if (hqSize) return { w: hqSize[0], h: hqSize[1] };
     }
     return renderFootprint(b && (b.key || b.building), S.footprintOfThing(b));
@@ -1511,11 +1763,17 @@
            모닥불이 나온다. */
         var hqKey = b.key || b.building || '';
         var hqStages = ['campfire', 'hq_camp', 'hq_village', 'hq_town', 'hq_city', 'hq_royal'];
-        var handmadeHq = b.hq && GM.atlas.handmadeBuilding
-          ? GM.atlas.handmadeBuilding(hqStages[Math.max(0, Math.min(5, (b.tier || 1) - 1))]) : null;
-        var sprite = handmadeHq || (b.hq ? GM.atlas.hall(S.tierNo(), { ruined: b.ruined })
+        var isHq = b.hq || hqKey === 'campfire' || hqKey.indexOf('hq_') === 0;
+        var nationTier = ((S.nation && S.nation() || {}).tier || 0);
+        var hqTier = Math.max(b.tier || 1, (S.tierNo ? S.tierNo() : 0) + 1, nationTier + 1);
+        var handmadeHq = isHq && GM.atlas.handmadeBuilding
+          ? GM.atlas.handmadeBuilding(hqStages[Math.max(0, Math.min(5, hqTier - 1))]) : null;
+        var sprite = handmadeHq || (isHq ? GM.atlas.hall(Math.max(0, hqTier - 1), { ruined: b.ruined })
                           : GM.atlas.building(b.key, b.tier, { ruined: b.ruined }));
-        var campfireSheet = handmadeHq && hqKey === 'campfire' && GM.atlas.buildingAnimation
+        /* `campfire` is the persistent HQ key even after promotion.  Only
+           stage 1 is actually a campfire: using this sheet at later stages
+           overwrote the correctly selected hq_camp/hq_village artwork. */
+        var campfireSheet = handmadeHq && hqKey === 'campfire' && hqTier === 1 && GM.atlas.buildingAnimation
           ? GM.atlas.buildingAnimation(hqKey) : null;
         if (campfireSheet && campfireSheet.complete && campfireSheet.naturalWidth && !campfireSheet.failed) {
           var frameW = campfireSheet.naturalWidth / 4;
@@ -2105,6 +2363,10 @@
       var npcW = npcCrop ? npcH * npcCrop[2] / npcCrop[3] : t;
       var npcX = p.x - (npcW - w) / 2;
       var npcY = p.y - (npcH - h) + t * 0.1;
+      /* 행동 시트는 걷기 PNG와 캔버스 비율이 다르다. 걷기용 고정 폭으로 억지로
+         그리면 여성의 상·하체가 찌그러져 두 프레임처럼 보이므로, 실제 프레임 비율을 쓴다. */
+      var actionW = action ? (action.npcSized ? npcW : npcH * action.sw / action.sh) : npcW;
+      var actionX = p.x - (actionW - w) / 2;
       /* ★ §12-9 — 작업 중이면 몸이 앞으로 기울고(스윙), 짐을 지면 살짝 눌린다 */
       var lean = (a.pose || 0) * 0.28;
       if (lean > 0.01) {
@@ -2114,7 +2376,7 @@
         ctx.translate(-(p.x + w / 2), -(p.y + h));
       }
       if (action) {
-        try { ctx.drawImage(action.image, action.sx, action.sy, action.sw, action.sh, Math.round(npcX), Math.round(npcY), Math.ceil(npcW), Math.ceil(npcH)); } catch (e3) {}
+        try { ctx.drawImage(action.image, action.sx, action.sy, action.sw, action.sh, Math.round(actionX), Math.round(npcY), Math.ceil(actionW), Math.ceil(npcH)); } catch (e3) {}
       } else if (sp) {
         try { ctx.drawImage(sp, npcCrop[0], npcCrop[1], npcCrop[2], npcCrop[3], Math.round(npcX), Math.round(npcY), Math.ceil(npcW), Math.ceil(npcH)); } catch (e3) {}
       }
@@ -2181,8 +2443,11 @@
       var sw = GM.swing ? GM.swing.pose() : { phase: 0, tool: null };
       /* ★ §19-A — 이름표는 **제가 적어 넣은 이름**이다. '그대'로 못 박아 두었더니 여럿이 함께 있을 때
          내 머리 위만 2인칭이 떠서, 팀원 화면의 내 이름과도 어긋났다(2인칭은 문장에서만 쓴다). */
+      /* state 수신 전후에도 세션이 보낸 역할을 우선한다. 재접속 첫 프레임에 주민 NPC로
+         잠깐 되돌아가는 것을 막고, 역할 장부가 도착하면 S.myRole()이 같은 값을 확정한다. */
+      var ownRole = (S.myVisualRole ? S.myVisualRole() : S.myRole()) || (S.S.you && S.S.you.role) || 'build';
       drawLord(me.x, me.y, S.S.you.appearance, me.dir, me.frame, S.myName(), '#f6cf7a', mine,
-        S.myRole(), sw.phase, sw.tool, S.downed());
+        ownRole, sw.phase, sw.tool, S.downed());
     }
   }
 
@@ -2237,6 +2502,10 @@
     var spriteW = roleSprite ? roleW : (npcCrop ? spriteH * npcCrop[2] / npcCrop[3] : w);
     var spriteX = roleSprite ? roleX : p.x - (spriteW - w) / 2;
     var spriteY = roleSprite ? roleY : p.y - (spriteH - h) + t * 0.1;
+    /* 행동 프레임은 원본 자체의 종횡비를 쓴다. 특히 여성 NPC는 걷기 PNG보다 넓은
+       도구 동작이라, 걷기용 폭에 맞추면 한 캐릭터가 상·하체로 갈라진 듯 압축됐다. */
+    var actionW = actionSprite ? (actionSprite.npcSized ? spriteW : spriteH * actionSprite.sw / actionSprite.sh) : spriteW;
+    var actionX = actionSprite ? p.x - (actionW - w) / 2 : spriteX;
     if (down) {
       ctx.translate(p.x + w / 2, p.y + h);
       ctx.rotate(-Math.PI / 2.2);
@@ -2252,7 +2521,7 @@
       /* ★ GDD3 §13-D-3 — 내 아바타에는 벼린 것이 그대로 실린다(동료의 장비는 서로 보이지 않는다) */
       var gear = mine && GM.avatar.gear ? GM.avatar.gear() : null;
       if (actionSprite) ctx.drawImage(actionSprite.image, actionSprite.sx, actionSprite.sy, actionSprite.sw, actionSprite.sh,
-        Math.round(spriteX), Math.round(spriteY), Math.ceil(spriteW), Math.ceil(spriteH));
+        Math.round(actionX), Math.round(spriteY), Math.ceil(actionW), Math.ceil(spriteH));
       else if (characterSprite) ctx.drawImage(characterSprite, spriteCrop[0], spriteCrop[1], spriteCrop[2], spriteCrop[3],
         Math.round(spriteX), Math.round(spriteY), Math.ceil(spriteW), Math.ceil(spriteH));
     } catch (e2) {}
@@ -2328,7 +2597,9 @@
         ctx.drawImage(gs, Math.round(gp.x), Math.round(gp.y), Math.ceil(gw), Math.ceil(gh));
       } catch (e) {}
     }
-    ctx.globalAlpha = 0.4;
+    /* Placement feedback is a quiet footprint, not a blocky substitute
+       building.  The real authored sprite remains the only focal element. */
+    ctx.globalAlpha = 0.13;
     ctx.fillStyle = v.ok ? '#6a994e' : '#bc4749';
     ctx.fillRect(p.x, p.y, t * f.w, t * f.h);
     ctx.globalAlpha = 1;
@@ -2916,7 +3187,9 @@
 
     var tile = GM.camera.cam.tile;
     drawTerrain();
-    drawBiomeDressing();
+    drawBiomeProps();
+    drawLandmarks();
+    drawTerrainAtmosphere();
     drawClusters();
     drawTerritory();
     if (GM.fx) GM.fx.drawStumps(ctx, tile);

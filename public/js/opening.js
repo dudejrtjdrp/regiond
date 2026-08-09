@@ -15,6 +15,7 @@
   var TOTAL = 14.4;
 
   var st = null;             // {t, done, from, to, onDone}
+  var pending = false;       // 세계를 받은 직후~마차 연출을 실제로 시작할 때까지의 입력 잠금
   var onEnd = null;
   var skipBtn = null;
 
@@ -52,8 +53,9 @@
 
   function play(done) {
     var town = S.myTown();
-    if (!town) { if (done) done(); return; }
+    if (!town) { pending = false; if (done) done(); return; }
     onEnd = done || null;
+    pending = false;
     S.set({ opening: true });
     var drop = dropPoint(town);
     st = {
@@ -68,6 +70,7 @@
     GM.avatar.freeze(true);
     /* ★ 마차가 굴러오는 동안 개척자는 마차 안에 있다 — 스프라이트를 감춘다 */
     GM.avatar.setHidden(true);
+    if (GM.swing) GM.swing.stopHold();
     GM.avatar.setPos(drop.x, drop.y);
     GM.camera.reset(town.x, town.y);
     GM.camera.moveTo(town.x, town.y);
@@ -199,6 +202,7 @@
     if (!st) return;
     var wasDropped = !!st.dropped;
     st = null;
+    pending = false;
     document.removeEventListener('keydown', onKey, true);
     document.body.classList.remove('cutscene');
     var root = U.qs('#cutscene-root');
@@ -225,10 +229,18 @@
     if (onEnd) { var f = onEnd; onEnd = null; f(); }
   }
 
-  function busy() { return !!st; }
+  function prepare() {
+    /* 스토리 도입/타이머를 기다리는 짧은 틈도 '마차 안'으로 취급한다. */
+    pending = true;
+    GM.avatar.freeze(true);
+    GM.avatar.setHidden(true);
+    if (GM.swing) GM.swing.stopHold();
+  }
 
-  GM.opening = { play: play, step: step, drawOverlay: drawOverlay, busy: busy,
+  function busy() { return !!st || pending; }
+
+  GM.opening = { play: play, prepare: prepare, step: step, drawOverlay: drawOverlay, busy: busy,
                  shouldPlay: shouldPlay, finish: finish,
                  /* ★ §16-7b — 마차에서 내렸는가(연출은 계속 돌아도 하차는 끝났다) */
-                 dropped: function () { return !st || !!st.dropped; } };
+                 dropped: function () { return !!st && !!st.dropped; } };
 })(window);

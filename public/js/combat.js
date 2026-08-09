@@ -333,21 +333,23 @@
       if (!GM.camera.onScreen(q.x, q.y, tile * 2)) return;
       var p = GM.camera.worldToScreen(q.x - 0.4, q.y - 0.9);
       var f = Math.floor(animT / 170 + q.x * 2) % 2;
-      var w = tile * 0.8, h = tile * 0.95;
+      /* 침입 적은 전투에서 눈에 띄도록 두 배로 그리고, 발은 기존 바닥선에 맞춘다. */
+      var w = tile * 1.6, h = tile * 1.9;
+      var drawX = p.x - tile * 0.4, drawY = p.y - tile * 0.95;
       ctx.save();
       ctx.globalAlpha = 0.24;
       ctx.fillStyle = '#000';
       ctx.beginPath();
-      try { ctx.ellipse(p.x + w / 2, p.y + h - 1, w * 0.32, w * 0.14, 0, 0, Math.PI * 2); } catch (e1) {}
+      try { ctx.ellipse(drawX + w / 2, drawY + h - 1, w * 0.32, w * 0.14, 0, 0, Math.PI * 2); } catch (e1) {}
       ctx.fill();
       ctx.restore();
-      try { ctx.drawImage(GM.atlas.enemy(b.type, f), Math.round(p.x), Math.round(p.y), Math.ceil(w), Math.ceil(h)); } catch (e2) {}
-      hpBar(ctx, p.x, p.y - 6, w, en.hp / Math.max(1, en.maxHp), '#bc4749');
+      try { ctx.drawImage(GM.atlas.enemy(b.type, f), Math.round(drawX), Math.round(drawY), Math.ceil(w), Math.ceil(h)); } catch (e2) {}
+      hpBar(ctx, drawX, drawY - 6, w, en.hp / Math.max(1, en.maxHp), '#bc4749');
       if (en.looting) {
         ctx.save();
         ctx.globalAlpha = 0.6 + 0.3 * Math.sin(animT / 200);
         ctx.fillStyle = '#e8a33d';
-        ctx.fillRect(p.x + w - 4, p.y - 12, 5, 5);
+        ctx.fillRect(drawX + w - 4, drawY - 12, 5, 5);
         ctx.restore();
       }
     });

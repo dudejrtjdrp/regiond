@@ -69,8 +69,15 @@
   /* ── 서버 이벤트 ────────────────────────────────────── */
   function wireServerEvents() {
     S.on('joined', function (p) {
-      if (p && p.you && p.you.appearance) {
-        S.set({ you: { role: p.you.role || null, appearance: p.you.appearance } });
+      /* 재입장 응답은 역할과 외형을 각각 보낼 수 있다. 예전에는 appearance 가 있을 때만
+         role 을 복원해서, 역할을 이미 가진 개척자가 기본 주민으로 다시 그려졌다. */
+      if (p && p.you) {
+        var before = S.S.you || {};
+        S.set({ you: {
+          role: p.you.role || before.role || null,
+          avatarId: p.you.avatarId || before.avatarId || S.S.avatarId || null,
+          appearance: p.you.appearance || before.appearance || S.defaultAppearance()
+        } });
       }
       dayStartAt = Date.now();
       U.toast('여기서 시작합니다. 초대 코드 ' + (p.gameId || '') + ' 를 건네면 함께 개척합니다.', 'good', 6000);
@@ -81,8 +88,11 @@
       /* 지도가 서면 오프닝 — 갓 세운 야영지에서만 */
       if (openingDone) return;
       openingDone = true;
+      var playOpening = GM.opening.shouldPlay();
+      if (playOpening) GM.opening.prepare();
       setTimeout(function () {
-        if (GM.opening.shouldPlay()) {
+        if (playOpening) {
+          /* 도입 대사와 마차 연출 사이의 틈에도 몸·손을 먼저 잠근다. */
           /* ★ §세계관 W2 — 이야기의 시간 순서: 알현실(도입)이 먼저, 마차(오프닝)는 그 뒤 */
           var boot = function () { GM.opening.play(function () { GM.quest.update(); }); };
           if (GM.story) GM.story.beforeOpening(boot);
@@ -119,15 +129,37 @@
            맡으므로 여기서는 이야기만 읽는다(같은 것을 두 번 띄우지 않는다). */
         if (e.kind === 'ruin_resolved') {
           var rr = e.data || {};
+          /* 유적 완료 이벤트는 항상 먼저 온다. 보상 이벤트가 네트워크 묶음에서
+             누락돼도 여기의 보상 정보를 즉시 발견 대화창으로 넘긴다. */
+          if (rr.artifact && GM.artifacts && GM.artifacts.discovery) {
+            var ra = rr.artifact;
+            GM.artifacts.discovery({ key: ra.key, artifact: ra.name || ra.key, grade: ra.grade,
+              effect: ra.desc || '', source: 'ruin', role: '깊은 유적의 마지막 방' });
+          } else {
+            var emptyLines = [
+              '돌무더기 아래까지 모두 살폈지만, 이곳에는 더 남은 것이 없습니다.',
+              '바랜 벽화와 부서진 제단만 남았습니다. 다음 깊은 유적을 찾아야 합니다.',
+              '상자는 오래전에 비워졌습니다. 그래도 숨은 길의 흔적은 지도에 남겼습니다.',
+              '먼지만 손에 남았습니다. 이 유적은 끝났지만, 탐험으로 신전의 단서는 가까워집니다.'
+            ];
+            var seed = String(rr.text || rr.name || 'empty');
+            var sum = 0; for (var si = 0; si < seed.length; si++) sum += seed.charCodeAt(si);
+            var emptyBody = U.el('div', 'ruin-result-modal');
+            emptyBody.appendChild(U.el('p', 'ruin-result-lead', emptyLines[sum % emptyLines.length]));
+            emptyBody.appendChild(U.el('p', 'hint', '유적에서 나온 전설과 단서는 「발견 기록」에서 다시 읽을 수 있습니다.'));
+            var emptyFoot = U.el('div');
+            emptyFoot.appendChild(U.btn('확인', 'btn-primary', function () { U.closeTopModal(); }));
+            U.openModal({ title: rr.name || '유적 조사 결과', body: emptyBody, footer: emptyFoot,
+              width: '520px', key: 'ruin-result', icon: GM.icons.img('scroll', 22) });
+          }
           if (rr.text) {
             GM.hud.flash({ kind: rr.artifact ? 'good' : 'decision', icon: 'scroll',
                            title: rr.name || '옛 자취', sub: rr.text,
                            open: function () { GM.chronicle.open(); } });
-            U.toast(rr.text, rr.artifact ? 'good' : '', 5200);
           }
           return;
         }
-        if (!e.text) return;
+        if (e.kind !== 'artifact_found' && !e.text) return;
         if (e.kind === 'artifact_found') {
           GM.hud.flash({ kind: 'good', icon: 'gem', title: '땅이 무언가를 내어주었다', sub: e.text,
                          open: function () { GM.artifacts.open(); } });

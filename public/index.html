@@ -49,8 +49,8 @@
     <h3 class="sec-title">어떤 길로 갈까</h3>
     <div id="found-diff" class="diff-grid"></div>
 
-    <h3 class="sec-title">그대의 모습</h3>
-    <div id="found-char" class="panel-paper char-box"></div>
+    <h3 class="sec-title" hidden>그대의 모습</h3>
+    <div id="found-char" class="panel-paper char-box" hidden></div>
 
     <div class="found-go">
       <button id="found-start" type="button" class="btn btn-xl btn-primary" disabled>마차에 오른다</button>
@@ -102,7 +102,7 @@
     <div id="res-bar" class="res-bar" aria-label="창고"></div>
     <div class="topbar-right">
       <span id="tb-kingdom" class="tb-kingdom"></span>
-      <button id="btn-look" type="button" class="icon-btn" aria-label="내 모습" title="내 모습">☺</button>
+      <button id="btn-look" type="button" class="icon-btn" aria-label="내 모습" title="내 모습" hidden>☺</button>
       <button id="btn-chronicle" type="button" class="icon-btn" aria-label="연대기" title="연대기">✎</button>
       <button id="btn-sound" type="button" class="icon-btn" aria-label="소리 켜기·끄기" title="소리">♪</button>
       <button id="btn-settings" type="button" class="icon-btn" aria-label="설정" title="설정 (Esc)">⚙</button>
@@ -123,6 +123,9 @@
       <div id="upcoming" class="upcoming decor" aria-hidden="true" hidden></div>
       <button id="badge-threat" type="button" class="inv-badge" hidden></button>
       <div id="goal-card" class="goal-card" hidden></div>
+      <div id="artifact-track-card" class="artifact-track-card" hidden></div>
+      <button id="artifact-journal-btn" class="artifact-journal-btn" type="button">📖 발견 기록</button>
+      <button id="artifact-inventory-btn" class="artifact-journal-btn" type="button">◆ 유물 보관함</button>
     </div>
 
     <div id="battle-bar" class="battle-bar" hidden></div>
@@ -198,7 +201,9 @@
 <script src="js/ui.js"></script>
 <script src="js/icons.js"></script>
 <script src="js/atlas.js"></script>
+<script src="js/npc-sprites.js"></script>
 <script src="js/role-sprites.js"></script>
+<script src="js/action-sprites.js"></script>
 <script src="js/sfx.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/mock.js"></script>
@@ -217,7 +222,7 @@
 <script src="js/world.js"></script>
 <script src="js/minimap.js"></script>
 <script src="js/avatar.js"></script>
-<script src="js/swing.js"></script>
+<script src="js/swing.js?v=ruin-result-modal-1"></script>
 <script src="js/residents.js"></script>
 <script src="js/build.js"></script>
 <script src="js/structure.js"></script>
@@ -238,10 +243,10 @@
 <script src="js/chronicle.js"></script>
 <script src="js/ministry.js"></script>
 <script src="js/orders.js"></script>
-<script src="js/artifacts.js"></script>
-<script src="js/council.js"></script>
+<script src="js/artifacts.js?v=ruin-result-modal-1"></script>
+<script src="js/council.js?v=ruin-result-modal-1"></script>
 <script src="js/cutscene.js"></script>
 <script src="js/devpanel.js"></script>
-<script src="js/app.js"></script>
+<script src="js/app.js?v=ruin-result-modal-1"></script>
 </body>
 </html>

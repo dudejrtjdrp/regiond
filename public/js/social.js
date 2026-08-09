@@ -118,10 +118,18 @@
       /* ★ GDD3 §15-C — 명부에는 사람과 동료가 함께 오른다(정원 5인이 한 표에 보여야 한다).
          동료의 자리(각료)는 companions 가 정본이다 — 사람의 자리와 같은 표에서 읽는다. */
       var crew = m.bot ? S.companionById(m.avatarId) : null;
-      var role = m.role || (crew && crew.role) || null;
+      var isMe = m.avatarId === S.S.avatarId;
+      var role = m.role || (isMe && S.myRole()) || (crew && crew.role) || null;
+      /* 내 자리가 아직 비어 있어도, 내 초상만은 주인공 외형을 쓴다. 표기 역할은 비어
+         있다고 그대로 남겨 권한/배정을 잘못 보여 주지 않는다. */
+      var portraitRole = role || (isMe && S.myVisualRole ? S.myVisualRole() : null);
       var row = U.el('div', 'sp-member' + (m.online ? '' : ' away') + (m.bot ? ' is-crew' : ''));
       row.setAttribute('data-avatar', m.avatarId || m.name);
-      row.appendChild(GM.atlas.avatarImg(m.appearance, 26));
+      /* 역할을 맡은 사람은 주민 조합 초상 대신, 실제 월드에서 쓰는 역할 전용 얼굴을 쓴다.
+         명부가 atlas 를 직접 부르던 탓에 이 패널만 예전 주민 얼굴로 남아 있었다. */
+      row.appendChild(portraitRole && GM.icons
+        ? GM.icons.portraitImg(portraitRole, 26, 'social')
+        : GM.atlas.avatarImg(m.appearance, 26));
       var col = U.el('div', 'sm-col');
       col.appendChild(U.el('span', 'sm-n', m.name));
       col.appendChild(U.el('span', 'sm-r', role ? S.roleMeta(role).name : (m.bot ? '함께 일하는 이' : '자리 미정')));

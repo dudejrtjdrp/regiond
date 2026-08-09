@@ -625,8 +625,14 @@
     if (res.siteId && v && v.nation && v.nation.sites) {
       for (var i = 0; i < v.nation.sites.length; i++) {
         if (v.nation.sites[i].id !== res.siteId) continue;
-        if (res.remaining != null) v.nation.sites[i].remaining = res.remaining;
-        if (res.progress != null) v.nation.sites[i].progress = res.progress;
+        /* 이전은 해체가 끝나면 같은 현장이 `재조립` 마디로 바뀐다. 이때 remaining/progress만
+           바꾸면 이전 마디의 total·phase를 계속 써서 게이지가 빠르게 돌거나 엉뚱하게 보인다.
+           서버가 준 현장 뷰는 그 마디의 완전한 권위값이므로 통째로 교체한다. */
+        if (res.site && res.site.id === res.siteId) v.nation.sites[i] = res.site;
+        else {
+          if (res.remaining != null) v.nation.sites[i].remaining = res.remaining;
+          if (res.progress != null) v.nation.sites[i].progress = res.progress;
+        }
         touched = true;
       }
       /* ★ 마지막 망치질이 건물을 세운다 — 공사 목록에서 빼고 건물 목록에 넣는다.
@@ -659,8 +665,8 @@
     }
     /* ★ §19-C — 다섯 솜씨를 합친 눈금표(단계·비율·남은 점수)는 서버가 ack 에 실어 준다.
        솜씨 하나의 xp 만 고쳐 쓰면 좌하단 눈금 바는 다음 일 틱까지 낡은 값을 그린다. */
-    if (self && res.progress && v && v.you && v.you.player) {
-      v.you.player.progress = res.progress;
+    if (self && res.playerProgress && v && v.you && v.you.player) {
+      v.you.player.progress = res.playerProgress;
       touched = true;
     }
     /* ★ 'live' — 일 틱을 기다리지 않고 화면을 고쳐 그리라는 신호(app.js 가 HUD·목표 카드를 새로 그린다).
@@ -854,9 +860,10 @@
      건물은 칸 하나가 아니라 사각형을 차지한다. 앵커(x,y)는 좌상단, 중심은 x+(w-1)/2 다.
      서버(server/engine/structures.js)의 식과 **글자 그대로 같아야** 한다 —
      어긋나면 "고스트는 초록인데 서버가 거절"이라는 최악의 어긋남이 난다. */
-  function footprintOf(key) {
+  function footprintOf(key, tier) {
     var d = buildingDef(key);
-    var f = d && d.footprint;
+    var stages = d && d.tierFootprints;
+    var f = tier != null && stages && stages[Math.max(0, Math.round(tier) - 1)] || (d && d.footprint);
     if (!f || f.length < 2) return { w: 1, h: 1 };
     return { w: Math.max(1, f[0]), h: Math.max(1, f[1]) };
   }
@@ -864,7 +871,7 @@
   function footprintOfThing(o) {
     if (!o) return { w: 1, h: 1 };
     if (o.fw && o.fh) return { w: o.fw, h: o.fh };
-    return footprintOf(o.key || o.building);
+    return footprintOf(o.key || o.building, o.tier);
   }
   function centerOfThing(o) {
     if (!o) return { x: 0, y: 0 };
@@ -1465,6 +1472,12 @@
         if (!r || r.holder !== 'player') continue;
         if (r.owner == null || r.owner === me) return k;
       }
+      /* 재입장 전환 중 avatarId가 예전 저장본과 달라도, 내 명부에 적힌 역할을 잃지 않는다. */
+      var roster = (n.members || []).filter(function (m) { return !m.bot && m.avatarId === me; })[0];
+      if (roster && roster.role && n.roles[roster.role] && n.roles[roster.role].holder === 'player') return roster.role;
+      var claimed = ROLES.filter(function (r2) { return n.roles[r2.key] && n.roles[r2.key].holder === 'player'; });
+      var humans = (n.members || []).filter(function (m2) { return !m2.bot && m2.avatarId; });
+      if (claimed.length === 1 && humans.length === 1) return claimed[0].key;
     }
     return (S.you && S.you.role) || null;
   }
@@ -1475,6 +1488,9 @@
     return role;
   }
   function hasRole(key) { return myRole() === key; }
+  /* 역할은 권한용 값이다. 아직 자리를 맡지 않은 플레이어까지 주민 도트가 되지는 않도록,
+     시각 표현에서만 용사(건축가) 기본 외형을 쓴다. 실제 역할·권한은 myRole()만을 쓴다. */
+  function myVisualRole() { return myRole() || 'build'; }
   function roleHolder(key) {
     var n = nation();
     if (!n || !n.roles || !n.roles[key]) return null;
@@ -1767,7 +1783,7 @@
     villagerWorkCfg: villagerWorkCfg, dayRealSeconds: dayRealSeconds,
     storageLimit: storageLimit, storageFull: storageFull, storageInfo: storageInfo,
 
-    myRole: myRole, syncYou: syncYou, hasRole: hasRole, roleHolder: roleHolder, isVacant: isVacant,
+    myRole: myRole, myVisualRole: myVisualRole, syncYou: syncYou, hasRole: hasRole, roleHolder: roleHolder, isVacant: isVacant,
     nameOf: nameOf, myName: myName,
     holderName: holderName, mandateOpen: mandateOpen, members: members,
     tagName: tagName, nationTags: nationTags,

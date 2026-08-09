@@ -32,6 +32,7 @@
       state: (c.down || av.down) ? 'down' : (c.state || av.state || 'idle'),
       hp: c.hp != null ? c.hp : (av.hp || 0),
       maxHp: c.maxHp || av.maxHp || 0,
+      role: c.role || av.role || String(id || '').replace(/^bot~/, ''),
       appearance: c.appearance || av.appearance || S.defaultAppearance(),
       order: c.order || null,
       color: c.color || av.color || '#8fe3b4'
@@ -54,7 +55,7 @@
     head.style.display = 'flex';
     head.style.gap = '10px';
     head.style.alignItems = 'center';
-    head.appendChild(GM.atlas.avatarImg(c.appearance, 64));
+    head.appendChild(rolePortrait(c, 64));
     var col = U.el('div', 'cp-col');
     var nm = U.el('b', 'cp-name', c.name);
     nm.style.color = c.color;
@@ -193,10 +194,17 @@
     if (!c) { U.toast('그 동료를 찾지 못했습니다.', 'warn'); return null; }
     if (!GM.dialogue) return open(id);
     return GM.dialogue.open({
-      speaker: c.name, portraitKey: 'crew:' + id, lines: [helloLine(c)],
+      speaker: c.name, portraitKey: 'crew:' + c.role, lines: [helloLine(c)],
       choices: [{ label: '무엇을 하는지 본다', act: function () { open(id); } },
                 { label: '그냥 지나친다' }]
     });
+  }
+
+  function rolePortrait(c, size) {
+    var role = String((c && c.role) || '').replace(/^bot~/, '');
+    var officer = { farm: 1, factory: 1, build: 1, defense: 1, trade: 1, saint: 1 };
+    if (officer[role] && GM.icons && GM.icons.portraitImg) return GM.icons.portraitImg(role, size, 'crew');
+    return GM.atlas.avatarImg(c.appearance, size);
   }
 
   /* ══════════ ★ §19-F3(F07-9) 주민 꾸미기 ══════════

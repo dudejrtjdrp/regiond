@@ -26,8 +26,8 @@
     }
     var look = U.qs('#btn-look');
     if (look) {
-      look.onclick = function () { GM.charcreate.openEditor(); };
-      U.tipSet(look, '내 모습을 고칩니다', '고른 모습은 함께 하는 이들에게도 곧바로 보입니다.');
+      look.hidden = true;
+      look.onclick = null;
     }
     var ch = U.qs('#btn-chronicle');
     ch.onclick = function () { GM.chronicle.open(); };
@@ -852,7 +852,7 @@
   function meSig(p, prog) {
     var mine = (S.S.avatars || []).filter(function (a) { return a.id === S.S.avatarId; })[0];
     var look = (mine && mine.appearance) || (S.S.you && S.S.you.appearance) || null;
-    return [p.down ? 1 : 0, p.name || '', p.hp || 0, p.maxHp || 0,
+    return [p.down ? 1 : 0, p.name || '', p.hp || 0, p.maxHp || 0, (S.myVisualRole ? S.myVisualRole() : S.myRole()) || '',
             prog.level, prog.ratio, prog.points, prog.xp, prog.need, prog.from,
             look && GM.atlas.appKey ? GM.atlas.appKey(look) : '-',
             sleep.on ? 1 : 0, sleep.slept, sleep.need].join('|');
@@ -876,7 +876,9 @@
     var face = U.el('div', 'me-face');
     var mine = (S.S.avatars || []).filter(function (a) { return a.id === S.S.avatarId; })[0];
     var look = (mine && mine.appearance) || (S.S.you && S.S.you.appearance) || null;
-    if (look && GM.atlas.avatarImg) face.appendChild(GM.atlas.avatarImg(look, 40));
+    var myRole = S.myVisualRole ? S.myVisualRole() : S.myRole();
+    if (myRole && GM.icons && GM.icons.portraitImg) face.appendChild(GM.icons.portraitImg(myRole, 40, 'me'));
+    else if (look && GM.atlas.avatarImg) face.appendChild(GM.atlas.avatarImg(look, 40));
     else face.appendChild(GM.icons.img('person', 34));
     var lv = U.el('span', 'me-lv', String(prog.level));
     if (prog.points > 0) lv.style.background = 'var(--gold-deep)';

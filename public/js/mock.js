@@ -336,10 +336,25 @@
 
     /* ── 지형·노드 ── */
     function genTerrain(w, r) {
+      /* 칸 단위 난수 대신 보간된 저해상도 필드를 써서 바이옴이 덩어리로 이어진다. */
+      var grid = 8, field = [];
+      for (var gy = 0; gy <= grid; gy++) {
+        field[gy] = [];
+        for (var gx = 0; gx <= grid; gx++) field[gy][gx] = r();
+      }
+      function ease(t) { return t * t * (3 - 2 * t); }
+      function sample(x, y) {
+        var fx = x * grid / SIZE, fy = y * grid / SIZE;
+        var x0 = Math.min(grid - 1, Math.floor(fx)), y0 = Math.min(grid - 1, Math.floor(fy));
+        var tx = ease(fx - x0), ty = ease(fy - y0);
+        var a = field[y0][x0] * (1 - tx) + field[y0][x0 + 1] * tx;
+        var b = field[y0 + 1][x0] * (1 - tx) + field[y0 + 1][x0 + 1] * tx;
+        return a * (1 - ty) + b * ty;
+      }
       for (var y = 0; y < SIZE; y++) {
         for (var x = 0; x < SIZE; x++) {
           var d = Math.hypot(x - w.cx, y - w.cy);
-          var n = r();
+          var n = sample(x, y);
           var code = 0;
           if (n > 0.86) code = 1;
           else if (n > 0.80) code = 2;

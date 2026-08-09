@@ -84,6 +84,13 @@
   function openDecision(d) {
     var dd = normDecision(d);
     var body = U.el('div');
+    if (d.temple) body.appendChild(templeInterior(d));
+    if (d.lore && d.lore.lines && d.lore.lines.length) {
+      var lore = U.el('section', 'ruin-lore');
+      lore.appendChild(U.el('strong', 'ruin-lore-title', d.lore.title || '탐험 기록'));
+      d.lore.lines.forEach(function (line) { lore.appendChild(U.el('p', null, line)); });
+      body.appendChild(lore);
+    }
     var sp = U.el('div', 'speech');
     var who = dd.kind === '상단의 제안' ? 'trade' : dd.kind === '성문 앞의 일' ? 'defense' : 'build';
     sp.appendChild(GM.icons.portraitImg(who, 58, 'agenda'));
@@ -98,6 +105,24 @@
     foot.appendChild(U.btn('나중에 본다', 'btn-ghost', function () { U.closeModal(m); }));
     m = U.openModal({ title: dd.title, body: body, footer: foot, width: '600px',
                       key: 'decision:' + dd.id, icon: GM.icons.img('scroll', 22) });
+  }
+
+  function templeInterior(d) {
+    var stage = d.temple.stage || 'riddle';
+    var steps = [{ key:'riddle', icon:'◇', name:'문양의 전실' }, { key:'trial', icon:'⚔', name:'수호자의 회랑' }, { key:'vault', icon:'✦', name:'안치소' }];
+    var box = U.el('section', 'temple-interior temple-' + stage);
+    box.appendChild(U.el('div', 'temple-interior-cap', '고대 신전 내부'));
+    var route = U.el('div', 'temple-route');
+    var current = steps.findIndex(function (s) { return s.key === stage; });
+    steps.forEach(function (s, i) {
+      var el = U.el('div', 'temple-step' + (i === current ? ' active' : '') + (i < current ? ' passed' : ''));
+      el.appendChild(U.el('span', 'temple-step-icon', s.icon));
+      el.appendChild(U.el('span', 'temple-step-name', s.name));
+      route.appendChild(el);
+    });
+    box.appendChild(route);
+    box.appendChild(U.el('p', 'temple-interior-copy', stage === 'riddle' ? '봉인된 문양을 읽어 안쪽으로 들어가십시오.' : (stage === 'trial' ? '수호병을 쓰러뜨리면 안치소의 봉인이 풀립니다.' : '마지막 안치소에서 이 신전의 유물을 가져가십시오.')));
+    return box;
   }
 
   /* ══════════ 어전 회의 ══════════ */

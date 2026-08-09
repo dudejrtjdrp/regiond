@@ -507,7 +507,11 @@
   function img(name, size, alt) {
     size = size || 16;
     var im = document.createElement('img');
-    im.src = get(name, size);
+    /* 명세에서 별도 제작한 UI 표식은 절차 도트 폴백 대신 투명 PNG를 쓴다.
+       나머지는 기존 캔버스 아이콘을 유지해 아직 파일이 없는 키도 깨지지 않는다. */
+    var fileIcons = { pirate:1,viking:1,dragon:1,sprout:1,sun:1,leaf:1,moon:1,sheep:1,gem:1,
+      anvil:1,sword:1,castle:1,dice:1,hoe:1,pickaxe:1,wall:1,road:1,farmTile:1,axe:1,rail:1,person:1,bandit:1,ogre:1 };
+    im.src = fileIcons[name] ? ('assets/ui/generated/' + name + '/base.png?v=ui-icons-2') : get(name, size);
     im.width = size; im.height = size;
     im.alt = alt || '';
     im.setAttribute('aria-hidden', alt ? 'false' : 'true');
@@ -578,11 +582,18 @@
   function portraitImg(roleKey, size, seedExtra) {
     size = size || 48;
     var im = document.createElement('img');
-    im.src = portrait(roleKey, size, seedExtra);
+    var raw = String(roleKey || '').replace(/^crew:/, '');
+    var officerPortrait = { farm: 1, factory: 1, build: 1, defense: 1, trade: 1, saint: 1 };
+    /* Role sheets supplied for Toji are the canonical officer portraits.
+       Other portraits retain the existing generated-avatar fallback. */
+    im.src = officerPortrait[raw]
+      ? 'assets/characters/' + raw + '/profile.png?v=officer-portraits-2'
+      : portrait(roleKey, size, seedExtra);
     im.width = size; im.height = size;
     im.alt = '';
     im.setAttribute('aria-hidden', 'true');
     im.style.width = size + 'px'; im.style.height = size + 'px';
+    if (officerPortrait[raw]) im.className = 'officer-portrait';
     return im;
   }
 
