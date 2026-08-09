@@ -152,7 +152,15 @@ export function loadSnapshot(gameId) {
 /** ★ §21-A3 — 읽기 쪽 짝. migrateWorld 도 같은 일을 하지만, 그쪽은 migrationRev 표를 보고
  *  건너뛸 수 있다 — 파일에서 막 꺼낸 세상은 여기서 확실히 런타임 모양이 된다. */
 function unpackFog(state) {
-  for (const nation of Object.values(state?.nations || {})) toRuntimeFog(nation.fog);
+  for (const nation of Object.values(state?.nations || {})) {
+    toRuntimeFog(nation.fog);
+    /* 옛 세이브 청소 — 한때 research.js 가 칸 집합(Set)을 나라에 얹어 두었고, JSON 이 그것을
+       `{}` 로 굳혀 파일에 실었다. 되읽으면 `.has` 없는 빈 객체라 첫 걸음에서 서버가 죽었다.
+       캐시는 이제 WeakMap 에 산다(research.js TILE_SETS) — 남은 찌꺼기는 여기서 털어 낸다. */
+    for (const k of ['_railSet', '_railStamp', '_bridgeSet', '_bridgeStamp', '_fillSet', '_fillStamp']) {
+      delete nation[k];
+    }
+  }
   return state;
 }
 

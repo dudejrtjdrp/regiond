@@ -359,12 +359,33 @@ function localRng(text) {
 // ────────────────────────────────────────────────────────────────
 export const railKey = (x, y) => `${x},${y}`;
 
+/* ★ 파생 캐시는 **나라 객체에 얹지 않는다** (spatial.js 규율 ① · fog.js RATIO_CACHE 와 같은 자리).
+   Set 은 JSON.stringify 를 지나면 `{}` 가 된다. 캐시를 nation 에 얹어 두었더니 그 빈 객체가
+   snapshot.json 에 실려 저장됐고, 세이브를 물고 뜬 서버는 「스탬프가 맞으니 유효한 캐시」로 읽어
+   `.has is not a function` 로 첫 걸음(companions.walkable)에서 죽었다 — 재시작할 때마다 똑같이.
+   WeakMap 에 매달면 일 틱의 structuredClone 이 새 나라를 만들 때 캐시도 저절로 새로 나고,
+   스냅샷에는 한 바이트도 실리지 않는다.
+   @type {WeakMap<object, Map<string, {set:Set<string>, len:number}>>} */
+const TILE_SETS = new WeakMap();
+
+/** 나라가 가진 칸 집합 하나(rails·bridges·fills). 길이가 달라지면 다시 짓는다. */
+function tileSet(nation, key, list) {
+  let per = TILE_SETS.get(nation);
+  if (!per) { per = new Map(); TILE_SETS.set(nation, per); }
+  const hit = per.get(key);
+  if (hit && hit.len === list.length) return hit.set;
+  const set = new Set(list.map((t) => railKey(t.x, t.y)));
+  per.set(key, { set, len: list.length });
+  return set;
+}
+
+/** 캐시를 버린다 — 길이가 그대로인 채 내용만 바뀌는 찰나(놓고 지우기)를 막는 자물쇠. */
+function dropTileSet(nation, key) {
+  TILE_SETS.get(nation)?.delete(key);
+}
+
 export function railSet(nation) {
-  if (!nation._railSet || nation._railStamp !== (nation.rails || []).length) {
-    nation._railSet = new Set((nation.rails || []).map((t) => railKey(t.x, t.y)));
-    nation._railStamp = (nation.rails || []).length;
-  }
-  return nation._railSet;
+  return tileSet(nation, 'rails', nation.rails || []);
 }
 
 export const onRail = (nation, x, y) =>
@@ -458,7 +479,7 @@ export function placeRail(world, nation, cmd, data) {
     list.push(piece);
     created.push(piece);
   }
-  nation._railSet = null;
+  dropTileSet(nation, 'rails');
   return { ok: true, placed: created.length, skipped: skipped.length, cost, tiles: created.map(railView) };
 }
 
@@ -472,7 +493,7 @@ export function removeRail(world, nation, cmd, data) {
   for (const t of list) (ids.includes(t.id) ? removed : kept).push(t);
   if (!removed.length) return err('NO_RAIL', '그런 조각이 없습니다.');
   nation.rails = kept;
-  nation._railSet = null;
+  dropTileSet(nation, 'rails');
   const refund = {};
   for (const [res, per] of Object.entries(cfg.costPerTile || {})) {
     const back = round2(per * removed.length * (cfg.refundRatio ?? 0.5));
@@ -512,25 +533,18 @@ export function railSummary(nation, data) {
 const OVERLAYS = {
   bridge: {
     cfgOf: bridgeCfg, feature: 'bridges', list: 'bridges', nextId: 'nextBridgeId', prefix: 'br',
-    memoSet: '_bridgeSet', memoStamp: '_bridgeStamp',
     noResearch: '다리를 아직 모릅니다.', noPiece: '그런 다리 조각이 없습니다.',
     capMsg: '다리를 더 놓을 수 없습니다.',
   },
   fill: {
     cfgOf: fillCfg, feature: 'landfill', list: 'fills', nextId: 'nextFillId', prefix: 'fl',
-    memoSet: '_fillSet', memoStamp: '_fillStamp',
     noResearch: '매립을 아직 모릅니다.', noPiece: '그런 매립 칸이 없습니다.',
     capMsg: '더 메울 수 없습니다.',
   },
 };
 
 function overlaySet(nation, o) {
-  const list = nation[o.list] || [];
-  if (!nation[o.memoSet] || nation[o.memoStamp] !== list.length) {
-    nation[o.memoSet] = new Set(list.map((t) => railKey(t.x, t.y)));
-    nation[o.memoStamp] = list.length;
-  }
-  return nation[o.memoSet];
+  return tileSet(nation, o.list, nation[o.list] || []);
 }
 
 export const onBridge = (nation, x, y) =>
@@ -586,7 +600,7 @@ function placeOverlay(world, nation, cmd, data, o) {
     list.push(piece);
     created.push(piece);
   }
-  nation[o.memoSet] = null;
+  dropTileSet(nation, o.list);
   return { ok: true, placed: created.length, skipped: skipped.length, cost, tiles: created.map(railView) };
 }
 
@@ -600,7 +614,7 @@ function removeOverlay(world, nation, cmd, data, o) {
   for (const t of list) (ids.includes(t.id) ? removed : kept).push(t);
   if (!removed.length) return err('NO_PIECE', o.noPiece);
   nation[o.list] = kept;
-  nation[o.memoSet] = null;
+  dropTileSet(nation, o.list);
   const refund = {};
   for (const [res, per] of Object.entries(cfg.costPerTile || {})) {
     const back = round2(per * removed.length * (cfg.refundRatio ?? 0.5));

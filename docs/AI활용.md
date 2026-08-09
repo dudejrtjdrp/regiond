@@ -603,3 +603,36 @@ simulate 시드42 **4/4 통과**(base 대비 웨이브5 +10.0%p).
 PROTOCOL **§0-U-15** 신설(판번호·세이브·명령 무변경 — 자료 낱말 하나와 ack 확장뿐).
 검증: 신규 회귀 10건 그린 · 전체 테스트 실패 집합이 기준선과 **문자 그대로 동일**(23건 전부 타 트랙
 미커밋 풋프린트·티어·연구 작업분) · 시드42 시뮬 diff 0줄 · 「갈 길 없는 유물」 전수 0.
+
+## 부록 — 재시작마다 서버가 죽던 버그: 세이브에 굳은 캐시 (2026-08-09, opus 세션)
+
+**증상.** `npm start` 하면 배너 세 줄을 찍고 곧장 죽었다.
+`TypeError: overlaySet(...).has is not a function` — companions.walkable → onBridge 의 첫 걸음이다.
+「자꾸 튕긴다」의 정체는 서버 프로세스가 통째로 내려간 것이지 클라이언트 문제가 아니었다.
+
+**진짜 원인은 자료형이 아니라 자리다.** `Set` 은 `JSON.stringify` 를 지나면 `{}` 가 된다.
+research.js 는 칸 집합 캐시(`_bridgeSet`·`_fillSet`·`_railSet`)를 **나라 객체에 얹어** 두었고,
+나라는 그대로 snapshot.json 에 실린다. 그래서 저장 파일에는 `"_bridgeSet":{}` 가 굳었다
+(실제로 saves/ 안 스냅샷 30여 개 전부에 들어 있었다). 되읽으면 캐시 유효성 검사가
+`if (!nation._bridgeSet || nation._bridgeStamp !== list.length)` — 빈 객체는 **truthy** 이고
+스탬프(숫자)는 JSON 을 멀쩡히 건너오므로 「유효한 캐시」로 통과한다. 그리고 `.has` 가 없다.
+세이브를 물고 뜨는 서버는 **매번 같은 자리에서 죽는다** — 다리 하나 없어도(길이 0 = 스탬프 0) 죽는다.
+
+**고친 방식은 프로젝트에 이미 있던 규율을 따랐다.** spatial.js 규율 ①(「파생 캐시는 저장하지 않는다」)과
+fog.js 의 `RATIO_CACHE` 가 같은 답을 이미 적어 두었다 — **WeakMap 에 매단다**. research.js 에
+`TILE_SETS`(WeakMap<nation, Map<'rails'|'bridges'|'fills', {set,len}>>) 하나를 두고 railSet·overlaySet 을
+그 위로 옮겼다. 일 틱의 structuredClone 이 새 나라를 만들면 캐시도 저절로 새로 나고, 스냅샷에는
+한 바이트도 실리지 않는다. `_bridgeSet` 류 여섯 낱말은 OVERLAYS 표에서 지웠고, 옛 세이브에 남은
+찌꺼기는 persistence.unpackFog 이 읽는 자리에서 털어 낸다.
+
+**두 번째 고침 — 시계 하나가 죽어도 서버는 안 죽는다.** `setInterval` 콜백에서 새는 예외는 잡아 줄
+프레임이 없어 프로세스를 그대로 내린다. 일 틱·생태·전투 세 타이머를 `safeBeat(이름, fn)` 로 감쌌다:
+한 박자를 건너뛰되 5초에 한 번은 반드시 콘솔에 찍는다(조용히 삼키면 그게 다음 버그다).
+이 방어가 있었다면 이번 버그는 「서버가 안 뜬다」가 아니라 「로그가 시끄럽다」로 나타났을 것이다.
+
+**회귀.** `test/playtest21a4_tilecache.test.js` 3건. ① 저장 왕복(JSON.stringify → parse) 뒤에도
+onBridge/onFill/onRail 이 답한다 ② 스냅샷 JSON 에 캐시 낱말이 한 글자도 없다 ③ 옛 세이브의
+`_bridgeSet: {}` 를 읽어도 무사하다 ④ 지우고 같은 수만큼 다시 놓아도 답이 낡지 않는다.
+**고치기 전 코드로 돌려 ①②③이 실제로 빨갛게 뜨는 것을 확인**하고 커밋했다(③은 옛 코드에서 그
+TypeError 를 그대로 재현한다). rpg(23) · server(10) · fog(5) 그린, playtest17b 는 다리 3건 그린이고
+나머지 실패 4건은 **손대기 전 기준선과 동일**(타 트랙 미커밋 작업분).

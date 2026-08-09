@@ -235,10 +235,24 @@ class GameRuntime {
     });
   }
 
+  /* ★ 시계 하나가 죽어도 서버는 죽지 않는다.
+     setInterval 콜백에서 새는 예외는 잡아 줄 프레임이 없어 프로세스를 그대로 내린다 —
+     실제로 세이브에 굳은 캐시 하나 때문에 생태 루프 첫 걸음에서 서버가 통째로 꺼졌다.
+     한 박자를 건너뛰는 편이 방 전체를 잃는 것보다 낫다. 대신 **조용히 넘기지는 않는다**. */
+  safeBeat(what, fn) {
+    try { fn(); } catch (e) {
+      const now = Date.now();
+      if (now - (this._beatWarnAt?.[what] ?? 0) > 5000) {
+        (this._beatWarnAt ||= {})[what] = now;
+        console.error(`[${this.gameId}] ${what} 박자 실패 — 이 박자는 건너뜁니다:`, e);
+      }
+    }
+  }
+
   start() {
     this.stop();
     if (this.world.paused) return;
-    this.timer = setInterval(() => this.advance(), this.tickRealSeconds * 1000);
+    this.timer = setInterval(() => this.safeBeat('일 틱', () => this.advance()), this.tickRealSeconds * 1000);
     this.ensureBattleLoop();
     this.startEcologyLoop();
   }
@@ -258,7 +272,7 @@ class GameRuntime {
   startEcologyLoop() {
     this.stopEcologyLoop();
     const sec = data.creatures?.sim?.stepSeconds ?? 1;
-    this.ecologyTimer = setInterval(() => this.ecologyStep(sec), sec * 1000);
+    this.ecologyTimer = setInterval(() => this.safeBeat('생태', () => this.ecologyStep(sec)), sec * 1000);
   }
 
   stopEcologyLoop() {
@@ -464,7 +478,7 @@ class GameRuntime {
     if (!nation) return;
     this.battleCache = battleStreamCache();
     io.to(this.gameId).emit('battleStart', battleFull(nation, data, this.battleCache));
-    this.battleTimer = setInterval(() => this.battleStep(), this.subtickSeconds * 1000);
+    this.battleTimer = setInterval(() => this.safeBeat('전투', () => this.battleStep()), this.subtickSeconds * 1000);
   }
 
   stopBattleLoop() {
