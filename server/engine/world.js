@@ -502,17 +502,32 @@ function placeRuins(ctx, cfg, rng, data) {
       const ring = d <= ring1 ? 0 : (d <= ring2 ? 1 : 2);
       if (ring < (spec.minRing ?? 0)) continue;
     }
-    const node = pushNode(ctx, 'ruin', def, x, y);
-    node.size = spec.size;
-    node.ruinName = spec.name;
-    /* ★ §22 — 크기는 인내력이 아니라 **방의 수**다. swingsPerCycle 은 이제 자취 전체가 아니라
-       방 하나를 여는 값이라, 22번을 무음으로 두드리는 대신 4~6번마다 카드가 선다. */
-    node.rooms = spec.rooms ?? 1;
-    node.roomsOpened = 0;
-    node.swingsPerCycle = spec.roomSwings ?? spec.swings ?? 4;
-    node.gradeBoost = spec.gradeBoost ?? 0;
+    const node = applyRuinSpec(pushNode(ctx, 'ruin', def, x, y), spec);
     node.concealed = rng.chance(spec.concealChance ?? 0);
   }
+}
+
+/**
+ * ★ §22 — 자취 하나에 크기표 한 줄을 입힌다. 「왜」 함수로 뺐나 — 자취를 낳는 자리가 둘이 됐다:
+ * 지도 생성(placeRuins)과 **흔적 사슬의 결말**(trails.js, §22-2 층3). 두 곳이 각자 필드를
+ * 베껴 적으면 언젠가 한쪽만 고쳐져 「방이 없는 자취」가 태어난다 — 스윙이 영원히 안 끝난다.
+ * 크기는 인내력이 아니라 방의 수다: swingsPerCycle 은 자취 전체가 아니라 **방 하나**의 값이다.
+ */
+export function applyRuinSpec(node, spec) {
+  if (!node || !spec) return node;
+  node.size = spec.size;
+  node.ruinName = spec.name;
+  node.rooms = spec.rooms ?? 1;
+  node.roomsOpened = 0;
+  node.swingsPerCycle = spec.roomSwings ?? spec.swings ?? 4;
+  node.gradeBoost = spec.gradeBoost ?? 0;
+  return node;
+}
+
+/** 크기표에서 한 줄 — 없으면 가장 작은 것으로 내려온다(빈손 방지) */
+export function ruinSpecOf(data, size) {
+  const table = ruinSizeCfg(data)?.table || [];
+  return table.find((t) => t.size === size) ?? table[0] ?? null;
 }
 
 /**

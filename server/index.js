@@ -1182,7 +1182,9 @@ io.on('connection', (socket) => {
       /* ★ §18-D2 — 흔적 조사가 연 안개는 그 자리에서 흐른다(일 틱을 기다리면 새 발자국이 최대 10분
          뒤에 나타난다). 그리고 ack 에서는 그 자리 목록을 **지운다** — 화면이 다음 흔적의 좌표를
          알아서는 안 된다(§18-3 마커 금지). 열린 것은 안개뿐이고, 찾는 것은 플레이어의 눈이다. */
-      if (type === 'investigateTrail') {
+      /* ★ §22-2 층3 — 유적 카드의 단서도 같은 자리를 쓴다. 안개는 그 자리에서 흐르고,
+         ack 에서는 좌표 목록을 **지운다**. 화면이 다음 자취의 좌표를 알면 그 순간 마커가 된다. */
+      if (type === 'investigateTrail' || type === 'decide') {
         const reveal = buildRevealDiff(rt.world, s.nationId, data, res.revealed || []);
         if (reveal) io.to(s.gameId).emit('worldDiff', reveal);
         delete out.revealed;

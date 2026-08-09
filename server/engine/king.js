@@ -3,6 +3,8 @@
 // 섭정(오프라인)은 AP를 쓰지 않는다: AP는 '접속한 사람만 얻는 보너스'이고,
 // 시뮬 체크포인트는 AP 미사용 기준으로 유지된다(§C-1).
 import { grantArtifact, dropPool, grantVia } from './artifacts.js';
+// ★ §22-2 층3 — 깊은 방이 뱉는 단서. 여는 것은 안개와 한 줄뿐이다(clues.js 규율 ①~③).
+import { dropClue } from './clues.js';
 import { round2 } from './economy.js';
 import { nodeById, townOf, territoryRadius, dist, terrainNameAt } from './world.js';
 
@@ -206,6 +208,7 @@ export function resolveRuinChoice(world, nation, decision, choice, data, rng) {
   const applied = [];
   const lines = [opt.text];
   let artifact = null;
+  let clue = null;
 
   for (const out of opt.outcomes || []) {
     switch (out.op) {
@@ -234,17 +237,37 @@ export function resolveRuinChoice(world, nation, decision, choice, data, rng) {
         }
         break;
       }
+      /* ★ §22-2 층3 — 단서. 이 갈래가 여는 것은 **안개와 한 줄의 말**뿐이다: 좌표는 결과에
+         담기지만 server/index.js 가 ack 에서 지워 내보낸다(investigateTrail 과 같은 자리·같은
+         까닭 — 화면이 다음 자취의 좌표를 알면 그 순간 마커가 된다, 탐험기획 §18-3 규율 ①). */
+      case 'clue': {
+        if (out.text) lines.push(out.text);
+        clue = dropClue(world, nation, data, ruinNodeOf(world, decision));
+        lines.push(clue ? clue.text : (data.ruins.clue?.noneText ?? ''));
+        applied.push(clue ? 'clue' : 'clue:none');
+        break;
+      }
       default: applyRuinEffect(nation, out, data, applied); if (out.text) lines.push(out.text); break;
     }
   }
   return {
     ok: true,
+    revealed: clue?.revealed ?? [],
     result: {
       cardId: card.id, name: card.name, choice: opt.key, label: opt.label,
       text: lines.filter(Boolean).join(' '), applied,
       artifact: artifact ? { key: artifact.key, name: artifact.name, grade: artifact.grade } : null,
+      // 방위와 땅 이름만 실어 보낸다 — 좌표는 여기에도 없다
+      clue: clue ? { dir: clue.dir, land: clue.land } : null,
     },
   };
+}
+
+/** 이 결정이 나온 자취. 옛 결정(nodeId 가 없던 것)에는 단서가 없다 — 조용히 접힌다. */
+function ruinNodeOf(world, decision) {
+  const id = decision.ruin?.nodeId ?? null;
+  if (id == null) return null;
+  return (world.map?.nodes || []).find((n) => n.id === id) ?? null;
 }
 
 function applyRuinEffect(nation, fx, data, applied) {

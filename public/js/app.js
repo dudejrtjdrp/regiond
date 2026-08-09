@@ -112,7 +112,22 @@
 
     S.on('events', function (list) {
       (list || []).forEach(function (e) {
-        if (!e || !e.text) return;
+        if (!e) return;
+        /* ★ §22 — 유적 카드의 **대답**. 여태 이 사건은 text 가 없어 아래 문지기(!e.text)에서
+           통째로 걷혔다: 파헤치든 기도하든 화면에는 아무 일도 안 일어났다. 유저가 말한
+           「보상이 안 온다」의 마지막 한 조각이 여기 있었다. 유물은 artifact_found 가 따로
+           맡으므로 여기서는 이야기만 읽는다(같은 것을 두 번 띄우지 않는다). */
+        if (e.kind === 'ruin_resolved') {
+          var rr = e.data || {};
+          if (rr.text) {
+            GM.hud.flash({ kind: rr.artifact ? 'good' : 'decision', icon: 'scroll',
+                           title: rr.name || '옛 자취', sub: rr.text,
+                           open: function () { GM.chronicle.open(); } });
+            U.toast(rr.text, rr.artifact ? 'good' : '', 5200);
+          }
+          return;
+        }
+        if (!e.text) return;
         if (e.kind === 'artifact_found') {
           GM.hud.flash({ kind: 'good', icon: 'gem', title: '땅이 무언가를 내어주었다', sub: e.text,
                          open: function () { GM.artifacts.open(); } });

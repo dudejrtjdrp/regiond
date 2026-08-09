@@ -10,7 +10,7 @@
 //     실시간 명령이 월드 난수를 건드리면 같은 씨앗이 다른 게임이 된다(actions.openCache 와 같은 까닭).
 //  ③ 수치·문구는 전부 data/trails.json. 여기에는 규칙만 있다.
 import { statRng } from './traits.js';
-import { dist, terrainAt, terrainIndex, addNode } from './world.js';
+import { dist, terrainAt, terrainIndex, addNode, applyRuinSpec, ruinSpecOf } from './world.js';
 import { stampVisionDisc } from './fog.js';
 import { record as chronicle } from './chronicle.js';
 import { deposit } from './storage.js';
@@ -498,7 +498,12 @@ function heal(nation, data, who, amount) {
 /** 결말이 땅에 남기는 것 — 그 자리에 노드 하나(§18-4 「영구 흔적 원칙」의 최소판) */
 function spawn(world, t, data, spec) {
   if (!spec?.type) return null;
-  return addNode(world, spec.type, t.x, t.y, data, { rich: Boolean(spec.rich), tick: world.tick ?? 0 });
+  const node = addNode(world, spec.type, t.x, t.y, data, { rich: Boolean(spec.rich), tick: world.tick ?? 0 });
+  /* ★ §22-2 층3 — 사슬의 끝이 **자취**일 수 있다(고리의 반대 방향: 흔적 → 유적).
+     크기표 한 줄을 그대로 입힌다 — 여기서 필드를 베껴 적으면 언젠가 「방이 없는 자취」가 나서
+     스윙이 영원히 안 끝난다(world.applyRuinSpec 이 정본). */
+  if (node && spec.type === 'ruin') applyRuinSpec(node, ruinSpecOf(data, spec.size ?? 2));
+  return node;
 }
 
 function lacking(nation, cost, data) {

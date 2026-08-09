@@ -171,7 +171,8 @@ test('★ §17-17 유적 카드 — 열두 장이고, 엔진이 아는 op 만 �
   assert.ok(cards.length >= 12, `카드가 열두 장 이상이다 (${cards.length})`);
   assert.equal(new Set(cards.map((c) => c.id)).size, cards.length, '열쇠말이 겹치지 않는다');
 
-  const OPS = new Set(['gold', 'morale', 'resource', 'artifactRoll']);
+  // ★ §22-2 층3 — `clue`(다음 자취의 안개를 연다)가 더해졌다. 엔진이 아는 op 의 정본이 여기다.
+  const OPS = new Set(['gold', 'morale', 'resource', 'artifactRoll', 'clue']);
   for (const c of cards) {
     assert.ok(c.options.length >= 2, `${c.id} — 갈래가 둘 이상이다`);
     for (const o of c.options) {

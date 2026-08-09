@@ -1080,7 +1080,9 @@ function runCommand(world, nationId, cmd, data, rng) {
         // ★ §20-R1.5 — 유적 카드가 유물을 내면 상자와 같은 발견 사실을 함께 띄운다
         const found = r.result.artifact
           ? [artifactFoundEvent(world, nation, r.result.artifact.key, 'ruin', data)] : [];
-        return ok({ decision, ruin: r.result,
+        /* ★ §22-2 층3 — 단서가 연 안개를 함께 올린다. 좌표는 소켓 계층이 ack 에서 지운다
+           (server/index.js, investigateTrail 과 같은 자리·같은 까닭 — 마커 금지). */
+        return ok({ decision, ruin: r.result, revealed: r.revealed ?? [],
           events: [{ kind: 'ruin_resolved', nationId: nation.id, data: r.result }, ...found] });
       }
       return ok({ decision });
