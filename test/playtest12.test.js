@@ -104,6 +104,26 @@ test('건설 위치에 서 있는 아바타나 주민이 있으면 착공할 수
   assert.deepEqual({ ok: v.ok, code: v.code }, { ok: false, code: 'PERSON_OCCUPIED' }, '주민');
 });
 
+test('공사 중인 건물 부지에는 플레이어가 들어갈 수 없다', () => {
+  const w = newWorld(104);
+  const n = w.nations.player;
+  const t = townOf(w, 'player');
+  let spot = null;
+  for (let r = 5; r < 20 && !spot; r += 1) {
+    for (let dx = -r; dx <= r && !spot; dx += 1) {
+      for (let dy = -r; dy <= r && !spot; dy += 1) {
+        const x = t.x + dx, y = t.y + dy;
+        if (validatePlacement(w, n, 'tent', x, y, data).ok) spot = { x, y };
+      }
+    }
+  }
+  assert.ok(spot, '비어 있는 공사 부지를 찾는다');
+  n.construction.push({ id: 'c-test', building: 'tent', mode: 'build', x: spot.x, y: spot.y });
+  const res = applyCommand(w, 'player', { type: 'lordMove', x: spot.x, y: spot.y }, data, createRng(104));
+  assert.equal(res.ok, false);
+  assert.equal(res.error.code, 'STRUCTURE_BLOCKED');
+});
+
 // ────────────────────────────────────────────────────────────────
 // §12-2 정착지 본부 · 승격
 // ────────────────────────────────────────────────────────────────

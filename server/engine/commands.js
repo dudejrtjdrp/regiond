@@ -93,6 +93,11 @@ function structureBlocks(nation, data, x, y) {
     const { w, h } = footprint(s.key ?? s.building, data);
     if (x >= s.x && x < s.x + w && y >= s.y && y < s.y + h) return true;
   }
+  for (const site of nation.construction || []) {
+    if (site.mode !== 'build' || site.x == null || site.y == null) continue;
+    const { w, h } = footprint(site.building, data);
+    if (x >= site.x && x < site.x + w && y >= site.y && y < site.y + h) return true;
+  }
   return false;
 }
 

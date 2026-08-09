@@ -135,6 +135,14 @@
       var f = S.footprintOfThing ? S.footprintOfThing(b) : { w: 1, h: 1 };
       if (cx >= b.x && cx < b.x + f.w && cy >= b.y && cy < b.y + f.h) return true;
     }
+    /* 완성 전 공사 현장도 이미 사람이 밟을 수 없는 부지다. */
+    var sites = S.sites ? S.sites() : [];
+    for (var j = 0; j < sites.length; j++) {
+      var site = sites[j];
+      if (site.mode !== 'build' || site.x == null || site.y == null) continue;
+      var sf = S.footprintOf(site.building);
+      if (cx >= site.x && cx < site.x + sf.w && cy >= site.y && cy < site.y + sf.h) return true;
+    }
     return false;
   }
 
