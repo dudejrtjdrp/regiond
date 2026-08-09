@@ -25,8 +25,10 @@ set LOG=%OUTDIR%\overnight_log.txt
 set REPORT=%OUTDIR%\overnight_report.txt
 set BATCHES=tools\pipeline\batches
 set RUNNER=tools\pipeline\run_batch.py
+set EXCLUDES=tools\pipeline\excluded_assets.json
 
 if not exist "%RUNNER%" goto NOTROOT
+if not exist "%EXCLUDES%" goto NOEXCLUDES
 if not exist "%OUTDIR%" mkdir "%OUTDIR%"
 
 >>%LOG% echo ============================================================
@@ -37,12 +39,13 @@ echo Log:    %LOG%
 echo Report: %REPORT%
 echo Do not close this window.
 
-REM --- tilesets (batch2) are approved and are NOT regenerated here.
-REM --- batch1 probes are all approved and kept as-is.
+REM --- Tilesets and characters are outside this regeneration scope.
+REM --- batch1 has five non-character/non-tileset assets not repeated elsewhere.
+call :RUN_ONLY batch1_probe.json "building/hut,tree/oak_large,mineral/rock_node,weapon/iron_sword_common,material/wood_log"
 
 call :RUN batch3_nodes_flora.json
 call :RUN batch4_buildings.json
-call :RUN batch5_connect.json
+call :RUN_ONLY batch5_connect.json "building/fence_post,building/fence_h,building/fence_v,building/gate_wood,building/wall_post,building/wall_h,building/wall_v,building/gate_stone"
 call :RUN batch6_items.json
 call :RUN batch7_equipment.json
 call :RUN batch8_ui.json
@@ -73,8 +76,20 @@ REM ------------------------------------------------------------
 >>%LOG% echo ------------------------------------------------------------
 >>%LOG% echo BATCH %~1 START %time%
 echo [%time%] batch %~1
-python "%RUNNER%" "%BATCHES%\%~1" --force >>%LOG% 2>&1
+python "%RUNNER%" "%BATCHES%\%~1" --force --exclude-file "%EXCLUDES%" >>%LOG% 2>&1
 >>%LOG% echo BATCH %~1 END %time% exit code %errorlevel%
+goto :eof
+
+REM ------------------------------------------------------------
+REM  :RUN_ONLY <batch file name> <comma-separated id list>
+REM ------------------------------------------------------------
+:RUN_ONLY
+>>%LOG% echo.
+>>%LOG% echo ------------------------------------------------------------
+>>%LOG% echo BATCH %~1 (selected ids) START %time%
+echo [%time%] batch %~1 (selected ids)
+python "%RUNNER%" "%BATCHES%\%~1" --only "%~2" --force --exclude-file "%EXCLUDES%" >>%LOG% 2>&1
+>>%LOG% echo BATCH %~1 (selected ids) END %time% exit code %errorlevel%
 goto :eof
 
 REM ------------------------------------------------------------
@@ -82,6 +97,13 @@ REM ------------------------------------------------------------
 echo ERROR: could not find %RUNNER% - the script expected the project root at:
 echo     %CD%
 echo Move regen_overnight.bat back to tools\pipeline\ inside the project.
+popd
+pause
+exit /b 1
+
+:NOEXCLUDES
+echo ERROR: could not find %EXCLUDES%
+echo Create the exclusion ledger before running regeneration.
 popd
 pause
 exit /b 1

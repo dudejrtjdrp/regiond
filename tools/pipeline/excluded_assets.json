@@ -1,0 +1,4 @@
+{
+  "_comment": "재생성하지 않을 에셋 ID 목록입니다. 예: building/hut, tree/oak_large. --force 실행 시에도 이 목록은 보존됩니다.",
+  "exclude": []
+}

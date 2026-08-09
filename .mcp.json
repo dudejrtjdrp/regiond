@@ -2,7 +2,8 @@
   "mcpServers": {
     "toji-assets": {
       "command": "node",
-      "args": ["tools/asset-mcp/server.mjs"]
+      "args": ["tools/asset-mcp/server.mjs"],
+      "cwd": "."
     }
   }
 }

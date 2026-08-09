@@ -5,7 +5,7 @@
 「왜」 별도 러너인 이유: ComfyUI 생성은 장당 수십 초라 배치 도중 끊겨도
      이미 등록된 에셋은 건너뛰고 이어서 돌 수 있어야 한다.
 사용:  python tools/pipeline/run_batch.py tools/pipeline/batches/batch1_probe.json
-       [--only <id>] [--force] [--dry-run]
+       [--only <id>] [--force] [--dry-run] [--exclude-file <path>]
 """
 
 from __future__ import annotations
@@ -90,13 +90,32 @@ def parse_only(text: str | None) -> list[str]:
     return [part.strip() for part in text.split(",") if part.strip()]
 
 
-def _select(entries: list[dict], only: str | None) -> list[dict]:
+def load_excluded_ids(path: str | None) -> set[str]:
+    """사람이 제외한 에셋은 재생성 대상에서 영구적으로 뺀다.
+
+    제외 파일은 {"exclude": ["building/hut", ...]} 형식이다. 기존에 폴더나
+    manifest를 지워 제외하던 방식은 다음 --force에서 되살아나는 문제가 있어,
+    명시적인 장부를 정본으로 둔다.
+    """
+    if not path:
+        return set()
+    exclude_path = Path(path)
+    if not exclude_path.exists():
+        raise FileNotFoundError(f"제외 목록 파일을 찾을 수 없습니다: {exclude_path}")
+    data = json.loads(exclude_path.read_text(encoding="utf-8"))
+    values = data.get("exclude", data if isinstance(data, list) else [])
+    if not isinstance(values, list) or not all(isinstance(aid, str) for aid in values):
+        raise ValueError("제외 목록은 {\"exclude\": [\"category/id\", ...]} 형식이어야 합니다.")
+    return set(values)
+
+
+def _select(entries: list[dict], only: str | None, excluded: set[str]) -> list[dict]:
     wanted = parse_only(only)
     if not wanted:
-        return entries
+        return [e for e in entries if e["id"] not in excluded]
     picked = [e for e in entries if e["id"] in wanted]
     _warn_unknown(wanted, picked)
-    return picked
+    return [e for e in picked if e["id"] not in excluded]
 
 
 def _warn_unknown(wanted: list[str], picked: list[dict]) -> None:
@@ -111,9 +130,16 @@ def main() -> None:
     ap.add_argument("--only", help="이 id만 실행. 쉼표로 여러 개 (예: tree/oak_large,mineral/iron_node)")
     ap.add_argument("--force", action="store_true", help="이미 등록된 에셋도 다시 생성")
     ap.add_argument("--dry-run", action="store_true", help="generate.py에 --dry-run 전달")
+    ap.add_argument(
+        "--exclude-file",
+        help="제외 장부 JSON 경로. 이 목록의 id는 --force여도 생성하지 않음",
+    )
     args = ap.parse_args()
     entries = json.loads(Path(args.batch).read_text(encoding="utf-8"))["assets"]
-    entries = _select(entries, args.only)
+    excluded = load_excluded_ids(args.exclude_file)
+    entries = _select(entries, args.only, excluded)
+    if excluded:
+        print(f"제외 장부 적용: {len(excluded)}개 id")
     done = set() if args.force else load_registered_ids()
     passthrough = ["--dry-run"] if args.dry_run else []
     results = {}
