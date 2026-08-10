@@ -1,4 +1,4 @@
-# 갈래말래 (가제)
+# Regiond (가제)
 
 **엔드리스 정착지 성장 · 타워디펜스 웹게임.** 손으로 캐는 손맛 + 역할군 국가경영.
 마차가 멈춘 자리에 모닥불 하나. 주민은 0명이다. 도끼질로 시작해 정착지를 키우고,
@@ -321,4 +321,4 @@ saves/           {gameId}/snapshot.json + events.jsonl
    저자 stylesheet 의 `display` 선언은 브라우저 기본 `[hidden]{display:none}` 을 이긴다 —
    `.shell{display:flex}` + `<div hidden>` 조합이 화면 전체를 덮어 로비 입력을 막았던 적이 있다.
 3. **화면 문구는 세계관 언어만** — 개발자 용어(하루를 세는 단위·자료구조 이름 등)는 검사에서 걸린다.
-"# tojiGame" 
+"# regiond" 

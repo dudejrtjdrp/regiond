@@ -129,13 +129,13 @@ Actions 탭에서 `Deploy client to GitHub Pages` 가 초록불인지 본다.
 
 여기서부터는 **`DEPLOY2_D2_실행.md` 를 그대로 따른다.** 요약만 적으면:
 
-1. Railway → New Project → Deploy from GitHub repo → `dudejrtjdrp/tojiGame`
+1. Railway → New Project → Deploy from GitHub repo → `dudejrtjdrp/regiond`
 2. **볼륨** `/data` 를 붙이고 **`SAVES_DIR=/data/saves`** — 이게 없으면 재배포마다 세계가 사라진다
 3. `NODE_ENV=production` · `PORT` 는 **넣지 않는다** · `HOST` 도 건드리지 않는다
 4. Generate Domain → 나온 주소를 `public/index.html` 의 `GM.SERVER` 한 줄에 적고 push
 5. 검증:
    ```bash
-   npm run check:deploy -- --server https://<서버주소> --pages https://dudejrtjdrp.github.io/tojiGame/
+   npm run check:deploy -- --server https://<서버주소> --pages https://dudejrtjdrp.github.io/regiond/
    ```
 6. 볼륨의 진짜 증명 — Railway 에서 **Restart** 시킨 뒤 `--resume check_...` 로 다시 두드린다
 

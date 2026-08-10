@@ -267,7 +267,7 @@ export async function main(argv) {
     : null;
 
   if (!args.quiet) {
-    console.log(`\n=== 갈래말래 엔드리스 시뮬레이션 (${runs}회 × ${days}게임일, seed ${args.seed}) ===\n`);
+    console.log(`\n=== Regiond 엔드리스 시뮬레이션 (${runs}회 × ${days}게임일, seed ${args.seed}) ===\n`);
     console.log('[체크포인트]');
     const w = [24, 12, 16, 6];
     console.log(`${'항목'.padEnd(w[0])}${'측정'.padStart(w[1])}${'목표'.padStart(w[2])}${'판정'.padStart(w[3])}`);

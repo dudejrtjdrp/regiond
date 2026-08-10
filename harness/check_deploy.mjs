@@ -1,7 +1,7 @@
 // check_deploy.mjs — 배포 검증 다섯 단(docs/DEPLOY2.md §4-5)을 **실제로 두드려서** 확인한다.
 //
 //   실행:  node harness/check_deploy.mjs --server https://xxx.up.railway.app \
-//                                        --pages  https://dudejrtjdrp.github.io/tojiGame/
+//                                        --pages  https://dudejrtjdrp.github.io/regiond/
 //
 //   --pages 를 빼면 서버 쪽 단(2~5)만 본다. 로컬 예행에도 그대로 쓴다:
 //          npm start 를 띄워 두고  node harness/check_deploy.mjs --server http://localhost:3000

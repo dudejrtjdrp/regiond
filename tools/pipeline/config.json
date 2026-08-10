@@ -1,5 +1,5 @@
 {
-  "_note": "갈래말래 에셋 파이프라인 설정. 모델 파일명은 docs/에셋파이프라인_설치.md의 배치 경로와 반드시 일치해야 한다.",
+  "_note": "Regiond 에셋 파이프라인 설정. 모델 파일명은 docs/에셋파이프라인_설치.md의 배치 경로와 반드시 일치해야 한다.",
   "comfyUrl": "http://127.0.0.1:8188",
   "projectRoot": "../..",
   "checkpoint": "sd_xl_base_1.0.safetensors",

@@ -2,7 +2,7 @@
 <html lang="ko"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>갈래말래 — 제출 전 전수 테스트 체크리스트</title>
+<title>Regiond — 제출 전 전수 테스트 체크리스트</title>
 <style>
   :root {
     --bg:#1b1611; --panel:#241d16; --panel2:#2c241b; --line:#463a2c;
@@ -77,7 +77,7 @@
 </style></head>
 <body>
 <header>
-  <h1>갈래말래 — 제출 전 전수 테스트 체크리스트</h1>
+  <h1>Regiond — 제출 전 전수 테스트 체크리스트</h1>
   <div class="sub">HEAD <code>b4c2cff</code> + 에셋·렌더 워킹트리 · 테스트 환경: <b>배포 서버</b> · 총 220항목</div>
   <div class="bar"><i class="b-ok" id="bOk"></i><i class="b-bad" id="bBad"></i><i class="b-hold" id="bHold"></i></div>
   <div class="stats">
@@ -252,7 +252,7 @@ document.getElementById('reset').addEventListener('click', () => {
 });
 document.getElementById('exp').addEventListener('click', () => {
   const who = document.getElementById('tester').value.trim() || '(이름 없음)';
-  const L = ['# 갈래말래 테스트 결과 — ' + who, ''];
+  const L = ['# Regiond 테스트 결과 — ' + who, ''];
   let ok=0, bad=0, hold=0, todo=0;
   const fail = [], holds = [];
   DATA.forEach(sec => sec.items.forEach(it => {

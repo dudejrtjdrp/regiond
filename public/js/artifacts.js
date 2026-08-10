@@ -3,7 +3,7 @@
   'use strict';
   var GM = global.GM = global.GM || {};
   var S = GM.state, U = GM.ui;
-  var JOURNAL_BASE = 'toji.artifact-journal.v1';
+  var JOURNAL_BASE = 'regiond.artifact-journal.v1';
   var ROOMS_KEY = JOURNAL_BASE + '.rooms';       /* 이 기기가 들렀던 방 목록(최근 순) */
   var KEEP_ROOMS = 8;                            /* 기기에 남겨 두는 방의 수 */
 

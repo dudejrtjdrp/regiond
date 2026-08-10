@@ -2140,7 +2140,11 @@ socket.emit('actionSwing', { nodeId: 'n42' }, (res) => {
 
 ### 3-0. 접속
 
-#### `join {gameId?, playerName, avatarId?, appearance?, seed?, difficulty?, autoAssist?}`
+#### `join {gameId?, playerName, avatarId?, appearance?, seed?, difficulty?, autoAssist?, caps?}`
+
+**★ 성능-2 `caps.stateKeep`** — 이 화면이 `state.keep`(아래 §4 state 참조)을 받아 조립할 줄 안다고
+밝히는 깃발. 밝힌 세션에게만 서버가 큰 블록 생략을 적용한다. 옛 화면·검사 소켓은 이 칸을 안 보내므로
+언제나 전량을 받는다 — 뒤로 완전 호환이다.
 ack / `joined` 이벤트 payload:
 ```jsonc
 { "protocol": "3.1", "gameId": "g_…", "nationId": "player",
@@ -2346,7 +2350,7 @@ ack / `joined` 이벤트 payload:
 | `joined` | join ack 직후 | 화면 전환 |
 | `world` | join 1회 / `requestWorld` | 지형 RLE·노드·안개·건물·울타리 전량 그리기 |
 | `worldDiff` | 매 일 틱 · **아바타가 새 땅을 밟은 즉시**(`reveal:true`) | ★ §21-A1 — **바뀐 것만 온다**: 바뀐 청크·노드에 더해 구조물·울타리·야영지·군락·마을도 **달라진 줄만**(주민은 판에만, 아바타는 늘 전량). `full` 이 거짓이 아니면 전량이다(§0-I) |
-| `state` | 매 일 틱 · 명령 후 | HUD·패널 전량 |
+| `state` | 매 일 틱 · 명령 후 (**★ 성능-1 — 같은 방송이 120ms 안에 겹치면 한 장으로 접힌다. 첫 장은 그 자리에서 나간다**) | HUD·패널 전량. **★ 성능-2 `keep`** — `caps.stateKeep` 을 밝힌 세션에는, 직전 방송과 JSON 이 같은 큰 블록(`nation.workPosts`·`nation.structures`·`nation.residents`·`nation.fences`·`nation.buildable`·`nation.decisionQueue`·`codex`·`councils`)이 빠지고 그 이름만 `keep:[…]` 에 실린다. 받는 쪽은 직전 뷰의 값을 그 자리에 도로 꽂는다(net.js). join 직후 첫 state 는 언제나 전량이다 |
 | `worldState` | 매 일 틱 | 세계 지도·웨이브 화살표 |
 | `events` | 매 일 틱 | 로그(표현 계층 문장 포함) |
 | `tierUp` | 티어업 | **팡파레 + 영토 말뚝 연출 + 도감 카드 공개 + UI 해금** |

@@ -202,7 +202,7 @@ GM.SERVER = location.hostname.endsWith('github.io') ? 'https://⌐서버주소' 
 <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" crossorigin="anonymous"
         onerror="window.__socketIoMissing=true"></script>
 ```
-절대경로 `/socket.io/...`는 Pages(`/tojiGame/` 하위)에서 404다. CDN이 걸리면 대안은 부팅 때 `GM.SERVER + '/socket.io/socket.io.js'`를 동적 삽입하는 것.
+절대경로 `/socket.io/...`는 Pages(`/regiond/` 하위)에서 404다. CDN이 걸리면 대안은 부팅 때 `GM.SERVER + '/socket.io/socket.io.js'`를 동적 삽입하는 것.
 
 **③ 소켓과 REST가 그 주소를 쓰게 한다.** `public/js/net.js`
 
@@ -211,7 +211,7 @@ socket = global.io(GM.SERVER || undefined);          // connect() 안
 return fetch(GM.SERVER + path, opt).then(…);          // rest() 안
 ```
 
-**④ 상대경로 자산은 손댈 것이 없다.** `css/main.css`, `js/*.js`, 폰트 모두 상대경로라 `/tojiGame/` 하위에서 그대로 뜬다.
+**④ 상대경로 자산은 손댈 것이 없다.** `css/main.css`, `js/*.js`, 폰트 모두 상대경로라 `/regiond/` 하위에서 그대로 뜬다.
 
 ### 4-3. 서버 수정 — CORS 한 군데
 
@@ -231,7 +231,7 @@ socket.io 쪽 `origin: '*'`도 같은 화이트리스트로 좁히는 게 맞다
 
 ### 4-4. 워크플로 — `.github/workflows/pages.yml`
 
-`public/` 만 발행한다. 저장소가 `dudejrtjdrp/tojiGame` 이므로 주소는 `https://dudejrtjdrp.github.io/tojiGame/` 가 된다.
+`public/` 만 발행한다. 저장소가 `dudejrtjdrp/regiond` 이므로 주소는 `https://dudejrtjdrp.github.io/regiond/` 가 된다.
 
 ```yaml
 name: Deploy client to GitHub Pages
@@ -272,8 +272,8 @@ jobs:
 
 ### 4-5. 검증 순서
 
-1. `https://dudejrtjdrp.github.io/tojiGame/?mock=1` → 서버 없이 화면이 도는가 (정적 배포 자체의 검증)
-2. `https://…/tojiGame/` → 콘솔에 CORS·404가 없는가, `/api/config`가 200인가
+1. `https://dudejrtjdrp.github.io/regiond/?mock=1` → 서버 없이 화면이 도는가 (정적 배포 자체의 검증)
+2. `https://…/regiond/` → 콘솔에 CORS·404가 없는가, `/api/config`가 200인가
 3. 나무를 몇 번 베어 목재가 오르는가 (소켓 왕복)
 4. 창을 닫았다 다시 열어 같은 정착지로 돌아오는가 (토큰·방 지속)
 5. 다른 기기에서 증표로 들어가지는가

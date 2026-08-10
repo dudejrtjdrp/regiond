@@ -1,5 +1,5 @@
 # 클라이언트(public/)를 GitHub Pages 로 발행한다 — docs/DEPLOY2.md §4-4.
-#   주소: https://dudejrtjdrp.github.io/tojiGame/
+#   주소: https://dudejrtjdrp.github.io/regiond/
 #   ★ 한 번만 해 둘 것: 저장소 Settings → Pages → Source 를 `GitHub Actions` 로.
 name: Deploy client to GitHub Pages
 

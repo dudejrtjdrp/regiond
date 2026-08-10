@@ -1,6 +1,6 @@
 # toji-assets MCP 서버
 
-갈래말래(Toji) 에셋 파이프라인을 Claude Code에서 바로 부르기 위한 MCP 서버다.
+Regiond(Toji) 에셋 파이프라인을 Claude Code에서 바로 부르기 위한 MCP 서버다.
 Node 22 ESM · **외부 의존성 0** (stdio 위에서 JSON-RPC 2.0을 직접 구현).
 
 ## 등록

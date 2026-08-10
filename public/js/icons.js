@@ -584,7 +584,7 @@
     var im = document.createElement('img');
     var raw = String(roleKey || '').replace(/^crew:/, '');
     var officerPortrait = { farm: 1, factory: 1, build: 1, defense: 1, trade: 1, saint: 1 };
-    /* Role sheets supplied for Toji are the canonical officer portraits.
+    /* Role sheets supplied for Regiond are the canonical officer portraits.
        Other portraits retain the existing generated-avatar fallback. */
     im.src = officerPortrait[raw]
       ? 'assets/characters/' + raw + '/profile.png?v=officer-portraits-2'

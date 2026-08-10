@@ -1,9 +1,9 @@
 # D-2 실행 절차 — Railway 배포 + 검증 5단
 
 D-1(`48281fc`)이 코드 쪽을 다 끝내 놓았다. 여기서는 **버튼을 누르는 순서**와 **막혔을 때 볼 곳**만 적는다.
-끝나면 `https://dudejrtjdrp.github.io/tojiGame/` 가 살아 있는 서버에 붙는다.
+끝나면 `https://dudejrtjdrp.github.io/regiond/` 가 살아 있는 서버에 붙는다.
 
-> 준비물: GitHub 계정(저장소 `dudejrtjdrp/tojiGame`) · Railway 계정 · 카드 없이 되는 일회성 $5 크레딧
+> 준비물: GitHub 계정(저장소 `dudejrtjdrp/regiond`) · Railway 계정 · 카드 없이 되는 일회성 $5 크레딧
 > 걸리는 시간: 손이 빠르면 40분, 처음이면 2시간.
 
 ---
@@ -22,7 +22,7 @@ Railway 컨테이너는 재배포마다 새로 만들어진다. **볼륨을 붙�
 
 ## 1. Railway — 프로젝트 만들기
 
-1. https://railway.app → **New Project** → **Deploy from GitHub repo** → `dudejrtjdrp/tojiGame`
+1. https://railway.app → **New Project** → **Deploy from GitHub repo** → `dudejrtjdrp/regiond`
 2. 첫 빌드가 자동으로 돈다. `railway.json` 이 이미 저장소에 있어서 따로 설정할 게 없다:
    - 빌드 `npm ci --omit=dev` (jsdom·socket.io-client 는 검사용이라 서버엔 안 올린다)
    - 실행 `node server/index.js`
@@ -80,7 +80,7 @@ return 'https://tojigame-production.up.railway.app';      // ★ D-2 에서 확�
 ## 4. 검증 — 손이 아니라 명령으로
 
 ```bash
-npm run check:deploy -- --server https://<서버주소> --pages https://dudejrtjdrp.github.io/tojiGame/
+npm run check:deploy -- --server https://<서버주소> --pages https://dudejrtjdrp.github.io/regiond/
 ```
 (`--` 를 빼먹으면 인자가 npm 에게 먹힌다.)
 
@@ -111,9 +111,9 @@ npm run check:deploy -- --server https://<서버주소> --resume check_...
 
 ### 4-2. 마지막은 눈으로
 
-- `https://dudejrtjdrp.github.io/tojiGame/?mock=1` — **서버 없이** 화면이 도는가.
+- `https://dudejrtjdrp.github.io/regiond/?mock=1` — **서버 없이** 화면이 도는가.
   이게 심사위원이 서버가 죽어도 보게 되는 진열창이다.
-- `https://dudejrtjdrp.github.io/tojiGame/` — 개척을 시작해 나무를 몇 번 베고, 창을 닫았다 다시 연다.
+- `https://dudejrtjdrp.github.io/regiond/` — 개척을 시작해 나무를 몇 번 베고, 창을 닫았다 다시 연다.
 
 ---
 

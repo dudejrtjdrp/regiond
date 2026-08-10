@@ -5,7 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#2b1d12">
-<title>갈래말래</title>
+<title>Regiond</title>
+<!-- ★ 파비콘 — 모든 경로는 상대경로다. Pages(`/regiond/` 하위)에서도 그대로 뜬다. -->
+<link rel="icon" href="assets/regiond-icon-purple-transparent/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/regiond-icon-purple-transparent/favicon-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/regiond-icon-purple-transparent/favicon-32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="assets/regiond-icon-purple-transparent/favicon-48.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/regiond-icon-purple-transparent/apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
 <!-- ★ 연출·메뉴용 세리프 폰트(Noto Serif KR, OFL) — CDN 없이 저장소에 동봉한다 -->
 <link rel="stylesheet" href="assets/fonts/noto-serif-kr/noto-serif-kr.css">
 <link rel="stylesheet" href="css/main.css">
@@ -28,7 +35,7 @@
   </div>
   <div class="title-wrap" hidden>
     <canvas id="crest" class="decor crest" aria-hidden="true" width="240" height="180"></canvas>
-    <h1 class="game-logo">갈래말래</h1>
+    <h1 class="game-logo">Regiond</h1>
     <p class="game-tag">마차가 멈춘 자리에 모닥불 하나. 도끼질로 시작해 정착지를 키운다.</p>
   </div>
   <p id="title-status" class="scene-status" role="status"></p>
@@ -186,7 +193,7 @@
     return 'https://gallaemallae-production.up.railway.app';  // ★ D-2 에서 확정하면 이 줄만 고친다
   })();
 </script>
-<!-- socket.io 클라 — Pages(`/tojiGame/` 하위)에서는 절대경로 `/socket.io/...` 가 404 라 CDN 으로 받는다.
+<!-- socket.io 클라 — Pages(`/regiond/` 하위)에서는 절대경로 `/socket.io/...` 가 404 라 CDN 으로 받는다.
      CDN 이 막힌 망에서는 서버가 직접 내주는 사본으로 물러선다(net.js 보다 **먼저** 서야 해서 동기 삽입이다). -->
 <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" crossorigin="anonymous"
         onerror="window.__socketIoCdnFailed=true"></script>

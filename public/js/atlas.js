@@ -78,7 +78,7 @@
 
   /* 사람이 새로 만든 건물 PNG만 절차 스프라이트 대신 쓴다. 아직 교체하지 않은
      건물까지 한꺼번에 바뀌면 품질이 섞이므로, 완료한 id를 여기서 명시적으로 연다. */
-  /* 기존 프로젝트 PNG는 교체 대상이다. 여기에는 이번 Toji 작업에서 새로 만든
+  /* 기존 프로젝트 PNG는 교체 대상이다. 여기에는 이번 Regiond 작업에서 새로 만든
      기본 건물 전종과 본부 진화 단계만 올린다. */
   var HANDMADE_BUILDINGS = {
     campfire: true, tent: true, hut: true, house: true, manor: true,

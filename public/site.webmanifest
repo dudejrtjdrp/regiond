@@ -1,0 +1,27 @@
+{
+  "name": "Regiond",
+  "short_name": "Regiond",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#2b1d12",
+  "theme_color": "#2b1d12",
+  "icons": [
+    {
+      "src": "assets/regiond-icon-purple-transparent/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/regiond-icon-purple-transparent/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/regiond-icon-purple-transparent/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
