@@ -66,9 +66,11 @@
       </label>
       <p class="hint">역할은 마을(주민 12명)이 되는 날 「감정의 날」에 정해집니다.</p>
     </details>
+
+    <!-- ★ 뒤로 — 메뉴 판들과 같이 판 **안** 아래 가운데(판이 길어도 화면 밖으로 밀려나지 않는다) -->
+    <button id="found-back" type="button" class="found-back">뒤로</button>
   </div>
 
-  <button id="found-back" type="button" class="found-back">뒤로</button>
   <p id="found-status" class="scene-status" role="status"></p>
 </section>
 
@@ -181,7 +183,7 @@
     if (q) return q.replace(/\/+$/, '');                      // ?server=... 로 그 자리에서 갈아끼운다
     var remote = /\.github\.io$/.test(location.hostname) || location.protocol === 'file:';
     if (!remote) return '';                                   // 서버가 내려준 사본 = 같은 출처
-    return 'https://tojigame-production.up.railway.app';      // ★ D-2 에서 확정하면 이 줄만 고친다
+    return 'https://gallaemallae-production.up.railway.app';  // ★ D-2 에서 확정하면 이 줄만 고친다
   })();
 </script>
 <!-- socket.io 클라 — Pages(`/tojiGame/` 하위)에서는 절대경로 `/socket.io/...` 가 404 라 CDN 으로 받는다.
