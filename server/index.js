@@ -493,13 +493,17 @@ class GameRuntime {
     const dayBatch = [...events, ...relEvs, ...checkEndingInvite(this.world, data)];
     const withStory = [...dayBatch, ...storyEvents(this.world, data, dayBatch)];
     const decorated = this.#decorate(withStory);
-    saveSnapshot(this.world);
     appendEvents(this.gameId, decorated);
 
     io.to(this.gameId).emit('events', decorated);
     for (const e of decorated) this.emitTypedEvent(e);
     this.broadcastState();
     this.ensureBattleLoop();
+    /* ★ 「다같이 잠들기」 반영 지연 수정 — saveSnapshot 은 세계 전체(1.5~2MB)를 **동기로**
+       디스크에 쓴다. 이게 방송보다 앞에 있으면 그 쓰기가 끝날 때까지 사람들은 새 하루를
+       못 본다(§ Sprint 3 머리말과 같은 증상 — 사건 경로에서 이미 한 번 겪은 문제다).
+       세계는 이미 메모리에서 새 하루로 넘어갔으니 화면부터 알리고, 굳히는 것은 그 다음이다. */
+    saveSnapshot(this.world);
     return { state: this.world, events: decorated };
   }
 
@@ -564,12 +568,13 @@ class GameRuntime {
     waveBatch.push(...storyEvents(this.world, data, waveBatch));
     const decorated = this.#decorate(waveBatch, nation.id);
     this.world.log = [...(this.world.log || []), ...decorated].slice(-400);
-    saveSnapshot(this.world);
     appendEvents(this.gameId, decorated);
     io.to(this.gameId).emit('events', decorated);
     io.to(this.gameId).emit('waveResult', result);
     for (const e of decorated) if (e.kind !== ev.kind) this.emitTypedEvent(e);
     this.broadcastState();
+    // ★ 위와 같은 이유(advance() 참고) — 동기 저장은 방송 뒤로 미룬다.
+    saveSnapshot(this.world);
     return result;
   }
 
@@ -637,8 +642,7 @@ class GameRuntime {
       if (session.gameId !== this.gameId) continue;
       const sock = io.sockets.sockets.get(socketId);
       if (!sock) continue;
-      const view = buildNationView(this.world, session.nationId, session.role, data,
-        { avatarId: session.avatarId, cache });
+      const view = nationViewWithRoles(this.world, session.nationId, session.role, session.avatarId, cache);
       sock.emit('state', session.stateKeep ? thinState(view, this.planKeep(session.nationId, view, plans)) : view);
     }
   }
@@ -673,7 +677,7 @@ class GameRuntime {
       if (session.gameId !== this.gameId) continue;
       const sock = io.sockets.sockets.get(socketId);
       if (!sock) continue;
-      const view = buildNationView(this.world, session.nationId, session.role, data, { avatarId: session.avatarId, cache });
+      const view = nationViewWithRoles(this.world, session.nationId, session.role, session.avatarId, cache);
       sock.emit('state', session.stateKeep ? thinState(view, this.planKeep(session.nationId, view, plans)) : view);
       sock.emit('worldDiff', buildWorldDiff(this.world, session.nationId, data, session.worldTick ?? -1,
         { cache, stream: worldStreamOf(session) }));
@@ -986,6 +990,45 @@ function roleForAvatar(nation, avatarId) {
   return playerRoles.length === 1 && humans.length === 1 ? playerRoles[0] : null;
 }
 
+/**
+ * ★ 뒤늦게 참가 — 감정의 날 이후에 들어온 플레이어를 위한 「남은 역할」 목록.
+ * 이미 다른 사람(owner != null)이 쥔 역할은 뺀다 — npc 위임이나 빈 자리는 그대로 후보다.
+ */
+function availableRoleKeys(nation) {
+  if (!nation) return [];
+  return data.roles.order.filter((key) => {
+    const r = nation.roles?.[key];
+    return !(r && r.holder === 'player' && r.owner != null);
+  });
+}
+
+/** buildNationView 의 결과에 남은 역할 목록(availableRoles)을 얹는다 — 감정의 날 이후에만 값이 있다. */
+function nationViewWithRoles(world, nationId, role, avatarId, cache) {
+  const view = buildNationView(world, nationId, role, data, { avatarId, cache });
+  if (world.emotionDayDone) view.availableRoles = availableRoleKeys(world.nations[nationId]);
+  return view;
+}
+
+/**
+ * ★ 뒤늦게 참가 — 초기 관제 선포(mandate) 소켓 이벤트는 감정의 날에 방 전체로 **한 번만** 나간다.
+ * 그 뒤에 들어온 사람은 그 방송을 영영 못 받으므로, 아직 역할이 없는 그 사람에게만
+ * 「남은 자리」로 채운 같은 모양의 mandate 쪽지를 다시 보낸다(mandate.js 가 그대로 받아 그린다).
+ */
+function lateMandatePayload(nation) {
+  const cfg = data.world.roleTiming;
+  const roles = availableRoleKeys(nation).map((key) => ({
+    key,
+    name: data.roles.defs[key].name,
+    tier: data.roles.defs[key].tier,
+    exclusiveInfo: data.roles.defs[key].exclusiveInfo,
+    holder: nation.roles?.[key]?.holder ?? null,
+  }));
+  return {
+    roles, autoDelegated: null, vacant: cfg.defaultVacant, late: true,
+    warning: '먼저 온 이들이 이미 자리를 정했습니다. 남은 자리 중 하나를 고르세요.',
+  };
+}
+
 function refreshRoles(rt, nationId, { actorSocketId = null, takenFrom = null } = {}) {
   const nation = rt.world.nations[nationId];
   if (!nation) return null;
@@ -1013,7 +1056,7 @@ function refreshRoles(rt, nationId, { actorSocketId = null, takenFrom = null } =
       takenBy: socketId !== actorSocketId && before != null && mine == null ? actorId : null,
     });
     if (changed && socketId !== actorSocketId) {
-      sock.emit('state', buildNationView(rt.world, nationId, mine, data, { avatarId: who }));
+      sock.emit('state', nationViewWithRoles(rt.world, nationId, mine, who));
     }
   }
   return mineForActor;
@@ -1032,7 +1075,7 @@ function buildJoinPayloads(rt, nationId, role, avatarId) {
   }
   return {
     world,
-    state: buildNationView(rt.world, nationId, role, data, { avatarId }),
+    state: nationViewWithRoles(rt.world, nationId, role, avatarId),
     worldState: buildWorldState(rt.world, nationId, data),
   };
 }
@@ -1200,6 +1243,13 @@ io.on('connection', (socket) => {
     sessions.get(sock.id).worldTick = rt.world.tick;
     sock.emit('state', payloads.state);
     sock.emit('worldState', payloads.worldState);
+    /* ★ 뒤늦게 참가 — 감정의 날은 이미 지났는데 이 사람은 아직 역할이 없다.
+       초기 관제 선포(mandate)는 방 전체에 한 번만 나가는 소켓 이벤트라 이 사람은 그걸 놓쳤다.
+       남은 자리만 담아 이 소켓에게만 다시 보낸다 — client/mandate.js 가 그대로 받아 그린다. */
+    if (rt.world.emotionDayDone && !role) {
+      const late = lateMandatePayload(nation);
+      if (late.roles.length) sock.emit('mandate', late);
+    }
     sock.emit('chronicle', chronicleView(rt.world, nation, data));
     /* ★ §21-A2 — 늦게 든 사람에게는 **풀 한 장**이 간다(방의 장부는 건드리지 않는다:
        이 한 장은 이 사람만 받았고, 방의 나머지는 이미 그만큼을 알고 있다). */
@@ -1240,7 +1290,18 @@ io.on('connection', (socket) => {
       if (!rt) return fail({ code: 'NO_GAME', message: '게임이 없습니다.' });
 
       const prevRole = s.role;
-      if (type === 'pickRole' && payload.role) s.role = payload.role;
+      /* ★ 뒤늦게 참가 — 이미 다른 사람(owner != null)이 쥔 역할은 요청 자체를 거절한다.
+         (초기 관제 선포 동시 진행 때의 「넘겨받기」는 각자 자기 자리를 고르는 그 순간뿐이라
+         영향받지 않는다 — 그때는 아직 아무도 owner 를 쥐지 않았거나 자기 자신의 owner다.) */
+      if (type === 'pickRole' && payload.role) {
+        const nationChk = rt.world.nations[s.nationId];
+        const who = s.avatarId ?? s.playerName;
+        const target = nationChk?.roles?.[payload.role];
+        if (target && target.holder === 'player' && target.owner != null && target.owner !== who) {
+          return fail({ code: 'ROLE_TAKEN', message: '이미 다른 사람이 맡은 자리입니다.' });
+        }
+        s.role = payload.role;
+      }
       const identity = IDENTITY_COMMANDS.has(type)
         ? { avatarId: s.avatarId ?? s.playerName, playerName: s.playerName } : null;
 
@@ -1361,7 +1422,7 @@ io.on('connection', (socket) => {
          §17-16 이 막으려던 「최대 10분 기다림」은 그 방송이 그대로 막아 준다. */
       if (s.role !== roleAtBroadcast) {
         // 방송이 나간 뒤에 자리가 바뀐 사람에게만 새 눈으로 본 판을 한 번 더 보낸다
-        socket.emit('state', buildNationView(rt.world, s.nationId, s.role, data, { avatarId: s.avatarId }));
+        socket.emit('state', nationViewWithRoles(rt.world, s.nationId, s.role, s.avatarId));
       }
       if (ack) ack(out);
       return undefined;

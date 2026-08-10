@@ -49,6 +49,18 @@
        무리가 몰려오는데 아래에서 한가한 이야기가 이어지면 그 순간의 무게가 통째로 새어 나간다. */
     if (GM.dialogue) GM.dialogue.close();
     var meta = S.enemyMeta(p.type);
+    /* ★ 용이 오는 날 — 경보보다 먼저 하늘이 어두워진다(등장 연출). 컷신이 끝난 뒤에 경보가 선다. */
+    if (p.type === 'dragon' && GM.storycine && GM.storycine.DRAGON && !onIncoming._dragonShown) {
+      onIncoming._dragonShown = true;
+      var rest = function () { onIncoming._raise(p, meta); };
+      try { GM.storycine.play(GM.storycine.DRAGON, { auto: true, onEnd: rest }); }
+      catch (eD) { rest(); }
+      return;
+    }
+    onIncoming._raise(p, meta);
+  }
+
+  onIncoming._raise = function (p, meta) {
     GM.sfx.play('alarm');
     GM.fx.flash('#7d1c1c', 0.3, 0.5);
     U.banner({ icon: meta.icon, kind: 'danger', title: (p.name || meta.name) + '이(가) 몰려온다',
@@ -61,7 +73,7 @@
        쥐고 있으므로(정보), 목소리는 따로 선다(연출). */
     saidBreach = false;
     sayEnemy(p.type, p.number || 1, 'approach');
-  }
+  };
 
   /* ══════════ 전투 ══════════ */
   function onStart(p) {
@@ -71,6 +83,11 @@
     if (GM.dialogue) GM.dialogue.close();      /* ★ §17-19(D-5) — 싸움이 붙으면 말은 끊긴다 */
     var core = p && p.core;
     if (core) GM.camera.moveTo(core.x, core.y);
+    /* ★ 용이 마을로 내려오는 장 — 싸움이 붙기 직전 한 폭. 한 판에 한 번뿐이다. */
+    if (p && p.type === 'dragon' && GM.storycine && GM.storycine.DRAGON_ARRIVE && !onStart._arriveShown) {
+      onStart._arriveShown = true;
+      try { GM.storycine.play(GM.storycine.DRAGON_ARRIVE, { auto: true }); } catch (eA) {}
+    }
     GM.sfx.play('alarm');
     U.toast('싸움이 시작됩니다. 검을 들고 직접 붙을 수 있습니다 — 죽지 않습니다.', 'warn', 6000);
     pushSnapshot(p);
@@ -375,7 +392,25 @@
       var f = Math.floor(animT / 170 + q.x * 2) % 2;
       /* 침입 적은 전투에서 눈에 띄도록 두 배로 그리고, 발은 기존 바닥선에 맞춘다. */
       var w = tile * 1.6, h = tile * 1.9;
-      var drawX = p.x - tile * 0.4, drawY = p.y - tile * 0.95;
+      /* ★ 웨이브로 오는 용 — 흰 용(ash_wyrm) 시트를 쓰고 몸집을 크게 잡는다.
+         그냥 적으로 나오는 용(enemy/dragon/sheet.png)은 붉은 그대로다. */
+      var isDragon = (b.type === 'dragon');
+      var bossImg = null;
+      if (isDragon) {
+        var anim = 'stay';
+        try {
+          var prev = interp[en.id];
+          var dx = (prev && prev.px != null) ? (q.x - prev.px) : 0;
+          var dy = (prev && prev.py != null) ? (q.y - prev.py) : 0;
+          if (Math.abs(dx) > Math.abs(dy)) anim = dx >= 0 ? 'fly_east' : 'fly_west';
+          else if (Math.abs(dy) > 0.0005) anim = dy >= 0 ? 'fly_south' : 'fly_north';
+          else anim = 'fly_south';
+        } catch (eA) { anim = 'fly_south'; }
+        try { bossImg = GM.atlas.boss(anim, Math.floor(animT / 110) % 9); } catch (eB) { bossImg = null; }
+        if (bossImg) { w = tile * 16; h = tile * 19; }
+      }
+      var drawX = p.x - w / 2 + tile * 0.4, drawY = p.y + tile * 0.95 - h;
+      if (!isDragon || !bossImg) { drawX = p.x - tile * 0.4; drawY = p.y - tile * 0.95; }
       ctx.save();
       ctx.globalAlpha = 0.24;
       ctx.fillStyle = '#000';
@@ -383,8 +418,8 @@
       try { ctx.ellipse(drawX + w / 2, drawY + h - 1, w * 0.32, w * 0.14, 0, 0, Math.PI * 2); } catch (e1) {}
       ctx.fill();
       ctx.restore();
-      try { ctx.drawImage(GM.atlas.enemy(b.type, f), Math.round(drawX), Math.round(drawY), Math.ceil(w), Math.ceil(h)); } catch (e2) {}
-      hpBar(ctx, drawX, drawY - 6, w, en.hp / Math.max(1, en.maxHp), '#bc4749');
+      try { ctx.drawImage(bossImg || GM.atlas.enemy(b.type, f), Math.round(drawX), Math.round(drawY), Math.ceil(w), Math.ceil(h)); } catch (e2) {}
+      hpBar(ctx, drawX, drawY - 6, Math.min(w, tile * 4), en.hp / Math.max(1, en.maxHp), '#bc4749');
       if (en.looting) {
         ctx.save();
         ctx.globalAlpha = 0.6 + 0.3 * Math.sin(animT / 200);
@@ -453,6 +488,15 @@
     var vg = U.qs('#vignette');
     if (vg) vg.classList.remove('on');
     if (!r) return;
+    /* ★ 용을 잡은 날 — 결과창보다 먼저 처치 연출이 선다. */
+    if (r.won && r.type === 'dragon' && GM.storycine && GM.storycine.DRAGON_SLAIN && !onResult._slainShown) {
+      onResult._slainShown = true;
+      var self = this, args = r;
+      try {
+        GM.storycine.play(GM.storycine.DRAGON_SLAIN, { auto: true, onEnd: function () { onResult(args); } });
+        return;
+      } catch (eS) {}
+    }
     var meta = S.enemyMeta(r.type);
     var body = U.el('div');
 

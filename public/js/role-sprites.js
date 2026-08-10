@@ -14,7 +14,7 @@
     var image = images[key];
     if (!image) {
       image = new Image();
-      image.src = 'assets/player/role-walk/' + key + '.png';
+      image.src = 'assets/player/role-walk-strip/' + key + '.png';
       images[key] = image;
     }
     return image;
@@ -22,12 +22,13 @@
 
   function ready(image) { return image.complete && image.naturalWidth; }
 
-  function get(role, dir, frame) {
+  /* ★ 2026-08 최적화 — 방향마다 9프레임을 가로 한 줄로 묶었다(432장 → 48장).
+     한 칸은 79×74 로 모든 직업이 같다. world.js 가 frame 으로 칸을 고른다. */
+  function get(role, dir) {
     var skin = ROLE_SKIN[role];
     if (!skin) return null;
     var direction = DIRECTION[dir] || 'south';
-    var no = String((frame % 9) + 1).padStart(2, '0');
-    var key = skin + '/' + direction + '/' + no;
+    var key = skin + '/' + direction;
     var image = imageFor(key);
     if (ready(image)) return image;
     /* 다음 프레임이 도착하기 전에도 주민 스프라이트로 되돌아가지 않게 한다. */
@@ -40,14 +41,16 @@
   function preload() {
     Object.keys(ROLE_SKIN).forEach(function (role) {
       var skin = ROLE_SKIN[role];
-      DIRECTION.forEach(function (direction) {
-        for (var frame = 1; frame <= 9; frame++) {
-          imageFor(skin + '/' + direction + '/' + String(frame).padStart(2, '0'));
-        }
-      });
+      DIRECTION.forEach(function (direction) { imageFor(skin + '/' + direction); });
     });
   }
 
+  /** 스트립 안에서 이 프레임이 앉은 칸. 모든 직업·방향이 79×74 로 같다. */
+  function cropFor(frame) {
+    var no = ((frame | 0) % 9 + 9) % 9;
+    return [no * 79, 0, 79, 74];
+  }
+
   preload();
-  GM.roleSprites = { get: get };
+  GM.roleSprites = { get: get, cropFor: cropFor };
 })(window);

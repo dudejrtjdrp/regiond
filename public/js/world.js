@@ -12,6 +12,18 @@
   var W = 960, H = 540;
   var chunkCache = {};
   var chunkOrder = [];       // ★ §17-17 — 구운 순서(가장 오래된 것부터 버린다). 아래 CHUNK_CAP 참고.
+  /* ★ 땅 그림(tileset base-v4)이 다 실렸는가 — 커튼 뒤 데우기(warmStart)가 이 문을 본다. */
+  var terrainReady = false;
+  /* ★ 2026-08 — 지도판을 **몇 배로** 잡을까(화면 픽셀 대비).
+     「왜」 이것이 가장 큰 지렛대인가 — 지도판은 화면을 가득 채우고, 한 프레임에 그 넓이를
+     여러 겹 덮는다(바탕 · 지형 · 안개 · 밤낮 · 노을 띠 · 등불). 2배로 잡으면 가로세로가 각각
+     두 배라 **칠할 픽셀이 네 배**다. 고해상도 화면(dpr 2)에서 프레임이 무너지던 큰 몫이 여기였다.
+     그런데 이 그림은 도트다 — imageSmoothingEnabled 를 끄고 그리므로 2배로 잡아도 얻는 것은
+     캔버스 글자(이름표)의 또렷함 정도다. 그래서 **처음에는 1.5배로 잡고, 무거우면 1배로 내린다**.
+     내리는 문턱과 올리는 문턱을 벌려 두어(24ms / 12ms) 경계에서 오르내리지 않게 한다.
+     그림이 지워지는 것은 없다 — 같은 그림을 더 적은 픽셀로 칠할 뿐이다. */
+  var renderScale = 1.5;
+  var scaleChangedAt = 0;
   var CH = 16;
   var BASE = 16;
   /* ★ §17-17 — 구워 둔 지형 청크의 상한. 지도가 384² 가 되며 청크가 256 → 576 장으로 늘었고,
@@ -35,8 +47,13 @@
           ②의 밋밋한 한때는 사실상 눈에 띄지 않는다(처음 접속한 그 순간만 스친다). */
   var BAKE_BUDGET_MS = 4;    // 한 프레임에 굽기에 내주는 시간(16.7ms 예산의 1/4)
   var BAKE_URGENT_MS = 9;    // 지금 화면에 밋밋한 자리가 있으면 그만큼 더 낸다(처음 접속·순간이동)
-  var PREBAKE_RING = 1;      // 화면 밖으로 몇 겹을 미리 구울까
-  var PREBAKE_NEW_PER_FRAME = 2;   // 그 겹에서 한 프레임에 새로 잡을 장 수
+  /* ★ 2026-08 — 한 겹에서 두 겹으로. 「왜」 — 한 겹은 걸음보다 느렸다: 화면 끝에 닿기 전에
+     다음 청크가 다 구워져 있어야 하는데, 한 겹(16칸)은 달려가면 서너 걸음 만에 지나친다.
+     그 순간부터는 「급한 굽기」(BAKE_URGENT_MS)가 프레임을 물고 늘어져 몇 초씩 끊겼다.
+     두 겹(32칸)이면 걸음이 닿기 훨씬 전에 끝난다. 청크 상한(192) 안에서 감당된다:
+     최소 줌 1920px 화면이 7.5×4.3장이고, 두 겹을 두르면 11.5×8.3 ≈ 96장이다. */
+  var PREBAKE_RING = 2;      // 화면 밖으로 몇 겹을 미리 구울까
+  var PREBAKE_NEW_PER_FRAME = 3;   // 그 겹에서 한 프레임에 새로 잡을 장 수
   var chunkPending = {};     // key → {c, g, cx, cy, row}
   var bakeQueue = [];        // 구울 차례 (앞이 급한 것 — 보이는 청크가 먼저)
   var visiblePending = 0;    // 이번 판에 화면에 든 청크 중 아직 다 안 구워진 수
@@ -131,7 +148,7 @@
     if (!cv) return;
     resize();
     S.on('world', function () { dropChunks(); units = {}; recenter(); });
-    global.addEventListener('gm:terrain-assets-ready', function () { dropChunks(); });
+    global.addEventListener('gm:terrain-assets-ready', function () { terrainReady = true; dropChunks(); });
   }
 
   function recenter() {
@@ -148,7 +165,7 @@
     H = Math.max(240, Math.round(r.height || 540));
     cv.style.width = W + 'px';
     cv.style.height = H + 'px';
-    ctx = U.fitCanvas(cv, W, H);
+    ctx = U.fitCanvas(cv, W, H, renderScale);
     dropGradients();          /* ★ Sprint 3 — 캔버스가 다시 잡히면 구워 둔 띠도 버린다 */
     GM.camera.setViewport(W, H);
   }
@@ -313,7 +330,7 @@
       한 프레임에 새로 잡는 장 수를 묶어 둔다: 카메라가 멀리 뛰면 스물다섯 장이 한 번에 서고,
       그 자리 잡기(캔버스 + 바탕색)만으로도 한 프레임이 부푼다. 급할 것 없는 겹이다. */
   function queuePrebake(cx0, cx1, cy0, cy1) {
-    if (bakeQueue.length > 24) return;              // 이미 밀려 있으면 더 얹지 않는다
+    if (bakeQueue.length > 40) return;              // 이미 밀려 있으면 더 얹지 않는다(두 겹이라 줄도 길어졌다)
     var m = S.S.map;
     if (!m) return;
     var per = Math.ceil(m.size / CH);
@@ -328,6 +345,79 @@
         chunkCanvas(cx, cy, false);
       }
     }
+  }
+
+  /**
+   * ★ 2026-08 — 첫 화면의 땅을 **커튼 뒤에서** 미리 구워 둔다.
+   * 「왜」 그림을 미리 받는 것만으로는 모자란가 — 이 판의 땅은 파일이 아니라 **구워 만드는 것**이다.
+   * 청크 한 장은 16×16 칸이고 bakeStep 은 한 프레임에 한 줄씩만 굽는다(프레임 예산 4~9ms).
+   * 그래서 지도가 서면 먼저 밋밋한 바탕색(prefillChunk)이 깔리고, 그 위로 진짜 도트가
+   * 한 줄씩 채워지는 것이 **눈에 보였다** — 「불러오는 중이 끝났는데 그때부터 그려진다」의 정체다.
+   * 여기서는 그 굽기를 커튼이 걷히기 전에 끝낸다. 굽는 셈도, 나오는 그림도 그대로다 —
+   * 언제 굽느냐만 옮겼다.
+   * @param budgetMs 이번 부름에 내줄 시간. 다 구웠으면 true.
+   */
+  function warmAround(wx, wy, tiles, budgetMs) {
+    var m = S.S.map;
+    if (!m) return true;
+    var per = Math.ceil(m.size / CH);
+    var cx0 = Math.max(0, Math.floor((wx - tiles) / CH));
+    var cx1 = Math.min(per - 1, Math.floor((wx + tiles) / CH));
+    var cy0 = Math.max(0, Math.floor((wy - tiles) / CH));
+    var cy1 = Math.min(per - 1, Math.floor((wy + tiles) / CH));
+    /* ★ 진행률은 **줄** 로 센다(장이 아니라). 「왜」 — 한 번의 bakeStep 이 예산 안에서
+       여러 장을 끝내므로, 장으로 세면 띠가 두세 번 껑충 뛰고 만다. 청크 한 장이 열여섯 줄,
+       마흔아홉 장이면 칠백여든넉 줄이라 띠가 고르게 찬다. */
+    var wantRows = 0, haveRows = 0;
+    for (var cy = cy0; cy <= cy1; cy++) {
+      for (var cx = cx0; cx <= cx1; cx++) {
+        var key = cx + ',' + cy;
+        wantRows += CH;
+        if (chunkCache[key]) { haveRows += CH; continue; }
+        var p = chunkPending[key];
+        if (p) { haveRows += p.row; continue; }
+        chunkCanvas(cx, cy, false);        // 줄에 세우기만 한다 — 굽는 것은 아래 한 줄이다
+      }
+    }
+    bakeStep(budgetMs || 12);
+    return { done: bakeQueue.length === 0, ratio: wantRows ? haveRows / wantRows : 1 };
+  }
+
+  /**
+   * ★ 커튼 뒤의 헛걸음 한 프레임 — **진짜 그리기**를 한 번 돌리고 든 시간을 돌려준다.
+   * 「왜」 땅만 구워서는 모자란가 — 커튼이 걷힌 첫 프레임에는 땅 말고도 처음 만들어지는 것이
+   * 잔뜩 있다: 건물 축소본(atlas SCALED), 자원 자리·울타리·사람의 절차 스프라이트,
+   * 안개 띠·하늘 그라데이션. 그것들은 「그려질 때」 만들어지므로, **그려 봐야** 만들어진다.
+   * 그래서 커튼 뒤에서 몇 프레임을 미리 그려 보고, 값이 잦아든 뒤에 커튼을 걷는다.
+   * 그리기만 한다 — 세상의 시계(tickAnim)는 건드리지 않으므로 무엇도 진행되지 않는다.
+   */
+  function warmFrame() {
+    var t0 = nowMs();
+    try { draw(); } catch (e) {}
+    /* ★ 걸어 들어갈 땅까지 굽는다 — 보이는 56칸이 아니라 그 바깥 한 겹(96칸)이다.
+       「왜」 — 커튼이 걷힌 뒤 처음 걸음을 떼면 화면 밖에서 새 청크가 줄줄이 서면서
+       몇 초를 먹었다(「움직일 때 3초 렉」). 그 땅은 **여기서** 굽는다.
+       굽는 값이 이 프레임 안에 들어 있으므로, 자리 잡기(settleLoop)는 굽기가 끝나기 전에는
+       「가볍다」고 판단하지 못한다 — 다 구워져야 커튼이 걷힌다. 자를 따로 댈 필요가 없다. */
+    try { warmStart(6, 96); } catch (e2) {}
+    return nowMs() - t0;
+  }
+
+  /** 첫 화면 데우기 — 본부 둘레의 땅을 미리 굽는다(app.js 의 「불러오는 중」이 부른다). */
+  function warmStart(budgetMs, tiles) {
+    var t = S.myTown && S.myTown();
+    var m = S.S.map;
+    if (!m) return { done: true, ratio: 1 };
+    /* ★ 땅 그림이 아직 안 실렸으면 굽지 않는다. 지금 구우면 절차 그림으로 굽히고,
+       곧이어 gm:terrain-assets-ready 가 dropChunks 로 그 전부를 버린다 —
+       커튼 뒤의 수고가 통째로 헛일이 되고 팝인은 그대로 남는다. 한 박자 기다린다. */
+    if (!terrainReady) return { done: false, ratio: 0 };
+    var cx = t ? t.x : Math.floor(m.size / 2);
+    var cy = t ? t.y : Math.floor(m.size / 2);
+    /* 56칸 — 최소 줌(한 칸 16px)의 1920px 화면 반폭 60칸에 거의 닿는다(첫 화면).
+       자리 잡기(warmFrame)에서는 96칸을 준다: 첫 걸음이 닿을 땅까지 미리 굽는다.
+       96칸이면 192×192칸 = 12×12 = 144장이라 청크 상한(CHUNK_CAP 192) 안이다. */
+    return warmAround(cx, cy, tiles || 56, budgetMs);
   }
 
   /** ★ 최근에 쓴 것을 뒤로 — 눈앞의 청크가 상한에 밀려 버려지지 않게 한다(옛 셈은 구운 순서였다). */
@@ -1533,11 +1623,20 @@
           : (a.moving ? (vert ? (sinF > 0 ? 'fly_south' : 'fly_north')
                               : (west ? 'fly_west' : 'fly_east'))
                       : 'stay');
-        var bimg = GM.atlas.boss(animB, Math.floor(animT / 110) % 9, { hurt: a.hurt > 0 });
+        /* ★ 웨이브 용 / 일반 적 용 갈래 — 습격(웨이브)이 도는 동안에는 흰 용(9프레임 비행
+           스트립)을 몸길이 10배로 크게 그려 「하늘이 어두워진다」는 위압을 준다. 웨이브가
+           아니면 그냥 돌아다니다 마주친 일반 적이라 빨간 용(assets/enemy/dragon/sheet.png)을
+           평소 크기로 쓴다. 빨간 자료가 아직 안 읽혔으면(또는 없으면) 흰 용으로 대신 그려
+           그림이 멎지 않게 한다. */
+        var waveNow = !!(S.wave && S.wave() && S.wave().active);
+        var bimg = waveNow
+          ? GM.atlas.boss(animB, Math.floor(animT / 110) % 9, { hurt: a.hurt > 0 })
+          : (GM.atlas.bossRed ? GM.atlas.bossRed(a.frame, { attack: atkB, hurt: a.hurt > 0, direction: 1 }) : null);
+        if (!bimg) bimg = GM.atlas.boss(animB, Math.floor(animT / 110) % 9, { hurt: a.hurt > 0 });
         if (bimg) {
           img = bimg;
-          flip = false;
-          var BOSS_TILES = 4.6;                       // 몸길이 — 다이어울프의 두 배가 넘는 위압
+          flip = !waveNow && a.dir < 0;
+          var BOSS_TILES = (waveNow ? 4.6 * 10 : 4.6);   // 몸길이 — 웨이브 용은 하늘을 덮는 위압
           if (bimg.width >= bimg.height) { drawW = t * BOSS_TILES; drawH = drawW * bimg.height / bimg.width; }
           else { drawH = t * BOSS_TILES; drawW = drawH * bimg.width / bimg.height; }
         }
@@ -1788,12 +1887,15 @@
       /* 본부 둘레의 광장 — 티어에 비례해 넓어진다 (§12-2) */
       if (b.hq) drawPlaza(c, t);
       else drawBuildingApron(b, c, f, t);
-      /* 그림자 */
+      /* 그림자 — 건물 스프라이트 사각형(p,w,h)의 발밑에 바짝 붙인다.
+         ★ 그림자-건물 분리 정정 — 옛 t*0.18 오프셋은 에셋에 따라 발밑보다 위에 걸려
+         그림자가 건물에서 떨어져 공중에 뜬 것처럼 보였다. 사각형의 맨 아래 가장자리
+         (= baseDrop 이 이미 반영된 발밑 줄)에 거의 닿게 좁힌다. */
       ctx.save();
       ctx.globalAlpha = 0.24;
       ctx.fillStyle = '#000';
       ctx.beginPath();
-      try { ctx.ellipse(p.x + w / 2, p.y + h - t * 0.18, w * 0.34, w * 0.13, 0, 0, Math.PI * 2); } catch (e) {}
+      try { ctx.ellipse(p.x + w / 2, p.y + h - t * 0.05, w * 0.34, w * 0.13, 0, 0, Math.PI * 2); } catch (e) {}
       ctx.fill();
       ctx.restore();
       ctx.save();
@@ -1850,7 +1952,10 @@
         c.x, c.y - f.h / 2 - 0.8, '#f0a09c');
       else if (t >= 26) label(b.name + (b.tier > 1 && !b.hq ? ' ' + b.tier : ''),
         c.x, c.y + f.h / 2 + 0.3, '#f4e4bc');
-      if (sel.structureId === b.id) footRing(c, f, '#e8a33d');
+      /* ★ 노란 테두리 정정 — 패널을 닫아도 선택값(S.selection)이 안 지워지는 경로가
+         있어(예: structure.js openRecruit) 금테가 건물에 눌어붙어 항상 보이는 버릇이
+         있었다. 정보 패널이 실제로 떠 있을 때만 두르게 해 선택 표시로서의 뜻을 되찾는다. */
+      if (sel.structureId === b.id && contextPanelOpen()) footRing(c, f, '#e8a33d');
     });
 
     S.sites().forEach(function (c) {
@@ -1873,6 +1978,14 @@
       if (c.mode === 'relocate' && c.toX != null) ghostRect(c.toX, c.toY, sf, '#8dfa8d');
       if (sel.siteId === c.id) footRing(sc, sf, '#e8a33d');
     });
+  }
+
+  /** 정보 패널이 실제로 화면에 떠 있는지 — 선택 테두리를 그 여부에 묶는다 */
+  function contextPanelOpen() {
+    try {
+      var p = U.qs && U.qs('#context-panel');
+      return !!(p && !p.hidden);
+    } catch (e) { return true; }
   }
 
   /** 풋프린트 사각형을 두르는 선택 테두리 */
@@ -2396,13 +2509,13 @@
       ctx.fill();
       ctx.restore();
       /* 주민은 직업과 무관하게 새 남녀 NPC 8방향 도트만 쓴다. 기존 아틀라스는 폴백하지 않는다. */
-      var sp = GM.npcSprites && GM.npcSprites.get(v.id, a.dir, a.frame);
+      var sp = GM.npcSprites && GM.npcSprites.get(v.id, a.dir);
       var workNode = v.targetId && S.nodeById(v.targetId);
       var workKind = workNode && workNode.type === 'forest' ? 'wood'
         : (workNode && (workNode.type === 'field' || workNode.type === 'grain') ? 'grain' : 'stone');
       var action = a.pose > 0 && GM.actionSprites
         ? GM.actionSprites.get(null, v.id, a.dir, workKind, a.pose > 0.5 ? 1 : 0) : null;
-      var npcCrop = GM.npcSprites && GM.npcSprites.cropFor(v.id, a.dir);
+      var npcCrop = GM.npcSprites && GM.npcSprites.cropFor(v.id, a.dir, a.frame);
       var npcH = t * 2;
       var npcW = npcCrop ? npcH * npcCrop[2] / npcCrop[3] : t;
       var npcX = p.x - (npcW - w) / 2;
@@ -2539,16 +2652,24 @@
     ctx.restore();
     ctx.save();
     var mine = GM.avatar && avatarId === (S.you() && S.you().avatarId);
-    var roleSprite = role && GM.roleSprites ? GM.roleSprites.get(role, dir, frame) : null;
+    var roleSprite = role && GM.roleSprites ? GM.roleSprites.get(role, dir) : null;
     /* 역할이 정해지기 전의 모든 플레이어·봇은 주민과 같은 NPC 도트를 쓴다. */
-    var npcSprite = !role && GM.npcSprites ? GM.npcSprites.get(avatarId, dir, frame) : null;
+    var npcSprite = !role && GM.npcSprites ? GM.npcSprites.get(avatarId, dir) : null;
     var characterSprite = roleSprite || npcSprite;
     var actionKind = tool === 'axe' ? 'wood' : (tool === 'pick' ? 'stone' : (tool === 'hoe' ? 'grain' : 'attack'));
     var actionSprite = swingPhase && GM.actionSprites ? GM.actionSprites.get(role, avatarId, dir, actionKind, swingPhase - 1) : null;
-    var npcCrop = npcSprite && GM.npcSprites.cropFor(avatarId, dir);
-    var spriteCrop = roleSprite ? [50, 55, 144, 135] : npcCrop;
-    var spriteH = roleSprite ? roleH : t * 2;
-    var spriteW = roleSprite ? roleW : (npcCrop ? spriteH * npcCrop[2] / npcCrop[3] : w);
+    var npcCrop = npcSprite && GM.npcSprites.cropFor(avatarId, dir, frame);
+    /* ★ 2026-08 최적화 — 걷기 PNG 를 옛 잘라내기 칸으로 미리 굽고 0.55배로 줄인 뒤
+       방향마다 9프레임을 가로 한 줄로 묶었다(576장 → 64장). 표시 높이는 최대 줌에서도
+       t*2.02 = 64.6px 이라 원본(74px)이 여전히 더 크다 — 보이는 그림은 그대로다. */
+    var spriteCrop = roleSprite ? GM.roleSprites.cropFor(frame) : npcCrop;
+    /* ★ 플레이어 체형 정정 — 역할군(roleSprite)은 손대지 않는다(NPC·동료와 그림을 공유한다).
+       내 아바타가 기본 NPC 도트(npcSprite)로 그려질 때만, 발이 땅에 붙은 채(스프라이트
+       하단 = p.y+h+t*0.1, 스케일과 무관하게 고정) 가로 1.25배·세로 1.1배로 살을 붙인다. */
+    var mineFatW = mine && !roleSprite ? 1.25 : 1;
+    var mineFatH = mine && !roleSprite ? 1.1 : 1;
+    var spriteH = roleSprite ? roleH : t * 2 * mineFatH;
+    var spriteW = roleSprite ? roleW : (npcCrop ? (t * 2) * npcCrop[2] / npcCrop[3] * mineFatW : w * mineFatW);
     var spriteX = roleSprite ? roleX : p.x - (spriteW - w) / 2;
     var spriteY = roleSprite ? roleY : p.y - (spriteH - h) + t * 0.1;
     /* 행동 프레임은 원본 자체의 종횡비를 쓴다. 특히 여성 NPC는 걷기 PNG보다 넓은
@@ -3232,7 +3353,10 @@
   /* ══════════ 프레임 ══════════ */
   function draw() {
     if (!ctx) return;
-    ctx.setTransform(Math.min(global.devicePixelRatio || 1, 2), 0, 0, Math.min(global.devicePixelRatio || 1, 2), 0, 0);
+    /* ★ 배율은 renderScale 이 정본이다(resize 가 판을 그 배율로 잡는다).
+       옛 코드는 여기서 2를 다시 박아, 판은 1배로 잡혔는데 붓만 2배로 움직이는 일이 생겼다. */
+    var rs = Math.min(global.devicePixelRatio || 1, renderScale);
+    ctx.setTransform(rs, 0, 0, rs, 0, 0);
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = '#08060e';
     ctx.fillRect(0, 0, W, H);
@@ -3347,6 +3471,29 @@
     pushRing(structuresTimes, structuresMs);            /* ★ 6단계 */
     pushRing(dressingTimes, dressingMs);
     pushRing(apronTimes, apronMs);
+    adjustRenderScale();
+  }
+
+  /**
+   * ★ 스스로 조절하는 지도판 배율(위 renderScale 주석).
+   * 한 프레임을 만드는 데 든 시간의 **가운뎃값**을 본다 — 평균은 한 번의 튐에 휘둘리고,
+   * 가운뎃값은 「대체로 어떤가」를 말한다. 예순 프레임(≈1초)을 모아 한 번만 판단하고,
+   * 바꾼 뒤에는 세 뼘(3초) 동안 다시 건드리지 않는다 — 바꾸는 일 자체가 캔버스를 다시 잡는
+   * 일이라, 그것이 잦으면 그 값이 또 프레임을 먹는다.
+   */
+  function adjustRenderScale() {
+    if (workTimes.length < 60) return;
+    var now = nowMs();
+    if (scaleChangedAt && now - scaleChangedAt < 3000) return;
+    var last = workTimes.slice(-60).sort(function (a, b) { return a - b; });
+    var mid = last[30];
+    var next = renderScale;
+    if (mid > 24 && renderScale > 1) next = 1;              // 무겁다 — 칠할 픽셀을 줄인다
+    else if (mid < 12 && renderScale < 1.5) next = 1.5;     // 넉넉하다 — 다시 또렷하게
+    if (next === renderScale) return;
+    renderScale = next;
+    scaleChangedAt = now;
+    resize();                                              // 판을 다시 잡는다(그림은 그대로다)
   }
 
   function pushRing(list, v) {
@@ -3425,6 +3572,8 @@
 
   GM.world = {
     mount: mount, resize: resize, draw: draw, tickAnim: tickAnim,
+    /* ★ 2026-08 — 커튼 뒤에서 첫 화면의 땅을 굽고(warmStart), 몇 프레임을 미리 그려 본다(warmFrame) */
+    warmStart: warmStart, warmFrame: warmFrame,
     setHover: setHover, hover: hover, setDragBox: setDragBox, recenter: recenter, reset: reset,
     animateTerritory: animateTerritory, bounceStructure: bounceStructure, markArrival: markArrival,
     setFencePath: setFencePath, getFencePath: getFencePath,

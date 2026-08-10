@@ -68,6 +68,10 @@
     });
     U.qs('#shell').hidden = false;
     S.set({ screen: 'game' });
+    /* ★ 2026-08 — 커튼을 여기서 올린다. 지도가 서버에서 오는 동안 지도판에 뜨던
+       「땅을 살피는 중…」과, 지도가 선 뒤의 「불러오는 중」이 잇달아 두 번 보였다 —
+       기다림은 하나인데 낯이 둘이었다. 커튼이 그 틈을 처음부터 덮는다. */
+    if (GM.loading && GM.loading.begin) GM.loading.begin();
 
     GM.hud.init();
     GM.world.mount();
@@ -109,7 +113,22 @@
       openingDone = true;
       var playOpening = GM.opening.shouldPlay();
       if (playOpening) GM.opening.prepare();
-      setTimeout(function () {
+      /* ★ 2026-08 — 이야기를 열기 **전에** 그림을 받아 둔다.
+         「왜」 — 알현실 그림 한 장이 1672×941 이고 건물은 쉰 채다. 예전에는 이것들이
+         「필요해진 순간」에 처음 불렸다: 알현실이 뜨는 그 프레임, 마차가 구르는 그 프레임,
+         첫 집을 놓는 그 프레임. 그래서 이야기가 흐르는 내내 화면이 끊겼다.
+         받는 동안은 기다림을 숨기지 않고 보여 준다(index.html GM.loading).
+         다 받았거나 12초가 지나면 그 뒤는 옛길 그대로다 — 연출은 한 장면도 바뀌지 않았다. */
+      var openStory = function () { setTimeout(storyGate, 260); };
+      /* 두 번째 걸음 — 받아 둔 그림으로 **첫 화면의 땅을 미리 굽는다**.
+         그림만 받아 두면 커튼이 걷힌 뒤에 밋밋한 바탕색 위로 도트가 한 줄씩 채워지는 것이
+         그대로 보인다(world.js warmAround 주석). 여기서 그 굽기를 커튼 뒤로 옮긴다. */
+      var warm = (GM.world && GM.world.warmStart)
+        ? function () { return GM.world.warmStart(10); } : null;
+      if (GM.loading && GM.loading.run) GM.loading.run(GM.loading.gameAssets(), openStory, warm);
+      else openStory();
+
+      function storyGate() {
         if (playOpening) {
           /* 도입 대사와 마차 연출 사이의 틈에도 몸·손을 먼저 잠근다. */
           /* ★ §세계관 W2 — 이야기의 시간 순서: 알현실(도입)이 먼저, 마차(오프닝)는 그 뒤 */
@@ -119,7 +138,7 @@
         } else {
           GM.avatar.reveal(true);
         }
-      }, 260);
+      }
     });
 
     S.on('state', function (v) {

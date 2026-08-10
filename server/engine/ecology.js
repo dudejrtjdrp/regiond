@@ -17,6 +17,7 @@ import {
 } from './world.js';
 // ★ §19-F2(F07-4) — 세계에 한 마리뿐인 용. 짐승과 같은 목록에 앉되 정원·띠에는 매이지 않는다.
 import { ensureDragon, slayDragon, dragonRumor } from './dragon.js';
+import { featureUnlocked } from './progression.js';
 import { isRuined, turretList } from './structures.js';
 // ★ Sprint 3 — 울타리 칸 색인(fences.js 머리말 참고). 걸음마다 400조각을 재던 셈을 코앞 몇 조각으로 줄인다.
 import { fencesNear } from './fences.js';
@@ -130,12 +131,24 @@ function bandTerrains(world, nation, data, ring) {
   return out;
 }
 
+/**
+ * ★ 2026-08 — 사나운 것은 **벨 수 있게 된 뒤에** 온다.
+ * 「왜」 — 사냥(hunt)은 3장 '허기'에서 열린다(swing.js:68 — 그 전에는 짐승을 겨누는 갈래 자체가 없다).
+ * 그런데 늑대·곰은 1장부터 태어나 물었다. 이쪽은 못 베는데 저쪽은 문다 —
+ * 1장 개척자는 손 쓸 도리 없이 쓰러졌다. 잠긴 것은 부재다(§11-1): 맞설 수단이 없는 동안에는
+ * 맞설 상대도 없어야 한다. 온순한 것(사슴·토끼·눈여우)은 그대로 온다 — 세상은 비지 않는다.
+ */
+function huntOpen(nation, data) {
+  try { return featureUnlocked(nation, 'hunt', data); } catch (e) { return true; }
+}
+
 /** 그 띠의 정원 후보 — 링이 맞고, 제 서식지가 그 띠 안에 실제로 있는 것들 */
-function ringPool(data, ring, present = null) {
+function ringPool(data, ring, present = null, allowPredator = true) {
   const defs = creatureDefs(data);
   return data.creatures.order
     .map((k) => ({ key: k, def: defs[k] }))
     .filter(({ def }) => def && def.ring === ring)
+    .filter(({ def }) => allowPredator || def.kind !== 'predator')
     .filter(({ def }) => !present || !def.habitat?.length || def.habitat.some((c) => present.has(c)));
 }
 
@@ -247,10 +260,11 @@ export function ensureCreatures(world, nation, data, rngOverride = null) {
   const born = [];
   const alive = w.creatures;
   if (alive.length >= (cfg.maxAlive ?? 90)) return born;
+  const predatorsOk = huntOpen(nation, data);      /* 사냥이 열리기 전에는 사나운 것을 부르지 않는다 */
   for (const ring of [0, 1, 2]) {
     const want = cfg.perRing?.[String(ring)] ?? 0;
     const have = alive.filter((c) => c.ring === ring).length;
-    const pool = ringPool(data, ring, bandTerrains(world, nation, data, ring));
+    const pool = ringPool(data, ring, bandTerrains(world, nation, data, ring), predatorsOk);
     if (!pool.length) continue;
     let need = Math.max(0, want - have);
     let guard = 0;
@@ -656,6 +670,8 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
   const events = [];
   const size = world.map?.size ?? data.world.size;
   const codexRadius = creatureCfg(data).codex?.encounterRadius ?? 9;
+  /* 사냥이 열렸는가 — 아래 「사람을 본 반응」에서 쓴다(사나움의 문). 한 걸음에 한 번만 잰다. */
+  const predatorsHostile = huntOpen(nation, data);
 
   /* ── 쓰러진 사람 일으키기 (모닥불 부활) ──
      ★ GDD3 §14-6 — 일어나는 순간이 이제 **사건**이다: 체력 절반 · 짧은 무적 · 자리는 본부.
@@ -746,7 +762,12 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
     }
 
     // ── 사람을 본 반응 ──
-    const hostile = def.kind === 'predator';
+    /* ★ 2026-08 — 사냥이 열리기 전에는 사나운 것도 물지 않는다(ringPool 위 주석과 한 벌이다).
+       새로 태어나는 것만 막으면, 이미 들에 나와 있던 늑대는 그대로 문다 — 저장본을 이어 여는
+       개척자에게는 아무것도 달라지지 않는다. 여기서 함께 막아야 「맞설 수단이 없는 동안에는
+       맞설 상대도 없다」가 지켜진다. 사냥이 열리는 순간 이 줄은 그대로 참이 되어, 늑대는
+       예전과 똑같이 사나워진다 — 무엇도 지워지지 않았다. */
+    const hostile = def.kind === 'predator' && predatorsHostile;
     /* ★ §16-2 — **영토는 성역이다.** 짐승이 설 수 없는 땅(영토 안, 목장 예외)에 서 있는 사람은
        쫓지도, 물지도 못한다. 경계에 바짝 붙어 선 사람을 경계 밖에서 무는 구멍(사거리 1.4)이
        이 한 줄로 막힌다. 웨이브는 별개 계층이다(battle.js) — 그쪽은 설계대로 문을 부수고 들어온다. */

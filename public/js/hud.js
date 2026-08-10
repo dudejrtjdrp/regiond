@@ -37,9 +37,52 @@
     if (th) th.onclick = function () { GM.combat.openThreat(); };
     paintSound();
     renderToolbar();
+    ensureNoticeCenter();
     document.addEventListener('click', function (e) {
       if (speechOpen && !e.target.closest('.mn-speech') && !e.target.closest('.minister')) closeSpeech();
     });
+  }
+
+  /* ══════════ ★ 알림 센터 — 화면 오른쪽에 흩어져 있던 알림을 한 덩이로 접는다 ══════════
+     「왜」 — 알림이 계속 펼쳐져 있으면 화면 오른쪽이 늘 복잡하다. 아이콘 하나로 접었다 펴고,
+     기본은 접힌 채로 둔다. #notices 는 그대로 두고(렌더 코드를 건드리지 않는다) 감싸는
+     껍데기만 새로 짓는다 — index.html 을 고치지 않고도 여기서 한 번만 짜면 된다. */
+  function ensureNoticeCenter() {
+    var box = U.qs('#notices');
+    if (!box) return;
+    if (box.parentNode && box.parentNode.id === 'notice-center-body') return;   // 이미 감쌌다
+    var stage = box.parentNode;
+    if (!stage) return;
+    var center = U.el('div', 'notice-center');
+    center.id = 'notice-center';
+    var toggle = U.el('button', 'notice-center-toggle');
+    toggle.type = 'button';
+    toggle.id = 'notice-center-toggle';
+    toggle.setAttribute('aria-label', '알림 센터');
+    var ic = document.createElement('img');
+    ic.className = 'nc-icon';
+    ic.src = 'assets/new_UI/알림 UI/도감_발견 기록 아이콘.png';
+    ic.alt = '';
+    toggle.appendChild(ic);
+    var badge = U.el('span', 'nc-badge');
+    badge.id = 'notice-center-badge';
+    badge.hidden = true;
+    toggle.appendChild(badge);
+    U.tipSet(toggle, '알림 센터', '눌러서 알림을 펼치거나 접습니다.');
+    toggle.onclick = function () { center.classList.toggle('open'); };
+    var bodyWrap = U.el('div', 'notice-center-body');
+    bodyWrap.id = 'notice-center-body';
+    center.appendChild(toggle);
+    center.appendChild(bodyWrap);
+    stage.insertBefore(center, box);
+    bodyWrap.appendChild(box);
+  }
+
+  function paintNoticeBadge(count) {
+    var b = U.qs('#notice-center-badge');
+    if (!b) return;
+    if (count > 0) { b.hidden = false; b.textContent = count > 9 ? '9+' : String(count); }
+    else b.hidden = true;
   }
 
   function paintSound() {
@@ -643,8 +686,10 @@
   function renderNotices() {
     var box = U.qs('#notices');
     if (!box) return;
+    ensureNoticeCenter();
     var list = byPriority(notices()).slice(0, 7);
     noticeNow = list;                       // 닫힘이 되짚을 「지금」 목록은 늘 새로 둔다
+    paintNoticeBadge(list.length);
     var sig = noticeSig(list);
     if (box.getAttribute('data-sig') === sig) return;
     box.setAttribute('data-sig', sig);

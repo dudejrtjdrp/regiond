@@ -59,6 +59,9 @@
     var host = root();
     if (!host || !o) return null;
     close();
+    /* ★ 한 번에 하나만 — 대화가 열리면 떠 있던 다른 패널(모달)을 정리한다.
+       컷신·확인창은 openModal 쪽의 exempt 표시로 예외로 남는다. */
+    if (U.closeAllPanels) U.closeAllPanels('dialogue');
     /* 대화가 상호작용(E) 중에 열릴 수 있으므로, 기존 홀드 작업을 먼저 끊는다. */
     if (GM.swing) GM.swing.stopHold();
     if (GM.input && GM.input.stopMovement) GM.input.stopMovement();

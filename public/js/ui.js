@@ -303,9 +303,28 @@
     return w;
   }
 
+  /* ── 단일 패널 규율(★ 한 번에 하나만) ───────────────────
+     「왜」 — 대화창·건물 선택·각종 패널이 한꺼번에 겹쳐 뜨면 무엇을 눌러야 할지 알 수 없다.
+     새 패널을 열 때는 이 함수가 먼저 기존 것을 정리한다. 컷신·확인창(exempt 로 표시한 것)은
+     예외다 — 그 위에 다른 패널이 열려도 그대로 남고, 그것들이 열릴 때도 밑에 있던 패널을
+     밀어내지 않는다(opts.exclusive:false 로 스스로를 밀어내기 예외로 남긴다). */
+  function closeAllPanels(exceptTag) {
+    if (exceptTag !== 'dialogue' && GM.dialogue && GM.dialogue.isOpen && GM.dialogue.isOpen()) {
+      GM.dialogue.close();
+    }
+    for (var i = modalStack.length - 1; i >= 0; i--) {
+      var m = modalStack[i];
+      if (m.__exempt) continue;
+      closeModal(m);
+    }
+  }
+
   /* ── 모달 ────────────────────────────────────────────── */
   var modalStack = [];
   function openModal(opts) {
+    opts = opts || {};
+    /* ★ 한 번에 하나만 — 확인창·컷신(opts.exclusive===false)은 기존 패널을 밀어내지 않는다 */
+    if (opts.exclusive !== false) closeAllPanels('modal');
     var root = qs('#modal-root');
     var back = el('div', 'modal-back');
     var box = el('div', 'modal');
@@ -336,6 +355,7 @@
     back.__onClose = opts.onClose;
     back.__body = body;
     back.__key = opts.key || null;
+    back.__exempt = !!opts.exempt;
     /* ★ 추가 에셋 스킨 — 창마다 다른 배경(도감 바닥판 등)을 CSS 가 고를 수 있게 열쇠를 밖에 적는다 */
     if (opts.key) back.setAttribute('data-mkey', opts.key);
     modalStack.push(back);
@@ -364,7 +384,10 @@
     var no = btn('아니오', 'btn-ghost');
     var yes = btn(yesLabel || '좋다', 'btn-primary');
     foot.appendChild(no); foot.appendChild(yes);
-    var m = openModal({ title: title, body: body, footer: foot, width: '460px' });
+    /* ★ 확인창은 예외 — 이미 열린 패널(위에서 이 확인을 띄운 그 패널) 위에 그대로 얹히고,
+       다른 패널이 열려도 이 확인창은 밀려나지 않는다. */
+    var m = openModal({ title: title, body: body, footer: foot, width: '460px',
+                         exclusive: false, exempt: true });
     no.onclick = function () { closeModal(m); };
     yes.onclick = function () { closeModal(m); if (onYes) onYes(); };
     return m;
@@ -387,8 +410,12 @@
       }
     }
   }
-  function fitCanvas(cv, logicalW, logicalH) {
-    var dpr = Math.min(global.devicePixelRatio || 1, 2);
+  /**
+   * @param cap 이 판이 감당할 최대 배율(안 주면 2). 지도판만 이 값을 낮춰 쓴다 —
+   *   world.js 가 프레임 값을 보고 스스로 조절한다(아래 renderScale 주석).
+   */
+  function fitCanvas(cv, logicalW, logicalH, cap) {
+    var dpr = Math.min(global.devicePixelRatio || 1, cap == null ? 2 : cap);
     var w = Math.round(logicalW * dpr), h = Math.round(logicalH * dpr);
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     var ctx = cv.getContext('2d');
@@ -583,6 +610,8 @@
     paper: paper, section: section, row: row, pips: pips,
     openModal: openModal, closeModal: closeModal, closeTopModal: closeTopModal,
     modalOpen: modalOpen, anyModalOpen: anyModalOpen, confirmBox: confirmBox,
+    /* ★ 한 번에 하나만 — 새 패널을 열기 전에 부른다. 컷신·확인창은 예외로 남는다 */
+    closeAllPanels: closeAllPanels, exclusiveOpen: closeAllPanels,
     px: px, sprite: sprite, fitCanvas: fitCanvas,
     coach: coach, coachClear: coachClear, hintAt: hintAt,
     banner: banner, bannerClear: bannerClear,

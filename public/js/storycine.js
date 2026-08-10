@@ -25,9 +25,33 @@
       text: '살아 있는 것이 있다 — 잿빛 하늘을 가르는, 세상에 한 마리뿐인 날개.', hold: 3200 }
   ];
 
+  /* ★ 작업2 — 용을 잡았을 때의 연출(처치). 굴 경고(DRAGON)와 짝을 이루는 두 번째 장면이다.
+     에셋은 assets/cutscene/dragon/ 아래 slain.png · rest.png 두 장을 기대한다(아직 없다면
+     preload/onerror 폴백이 조용히 감추고 글만 흘러간다 — 아래 next_() 참고).
+     문구는 데이터가 아니라 여기 고정 문구를 쓴다: 서버(slayDragon)는 discovery 기록만 남기고
+     연출 문구는 화면이 쥔다고 dragon.js 머리말이 이미 정해 두었다(§20-R3). */
+  var DRAGON_SLAIN = [
+    { bg: 'assets/cutscene/dragon/slain.png', bgAlt: 'assets/cutscene/dragon/appear.png',
+      shake: true, sfx: 'fanfare',
+      text: '거대한 몸이 대지를 울리며 쓰러진다 — 세상에 하나뿐이던 것이 마침내 눕는다.', hold: 3200 },
+    { bg: 'assets/cutscene/dragon/rest.png', bgAlt: 'assets/cutscene/dragon/peace.png',
+      text: '재 섞인 바람이 걷히고, 땅에는 낯선 고요가 내려앉는다.', hold: 2600 }
+  ];
+
+  /* ★ 용이 정착지로 내려오는 장 — 등장(DRAGON)과 처치(DRAGON_SLAIN) 사이의 한 폭. */
+  var DRAGON_ARRIVE = [
+    { bg: 'assets/cutscene/dragon/dark.png', slow: true, sfx: 'warn',
+      text: '날개 그림자가 우리 지붕 위를 지난다.', hold: 2400 },
+    { bg: 'assets/cutscene/dragon/appear.png', shake: true, sfx: 'alarm',
+      text: '그것이 마을로 내려온다 — 담장도, 문도 셈에 넣지 않는다.', hold: 3000 }
+  ];
+
   function preload(scenes) {
     (scenes || []).forEach(function (s) {
-      if (s && s.bg) { var im = new Image(); im.src = s.bg; }
+      /* ★ 작업2 — 앞서 읽어 보는 것뿐이라 실패해도 조용히 넘어간다(브라우저 콘솔에 404만 남는다).
+         onerror 를 달아 두는 건 다음 next_() 가 만드는 진짜 <img> 가 아니라 이 프리로드용이라 —
+         굳이 막을 판정이 없다. 여기서는 그냥 실패를 삼킨다. */
+      if (s && s.bg) { var im = new Image(); im.onerror = function () {}; im.src = s.bg; }
     });
   }
 
@@ -93,6 +117,14 @@
       var im = document.createElement('img');
       im.className = 'cine-img' + (s.slow ? ' slow' : '');
       im.alt = '';
+      /* ★ 작업2 — 그림이 없거나 로드를 실패해도 컷신은 멈추지 않는다: 깨진 이미지 아이콘 대신
+         조용히 감추고, 글자와 hold/자동 넘김 타이머는 그대로 흘러간다(둘 다 로드 이벤트를
+         기다리지 않으므로 onEnd 는 이미 반드시 불린다 — 이 핸들러는 눈에 보이는 것만 고친다). */
+      im.onerror = function () {
+        /* 대체 그림이 있으면 한 번 더 시도하고, 그것도 없으면 조용히 감춘다. */
+        if (s.bgAlt && im.src.indexOf(s.bgAlt) < 0) { im.src = s.bgAlt; return; }
+        im.style.visibility = 'hidden';
+      };
       im.src = s.bg;
       var old = cur.img;
       cur.img = im;
@@ -262,6 +294,10 @@
     finish: finish,
     busy: function () { return !!cur; },
     DRAGON: DRAGON,
+    /* ★ 작업2 — 처치 연출. 호출부(예: p.boss 를 받는 곳)가 GM.storycine.play(GM.storycine.DRAGON_SLAIN,
+       {auto:true, onEnd:...}) 로 튼다. avatar.js 의 dragonWarn 처리(:394)와 같은 문이다. */
+    DRAGON_SLAIN: DRAGON_SLAIN,
+    DRAGON_ARRIVE: DRAGON_ARRIVE,
     /* 하니스·회귀 검사 전용 */
     peek: function () {
       if (!cur) return null;

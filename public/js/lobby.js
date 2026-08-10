@@ -203,7 +203,11 @@
     var app = S.defaultAppearance();
     S.set({ joinAppearance: app, you: { role: null, appearance: app } });
     status('#load-status', '지난 기록을 펼치는 중…');
-    S.set({ joining: true });
+    /* ★ 2026-08 — [이어하기]로 든 판에서는 마차 연출을 걷는다.
+       「왜」 — 마차는 「처음 이 땅에 닿는 장면」이다. 이미 살던 땅으로 돌아오는 사람에게
+       매번 다시 도착시키면, 그 장면이 뜻하던 것이 닳는다. 연출 자체는 지우지 않았다 —
+       새로하기로 든 첫 판에서는 예전 그대로 돈다(opening.js shouldPlay 참고). */
+    S.set({ joining: true, resumedFromSave: true });
     GM.net.send('join', { gameId: gid, playerName: name, appearance: app });
   }
 

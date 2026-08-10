@@ -292,7 +292,17 @@ export function startBattle(world, nation, data, opts = {}) {
   /* ★ §19-F2(F07-3) — 무리마다 차례로 세운다. 호위대가 없으면 무리는 하나뿐이고, 그때는
      난수를 뽑는 차례도 마릿수도 옛것과 한 톨도 다르지 않다(앞 다섯 웨이브의 결정론 보존). */
   const enemies = [];
-  const groups = spec.groups ?? [{ ...spec, units: spec.units }];
+  let groups = spec.groups ?? [{ ...spec, units: spec.units }];
+  /* ★ 용은 한 마리뿐이다 — 웨이브로 와도 떼로 오지 않는다. 마릿수만 1로 접고,
+     힘(mult.enemy)은 건드리지 않는다: 한 몸에 그 무게가 다 실린다. */
+  if (spec.type === 'dragon') {
+    groups = groups.map((g) => {
+      if (g.type !== 'dragon' && g.type) return g;
+      const n = Math.max(1, g.units | 0);
+      /* 마릿수를 접은 만큼 한 몸에 체력과 공격력을 몰아준다 — 총량은 옛것과 같다. */
+      return { ...g, units: 1, unitHp: (g.unitHp ?? 1) * n, unitDps: (g.unitDps ?? 1) * n };
+    });
+  }
   // ★ A11 — 영토 밖 한 줄. 한 판 안에서는 모두 같은 기준 반경을 쓴다(무리가 갈라지지 않는다).
   const spawnRadius = spawnRadiusOf(nation, data);
   // ★ A11 — 「도읍까지 길이 있는가」는 한 번만 푼다(coreFlow). 적 수만큼 A* 를 돌리지 않는다.
@@ -526,6 +536,9 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
   // ── 4. 적 ───────────────────────────────────────────────────
   /* ★ §19-F1(F05-3) — 이 서브틱에 길목을 새로 찾아볼 수 있는 적 수(프레임 예산) */
   b.scanLeft = breachCfg(cfg)?.scanBudget ?? 0;
+  /* ★ 작업1 — 적은 건물을 먼저 노린다: 모든 건물이 10% 이하로 무너지기 전까지는 중심(b.core)을
+     향하지 않는다. 서브틱마다 적 수만큼 반복 계산하지 않도록, 이 서브틱에서 딱 한 번만 잰다. */
+  const structsLow = allStructuresLow(nation);
   const fences = aliveFences(nation);
   const defenders = [
     ...alive(b.militia).map((m) => ({ kind: 'militia', ref: m, x: m.x, y: m.y })),
@@ -632,6 +645,21 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
     /* 4-b-2. ★ §19-F1(F05-3) — 석벽을 넘었으면 길목의 건물이 기다린다.
        부수는 값(체력 비례)이 돌아가는 값보다 싸면 부수고, 비싸면 비껴 간다. */
     if (dCore > b.coreRadius + 1.5 && pushThrough(world, nation, e, b, data, cfg, dt, flow)) continue;
+
+    /* ★ 작업1 — 건물이 아직 10% 넘게 남아 있으면 중심이 아니라 가장 가까운 그 건물부터 노린다. */
+    if (!structsLow) {
+      const target = nearestLiveStructure(nation, e);
+      if (target) {
+        const tr = (structureRadius ? structureRadius(target) : 0) || 0.6;
+        const dT = dist(e.x, e.y, target.x, target.y);
+        if (dT <= cfg.meleeRangeTiles + tr + 0.6) {
+          hitStructure(b, target, e.dps * e.structureDamageBonus * (cfg.structureDamagePerSecond / 6) * dt, cfg, data);
+          continue;
+        }
+        moveToward(e, target.x, target.y, dt, world, data, flow);
+        continue;
+      }
+    }
 
     // 4-c. 중심까지 왔으면 건물을 부수고 계속 약탈한다 (쫓아내지 못하면 곳간이 마른다)
     if (dCore <= b.coreRadius + 1.5) {
@@ -869,6 +897,33 @@ function moveToward(e, tx, ty, dt, world, data, flow = null) {
   e.flowLeft = flow.lockSeconds;             // 이제부터 몇 초는 장만 따른다(위 머리말)
   e.flowTo = null;
   flowStep(e, step, world, data, flow);
+}
+
+/**
+ * ★ 작업1 — nation.structures 가 전부 hp <= maxHp*0.1 로 무너졌는지. 건물이 하나도 없으면
+ *   막을 것이 없다는 뜻이라 true(=중심으로) 로 본다.
+ */
+function allStructuresLow(nation) {
+  const list = nation.structures || [];
+  if (!list.length) return true;
+  for (const s of list) {
+    const floor = (s.maxHp || 0) * 0.1;
+    if ((s.hp ?? 0) > floor) return false;
+  }
+  return true;
+}
+
+/** ★ 작업1 — 적이 지금 노릴, 아직 10% 넘게 남은 가장 가까운 건물 */
+function nearestLiveStructure(nation, enemy) {
+  let best = null;
+  let bd = Infinity;
+  for (const s of nation.structures || []) {
+    const floor = (s.maxHp || 0) * 0.1;
+    if ((s.hp ?? 0) <= floor) continue;
+    const d = dist(s.x, s.y, enemy.x, enemy.y);
+    if (d < bd) { bd = d; best = s; }
+  }
+  return best;
 }
 
 /**

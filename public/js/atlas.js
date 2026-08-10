@@ -62,6 +62,34 @@
     });
   }
 
+  /* ★ 웨이브 용/일반 용 갈래 — 습격(웨이브) 중에 나타나는 용은 위 boss()가 읽는
+     assets/creature/ash_wyrm/*.png(흰 용, 9프레임 비행 스트립)를 그대로 쓴다.
+     그냥 돌아다니다 마주치는 「일반 적」 용은 assets/enemy/dragon/sheet.png(붉은 용)를 쓴다 —
+     이 시트는 여느 짐승 시트(wild())와 같은 4열×6행 격자라 크롭 식도 그쪽과 맞췄다.
+     아직 못 읽었으면 null 을 돌려주고, 부르는 쪽(world.js)이 흰 용으로 대신 그린다. */
+  var RED_DRAGON_IMAGE = null;
+  function redDragonSheet() {
+    if (!RED_DRAGON_IMAGE) {
+      RED_DRAGON_IMAGE = new Image();
+      RED_DRAGON_IMAGE.onload = function () { try { global.dispatchEvent(new Event('gm:building-asset-ready')); } catch (e) {} };
+      RED_DRAGON_IMAGE.onerror = function () { RED_DRAGON_IMAGE.failed = true; };
+      RED_DRAGON_IMAGE.src = 'assets/enemy/dragon/sheet.png?v=dragon-red-1';
+    }
+    return RED_DRAGON_IMAGE.complete && RED_DRAGON_IMAGE.naturalWidth && !RED_DRAGON_IMAGE.failed ? RED_DRAGON_IMAGE : null;
+  }
+  function bossRed(frame, opts) {
+    opts = opts || {};
+    var sheet = redDragonSheet();
+    if (!sheet) return null;
+    var row = opts.attack ? 3 + (frame % 2 ? 1 : 0) : (frame % 2 ? 1 : 0);
+    var col = opts.direction == null ? 1 : opts.direction % 4;
+    var cw = sheet.naturalWidth / 4, ch = sheet.naturalHeight / 6;
+    return cached('bossRed:' + row + ':' + col + (opts.hurt ? ':h' : ''), cw, ch, function (P, g) {
+      g.drawImage(sheet, col * cw, row * ch, cw, ch, 0, 0, cw, ch);
+      if (opts.hurt) { g.fillStyle = 'rgba(220,80,70,.35)'; g.fillRect(0, 0, cw, ch); }
+    });
+  }
+
   /* 신전 수호병은 일반 야생종과 같은 종값을 공유해도 신전별 전용 시트를 쓴다.
      시트는 4열 x 5행(대기·이동·공격·피격·사망)으로 고정한다. */
   function handmadeGuardian(theme) {
@@ -216,11 +244,12 @@
     SCALED.forEach(function (v, k) { if (k.indexOf(p) === 0) SCALED.delete(k); });
   }
 
-  function mk(w, h, draw) {
-    var cv = document.createElement('canvas');
-    cv.width = w; cv.height = h;
+  /** 캔버스 하나에 draw 를 다시 친다. cv 를 주면 그 장을 지우고 되쓴다(새로 만들지 않는다). */
+  function paint(cv, w, h, draw) {
+    if (!cv) { cv = document.createElement('canvas'); cv.width = w; cv.height = h; }
     var ctx = cv.getContext('2d');
     if (ctx) {
+      ctx.clearRect(0, 0, w, h);
       ctx.imageSmoothingEnabled = false;
       draw(function (x, y, ww, hh, col) {
         ctx.fillStyle = col;
@@ -229,9 +258,57 @@
     }
     return cv;
   }
+  function mk(w, h, draw) { return paint(null, w, h, draw); }
   function cached(key, w, h, draw) {
     if (!CACHE[key]) CACHE[key] = mk(w, h, draw);
     return CACHE[key];
+  }
+
+  /* ★ 2026-08 최적화 — 「땅 한 칸」 곳간만 상한을 둔다.
+     「왜」 — terrainBlob·terrainSample 의 열쇠에는 세계 좌표에서 나온 값이 들어간다
+     (shapeX/Y 는 %11, sampleX/Y 는 %32 → 두 축의 되풀이 주기가 352칸이다).
+     그래서 옛 CACHE 는 **걸어 다닌 칸 수만큼** 16×16 캔버스를 낳고 하나도 버리지 않았다.
+     256칸 지도를 다 돌면 육만 장이 넘는다 — 캔버스 한 장은 픽셀 1KB 라도 브라우저가
+     쥐는 몫(객체·백업 저장소·GPU 텍스처)은 그 수십 배라, 이것이 3~5GB 의 정체이고
+     **처음 가는 땅에서만 유독 버벅이던** 까닭이다(그 자리에서 수천 장을 새로 만들었다).
+     상한을 두고, 버릴 장은 지우지 않고 **씻어서 되쓴다** — 새 캔버스를 안 만드니
+     쓰레기 치우기(GC)도 멈추지 않는다. 굽는 셈은 결정적이라 **그림은 한 점도 달라지지 않는다**:
+     버렸다 다시 구워도 같은 픽셀이 나온다. */
+  var TILE_CACHE = new Map();
+  var TILE_CACHE_MAX = 4096;      // 청크 한 장이 256칸이니 열여섯 장이 동시에 구워져도 넉넉하다
+  function tileCached(key, w, h, draw) {
+    var hit = TILE_CACHE.get(key);
+    /* 맞았으면 차례의 맨 뒤로 — 이 한 줄이 FIFO 를 LRU 로 만든다 */
+    if (hit) { TILE_CACHE.delete(key); TILE_CACHE.set(key, hit); return hit; }
+    var reuse = null;
+    if (TILE_CACHE.size >= TILE_CACHE_MAX) {
+      var oldest = TILE_CACHE.keys().next();
+      if (!oldest.done) {
+        reuse = TILE_CACHE.get(oldest.value);
+        TILE_CACHE.delete(oldest.value);
+        if (reuse && (reuse.width !== w || reuse.height !== h)) reuse = null;
+      }
+    }
+    var cv = paint(reuse, w, h, draw);
+    TILE_CACHE.set(key, cv);
+    return cv;
+  }
+
+  /* 땅 표본(terrainSample)용 — 여기서는 **씻어 되쓰지 않고 놓아주기만** 한다.
+     terrainBlob 이 바탕(bg)과 앞면(fg) 두 장을 손에 쥔 채로 그리므로, 되쓰면 그 둘 중
+     하나가 그리는 도중에 씻겨 나갈 수 있다. 놓아준 장은 아무도 안 보게 되면 알아서 사라진다. */
+  var SAMPLE_CACHE = new Map();
+  var SAMPLE_CACHE_MAX = 6144;
+  function sampleCached(key, w, h, draw) {
+    var hit = SAMPLE_CACHE.get(key);
+    if (hit) { SAMPLE_CACHE.delete(key); SAMPLE_CACHE.set(key, hit); return hit; }
+    if (SAMPLE_CACHE.size >= SAMPLE_CACHE_MAX) {
+      var oldest = SAMPLE_CACHE.keys().next();
+      if (!oldest.done) SAMPLE_CACHE.delete(oldest.value);
+    }
+    var cv = mk(w, h, draw);
+    SAMPLE_CACHE.set(key, cv);
+    return cv;
   }
   function emptySprite(w, h) { return cached('empty:' + w + ':' + h, w, h, function () {}); }
 
@@ -417,7 +494,7 @@
     var px = phaseAt(worldX, spanX), py = phaseAt(worldY, spanY);
     var sx = px.index * 16, sy = py.index * 16;
     var key = 'ts:' + code + ':' + sx + ':' + sy + ':' + (px.flip ? 1 : 0) + ':' + (py.flip ? 1 : 0);
-    return cached(key, 16, 16, function (P, g) {
+    return sampleCached(key, 16, 16, function (P, g) {
       try {
         g.save();
         g.translate(px.flip ? 16 : 0, py.flip ? 16 : 0);
@@ -439,7 +516,10 @@
     var sampleX = worldX == null ? 0 : ((worldX % 32) + 32) % 32;
     var sampleY = worldY == null ? 0 : ((worldY % 32) + 32) % 32;
     var key = 'tb:' + code + ':' + backdrop + ':' + sameMask + ':' + variant + ':' + shapeX + ':' + shapeY + ':' + sampleX + ':' + sampleY;
-    return cached(key, 16, 16, function (P, g) {
+    /* ★ 열쇠에 세계 좌표가 들어가는 **유일한** 곳간이라 여기만 상한을 둔다(위 tileCached 주석).
+       terrainSample 은 sx·sy 가 0~496 으로 갇혀 있어 그대로 둔다 — 저것까지 되쓰면
+       아래 bg·fg 두 장 중 하나가 씻겨 나갈 수 있다. */
+    return tileCached(key, 16, 16, function (P, g) {
       var bg = terrainSample(backdrop, worldX, worldY, (variant + 1) % 4);
       var fg = terrainSample(code, worldX, worldY, variant);
       /* Only one side of a terrain pair owns the blend.  If both tiles paint
@@ -2001,7 +2081,7 @@
     scaledSize: function () { return SCALED.size; },
     town: town, hall: hall, wagon: wagon, caravan: caravan, camp: camp, folk: folk,
     avatar: avatar, avatarPortrait: avatarPortrait, avatarImg: avatarImg,
-    enemy: enemy, wild: wild, boss: boss, variantAt: variantAt, hash01: h2, clear: clear,
+    enemy: enemy, wild: wild, boss: boss, bossRed: bossRed, variantAt: variantAt, hash01: h2, clear: clear,
     palette: palette, styleOf: styleOf, appKey: appKey, styleOfBuilding: styleOfBuilding
   };
 })(window);

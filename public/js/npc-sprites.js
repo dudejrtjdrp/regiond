@@ -5,15 +5,30 @@
   /* 0=S, 1=SW, 2=W, 3=NW, 4=N, 5=NE, 6=E, 7=SE */
   var DIRECTION = ['south', 'sw', 'west', 'nw', 'north', 'ne', 'east', 'se'];
   /* 원본마다 투명 캔버스 여백이 다르다. [x, y, width, height]는 9프레임 전체를 감싼 실제 도트 영역. */
+  /* ★ 2026-08 최적화 — PNG 자체를 위 「실제 도트 영역」으로 잘라 굽고 0.55배로 줄였다.
+     투명 여백이 90%였고(252² 중 실제는 60×134), 그 여백까지 브라우저가 낱장마다 디코드해
+     GPU 로 올리고 있었다. 잘린 그림의 원본 높이(65~76px)는 최대 줌의 표시 높이(t*2 = 64px)보다
+     여전히 크므로 **화질은 한 픽셀도 손해 보지 않는다**. 원본은 tools/opt_backup/player 에 있다.
+     그래서 이제 잘라낼 것이 없다 — 각 칸은 그림 전체다. */
   var CROP = {
     male: [
-      [98, 59, 49, 128], [93, 64, 56, 122], [14, 4, 43, 121], [38, 5, 51, 118],
-      [96, 56, 53, 128], [37, 5, 51, 118], [37, 5, 57, 119], [36, 5, 53, 123]
+      [0, 0, 27, 70], [0, 0, 31, 67], [0, 0, 24, 67], [0, 0, 28, 65],
+      [0, 0, 29, 70], [0, 0, 28, 65], [0, 0, 31, 65], [0, 0, 29, 68]
     ],
     female: [
-      [96, 60, 60, 134], [91, 62, 70, 138], [91, 63, 67, 127], [90, 67, 72, 123],
-      [97, 61, 58, 127], [94, 59, 65, 135], [92, 63, 72, 126], [93, 62, 70, 133]
+      [0, 0, 33, 74], [0, 0, 38, 76], [0, 0, 37, 70], [0, 0, 40, 68],
+      [0, 0, 32, 70], [0, 0, 36, 74], [0, 0, 40, 69], [0, 0, 38, 73]
     ]
+  };
+  /* ★ 2026-08 최적화 — 방향마다 9프레임을 가로 한 줄(스트립)로 묶었다.
+     낱장 144개는 그림 파일 144개 · GPU 텍스처 144개였고, 걷는 사람이 열이면 한 프레임에
+     텍스처를 백 번 갈아 끼웠다. 이제 방향당 한 장이라 열여섯 장이면 끝난다.
+     픽셀은 이어 붙였을 뿐 한 점도 달라지지 않았다. */
+  var FRAME = {
+    female: { south: [33, 74], sw: [38, 76], west: [37, 70], nw: [40, 68],
+              north: [32, 70], ne: [36, 74], east: [40, 69], se: [38, 73] },
+    male:   { south: [27, 70], sw: [31, 67], west: [24, 67], nw: [28, 65],
+              north: [29, 70], ne: [28, 65], east: [31, 65], se: [29, 68] }
   };
   var images = {};
 
@@ -29,23 +44,26 @@
     var image = images[key];
     if (!image) {
       image = new Image();
-      image.src = 'assets/player/npc-walk/' + key + '.png';
+      image.src = 'assets/player/npc-walk-strip/' + key + '.png';
       images[key] = image;
     }
     return image;
   }
 
-  function get(id, dir, frame) {
+  function get(id, dir) {
     var skin = skinFor(id);
     var direction = DIRECTION[dir] || 'south';
-    var no = String((frame % 9) + 1).padStart(2, '0');
-    var image = imageFor(skin + '/' + direction + '/' + no);
+    var image = imageFor(skin + '/' + direction);
     return image.complete && image.naturalWidth ? image : null;
   }
 
-  function cropFor(id, dir) {
+  /** 스트립 안에서 이 프레임이 앉은 칸. frame 을 안 주면 첫 칸(멈춰 선 모습)이다. */
+  function cropFor(id, dir, frame) {
     var skin = skinFor(id);
-    return CROP[skin][dir] || CROP[skin][0];
+    var direction = DIRECTION[dir] || 'south';
+    var f = FRAME[skin][direction] || FRAME[skin].south;
+    var no = ((frame | 0) % 9 + 9) % 9;
+    return [no * f[0], 0, f[0], f[1]];
   }
 
   /* ★ 2026-08 — 「나」 칸의 얼굴. 역할을 맡기 전(감정의 날 이전)에는 초상 자리에 직업 얼굴을
@@ -58,8 +76,8 @@
     cv.className = 'npc-face';
     cv.style.imageRendering = 'pixelated';
     var ctx = cv.getContext('2d');
-    var crop = cropFor(id, 0);
-    var image = imageFor(skinFor(id) + '/south/01');
+    var crop = cropFor(id, 0, 0);
+    var image = imageFor(skinFor(id) + '/south');
     function paint() {
       if (!image.complete || !image.naturalWidth) return;
       var side = crop[2] * 0.72;                      // 어깨는 버리고 머리만 담을 만큼
@@ -75,9 +93,7 @@
 
   function preload() {
     ['male', 'female'].forEach(function (skin) {
-      DIRECTION.forEach(function (direction) {
-        for (var frame = 1; frame <= 9; frame++) imageFor(skin + '/' + direction + '/' + String(frame).padStart(2, '0'));
-      });
+      DIRECTION.forEach(function (direction) { imageFor(skin + '/' + direction); });
     });
   }
 

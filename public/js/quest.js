@@ -22,8 +22,65 @@
     return c.goal ? (c.id + ':' + c.goal.key) : (c.id + ':done');
   }
 
+  /* ══════════ ★ 퀘스트 패널 — 왼쪽에 상시 펼쳐져 있던 목표 카드·유물 원정을
+     하나의 접이식 패널로 묶는다(기본 접힘). index.html 은 건드리지 않고, 이미 있는
+     #goal-card·#artifact-track-card·유물 원정 단추 둘을 이 껍데기 안으로 옮겨 담는다. */
+  function ensureQuestPanel() {
+    var goal = U.qs('#goal-card');
+    if (!goal) return;
+    if (goal.parentNode && goal.parentNode.id === 'quest-panel-body') return;   // 이미 짰다
+    var stage = goal.parentNode;
+    if (!stage) return;
+
+    var panel = U.el('div', 'quest-panel');
+    panel.id = 'quest-panel';
+    var toggle = U.el('button', 'quest-panel-toggle');
+    toggle.type = 'button';
+    toggle.id = 'quest-panel-toggle';
+    toggle.setAttribute('aria-label', '퀘스트');
+    var ic = document.createElement('img');
+    ic.className = 'qp-icon';
+    ic.src = 'assets/new_UI/알림 UI/퀘스트 아이콘.png';
+    ic.alt = '';
+    toggle.appendChild(ic);
+    toggle.appendChild(U.el('span', 'qp-label', '퀘스트'));
+    U.tipSet(toggle, '퀘스트', '눌러서 지금 할 일과 유물 원정을 펼치거나 접습니다.');
+    toggle.onclick = function () { panel.classList.toggle('open'); };
+
+    var body = U.el('div', 'quest-panel-body');
+    body.id = 'quest-panel-body';
+
+    panel.appendChild(toggle);
+    panel.appendChild(body);
+    stage.insertBefore(panel, goal);
+    body.appendChild(goal);
+
+    /* 유물 원정 구간 — 원정 카드와 「발견 기록」·「유물 보관함」 단추를 같은 지붕 아래 둔다 */
+    var track = U.qs('#artifact-track-card');
+    var journalBtn = U.qs('#artifact-journal-btn');
+    var invBtn = U.qs('#artifact-inventory-btn');
+    if (track || journalBtn || invBtn) {
+      var sep = U.el('div', 'quest-panel-sep');
+      var sepIc = document.createElement('img');
+      sepIc.className = 'qp-sep-icon';
+      sepIc.src = 'assets/new_UI/알림 UI/유물 보관함 아이콘.png';
+      sepIc.alt = '';
+      sep.appendChild(sepIc);
+      sep.appendChild(U.el('span', null, '유물 원정'));
+      body.appendChild(sep);
+      if (track) body.appendChild(track);
+      if (journalBtn || invBtn) {
+        var acts = U.el('div', 'quest-panel-acts');
+        if (journalBtn) acts.appendChild(journalBtn);
+        if (invBtn) acts.appendChild(invBtn);
+        body.appendChild(acts);
+      }
+    }
+  }
+
   /* ══════════ 목표 카드 ══════════ */
   function update() {
+    ensureQuestPanel();
     var card = U.qs('#goal-card');
     if (!card) return;
     if (!S.uiOn('hud.questCard') || !S.S.view) { card.hidden = true; return; }

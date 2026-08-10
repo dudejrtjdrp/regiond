@@ -40,6 +40,8 @@
 
   /** 지금 오프닝을 틀 자리인가 — 갓 세운 야영지에서만 */
   function shouldPlay() {
+    /* ★ [이어하기]로 든 판은 마차를 태우지 않는다 — 돌아온 사람은 이미 내렸다(lobby.js resume). */
+    if (S.S.resumedFromSave) return false;
     if (S.S.mock) return true;
     if (seen()) return false;
     if (S.tierNo() > 0) return false;

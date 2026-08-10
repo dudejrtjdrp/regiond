@@ -48,10 +48,17 @@
     var me = GM.avatar && GM.avatar.pos();
     if (!me) return null;
 
+    /* ★ 손이 닿는 반경. 적·짐승을 고르는 자도 이것보다 짧으면 안 된다 —
+       칼이 닿는 자리에 적이 서 있는데 곁의 나무가 먼저 잡히는 일이 그래서 생겼다. */
+    var reachR = S.swingRange();
+
     /* 전투 중이면 적이 먼저다 */
     var b = S.battleLive();
     if (b && b.enemies && b.enemies.length) {
-      var cr = S.combatCfg().rangeTiles || 2.5;
+      /* ★ 적 판정 반경(2.5)이 스윙 반경(3)보다 짧아, 2.6~3.0칸의 적은 이 갈래를 그냥 지나쳐
+         뒤의 자원 자리에게 잡혔다("적을 치고 싶은데 자원이 있으면 안 쳐진다").
+         이제 둘 중 **긴 쪽**으로 잰다 — 서버 판정은 rangeTiles + 0.6(=3.1)이라 그대로 통과한다. */
+      var cr = Math.max(S.combatCfg().rangeTiles || 2.5, reachR);
       var best = null, bd = 1e9;
       for (var i = 0; i < b.enemies.length; i++) {
         var e = b.enemies[i];
@@ -66,7 +73,8 @@
        사슴 한 마리가 고기 셋이고, 늑대는 이쪽이 안 베면 저쪽이 문다.
        사냥이 열리기 전(3장 '허기' 이전)에는 이 갈래 자체가 없다 — 잠긴 것은 부재다(§11-1). */
     if (S.featOn('hunt') && GM.world && GM.world.nearestWild) {
-      var hr = (S.combatCfg().huntRangeTiles) || S.combatCfg().rangeTiles || 2.8;
+      /* 사냥도 같은 이유로 스윙 반경까지 넓힌다 — 서버는 huntRange + targetSlack(1.0)까지 받는다. */
+      var hr = Math.max((S.combatCfg().huntRangeTiles) || S.combatCfg().rangeTiles || 2.8, reachR);
       var w = GM.world.nearestWild(me.x, me.y, hr);
       if (w) return { kind: 'wild', id: w.c.id, x: w.x, y: w.y, obj: w.c, skill: 'combat', species: w.c.sp };
     }
@@ -77,7 +85,7 @@
     var cm = campTarget();
     if (cm) return cm;
 
-    var r = S.swingRange();
+    var r = reachR;
     var bestT = null, bestD = 1e9;
     S.sites().forEach(function (c) {
       if (c.x == null) return;
@@ -569,7 +577,14 @@
       GM.fx.debris(pos.x, pos.y, '#7a4a2c', 26, 1.6);
       GM.fx.vignette('#e05a2c', 2.6);
       setTimeout(function () {
-        U.epic({ title: p.boss.title, sub: p.boss.text, kind: 'land' });
+        /* ★ 처치 연출 씬 — 있으면 컷신을 먼저 돌리고, 끝나면 요란한 문구를 얹는다. */
+        var epicNow = function () {
+          U.epic({ title: p.boss.title, sub: p.boss.text, kind: 'land' });
+        };
+        if (GM.storycine && GM.storycine.DRAGON_SLAIN) {
+          try { GM.storycine.play(GM.storycine.DRAGON_SLAIN, { auto: true, onEnd: epicNow }); }
+          catch (e) { epicNow(); }
+        } else epicNow();
       }, 1100);
     }
     if (p.buildPoints) GM.fx.floatText(pos.x, pos.y - 1.0, '공사 +' + U.fmt(p.buildPoints, 1), '#f6cf7a', 12);

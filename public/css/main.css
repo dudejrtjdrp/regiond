@@ -433,6 +433,24 @@ button[data-tip],.res-chip[data-tip],.minister[data-tip]{cursor:pointer}
 @keyframes invPulse{0%,55%{box-shadow:inset 0 0 0 2px rgba(255,235,230,.5), 0 4px 0 #4e1a1b, 0 0 0 0 rgba(188,71,73,.9)}
   56%,100%{box-shadow:inset 0 0 0 2px rgba(255,235,230,.5), 0 4px 0 #4e1a1b, 0 0 0 10px rgba(188,71,73,0)}}
 
+/* ══════════ ★ 퀘스트 패널 — 목표 카드 + 유물 원정을 한 덩이로 접는다(기본 접힘) ══════════ */
+.quest-panel{width:min(280px,44vw)}
+.quest-panel-toggle{display:flex; align-items:center; gap:8px; width:100%; padding:8px 12px; cursor:pointer;
+  background:linear-gradient(180deg,var(--paper-lit) 0 5px,var(--paper) 5px 100%);
+  border:3px solid var(--wood); color:var(--ink); text-align:left;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.5), 0 4px 0 var(--wood-deep)}
+.quest-panel-toggle:hover{filter:brightness(1.04)}
+.quest-panel-toggle .qp-icon{width:22px; height:22px; object-fit:contain; image-rendering:pixelated; flex:0 0 auto}
+.quest-panel-toggle .qp-label{font-size:14px}
+.quest-panel-toggle::after{content:'▾'; margin-left:auto; color:var(--ink-dim); transition:transform .15s}
+.quest-panel.open .quest-panel-toggle::after{transform:rotate(180deg)}
+.quest-panel-body{display:none; margin-top:6px; max-height:min(64vh,520px); overflow-y:auto; overflow-x:hidden; padding-right:2px}
+.quest-panel.open .quest-panel-body{display:block}
+.quest-panel-sep{display:flex; align-items:center; gap:6px; margin:10px 0 6px; font-size:12px; color:var(--gold-deep); letter-spacing:.06em}
+.quest-panel-sep .qp-sep-icon{width:16px; height:16px; object-fit:contain; image-rendering:pixelated}
+.quest-panel-acts{display:flex; flex-direction:column; gap:6px}
+.quest-panel-acts .artifact-journal-btn{margin-top:0}
+
 /* 목표 카드 */
 .goal-card{
   padding:11px 13px; width:min(268px,44vw); position:relative;
@@ -460,9 +478,25 @@ button[data-tip],.res-chip[data-tip],.minister[data-tip]{cursor:pointer}
 .temple-interior-cap{color:#f6cf7a;font-size:12px;letter-spacing:.08em;margin-bottom:10px}.temple-route{display:flex;gap:5px}.temple-step{flex:1;min-width:0;padding:8px 5px;text-align:center;border:1px solid rgba(210,195,166,.2);color:#958c83;background:rgba(10,8,13,.36)}
 .temple-step-icon{display:block;font-size:17px;line-height:20px}.temple-step-name{display:block;font-size:10px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.temple-step.active{color:#fff0b5;border-color:#f6cf7a;box-shadow:0 0 12px rgba(246,207,122,.3)}.temple-step.passed{color:#a9d48c;border-color:rgba(141,187,109,.52)}.temple-interior-copy{margin:10px 0 0;color:#d7cbb8;font-size:12px;line-height:1.5}
 
+/* ══════════ ★ 알림 센터 — 흩어져 있던 알림을 한 덩이로 접는다(기본 접힘) ══════════ */
+.notice-center{position:absolute; top:12px; right:12px; z-index:15; display:flex; flex-direction:column; align-items:flex-end}
+.notice-center-toggle{position:relative; width:52px; height:52px; padding:0; border:none; cursor:pointer; flex:0 0 auto;
+  background:url('../assets/new_UI/알림 UI/아이콘 창.png') center/contain no-repeat;
+  filter:drop-shadow(0 3px 4px rgba(0,0,0,.35))}
+.notice-center-toggle:hover{filter:drop-shadow(0 3px 4px rgba(0,0,0,.35)) brightness(1.08)}
+.notice-center-toggle .nc-icon{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:60%; height:60%; object-fit:contain; image-rendering:pixelated; pointer-events:none}
+.notice-center-toggle .nc-badge{position:absolute; top:-4px; right:-4px; min-width:18px; height:18px; padding:0 4px;
+  border-radius:9px; background:var(--red); color:#fff; font-size:11px; font-weight:bold; line-height:16px;
+  text-align:center; border:2px solid var(--red-deep); box-shadow:0 2px 0 rgba(0,0,0,.25)}
+.notice-center-body{display:none; margin-top:6px; width:min(280px,46vw); max-height:calc(100% - 220px);
+  overflow-y:auto; overflow-x:hidden; box-sizing:border-box; padding:16px 11px 12px;
+  background:url('../assets/new_UI/알림 UI/알림 UI.png') 0 0/100% 100% no-repeat;
+  filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
+.notice-center.open .notice-center-body{display:flex; flex-direction:column}
 /* 알림 스택 */
-.notices{position:absolute; top:12px; right:12px; z-index:15; display:flex; flex-direction:column;
-  gap:8px; width:min(268px,46vw); max-height:calc(100% - 150px); overflow-y:auto; overflow-x:hidden}
+.notices{display:flex; flex-direction:column;
+  gap:8px; width:100%}
 .notice{
   display:flex; align-items:flex-start; gap:9px; padding:8px 10px; cursor:pointer; text-align:left; width:100%;
   background:linear-gradient(180deg,var(--paper-lit) 0 5px, var(--paper) 5px 100%);
@@ -1412,12 +1446,12 @@ body.cutscene .toasts{bottom:74px}
 .relic-sect + .relic-sect{max-height:330px; overflow:auto}
 .relic-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(196px,1fr)); gap:9px}
 .relic-sect.crown .relic-grid{grid-template-columns:repeat(auto-fill,minmax(232px,1fr))}
-.relic-card{padding:9px 10px; display:flex; flex-direction:column; gap:4px;
+.relic-card{padding:9px 10px; display:flex; flex-direction:column; gap:4px; overflow:hidden;
   background:linear-gradient(180deg,var(--paper-lit) 0 5px,var(--paper) 5px 100%);
   border:3px solid var(--relic,var(--paper-deep))}
 .relic-card.unknown{background:rgba(40,32,48,.10); border-style:dashed; border-color:var(--relic,#9c8f76)}
 .relic-card.owned{box-shadow:inset 0 0 0 2px rgba(255,246,220,.7), 0 0 16px -6px var(--relic,#9c8f76)}
-.relic-art{display:flex; justify-content:center; align-items:center; height:52px}
+.relic-art{display:flex; justify-content:center; align-items:center; height:52px; overflow:hidden}
 .relic-dot{image-rendering:pixelated; width:44px; height:44px}
 .relic-art.sil .relic-dot{filter:brightness(0) opacity(.42)}
 .relic-name{font-size:15px; color:var(--relic,var(--wood-dark)); text-align:center}
@@ -1507,7 +1541,7 @@ body.cutscene .toasts{bottom:74px}
   background:rgba(190,70,70,.12); border-left:3px solid var(--red-deep)}
 .eq-slots{display:grid; grid-template-columns:1fr 1fr; gap:9px}
 .eq-slot{padding:9px 10px; background:linear-gradient(180deg,var(--paper-lit) 0 5px,var(--paper) 5px 100%);
-  border:3px solid var(--paper-deep); display:flex; flex-direction:column; gap:5px}
+  border:3px solid var(--paper-deep); display:flex; flex-direction:column; gap:5px; overflow:hidden}
 .eq-slot.empty{opacity:.8}
 .eq-head{display:flex; align-items:center; gap:7px}
 .eq-sname{color:var(--gold-deep); font-size:12.5px}
@@ -1685,12 +1719,11 @@ body.cutscene .toasts{bottom:74px}
   box-shadow:inset 0 0 0 2px rgba(255,255,255,.5), 0 2px 0 var(--wood-deep), 0 10px 22px rgba(0,0,0,.45);
   animation:dlgIn .16s steps(3)}
 @keyframes dlgIn{from{transform:translateX(-50%) translateY(14px);opacity:0}to{transform:translateX(-50%);opacity:1}}
-/* 이름표 — 판 좌상단에 겹쳐 붙는 작은 나무 패. 왼쪽 아래로 꼬리 한 조각. */
-.dlg-name{position:absolute; top:-13px; left:16px; padding:2px 12px; font-size:13px;
-  background:var(--wood); color:var(--paper-lit); border:2px solid var(--wood-deep);
-  box-shadow:2px 2px 0 rgba(0,0,0,.3)}
-.dlg-name::after{content:''; position:absolute; left:4px; bottom:-6px; width:6px; height:6px;
-  background:var(--wood); border-left:2px solid var(--wood-deep); border-bottom:2px solid var(--wood-deep)}
+/* 이름표 — ★ 2026-08 갈색 나무 패(배경 박스)를 없앤다. 이름 글자만 판 좌상단에 남는다. */
+.dlg-name{position:absolute; top:-13px; left:16px; padding:2px 4px; font-size:13px;
+  background:none; color:var(--wood-dark); border:none; box-shadow:none;
+  text-shadow:1px 1px 0 rgba(255,255,255,.7), -1px -1px 0 rgba(255,255,255,.4)}
+.dlg-name::after{content:none}
 .dlg-body{display:flex; gap:13px; align-items:flex-start}
 /* 초상 — atlas 절차 도트를 키운 것이라 반드시 pixelated (부드럽게 늘리면 도트가 죽는다) */
 .dlg-portrait{flex:0 0 auto; width:88px; height:88px; overflow:hidden;
@@ -1713,7 +1746,8 @@ body.cutscene .toasts{bottom:74px}
   object-fit:contain; pointer-events:none}
 .dlg-cinematic.dlg-left .dlg-scene{transform:scaleX(-1)}
 .dlg-cinematic > :not(.dlg-scene){position:relative; z-index:1}
-.dlg-cinematic .dlg-name{top:66%; left:8%; z-index:1; font-size:clamp(12px,1.5vw,16px)}
+.dlg-cinematic .dlg-name{top:66%; left:8%; z-index:1; font-size:clamp(12px,1.5vw,16px);
+  color:#fff3d8; text-shadow:1px 1px 2px rgba(0,0,0,.75), 0 0 6px rgba(0,0,0,.5)}
 .dlg-cinematic .dlg-body{position:absolute; z-index:1; left:9%; right:9%; top:72%; bottom:9%; display:block}
 .dlg-cinematic .dlg-text{min-height:0; height:100%; padding:0 2%; display:block}
 /* ★ 2026-08 — 판이 감당하는 것은 세 줄이다. 넘치는 말은 잘리는 것이 아니라 **다음 창으로 넘어간다**
@@ -2189,4 +2223,36 @@ body.cinema .world-canvas,body.cinema .fx-layer{
   .scene-found{padding-top:2vh}
   .scene-found .found-wrap{border-width:20px;
     border-image:url('../assets/ui/tile_square.png') 150 fill / 20px / 0 stretch}
+}
+
+/* ══════ 장면 0 · 불러오는 중 ══════
+   맨 위에 덮고, 다 받으면 스르르 걷힌다. 클릭을 받아 두어야 그 아래 타이틀의
+   핫스팟이 「아직 못 받은 그림」 위에서 눌리지 않는다(= 장식이 아니므로 decor 가 아니다). */
+.boot-screen{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 38%,#2b1d12 0%,#140d09 60%,#08060e 100%);
+  opacity:1;transition:opacity .4s ease}
+.boot-screen.is-gone{opacity:0;pointer-events:none}
+.boot-inner{text-align:center;padding:0 24px;max-width:520px}
+.boot-logo{font-family:'Noto Serif KR',serif;font-size:clamp(32px,7vw,56px);letter-spacing:.14em;
+  color:#f4e4bc;margin:0 0 10px;text-shadow:0 2px 0 #4a3220,0 0 22px rgba(246,207,122,.25)}
+.boot-say{color:#dcc9a0;font-size:15px;margin:0 0 18px;letter-spacing:.04em}
+.boot-bar{height:8px;border-radius:4px;background:rgba(244,228,188,.14);
+  box-shadow:inset 0 1px 3px rgba(0,0,0,.5);overflow:hidden}
+.boot-fill{display:block;height:100%;width:0;border-radius:4px;
+  background:linear-gradient(90deg,#a8701f,#f6cf7a);transition:width .18s ease}
+.boot-count{color:#a8956f;font-size:13px;margin:8px 0 0;font-variant-numeric:tabular-nums}
+.boot-tip{color:#8c7d5e;font-size:13px;margin:22px 0 0;line-height:1.6}
+@media (prefers-reduced-motion:reduce){
+  .boot-screen,.boot-fill{transition:none}
+}
+
+/* 얼마나 남았는지 모르는 기다림 — 띠가 좌우로 오간다(숫자는 비운다). */
+.boot-screen.is-wait .boot-fill{
+  width:100%;
+  background:linear-gradient(90deg,transparent 0%,#a8701f 35%,#f6cf7a 50%,#a8701f 65%,transparent 100%);
+  background-size:220% 100%;
+  animation:bootSweep 1.5s linear infinite}
+@keyframes bootSweep{from{background-position:120% 0}to{background-position:-120% 0}}
+@media (prefers-reduced-motion:reduce){
+  .boot-screen.is-wait .boot-fill{animation:none;background:#a8701f;opacity:.5}
 }

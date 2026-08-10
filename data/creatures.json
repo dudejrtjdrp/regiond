@@ -477,7 +477,8 @@
     "chaseGiveUpTiles": 18,
     "provokedSeconds": 20,
     "dayStepSeconds": 30,
-    "viewRadius": 46,
+    "_viewRadiusNote": "★ 2026-08 — 46에서 72로. 46은 화면보다 좁았다: 최소 줌(한 칸 16px)에서 1920px 화면의 반폭이 60칸이라, 47~60칸 자리의 짐승은 화면 안에 있는데도 서버가 보내지 않았다. 그래서 조금만 걸어도 짐승이 사라졌다 나타났고, 목록에 없으니 겨눌 수도 없었다. 72는 1920x1080의 모서리(69칸)까지 덮는다. 지도 전체를 흘리지는 않으므로 정찰의 뜻은 그대로다.",
+    "viewRadius": 72,
     "targetSlackTiles": 1.1
   },
   "codex": {
