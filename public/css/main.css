@@ -1768,8 +1768,8 @@ body.dialogue .me-panel{opacity:.16; pointer-events:none; transition:opacity .18
 .title-hot{position:absolute; top:30.1%; height:4.8%; padding:0; margin:0;
   background:transparent; border:none; cursor:pointer; border-radius:6px}
 #btn-new{left:38.1%; width:7.4%}    /* .387-.006 ~ .449+.006 */
-#btn-load{left:45.5%; width:7.0%}   /* .4607-.006 ~ .5243+.006 */
-#btn-join{left:52.8%; width:8.9%}   /* .534-.006 ~ .617+.006 */
+#btn-load{left:45.9%; width:7.0%}   /* 글자 중심 .4925 에 박스 중심을 맞춘다(.459+.035) */
+#btn-join{left:53.2%; width:8.9%}   /* 글자 중심 .5765 에 박스 중심을 맞춘다(.532+.0445) */
 /* 호버는 은은하게 — 밝기 1.18, 옅은 금빛 번짐과 밑줄 2px */
 .title-hot:hover,.title-hot:focus-visible{
   backdrop-filter:brightness(1.18) saturate(1.04);
@@ -2088,7 +2088,7 @@ body.cinema .world-canvas,body.cinema .fx-layer{
      ① 브라우저 기본 칸 그림(appearance) ② 크롬 자동완성이 UA !important 로 덮어 그리는 흰 판
      두 가지가 남아 있었다. 아래에서 둘 다 끈다(자동완성은 전이 지연으로 영영 안 뜨게 한다). */
 #scene-found input#found-name[type=text]{display:block; width:min(420px,100%); margin:0 auto;
-  aspect-ratio:773/120; height:auto; padding:0 10%;
+  aspect-ratio:788/141; height:auto; padding:0 10%;   /* 재키잉한 slot.png 실측 비율 */
   -webkit-appearance:none; appearance:none;
   background:url('../assets/ui/menu/slot.png') 0 0/100% 100% no-repeat;
   background-color:transparent; background-clip:border-box;
@@ -2139,7 +2139,7 @@ body.cinema .world-canvas,body.cinema .fx-layer{
 /* 마차에 오른다 — 파란 판 에셋(720×175) 그대로. 판 비율을 지켜야 글이 홈 가운데 앉는다. */
 .scene-found .found-go{margin:18px 0 6px}
 .scene-found #found-start.found-primary{display:block; width:78%; margin:0 auto;
-  aspect-ratio:720/175; padding:0; cursor:pointer; border:none; border-radius:0;
+  aspect-ratio:741/196; padding:0; cursor:pointer; border:none; border-radius:0;   /* 재키잉한 btn_blue.png 실측 비율 */
   background:url('../assets/ui/menu/btn_blue.png') 0 0/100% 100% no-repeat;
   box-shadow:none;
   font-family:var(--serif-kr); font-weight:700; font-size:clamp(15px,4vw,20px);
@@ -2160,12 +2160,11 @@ body.cinema .world-canvas,body.cinema .fx-layer{
 .scene-found .fold .hint{color:#5a4020; opacity:.82}
 .scene-found .switch{color:#5a4020}
 
-/* 뒤로 — 판 바깥 아래 가운데. 멀티플레이 판의 .menu-back 과 같은 결(투명·세리프·자간) */
-.found-back{display:block; margin:14px auto 0; padding:4px 18px; cursor:pointer;
-  background:transparent; border:none; color:#e8dcc0; font-family:var(--serif-kr);
-  font-size:clamp(12px,3.2vw,15px); letter-spacing:.3em; text-indent:.3em;
-  text-shadow:0 1px 3px rgba(0,0,0,.7)}
-.found-back:hover{text-shadow:0 0 8px rgba(200,160,90,.7)}
+/* 뒤로 — 메뉴 판들처럼 판 **안** 아래 가운데(양피지 위라 어두운 갈색 글자) */
+.found-back{display:block; margin:12px auto 0; padding:2px 18px; cursor:pointer;
+  background:transparent; border:none; color:#5a4830; font-family:var(--serif-kr);
+  font-size:clamp(12px,3.2vw,15px); letter-spacing:.3em; text-indent:.3em}
+.found-back:hover{color:#3d2f1a; text-shadow:0 0 8px rgba(200,160,90,.6)}
 .scene-found .scene-status{color:var(--gold)}
 
 @media (max-width:560px){

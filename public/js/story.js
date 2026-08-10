@@ -38,12 +38,23 @@
     play(queue.shift(), drain);
   }
 
-  /** 엔딩 사슬이 다 끝났다 — 제작자 화면과 「계속 플레이 하시겠습니까」로 넘긴다(§세계관 W3). */
+  /**
+   * 엔딩 사슬이 다 끝났다 — 제작자 화면과 「계속 플레이 하시겠습니까」로 넘긴다(§세계관 W3).
+   *
+   * 「왜」 곧바로 열지 않고 한 박자 두나 — 엔딩 beat 들(ending·ending_cookie)이 **한 묶음으로
+   * 오지 않을 수도** 있다. 앞 장이 끝난 그 순간에는 줄이 잠깐 비므로, 거기서 바로 크레딧을 올리면
+   * 쿠키(세라의 에필로그)가 크레딧 뒤로 밀리거나 크레딧이 두 번 뜬다. 그래서 잠깐 기다렸다가
+   * **그때도 여전히 비어 있을 때만** 연다. 뒤늦게 온 beat 가 있으면 문을 다시 건다.
+   */
+  var finaleTimer = 0;
   function finale() {
-    if (!finaleDue || chain || queue.length) return;
-    finaleDue = false;
-    if (!GM.endcredits) return;
-    setTimeout(function () { GM.endcredits.play(); }, 500);
+    if (!finaleDue || chain || queue.length || finaleTimer) return;
+    finaleTimer = setTimeout(function () {
+      finaleTimer = 0;
+      if (chain || queue.length) { finale(); return; }   // 남은 이야기가 먼저다
+      finaleDue = false;
+      if (GM.endcredits) GM.endcredits.play();
+    }, 600);
   }
 
   function play(beat, done) {
