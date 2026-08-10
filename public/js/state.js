@@ -1360,6 +1360,23 @@
   function phaseMeta() { return DAY_PHASES[phaseIndex()]; }
   function isNight() { return phaseIndex() === 3; }
 
+  /* ── ★ 하루의 시계 ────────────────────────────────────
+     「왜 4시부터인가」 — 시간대 판(assets/ui/time)이 h04·h08·h12·h16·h20·h24 여섯 칸,
+     곧 네 시간씩 하루를 나눈 그림이다. 그래서 하루의 처음(f=0)을 04:00 으로 읽으면
+     그림과 4구간이 정확히 맞물린다: 아침 04–10 · 낮 10–16 · 저녁 16–22 · 밤 22–04.
+     판정에는 쓰지 않는다 — 사람이 「지금이 몇 시쯤인가」를 알아보라고 두는 표시 전용 값이다. */
+  var DAY_START_HOUR = 4;
+  function clock() {
+    var f = Math.min(0.999, Math.max(0, S.dayFraction || 0));
+    var mins = Math.floor(DAY_START_HOUR * 60 + f * 1440) % 1440;
+    return { hour: Math.floor(mins / 60), minute: mins % 60 };
+  }
+  /** 「06:24」 — 두 자리로 고정해 글자가 흔들리지 않게 */
+  function clockText() {
+    var c = clock();
+    return (c.hour < 10 ? '0' : '') + c.hour + ':' + (c.minute < 10 ? '0' : '') + c.minute;
+  }
+
   /* ── ★ 밝기 다이얼 (GDD3 §13-A-2) ────────────────────
      data/world.json 의 light 가 정본이다. 설정이 오면 4구간 표를 통째로 갈아 끼우고,
      못 받았으면 폴백으로 돈다 — 어느 쪽이든 화면은 같은 한 곳(lightCfg)만 본다. */
@@ -1790,6 +1807,7 @@
     applyBattle: applyBattle,                /* ★ §21-A2 — 나뉘어 오는 전투 스냅샷을 한 판으로 */
     enemyMeta: enemyMeta, directionMeta: directionMeta,
     timeCfg: timeCfg, phaseIndex: phaseIndex, phaseMeta: phaseMeta, isNight: isNight,
+    clock: clock, clockText: clockText,
     lightCfg: lightCfg, fogVeil: fogVeil,
     /* ★ GDD3 §14-2 — 밝기 슬라이더 */
     brightnessCfg: brightnessCfg, getBrightness: getBrightness, setBrightness: setBrightness,

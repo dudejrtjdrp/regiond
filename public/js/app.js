@@ -10,8 +10,26 @@
   var inGame = false;
   var openingDone = false;
   var dayStartAt = 0;
+  var lastStateTick = null;      // ★ 성능-4 — 하루 시계는 tick 이 바뀔 때만 되감는다
   var lastUnlockSig = '';
   var lastRadius = null;
+
+  /* ══════════ ★ 성능-4 — refreshAll 코얼레싱 ══════════
+     「왜」 — state 는 건설·집사·퀘스트마다 온다. 올 때마다 HUD·퀘스트·명부·패널 열두 자리를
+     전부 다시 세우면, 방송이 겹치는 순간 한 프레임을 통째로 잃는다(후반 실측 30ms+).
+     첫 방송은 **그 자리에서** 그린다(반응은 늦지 않는다). 그 뒤 120ms 안에 겹친 방송은
+     한 번으로 접는다 — refreshAll 은 「지금 장부」를 읽으므로 마지막 한 번이 전부와 같다. */
+  var refreshAt = 0, refreshTimer = null;
+  function scheduleRefresh() {
+    if (refreshTimer) return;
+    var since = Date.now() - refreshAt;
+    if (since >= 120) { refreshAt = Date.now(); refreshAll(); return; }
+    refreshTimer = setTimeout(function () {
+      refreshTimer = null;
+      refreshAt = Date.now();
+      refreshAll();
+    }, 120 - since);
+  }
 
   function boot() {
     if (booted) return;
@@ -80,6 +98,7 @@
         } });
       }
       dayStartAt = Date.now();
+      lastStateTick = null;      /* ★ 성능-4 — (재)입장 뒤의 첫 state 가 하루 시계를 새로 감게 */
       U.toast('여기서 시작합니다. 초대 코드 ' + (p.gameId || '') + ' 를 건네면 함께 개척합니다.', 'good', 6000);
       GM.devpanel.render();
     });
@@ -104,10 +123,20 @@
     });
 
     S.on('state', function (v) {
-      dayStartAt = Date.now();
+      /* ★ 성능-4 + 버그 — 하루 시계는 **날이 실제로 넘어갔을 때만** 다시 감는다.
+         예전에는 state 가 올 때마다(건설·집사·퀘스트마다 온다) Date.now() 로 되감아서,
+         활발히 놀수록 dayFraction 이 아침에 붙들려 밤이 오지 않았다. */
+      /* ★ 시계 맞추기 — 서버가 「이 하루가 얼마나 흘렀는가」를 함께 준다. 도중에 들어오거나
+         새로고침해도 아침으로 되감기지 않고 서버의 지금 시각에서 이어 흐른다. */
+      if (v && v.tick !== lastStateTick) {
+        lastStateTick = v.tick;
+        var dspan = ((v.time && v.time.dayRealSeconds) || S.timeCfg().dayRealSeconds || 600) * 1000;
+        var done = v.time && v.time.dayElapsedMs != null ? v.time.dayElapsedMs : 0;
+        dayStartAt = Date.now() - Math.max(0, Math.min(done, dspan * 0.999));
+      }
       trackUnlocks(v);
       trackTerritory(v);
-      refreshAll();
+      scheduleRefresh();
     });
     S.on('worldState', function () { if (inGame) GM.hud.update(); });
     /* ★ 실시간 ack 로 장부가 바뀐 순간 — 자원칸·목표 카드·배치대가 그 자리에서 따라온다.

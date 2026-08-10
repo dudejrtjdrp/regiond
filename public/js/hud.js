@@ -288,7 +288,9 @@
       badge.appendChild(GM.icons.img(icon, 24));
       var c2 = U.el('div', 'cal-col');
       c2.appendChild(U.el('span', 'cal-day-n', (v.day || 1) + '일째'));
-      c2.appendChild(U.el('span', 'cal-season', ph.name));
+      /* ★ 「아침」만 있으면 그 안에서 얼마나 갔는지가 안 보인다 — 대략의 시각을 함께 적는다
+         (04시에 하루가 열리고 24시에 닫힌다. 시간대 판 여섯 칸과 같은 눈금이다). */
+      c2.appendChild(U.el('span', 'cal-season', ph.name + ' · ' + S.clockText()));
       badge.appendChild(c2);
       var prog = U.el('span', 'day-prog');
       var fill = U.el('i');
@@ -296,8 +298,9 @@
       prog.appendChild(fill);
       badge.appendChild(prog);
       var mins = Math.round(((S.timeCfg().dayRealSeconds || 600) / 60) * 10) / 10;
-      U.tipSet(badge, (v.day || 1) + '일째 · ' + ph.name,
-        '하루는 ' + mins + '분입니다. 아침·낮·저녁·밤으로 나뉘고, 밤에는 시야가 좁아집니다.' +
+      U.tipSet(badge, (v.day || 1) + '일째 · ' + ph.name + ' ' + S.clockText(),
+        '하루는 ' + mins + '분입니다. 04시에 열려 24시에 닫히고, 아침(04–10)·낮(10–16)·' +
+        '저녁(16–22)·밤(22–04)으로 나뉩니다. 밤에는 시야가 좁아집니다.' +
         '\n해가 원호의 왼쪽에서 떠 오른쪽으로 지고, 밤에는 달이 그 길을 갑니다.' +
         (v.paused ? '\n지금 시간이 멈춰 있습니다.' : ''));
     }

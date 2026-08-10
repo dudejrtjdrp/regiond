@@ -160,6 +160,9 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
       dayRealSeconds: data.balance.time.dayRealSeconds,
       dayPhases: [...data.balance.time.dayPhases],
       subtickSeconds: data.waves.battle.subtickSeconds,
+      /* ★ 이 하루가 얼마나 흘렀는가(ms) — 도중에 들어오거나 새로고침해도 화면 시계가
+         다시 아침부터 시작하지 않게. 클라는 이 값만큼 시계를 앞으로 감아 놓고 흐른다. */
+      dayElapsedMs: Math.max(0, Date.now() - (world.tickAt || Date.now())),
     },
     // ★ GDD3 §1 — 성장 아크(반경·작업 속도·승격 연출). 해금 목록은 진행 감독이 채운다.
     tier: { ...tierView(nation, data), unlocked },
@@ -270,7 +273,11 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
          자리다. 그 전에는 유적 자체를 만날 일이 드물어 빈 안내만 뜬다. */
       ...(on('codex') ? {
         artifactHunt: artifactHuntView(world, nation, data),
-        decisionQueue: nation.decisionQueue,
+        /* ★ 성능-3 — 판단 카드는 앞의 30장만 싣는다. 실측에서 171장까지 쌓인 판이 있었다:
+           카드 하나가 알림 스택 DOM 한 줄 + 페이로드 300바이트라, 다 실으면 매 방송이 50KB 를 넘고
+           화면은 그 줄을 다 다시 세운다. 카드를 치우면(decide) 뒤의 것이 그 자리로 올라온다 —
+           보이는 순서·내용은 그대로다. */
+        decisionQueue: (nation.decisionQueue || []).slice(0, 30),
       } : {}),
       /* ★ 2026-08 — 손에 든 유물은 어전(9장)을 기다리지 않는다. 문을 아예 걷어냈다.
          「왜」 — 유적은 앞 장부터 유물을 내어 주고 서버도 useArtifact 를 앞 장부터 받는다

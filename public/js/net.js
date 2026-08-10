@@ -178,6 +178,18 @@
 
     socket.on('state', function (nv) {
       var prev = S.S.view;
+      /* ★ 성능-2 — state 살 빼기(PROTOCOL §4 state.keep). 서버가 「직전 방송과 같다」고 밝힌
+         큰 블록(workPosts·structures·residents…)은 빠져서 온다 — 내가 든 직전 값을 도로 꽂는다.
+         join 직후의 첫 state 는 언제나 전량이라(§3-0) prev 가 없는데 keep 이 오는 일은 없다. */
+      if (nv && nv.keep && prev) {
+        for (var ki = 0; ki < nv.keep.length; ki++) {
+          var kk = nv.keep[ki];
+          if (kk.indexOf('nation.') === 0) {
+            if (nv.nation && prev.nation) nv.nation[kk.slice(7)] = prev.nation[kk.slice(7)];
+          } else if (nv[kk] === undefined) nv[kk] = prev[kk];
+        }
+        delete nv.keep;
+      }
       S.set({ prevView: prev, view: nv });
       S.syncYou();
       S.emit('state', nv);
@@ -314,7 +326,14 @@
       console.error('[net] 규약에 없는 이벤트: ' + evt);
       return false;
     }
-    if (evt === 'join') lastJoin = payload || {};
+    if (evt === 'join') {
+      /* ★ 성능-2 — 이 화면은 state 살 빼기(keep)를 받아 조립할 줄 안다고 서버에 밝힌다.
+         옛 서버는 이 칸을 모른 채 무시하므로 아무 일도 일어나지 않는다(전량 그대로). */
+      payload = payload || {};
+      payload.caps = payload.caps || {};
+      payload.caps.stateKeep = true;
+      lastJoin = payload;
+    }
     if (!socket) { console.warn('[net] 소켓 없음, 무시: ' + evt); return false; }
     if (!S.S.connected && !isMock()) { queue.push([evt, payload || {}, ack || null]); return true; }
     out(evt, payload || {}, ack);

@@ -1,4 +1,4 @@
-// 갈래말래 서버 — express 정적 서빙 + socket.io + REST 디버그 API
+// Regiond 서버 — express 정적 서빙 + socket.io + REST 디버그 API
 // 서버 권위: 클라이언트는 표시와 명령 제출만 한다.
 // ★ PROTOCOL v3 (엔드리스 정착지): 일 틱(경제 정산)과 실시간(스윙·전투 서브틱)을 분리한다.
 //   · 일 틱      — tickRealSeconds(기본 600초 = 1게임일) 마다 step()
@@ -235,11 +235,32 @@ function hostOf(gameId) {
 
 // ────────────────────────────────────────────────────────────────
 // 게임 런타임
+/* ★ 성능-2 — 방송마다 다시 실을 필요가 없는 큰 블록들(후반 실측 1MB 중 ~840KB).
+   여기 든 것은 「나라의 장부」라 보는 사람과 무관하게 같은 값이다(view.js 의 once 그릇과 같은 전제). */
+const KEEP_BLOCKS = [
+  'nation.workPosts', 'nation.structures', 'nation.residents', 'nation.fences',
+  'nation.buildable', 'nation.decisionQueue', 'codex', 'councils',
+];
+
+/** keep 에 오른 블록을 빼서 보낸다 — 받는 쪽(net.js)이 직전 값을 그 자리에 도로 꽂는다. */
+function thinState(view, keep) {
+  if (!keep || !keep.length) return view;
+  for (const key of keep) {
+    if (key.startsWith('nation.')) delete view.nation[key.slice(7)];
+    else delete view[key];
+  }
+  view.keep = keep;
+  return view;
+}
+
 // ────────────────────────────────────────────────────────────────
 class GameRuntime {
   constructor(gameId, world) {
     this.gameId = gameId;
     this.world = world;
+    /* ★ 하루 시계의 기준점 — 이 날(틱)이 실제로 시작한 순간.
+       세이브에 굳은 옛 값을 그대로 쓰면 되살린 방이 「이미 저문 하루」로 시작하므로 여기서 새로 찍는다. */
+    this.world.tickAt = Date.now();
     this.rng = rngFromState(world.seed, world.rngState);
     this.timer = null;
     this.battleTimer = null;
@@ -250,6 +271,10 @@ class GameRuntime {
       data,
       onText: (event) => io.to(this.gameId).emit('events', [event]),
     });
+    /* ★ 성능-1 — state 방송의 살 빼기(아래 broadcastState 머리말 참고). */
+    this._sentBlocks = new Map();   // nationId → { 'nation.workPosts': json문자열, ... } 마지막으로 방송한 큰 블록
+    this._bcastAt = 0;              // 마지막 broadcastState 시각 (코얼레싱)
+    this._bcastTimer = null;        // 뒤로 미뤄 둔 방송 하나
   }
 
   /* ★ 시계 하나가 죽어도 서버는 죽지 않는다.
@@ -269,6 +294,8 @@ class GameRuntime {
   start() {
     this.stop();
     if (this.world.paused) return;
+    /* 박자를 다시 감는 순간이 곧 이 하루의 시작이다(일시정지 해제·배속 변경도 여기로 온다) */
+    this.world.tickAt = Date.now();
     this.timer = setInterval(() => this.safeBeat('일 틱', () => this.advance()), this.tickRealSeconds * 1000);
     this.ensureBattleLoop();
     this.startEcologyLoop();
@@ -276,6 +303,7 @@ class GameRuntime {
 
   stop() {
     if (this.timer) { clearInterval(this.timer); this.timer = null; }
+    if (this._bcastTimer) { clearTimeout(this._bcastTimer); this._bcastTimer = null; }
     this.stopEcologyLoop();
   }
 
@@ -456,6 +484,7 @@ class GameRuntime {
     // ★ liveBattle — 웨이브는 '시작만' 하고 서브틱은 아래 battle 루프가 돌린다
     const { state, events } = step(this.world, inputs, this.rng, data, { liveBattle: true });
     this.world = state;
+    this.world.tickAt = Date.now();     /* ★ 새 날이 여기서 시작한다 — 화면 시계의 0점 */
 
     // ★ §세계관 W2 — 일 틱의 사건(장 진행·웨이브 예고)에 이야기를 얹는다. 시뮬은 이 길을 지나지 않는다.
     // ★ §세계관 W4 — 관계(위신 가산·정기 계약·국가 이벤트)가 먼저, 그 위에서 초대장 조건을 본다.
@@ -603,16 +632,35 @@ class GameRuntime {
    */
   broadcastNationState() {
     const cache = newViewCache();
+    const plans = new Map();             // ★ 성능-2 — state 살 빼기(broadcastStateNow 와 같은 문)
     for (const [socketId, session] of sessions) {
       if (session.gameId !== this.gameId) continue;
       const sock = io.sockets.sockets.get(socketId);
       if (!sock) continue;
-      sock.emit('state', buildNationView(this.world, session.nationId, session.role, data,
-        { avatarId: session.avatarId, cache }));
+      const view = buildNationView(this.world, session.nationId, session.role, data,
+        { avatarId: session.avatarId, cache });
+      sock.emit('state', session.stateKeep ? thinState(view, this.planKeep(session.nationId, view, plans)) : view);
     }
   }
 
+  /* ★ 성능-1 — state 방송 코얼레싱.
+     「왜」 — 후반 판의 NationView 는 1MB 에 육박한다(workPosts 3,500개 · 건물 200채 · 주민 120명 실측).
+     명령·집사·깃발·퀘스트가 저마다 broadcastState() 를 부르면 같은 판이 한 순간에 몇 번씩 빚어지고,
+     받는 화면은 그때마다 1MB JSON 파스 + 패널 전체 갱신으로 한 프레임을 통째로 잃는다.
+     첫 호출은 **그 자리에서** 나간다(반응은 늦지 않는다). 그 뒤 120ms 안의 호출들은 한 번으로 접는다 —
+     내용은 어차피 「지금 판」의 스냅샷이라, 접어도 마지막 한 장과 같다. */
   broadcastState() {
+    if (this._bcastTimer) return;                       // 이미 뒤로 한 장 잡혀 있다
+    const since = Date.now() - this._bcastAt;
+    if (since >= 120) { this._bcastAt = Date.now(); this.broadcastStateNow(); return; }
+    this._bcastTimer = setTimeout(() => {
+      this._bcastTimer = null;
+      this._bcastAt = Date.now();
+      this.safeBeat('state 방송', () => this.broadcastStateNow());
+    }, 120 - since);
+  }
+
+  broadcastStateNow() {
     /* ★ Sprint 3 — 한 번의 방송 안에서만 사는 그릇 하나(view.js 머리말 참고).
        한 판에 사람이 넷이면 주민 목록·울타리 목록·일자리 목록·짐승 목록·세계 뷰를
        **여덟 번**(state 넷 + worldDiff 넷) 빚고 있었다. 그 조각들은 누가 보든 값이 같다 —
@@ -620,11 +668,13 @@ class GameRuntime {
        그릇은 이 함수를 벗어나면 버려지므로 「낡은 값이 남는」 사고가 원천적으로 없다. */
     const cache = newViewCache();
     const worldStates = new Map();       // 세계 뷰는 나라마다 하나다(보는 사람과 무관하다)
+    const plans = new Map();             // ★ 성능-2 — 나라마다 keep 판정은 한 번만(아래 planKeep)
     for (const [socketId, session] of sessions) {
       if (session.gameId !== this.gameId) continue;
       const sock = io.sockets.sockets.get(socketId);
       if (!sock) continue;
-      sock.emit('state', buildNationView(this.world, session.nationId, session.role, data, { avatarId: session.avatarId, cache }));
+      const view = buildNationView(this.world, session.nationId, session.role, data, { avatarId: session.avatarId, cache });
+      sock.emit('state', session.stateKeep ? thinState(view, this.planKeep(session.nationId, view, plans)) : view);
       sock.emit('worldDiff', buildWorldDiff(this.world, session.nationId, data, session.worldTick ?? -1,
         { cache, stream: worldStreamOf(session) }));
       session.worldTick = this.world.tick;
@@ -633,6 +683,31 @@ class GameRuntime {
       }
       sock.emit('worldState', worldStates.get(session.nationId));
     }
+  }
+
+  /* ★ 성능-2 — state 살 빼기(PROTOCOL §4 state.keep).
+     「왜」 — 1MB 페이로드의 8할이 workPosts(445KB)·structures(131KB)·councils(142KB)·
+     residents(75KB)처럼 **몇 방송이고 그대로인 큰 블록**이다. 마지막으로 방송한 JSON 문자열과
+     같으면 그 블록을 빼고 이름만 keep 에 싣는다 — 받는 쪽은 제가 든 직전 값을 그대로 쓴다.
+     · join 으로 처음 든 사람은 전량을 따로 받으므로(§3-0) 언제나 「지금 값」에서 출발한다.
+     · keep 은 join 때 caps.stateKeep 을 밝힌 화면에게만 간다 — 옛 화면·검사 소켓은 전량 그대로다.
+     · 판정은 나라마다 **한 번**이다: 같은 방송 안의 두 사람이 서로 다른 판정을 받으면,
+       뒤의 한 사람이 새 값을 영영 못 받는 사고가 난다(첫 사람이 장부를 먼저 덮어쓰므로). */
+  planKeep(nationId, view, plans) {
+    let plan = plans.get(nationId);
+    if (plan) return plan;
+    plan = [];
+    let sent = this._sentBlocks.get(nationId);
+    if (!sent) { sent = {}; this._sentBlocks.set(nationId, sent); }
+    for (const key of KEEP_BLOCKS) {
+      const val = key.startsWith('nation.') ? view.nation?.[key.slice(7)] : view[key];
+      if (val === undefined) { delete sent[key]; continue; }   // 게이트로 부재한 블록은 keep 대상이 아니다
+      const json = JSON.stringify(val);
+      if (sent[key] === json) plan.push(key);
+      else sent[key] = json;
+    }
+    plans.set(nationId, plan);
+    return plan;
   }
 }
 
@@ -1082,7 +1157,11 @@ io.on('connection', (socket) => {
     const before = sessions.get(sock.id);
     if (before && before.gameId !== rt.gameId) sock.leave(before.gameId);
     // ★ §21-A1 — worldStream:null 로 연다. 들어온 사람의 첫 변경분은 언제나 전량이다.
-    sessions.set(sock.id, { gameId: rt.gameId, nationId, role, playerName, avatarId, worldTick: -1, worldStream: null });
+    // ★ 성능-2 — caps.stateKeep 을 밝힌 화면만 state 살 빼기(keep)를 받는다. 옛 화면·검사 소켓은 전량이다.
+    sessions.set(sock.id, {
+      gameId: rt.gameId, nationId, role, playerName, avatarId, worldTick: -1, worldStream: null,
+      stateKeep: Boolean(payload.caps && payload.caps.stateKeep),
+    });
     sock.join(rt.gameId);
     nation.online = true;
     nation.autoAssistIdleTicks = 0;
@@ -1335,7 +1414,7 @@ if (process.env.NODE_ENV !== 'test') {
   });
   http.listen(PORT, HOST, () => {
     const where = HOST === '0.0.0.0' ? `http://localhost:${PORT}` : `http://${HOST}:${PORT}`;
-    console.log(`갈래말래 v${VERSION} · 규약 v${PROTOCOL} — ${where} (bind ${HOST}:${PORT}, ${process.env.NODE_ENV || 'development'})`);
+    console.log(`Regiond v${VERSION} · 규약 v${PROTOCOL} — ${where} (bind ${HOST}:${PORT}, ${process.env.NODE_ENV || 'development'})`);
     console.log(`  1게임일 ${data.balance.time.dayRealSeconds}s · 전투 서브틱 ${data.waves.battle.subtickSeconds}s · 월드 ${data.world.size}×${data.world.size}`);
     console.log(`  저장 ${savesDir()} · 뒷문 ${debugApiEnabled() ? '열림(/api/debug/*)' : '잠김'} · 표현 ${process.env.ANTHROPIC_API_KEY ? 'Claude API + 템플릿' : '템플릿 전용'}`);
   });

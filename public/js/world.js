@@ -2523,7 +2523,10 @@
     var t = GM.camera.cam.tile;
     var p = GM.camera.worldToScreen(x - 0.42, y - 1.05);
     var w = t * 0.88, h = t * 1.14;
-    var roleW = t * 1.45, roleH = t * 1.85;
+    /* 원본 걷기 프레임의 크롭(144x135)은 세로보다 가로가 넓다. 이전 1.45x1.85는
+       그 프레임을 세로로 잡아당겨 캐릭터가 홀쭉해 보였다. 전체를 키우면서 가로를
+       더 벌려 원본 종횡비에 가깝게 되돌린다. */
+    var roleW = t * 1.78, roleH = t * 2.02;
     var roleX = p.x - (roleW - w) / 2;
     // 원본 도트 프레임의 발 아래 투명 여백을 상쇄해 실제 발과 그림자가 맞닿게 한다.
     var roleY = p.y - (roleH - h) + t * 0.12;
