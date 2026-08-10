@@ -37,6 +37,12 @@
         tab = p[0];
         paint(host);
       });
+      /* ★ 3단계A — 아직 닿지 못한 단서가 있으면 탭이 스스로 말한다. 「가야 할 데가 남았다」를
+         도감을 열어 본 사람만 아는 것으로 두면, 그 저널은 있으나 마나 한 것이 된다. */
+      if (p[0] === 'ruin' && (t.cluesOpen || 0) > 0) {
+        b.appendChild(U.el('span', 'tab-dot', '●'));
+        b.title = '아직 닿지 못한 단서 ' + t.cluesOpen + '개';
+      }
       tabs.appendChild(b);
     });
     host.appendChild(tabs);
@@ -129,12 +135,66 @@
     return '방 ' + opened + '/' + r.rooms + ' — ' + (r.rooms - opened) + '방 남음';
   }
 
+  /* ══════════ ★ 3단계A — 옮겨 적은 단서 (탐험 저널) ══════════
+     「왜」 도감에 다나 — 단서는 카드 한 장에 한 번 떴다가 사라지는 한 줄이었다. 창을 닫으면
+     「북쪽 눈밭」이라는 말은 사람의 기억에만 남고, 하루 뒤에 접속하면 어디로 가려 했는지가 없다.
+     여기 쌓이는 것은 **문장과 상태**뿐이다 — 좌표도 화살표도 서버가 아예 안 보낸다(마커 금지). */
+  function paintClues(host, c) {
+    var list = c.clues || [];
+    if (!list.length) return;
+    var open = 0;
+    list.forEach(function (q) { if (!q.targetSeen) open += 1; });
+    host.appendChild(U.el('div', 'codex-sub',
+      '옮겨 적은 단서 — 아직 못 찾은 곳 ' + open + ' / ' + list.length));
+    var wrap = U.el('div', 'clue-list');
+    list.forEach(function (q) { wrap.appendChild(clueCard(q)); });
+    host.appendChild(wrap);
+  }
+
+  function clueCard(q) {
+    var box = U.el('div', 'clue-card' + (q.temple ? ' temple' : '') + (q.targetSeen ? ' seen' : ''));
+    box.appendChild(U.el('span', 'line', q.line || ''));
+    var meta = U.el('div', 'meta');
+    meta.appendChild(U.el('span', 'clue-badge' + (q.targetSeen ? ' done' : ''),
+      q.targetSeen ? '닿았다' : '아직 못 찾음'));
+    if (q.temple) meta.appendChild(U.el('span', null, '신전으로 이어지는 단서'));
+    if (q.fromName) meta.appendChild(U.el('span', null, q.fromName + '에서'));
+    if (q.tick != null) meta.appendChild(U.el('span', null, q.tick + '일째'));
+    box.appendChild(meta);
+    return box;
+  }
+
+  /* ══════════ ★ 3단계A — 밟아 온 길 (흔적 사슬 기록) ══════════
+     흔적은 조사하면 사라진다. 세 걸음을 다 걸어 결말을 본 사슬도 이튿날 지도에는 자국이 없어서,
+     어떤 이야기를 끝냈고 어떤 이야기가 중간에 멈춰 있는지 물어볼 데가 없었다. */
+  function paintTrails(host, c) {
+    var list = c.trails || [];
+    if (!list.length) return;
+    var done = 0;
+    list.forEach(function (r) { if (r.done) done += 1; });
+    host.appendChild(U.el('div', 'codex-sub',
+      '밟아 온 길 — 끝까지 간 이야기 ' + done + ' / ' + list.length));
+    var wrap = U.el('div', 'trail-list');
+    list.forEach(function (r) {
+      var row = U.el('div', 'trail-row' + (r.done ? '' : ' walking'));
+      row.appendChild(U.el('span', 'nm', r.name || '이름 없는 길'));
+      row.appendChild(U.el('span', 'pg', (r.step || 0) + '/' + (r.steps || 0) + '걸음'));
+      row.appendChild(U.el('span', 'end',
+        r.done ? (r.endingName || '끝을 보았다') : '가는 중'));
+      wrap.appendChild(row);
+    });
+    host.appendChild(wrap);
+  }
+
   function paintRuins(host, c) {
+    paintClues(host, c);
+    paintTrails(host, c);
     var list = c.ruins || [];
     if (!list.length) {
       host.appendChild(U.el('p', 'empty', '아직 찾은 옛 자취가 없습니다. 멀리 나가 보십시오.'));
       return;
     }
+    host.appendChild(U.el('div', 'codex-sub', '찾아낸 옛 자취'));
     var wrap = U.el('div', 'codex-ruins');
     list.forEach(function (r) {
       var row = U.el('div', 'codex-ruin');

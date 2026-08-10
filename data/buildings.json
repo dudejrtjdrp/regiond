@@ -818,13 +818,13 @@
   },
   "smithy": {
     "name": "대장간",
-    "purpose": "연장과 무기를 벼린다. 좋은 연장은 캐는 손을 빠르게 한다.",
+    "purpose": "연장과 무기를 만든다. 좋은 연장은 캐는 손을 빠르게 한다.",
     "category": "production",
     "requiresTier": 3,
     "maxTier": 3,
     "multi": true,
     "role": "factory",
-    "desc": "도구와 무기를 벼린다. 스킬 도구 해금이 한 단계 빨라진다.",
+    "desc": "도구와 무기를 만든다. 스킬 도구 해금이 한 단계 빨라진다.",
     "workSlots": 3,
     "job": "factory",
     "tiers": [
@@ -864,8 +864,8 @@
     ],
     "footprint": [4, 4],
     "handWork": {
-      "label": "연장을 벼려 판다",
-      "desc": "강재와 나무로 연장을 벼려 장에 내다 판다.",
+      "label": "연장을 만들어 판다",
+      "desc": "강재와 나무로 연장을 만들어 장에 내다 판다.",
       "cost": {
         "steel": 1,
         "wood": 1
@@ -879,10 +879,11 @@
     }
   },
   "mine_shaft": {
+    "_note": "★ 2단계B(2026-08-10) requiresTier 3 → 2. 「광맥 탐사」 연구가 티어 2 에 링1 안쪽으로 철광맥을 열어 주는데, 그 옆에 세울 갱도가 티어 3 을 기다리면 열어 준 광맥을 손으로만 두드려야 한다. 사람 쪽 문(장 사슬 8장)은 그대로다 — 여기는 AI 3국의 문이자 화면이 적어 두는 조건 행이다(progression.buildingUnlocked 가 정본).",
     "name": "광산 갱도",
     "purpose": "땅속에서 철광석을 캐낸다. 사람을 붙이지 않아도 매일 난다.",
     "category": "production",
-    "requiresTier": 3,
+    "requiresTier": 2,
     "maxTier": 3,
     "multi": true,
     "desc": "땅속으로 파고든다. 철광맥 옆에 세워야 값을 한다.",

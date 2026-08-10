@@ -88,7 +88,7 @@
     var nx = view.enhance && view.enhance.next && view.enhance.next[slot];
     if (nx) {
       var row = U.el('div', 'eq-enh');
-      var b = U.btn('+' + nx.to + ' 로 벼린다', 'btn-small', function () { doEnhance(slot); });
+      var b = U.btn('+' + nx.to + ' 로 강화한다', 'btn-small', function () { doEnhance(slot); });
       b.disabled = !nx.ok;
       U.tipSet(b, '강화 +' + nx.to,
         nx.locked ? (view.officerRoleName + '이(가) 자리에 있어야 열립니다')
@@ -99,7 +99,7 @@
       if (nx.locked) row.appendChild(U.el('span', 'eq-lock', view.officerRoleName + ' 필요'));
       card.appendChild(row);
     } else if (info.plus >= info.maxPlus) {
-      card.appendChild(U.el('p', 'hint', '더 벼릴 수 없습니다 (+' + info.maxPlus + ').'));
+      card.appendChild(U.el('p', 'hint', '더 강화할 수 없습니다 (+' + info.maxPlus + ').'));
     }
     return card;
   }
@@ -127,12 +127,12 @@
       row.appendChild(eff);
       row.appendChild(costRow(t.cost, t.gold, t.missing, t.goldShort));
 
-      var b = U.btn('벼린다', 'btn-small', function () { doCraft(slot, t.key); });
+      var b = U.btn('만든다', 'btn-small', function () { doCraft(slot, t.key); });
       b.setAttribute('data-craft', t.key);
       b.disabled = !t.ok;
       U.tipSet(b, t.name, t.locked ? t.lockReason
         : (t.equipped ? '이미 들고 있습니다'
-          : (t.missing.length ? '자재가 모자랍니다' : '대장간에서 벼립니다')));
+          : (t.missing.length ? '자재가 모자랍니다' : '대장간에서 만듭니다')));
       row.appendChild(b);
       wrap.appendChild(row);
     });
@@ -168,7 +168,7 @@
         function () { doEnchant(slot); });
       b.setAttribute('data-enchant', slot);
       b.disabled = !view.enchant.ok || !has;
-      U.tipSet(b, '특성 깃들이기', has ? '등급을 뽑고 그 등급에서 특성 하나가 붙습니다.' : '먼저 벼려야 합니다.');
+      U.tipSet(b, '특성 깃들이기', has ? '등급을 뽑고 그 등급에서 특성 하나가 붙습니다.' : '먼저 만들어야 합니다.');
       row.appendChild(b);
     });
     box.appendChild(row);
@@ -188,8 +188,8 @@
   function doCraft(slot, key) {
     GM.net.send('craftEquipment', { slot: slot, key: key }, function (r) {
       if (!r) return;
-      if (!r.ok) { U.toast((r.error && r.error.message) || '벼리지 못했습니다.', 'warn', 3200); GM.sfx.play('deny'); return; }
-      U.toast(r.name + '을(를) 벼렸습니다.', 'good', 2600);
+      if (!r.ok) { U.toast((r.error && r.error.message) || '만들지 못했습니다.', 'warn', 3200); GM.sfx.play('deny'); return; }
+      U.toast(r.name + '을(를) 만들었습니다.', 'good', 2600);
       GM.sfx.play('unlock');
       if (GM.avatar && GM.avatar.markGear) GM.avatar.markGear();
       refresh();
@@ -198,7 +198,7 @@
   function doEnhance(slot) {
     GM.net.send('enhanceEquipment', { slot: slot }, function (r) {
       if (!r) return;
-      if (!r.ok) { U.toast((r.error && r.error.message) || '더 벼리지 못했습니다.', 'warn', 3200); GM.sfx.play('deny'); return; }
+      if (!r.ok) { U.toast((r.error && r.error.message) || '더 강화하지 못했습니다.', 'warn', 3200); GM.sfx.play('deny'); return; }
       U.toast('+' + r.plus + ' 이(가) 되었습니다.', 'good', 2600);
       GM.sfx.play('gain');
       if (GM.avatar && GM.avatar.markGear) GM.avatar.markGear();
@@ -232,7 +232,7 @@
     pts.appendChild(U.el('b', null, String(prog.points)));
     if (prog.need != null) {
       pts.appendChild(U.el('span', null,
-        ' · 다음 단계까지 눈금 ' + U.fmt(Math.max(0, prog.need - prog.xp), 0)));
+        ' · 다음 단계까지 경험치 ' + U.fmt(Math.max(0, prog.need - prog.xp), 0)));
     }
     box.appendChild(pts);
 

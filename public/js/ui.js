@@ -336,6 +336,8 @@
     back.__onClose = opts.onClose;
     back.__body = body;
     back.__key = opts.key || null;
+    /* ★ 추가 에셋 스킨 — 창마다 다른 배경(도감 바닥판 등)을 CSS 가 고를 수 있게 열쇠를 밖에 적는다 */
+    if (opts.key) back.setAttribute('data-mkey', opts.key);
     modalStack.push(back);
     if (GM.sfx) GM.sfx.play('open');
     return back;
@@ -360,7 +362,7 @@
     body.appendChild(el('p', null, msg));
     var foot = el('div');
     var no = btn('아니오', 'btn-ghost');
-    var yes = btn(yesLabel || '그리하라', 'btn-primary');
+    var yes = btn(yesLabel || '좋다', 'btn-primary');
     foot.appendChild(no); foot.appendChild(yes);
     var m = openModal({ title: title, body: body, footer: foot, width: '460px' });
     no.onclick = function () { closeModal(m); };

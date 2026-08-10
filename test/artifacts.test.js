@@ -826,10 +826,40 @@ test('★ §20-R4 저주 봉인 — 효과는 꺼지고 기록·세트 셈은 �
   assert.equal(collectHooks(n, data).attackMultiplier, 1, '힘이 꺼졌다');
   assert.equal(collectHooks(n, data).moraleDelta, 0, '값도 함께 꺼진다');
   assert.ok(n.artifacts.find((a) => a.key === 'reapers_scythe'), '기록은 남는다 — 파기가 아니다');
-  assert.equal(sealArtifact(n, 'horn_of_plenty', data, true).ok, false, '저주가 아니면 봉인 대상이 아니다');
+  assert.equal(sealArtifact(n, 'horn_of_plenty', data, true).code, 'NOT_OWNED', '안 가진 것은 못 봉인한다');
   // 되돌릴 수 있다 — 「낄까 말까」가 한 번뿐이면 실험이 아니라 도박이다
   assert.equal(sealArtifact(n, 'reapers_scythe', data, false).ok, true);
   assert.equal(collectHooks(n, data).attackMultiplier, 2);
+});
+
+/* ★ 4단계(2026-08-10) — 봉인이 저주 전용에서 **모든 유물**로 넓어졌다(착용/해제의 1차 대체).
+   여기서 못 박는 것은 둘이다: ① 여느 유물도 끌 수 있다 ② 그 값은 공짜다(끄는 것이 손해라
+   값을 물릴 까닭이 없다). 저주만 값을 무는 옛 약속(§20-6)은 위 시험이 그대로 지킨다. */
+test('★ 4단계 봉인 확장 — 저주가 아닌 유물도 봉인하면 효과가 꺼지고, 값은 들지 않는다', () => {
+  const { n } = nationOf(4205.1);
+  grantArtifact(n, 'lucky_charm', 1, data);
+  const bonus = collectHooks(n, data).discoverChanceBonus;
+  assert.ok(bonus > 0, '들면 발견 확률이 오른다');
+  n.gold = 500;
+  const r = sealArtifact(n, 'lucky_charm', data, true);
+  assert.equal(r.ok, true, '저주가 아니어도 봉인한다');
+  assert.equal(r.cost, CFG.sealCostGoldPlain, '일반 봉인 값은 balance 의 다이얼이다');
+  assert.equal(n.gold, 500 - CFG.sealCostGoldPlain, '공짜면 국고가 줄지 않는다');
+  assert.equal(collectHooks(n, data).discoverChanceBonus, 0, '집계에서 빠졌다');
+  assert.ok(n.artifacts.find((a) => a.key === 'lucky_charm'), '기록은 남는다 — 파기가 아니다');
+  assert.equal(sealArtifact(n, 'lucky_charm', data, true).code, 'ALREADY', '두 번 봉인하지 않는다');
+  assert.equal(sealArtifact(n, 'lucky_charm', data, false).ok, true, '언제든 되돌린다');
+  assert.equal(collectHooks(n, data).discoverChanceBonus, bonus, '풀면 옛 힘 그대로');
+});
+
+test('★ 4단계 봉인 — 잠든 유물은 손으로도 못 쓴다(효과만 끄면 약속이 반만 참이 된다)', () => {
+  const { n } = nationOf(4205.2);
+  grantArtifact(n, 'horn_of_plenty', 1, data);
+  n.gold = 500;
+  assert.equal(sealArtifact(n, 'horn_of_plenty', data, true).ok, true);
+  assert.equal(useArtifact(n, 'horn_of_plenty', 2, data).code, 'SEALED', '봉인 중에는 못 쓴다');
+  assert.equal(sealArtifact(n, 'horn_of_plenty', data, false).ok, true);
+  assert.equal(useArtifact(n, 'horn_of_plenty', 3, data).ok, true, '풀면 다시 쓴다');
 });
 
 test('★ §20-R4 봉인해도 세트는 안 깨진다 — 봉인이 실질적 파기가 되면 §20-6 의 약속이 거짓이 된다', () => {

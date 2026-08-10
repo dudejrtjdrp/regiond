@@ -66,7 +66,12 @@ test('★ §21-C2 — 개척촌(티어1)이면 곳간 정리를 그 자리에서
 
 test('★ §21-C2 — 새 가지는 연구표 맨 뒤다 (자동 플레이 우선순위 계약, playtest15c)', () => {
   const order = data.research.order;
-  assert.equal(order[0], 'coal_mining', '산업 사슬이 여전히 먼저다');
+  /* ★ 2단계B — 산업 사슬의 머리가 「광맥 탐사」로 한 칸 앞당겨졌다. 옛 머리(석탄 채굴)는 값으로
+     철광석 60을 요구하는데, 그 철을 캘 자리를 여는 것이 광맥 탐사다 — 앞에 두지 않으면 자동
+     플레이가 영영 못 치르는 값 앞에 선다. 이 검사가 붙드는 것은 「잔가지가 맨 뒤」라는 계약이고,
+     그 계약은 그대로다. */
+  assert.equal(order[0], 'ore_prospecting', '산업 사슬이 여전히 먼저다');
+  assert.equal(order[1], 'coal_mining', '광맥 탐사 다음이 석탄 채굴이다');
   assert.deepEqual(order.slice(-2), ['tidy_stores', 'whetstone']);
   const view = researchView({ research: { done: {}, active: null }, resources: {}, gold: 0 }, data);
   assert.equal(view.order.slice(-2).join(','), 'tidy_stores,whetstone');

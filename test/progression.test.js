@@ -69,7 +69,9 @@ test('★ 방치 30게임일 — 아무 모달도 뜨지 않는다 (시간은 �
   assert.equal(v.nation.roles, undefined);
   assert.equal(v.nation.advices, undefined);
   assert.equal(v.nation.orders, undefined);
-  assert.equal(v.nation.artifacts, undefined);
+  /* ★ 2026-08 — 유물 목록은 1장부터 나간다(보관함이 1장에 열린다). 다만 아직 **비어 있다** —
+     「잠겨 있다」가 아니라 「가진 것이 없다」이므로 회색 단추가 아니라 빈 칸이 맞다. */
+  assert.deepEqual(v.nation.artifacts, [], '유물함은 열려 있고, 아직 비어 있다');
   assert.deepEqual(v.nation.buildable, [], '배치대가 비어 있다 — "지을 게 없습니다"가 나올 자리가 없다');
 });
 

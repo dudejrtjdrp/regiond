@@ -32,7 +32,7 @@
     if (mk) mk(body);
 
     var foot = U.el('div');
-    foot.appendChild(U.btn('물러난다', 'btn-primary', function () { U.closeTopModal(); }));
+    foot.appendChild(U.btn('닫는다', 'btn-primary', function () { U.closeTopModal(); }));
     return U.openModal({ title: meta.name + ' 집무실', body: body, footer: foot, width: '660px',
                          key: 'ministry:' + roleKey, icon: GM.icons.portraitImg(roleKey, 22, 'office') });
   }
@@ -75,7 +75,7 @@
         그대로 버려졌다. 실제로 만들어지는 둘만 놓고, 무엇이 무엇으로 바뀌는지를 함께 적는다. */
   var FACTORY_LINES = [
     { key: 'steel', name: '강재', color: '#9aa3ad',
-      from: '철광석 + 연료', desc: '녹여 벼린 쇠 — 개축과 장비가 여기서 나옵니다.' },
+      from: '철광석 + 연료', desc: '녹여 만든 쇠 — 개축과 장비가 여기서 나옵니다.' },
     { key: 'fuel', name: '연료', color: '#c98b3a',
       from: '석유', desc: '제련의 불. 모자라면 목재를 숯으로 태워 메웁니다.' },
   ];
@@ -269,7 +269,7 @@
     body.appendChild(tbl);
     specialtyRows(body, p);
     var foot = U.el('div');
-    foot.appendChild(U.btn('물러난다', 'btn-ghost', function () { U.closeTopModal(); }));
+    foot.appendChild(U.btn('닫는다', 'btn-ghost', function () { U.closeTopModal(); }));
     return U.openModal({ title: p.name + ' 좌판', body: body, footer: foot, width: '640px',
                          key: 'trade:' + p.id, icon: GM.icons.img('ship', 22) });
   }
@@ -297,7 +297,7 @@
     input.value = '10';
     body.appendChild(input);
     var foot = U.el('div');
-    foot.appendChild(U.btn('물러난다', 'btn-ghost', function () { U.closeTopModal(); }));
+    foot.appendChild(U.btn('닫는다', 'btn-ghost', function () { U.closeTopModal(); }));
     var go = U.btn(side === 'buy' ? '산다' : '판다', 'btn-primary', function () {
       U.closeTopModal();
       sendTrade(p, r, side, Math.floor(Number(input.value)));
@@ -396,7 +396,7 @@
       U.fmt(o.price * o.amount, 0) + ' 금화'));
     if (o.text) body.appendChild(U.el('p', 'hint', o.text));
     var foot = U.el('div');
-    foot.appendChild(U.btn('물린다', 'btn-ghost', function () {
+    foot.appendChild(U.btn('거절한다', 'btn-ghost', function () {
       GM.net.send('respondOffer', { offerId: o.offerId, accept: false });
       U.closeTopModal();
     }));

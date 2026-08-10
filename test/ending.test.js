@@ -8,7 +8,7 @@ import { createWorld } from '../server/engine/state.js';
 import { createRng } from '../server/engine/rng.js';
 import { applyCommand } from '../server/engine/commands.js';
 import { storyEvents } from '../server/engine/story.js';
-import { openChapterForDebug } from '../server/engine/progression.js';
+import { openChapterForDebug, chapterView } from '../server/engine/progression.js';
 import {
   endingState, checkEndingInvite, acceptEnding,
   reunionOfferMult, reunionSellPremium, countTradeGold, endingCfg,
@@ -30,7 +30,7 @@ function readyWorld(seed = 42) {
   return world;
 }
 
-test('조건 3중 — 하나라도 모자라면 초대장은 오지 않는다', () => {
+test('조건 둘 — 용과 마지막 단계. 하나라도 모자라면 초대장은 오지 않는다', () => {
   const world = readyWorld();
   const p = world.nations.player;
   assert.equal(endingState(world, p, data).met, true);
@@ -41,8 +41,32 @@ test('조건 3중 — 하나라도 모자라면 초대장은 오지 않는다', 
   assert.equal(endingState(world, p, data).met, false, '용');
   world.dragon = { slainTick: 3 };
   assert.equal(endingState(world, p, data).met, true, '세계 보스 처치도 용 격퇴로 인정한다');
-  p.relations[cfg.tradePartnerId] = 0;   // ★ §세계관 W4 — 게이트는 이제 재회 게이지다
-  assert.equal(endingState(world, p, data).met, false, '재회 게이지');
+  /* ★ 2026-08 개편 — 재회 게이지는 눈금으로 남았다: 카드에는 보이되 문을 막지 않는다 */
+  p.relations[cfg.tradePartnerId] = 0;
+  const s = endingState(world, p, data);
+  assert.equal(s.relationOk, false, '게이지는 그대로 잰다');
+  assert.equal(s.met, true, '막지는 않는다(requireReunion=false)');
+});
+
+test('마지막 퀘스트 — 용을 눕히면 목표 카드가 매듭을 가리킨다', () => {
+  const world = createWorld({ seed: 42, data, playerName: '개척자' });
+  const p = world.nations.player;
+  assert.equal(chapterView(world, p, data).finale, undefined, '용 전에는 여느 장 그대로');
+
+  world.dragon = { slainTick: 3 };
+  p.tier = cfg.tierMin - 1;
+  const grow = chapterView(world, p, data);
+  assert.equal(grow.finale, true);
+  assert.equal(grow.goal.key, 'ending_grow');
+  assert.equal(grow.goal.need, cfg.tierMin);
+
+  p.tier = cfg.tierMin;
+  checkEndingInvite(world, data);
+  const accept = chapterView(world, p, data);
+  assert.equal(accept.goal.key, 'ending_accept', '초대장이 오면 카드가 봉투를 가리킨다');
+
+  acceptEnding(world, p, data, '개척자');
+  assert.equal(chapterView(world, p, data).finale, undefined, '매듭을 맺으면 카드는 제자리로');
 });
 
 test('초대장 — 조건이 차면 한 번만 오고, 연대기에 남는다', () => {
@@ -75,7 +99,9 @@ test('이야기 — ending_started 하나가 엔딩·크레딧·쿠키를 순서
   checkEndingInvite(world, data);
   const r = acceptEnding(world, p(world), data, '개척자');
   const beats = storyEvents(world, data, r.events);
-  assert.deepEqual(beats.map((b) => b.data.id), ['ending', 'ending_credits', 'ending_cookie']);
+  /* ★ 2026-08 — 크레딧 텍스트 beat 는 없앴다. 제작자·「계속 플레이」는 홈 화면 위에 세운다(endcredits.js). */
+  assert.deepEqual(beats.map((b) => b.data.id), ['ending', 'ending_cookie']);
+  assert.ok(beats[0].data.scenes.every((s) => s.bg && s.mask), '엔딩은 일러스트 컷신이다');
   assert.ok(beats[0].data.scenes.some((s) => s.text.includes(world.nations.player.name)));
   assert.equal(storyEvents(world, data, r.events).length, 0, '재감상은 연대기에서 — 연출은 1회');
   function p(w) { return w.nations.player; }

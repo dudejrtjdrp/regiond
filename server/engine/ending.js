@@ -37,7 +37,11 @@ export function endingState(world, nation, data) {
     invited: world.endingInviteTick != null,
     done: world.endingDone != null,
   };
-  s.met = s.tierOk && s.dragonOk && s.relationOk;
+  /* ★ 2026-08 개편 — 문은 둘이다: 용을 눕혔는가 · 정착지를 끝까지 키웠는가.
+     재회 게이지는 카드에 **보이되 막지 않는다**(balance.ending.requireReunion 이 true 면 옛 3중으로 돌아간다).
+     「왜」 — 용을 눕힌 사람에게 화면이 가리킬 것 하나(마지막 퀘스트)만 남기기 위해서다:
+     문이 셋이면 「무엇이 모자란지」가 셋으로 흩어져, 끝을 눈앞에 두고도 뭘 해야 할지 모르게 된다. */
+  s.met = s.tierOk && s.dragonOk && (cfg.requireReunion ? s.relationOk : true);
   return s;
 }
 

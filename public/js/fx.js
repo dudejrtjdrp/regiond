@@ -35,6 +35,12 @@
      서버 tick 과 전투 서브틱은 서버가 쥐고, 사람·짐승의 걸음(stepUnits)은 서버 좌표를 따라가는
      보간이라 늦추면 밀렸다가 순간이동한다. 늦춰서 멋있어지는 것은 파티클·빛기둥뿐이다. */
   var slow = { until: 0, scale: 1 };
+  /* ★ 용의 최후(§19-F2) 슬로우모션 — 위 slow 와 **다른 시계**다. 저것은 이 계층(파티클·빛기둥)만
+     늦추지만, 이것은 world.js 의 tickAnim 이 곱해 **화면 시계 전체**(짐승·아바타·스프라이트 위상)를
+     늦춘다. 「왜」 둘로 나누나 — 유물 연출(artifacts.js)이 쓰는 slowmo 는 세상을 멈추면 안 되고,
+     세상에 한 마리뿐인 것이 눕는 순간은 세상이 함께 멎어야 하기 때문이다. 서버 tick 은 건드리지
+     않는다: 늦는 것은 **보는 눈**뿐이고, 나라의 시계는 그대로 흐른다(§0-1 연출은 게임을 바꾸지 않는다). */
+  var cine = { until: 0, scale: 1, barsUntil: 0 };
 
   var layer = null, lctx = null, LW = 0, LH = 0;
 
@@ -229,8 +235,55 @@
     slow.until = now() + (ms || 0);
   }
 
+  /* ══════════ ★ 시네마 슬로우 — 용의 최후 전용 ══════════ */
+  /**
+   * 화면 시계를 통째로 늦추고, 검은 띠와 탈색을 함께 건다.
+   * @param {number} scale 0<scale<1 (0.16 이면 여섯 배 느리게)
+   * @param {number} ms 늦추는 시간
+   * @param {number} barsMs 띠·탈색이 남아 있는 시간(기본 ms + 900) — 시계가 돌아온 뒤에도 잠깐 여운을 둔다
+   */
+  function cinemaSlow(scale, ms, barsMs) {
+    var t = now();
+    cine.scale = scale > 0 ? scale : 1;
+    cine.until = t + (ms || 0);
+    cine.barsUntil = t + (barsMs || (ms || 0) + 900);
+    applyBars(true);
+  }
+
+  /** world.js tickAnim 이 프레임마다 묻는다 — 지금 화면 시계는 몇 배로 흐르는가 */
+  function timeScale() {
+    return now() < cine.until ? cine.scale : 1;
+  }
+
+  function applyBars(on) {
+    var body = global.document && global.document.body;
+    if (!body) return;
+    if (on) {
+      if (!global.document.getElementById('cinema-bars')) {
+        var el = global.document.createElement('div');
+        el.id = 'cinema-bars';
+        el.setAttribute('aria-hidden', 'true');
+        body.appendChild(el);
+      }
+      body.classList.add('cinema');
+      return;
+    }
+    body.classList.remove('cinema');
+  }
+
+  /** 띠를 걷을 때가 되었는가 — step 이 프레임마다 살핀다(타이머를 따로 두지 않는다) */
+  function stepCinema() {
+    if (!cine.barsUntil) return;
+    if (now() < cine.barsUntil) return;
+    cine.barsUntil = 0;
+    cine.until = 0;
+    cine.scale = 1;
+    applyBars(false);
+  }
+
   /* ══════════ 스텝 ══════════ */
   function step(dtRaw) {
+    stepCinema();
     var dt = now() < slow.until ? dtRaw * slow.scale : dtRaw;
     var i;
     for (i = parts.length - 1; i >= 0; i--) {
@@ -504,6 +557,8 @@
     beams = [];                                        // ★ §20-R2 — 판을 갈면 빛기둥도 함께 걷힌다
     vig = { t: 0, dur: 0, color: vig.color };
     slow = { until: 0, scale: 1 };
+    cine = { until: 0, scale: 1, barsUntil: 0 };        // ★ 판을 갈면 시네마 띠도 걷힌다
+    applyBars(false);
     danger = { t: 0, dur: 0 };
     shake = { t: 0, dur: 0, power: 0 };
     freezeUntil = 0;
@@ -513,6 +568,7 @@
   GM.fx = {
     mount: mount, resize: resize, step: step, drawWorld: drawWorld, drawStumps: drawStumps,
     beam: beam, vignette: vignette, slowmo: slowmo,
+    cinemaSlow: cinemaSlow, timeScale: timeScale,
     drawLayer: drawLayer, reset: reset, busy: busy,
     hitStop: hitStop, frozen: frozen, shakeScreen: shakeScreen, shakeOffset: shakeOffset, flash: flash,
     swingArc: swingArc, slash: slash, debris: debris, dust: dust, sparkle: sparkle,

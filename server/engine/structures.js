@@ -3,6 +3,9 @@
 //   같은 건물을 여러 채 지으면 효과가 합산되지만, 합산값은 data/buildings.json effectRules 의 상한에 눌린다
 //   (기존 밸런스를 물려받은 항목은 배수 1 — 옛 상한 그대로라 경제가 흔들리지 않는다).
 import { townOf, territoryRadius, inTerritory, terrainNameAt, dist, cheb, addNode } from './world.js';
+/* ★ A8 갇힘 — 새 풋프린트가 사람을 덮었을 때 밖으로 꺼내는 정본. path.js 도 여기의 footprint 를
+   부르므로 순환이지만 둘 다 함수 선언(호이스팅)이라 호출 시점에는 이미 서로를 본다. */
+import { evictBlocked } from './path.js';
 import { buildingCost } from './build_cost.js';
 import { settlementTier } from './tiers.js';
 import { round2, round3 } from './economy.js';
@@ -739,6 +742,8 @@ export function finishSite(world, nation, site, data) {
       site.y = site.toY;
       s.x = site.toX;
       s.y = site.toY;
+      /* ★ A8 — 해체 마디에서 건물 몸이 이미 새 자리로 옮겨 앉는다. 그 자리에 선 사람부터 꺼낸다. */
+      evictBlocked(world, nation, data, { structure: s });
       return { kind: 'takedown', structureId: s.id, key: s.key, x: site.toX, y: site.toY };
     }
     s.x = site.toX;
@@ -746,6 +751,8 @@ export function finishSite(world, nation, site, data) {
     s.placed = true;
     s.inactive = false;
     s.adjacency = adjacencyBonus(world, nation, s.key, s.x, s.y, data, { placed: true });
+    /* ★ A8 — 새 자리에 사람이 서 있었다면 건물 밑에 갇힌다. 세운 뒤에 꺼낸다(결정적). */
+    evictBlocked(world, nation, data, { structure: s });
     return { kind: 'relocated', structureId: s.id, key: s.key,
       name: structureName(s.key, s.tier, data), x: s.x, y: s.y, structure: structureView(nation, s, data) };
   }
@@ -858,6 +865,8 @@ export function completeStructure(world, nation, proj, data) {
     s.upgrading = false;
     applyStructureHp(s, data);
     s.adjacency = adjacencyBonus(world, nation, s.key, s.x, s.y, data, { placed: Boolean(s.placed) });
+    /* ★ A8 — 티어가 오르면 풋프린트도 자란다(2×2→3×3…). 넓어진 자리에 남은 사람을 꺼낸다. */
+    evictBlocked(world, nation, data, { structure: s });
     return s;
   }
   const spot = proj.x != null ? { x: proj.x, y: proj.y } : autoSpot(world, nation, proj.building, data);
@@ -873,6 +882,8 @@ export function completeStructure(world, nation, proj, data) {
   };
   applyStructureHp(s, data);
   list.push(s);
+  /* ★ A8 — 신축 완공. 부지에 서 있던 사람은 이제 벽 안이다 — 곁의 밟을 수 있는 칸으로 꺼낸다. */
+  evictBlocked(world, nation, data, { structure: s });
   return s;
 }
 

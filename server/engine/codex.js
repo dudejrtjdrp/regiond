@@ -86,6 +86,90 @@ export function recordRuin(nation, node, tick = 0, room = {}) {
 }
 
 // ────────────────────────────────────────────────────────────────
+// ★ 3단계A — 단서 기록 (B10 「저널 축적」)
+// ────────────────────────────────────────────────────────────────
+/**
+ * 「왜」 단서를 적어 두나 — 여태 단서는 **한 번 뜨고 사라지는 한 줄**이었다. 카드가 닫히면
+ * 「북쪽 눈밭」이라는 말은 사람의 기억에만 남고, 하루 뒤에 접속하면 어디로 가려 했는지가 없다.
+ * 목표를 잊은 탐험은 「아직 안 가 본 곳이라서」로 되돌아간다(clues.js 머리말이 걱정하던 그것).
+ *
+ * 「왜」 clues.js 가 아니라 여기 있나 — clues.js 는 temple.js 를 부르고, 닿음 표시(targetSeen)를
+ * 박아야 하는 곳이 그 temple.js 다. 기록만 이쪽(도감=장부)으로 빼면 고리가 생기지 않는다.
+ *
+ * 규율 하나 — **여기에 좌표를 적지 않는다**(clues.js 규율 ①). targetNodeId 는 「닿았는가」를
+ * 판별하기 위한 서버 안쪽 열쇠일 뿐이라 뷰(clueLogView)에서 잘라 낸다.
+ */
+const CLUE_LOG_CAP = 40;
+
+export function recordClue(nation, entry) {
+  if (!nation || !entry?.line) return null;
+  const log = (nation.clueLog ||= []);
+  const row = {
+    fromNodeId: entry.fromNodeId ?? null,
+    fromName: entry.fromName ?? null,
+    line: entry.line,
+    dir: entry.dir ?? null,
+    land: entry.land ?? null,
+    temple: Boolean(entry.temple),
+    targetNodeId: entry.targetNodeId ?? null,
+    tick: entry.tick ?? 0,
+    targetSeen: false,
+  };
+  /* 이미 적은 자취가 또 단서를 낼 일은 없지만(node.clueGiven), 세이브를 이어 붙인 판에서
+     같은 줄이 둘 서지 않게 한 번 거른다. */
+  if (log.some((c) => c.fromNodeId === row.fromNodeId && c.line === row.line)) return null;
+  log.push(row);
+  while (log.length > CLUE_LOG_CAP) log.shift();       // 오래된 것부터 버린다
+  return row;
+}
+
+/**
+ * 그 자리에 **닿았다**. 유적 방을 열거나 신전 문을 두드리면 그 자취를 가리키던 단서가 닫힌다.
+ * @returns {number} 이번에 닫힌 단서 수 (0 이면 아무 일도 없었다 — 부르는 쪽이 신경 쓸 것 없다)
+ */
+export function markClueTarget(nation, nodeId, tick = 0) {
+  if (!nation || !nodeId) return 0;
+  let n = 0;
+  for (const c of nation.clueLog || []) {
+    if (c.targetNodeId !== nodeId || c.targetSeen) continue;
+    c.targetSeen = true;
+    c.seenTick = tick;
+    n += 1;
+  }
+  return n;
+}
+
+/** 화면이 읽을 한 벌 — 새것이 위. **가리킨 자취의 id 는 여기서 잘려 나간다**(마커 금지). */
+function clueLogView(nation) {
+  return [...(nation.clueLog || [])].reverse().map((c) => ({
+    fromNodeId: c.fromNodeId ?? null,
+    fromName: c.fromName ?? null,
+    line: c.line,
+    dir: c.dir ?? null,
+    land: c.land ?? null,
+    temple: Boolean(c.temple),
+    tick: c.tick ?? 0,
+    targetSeen: Boolean(c.targetSeen),
+  }));
+}
+
+/** ★ 3단계A — 밟아 온 길(흔적 사슬). trails.js 가 조사할 때마다 적어 둔 것을 그대로 편다. */
+function trailLogView(nation) {
+  return Object.entries(nation.trailLog || {})
+    .map(([key, t]) => ({
+      key,
+      name: t.name ?? key,
+      step: t.step ?? 0,
+      steps: t.steps ?? 0,
+      done: Boolean(t.done),
+      endingKey: t.endingKey ?? null,
+      endingName: t.endingName ?? null,
+      lastTick: t.lastTick ?? 0,
+    }))
+    .sort((a, b) => (Number(a.done) - Number(b.done)) || (b.lastTick - a.lastTick));
+}
+
+// ────────────────────────────────────────────────────────────────
 // ★ §17-17 — 바이옴 첫 발견 (설산·밀림)
 // ────────────────────────────────────────────────────────────────
 /**
@@ -221,10 +305,16 @@ export function codexView(nation, data, world = null) {
     .sort((a, b) => (b.size - a.size) || ((a.foundTick ?? 0) - (b.foundTick ?? 0)))
     .map((r) => ({ ...r }));
 
+  /* ★ 3단계A — 옮겨 적은 단서와 밟아 온 길. 둘 다 「옛 자취」 탭이 함께 편다(같은 탐험의 장부다). */
+  const clues = clueLogView(nation);
+  const trails = trailLogView(nation);
+
   return {
     thresholds: { name: cfg.nameAt ?? 1, stats: cfg.statsAt ?? 5, lore: cfg.loreAt ?? 20 },
     species,
     ruins,
+    clues,
+    trails,
     // ★ §20-R3 — 유물 탭. world 를 못 받는 옛 호출에서는 필드 자체가 없다(§11-1).
     ...(world ? { artifacts: artifactCodexView(world, nation, data) } : {}),
     totals: {
@@ -233,6 +323,11 @@ export function codexView(nation, data, world = null) {
       killed: species.reduce((a, s) => a + s.kills, 0),
       ruinsFound: ruins.length,
       ruinsExplored: ruins.filter((r) => (r.cycles || 0) > 0).length,
+      /* ★ 3단계A — 아직 못 찾은 단서. 탭의 점 하나가 「가야 할 데가 남았다」를 말한다. */
+      cluesOpen: clues.filter((c) => !c.targetSeen).length,
+      cluesTotal: clues.length,
+      trailsDone: trails.filter((t) => t.done).length,
+      trailsWalked: trails.length,
     },
   };
 }

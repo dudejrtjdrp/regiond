@@ -33,6 +33,10 @@ coverage/
 .nyc_output/
 _to_delete/
 
+# 작업 중 흘린 것 — 미리보기·대조표·옮김용 임시 폴더
+tmp*.png
+_xfer/
+
 # 에셋 파이프라인 산출물
 __pycache__/
 tools/pipeline/out/

@@ -156,14 +156,19 @@
     return false;
   }
 
-  function walkable(x, y) {
-    if (structureBlocks(x, y)) return false;
+  /** 건물을 뺀 「땅만」의 판정 — 갇힘 탈출(아래 stuck)이 쓰는 반쪽이다 */
+  function groundWalkable(x, y) {
     var code = S.terrainKey(Math.round(x), Math.round(y));
     if (!code) return false;
     if (code === 'water') return S.onBridge(x, y) || S.onFill(x, y);
     if (waterMargin(x, y)) return false;
     /* ★ §17-13 — 다리·매립 위의 물은 길이다. 사람만 — 짐승과 적은 서버가 그대로 막는다. */
     return walkableCodes()[code] === 1;
+  }
+
+  function walkable(x, y) {
+    if (structureBlocks(x, y)) return false;
+    return groundWalkable(x, y);
   }
 
   /* ★ §19-F2(F07-1) 땅의 무게 — 진창은 발을 물고 소금 판은 미끄럽다.
@@ -286,6 +291,12 @@
       }
     }
     var px0 = me.x, py0 = me.y;
+    /* ★ A8 갇힘 탈출 — 서 있는 칸이 이미 건물에 먹혔다(본부가 자랐다·부지가 완공됐다·옛 세이브).
+       평소 판정은 사방이 다 건물이라 한 발짝도 허락하지 않아 그 자리에 영영 굳는다.
+       이때만 건물 검사를 풀고 **땅**만 잰다 — 한 걸음이 풋프린트를 못 벗어나도 밖으로 걸어 나갈 수 있다.
+       물 위로는 여전히 못 간다(groundWalkable). 서버도 같은 상황을 relocated 로 구제한다. */
+    var stuck = structureBlocks(me.x, me.y);
+    var canStand = stuck ? groundWalkable : walkable;
     if (dx || dy) {
       var len = Math.hypot(dx, dy) || 1;
       dx /= len; dy /= len;
@@ -294,9 +305,9 @@
          「지금 선 칸」을 되물어 늘 참이 됐고, 걸음 애니메이션은 의도(dx||dy)에 걸려 있어
          한 발짝도 못 가면서 영원히 걸었다. 이제 ① 나아감이 없는 미끄러짐은 실패고
          ② 애니메이션은 실제 변위로만 돈다. */
-      if (walkable(nx, ny)) { me.x = nx; me.y = ny; }
-      else if (nx !== me.x && walkable(nx, me.y)) { me.x = nx; }
-      else if (ny !== me.y && walkable(me.x, ny)) { me.y = ny; }
+      if (canStand(nx, ny)) { me.x = nx; me.y = ny; }
+      else if (nx !== me.x && canStand(nx, me.y)) { me.x = nx; }
+      else if (ny !== me.y && canStand(me.x, ny)) { me.y = ny; }
       else if (dest) repath();
       me.x = U.clamp(me.x, 0, S.mapSize() - 1);
       me.y = U.clamp(me.y, 0, S.mapSize() - 1);
@@ -353,6 +364,16 @@
        링 판정은 **서버가** 한다 — 영토가 자라면 안전한 땅도 함께 자라므로 화면이 제 셈으로 하면 어긋난다. */
     GM.net.send('lordMove', { x: rx, y: ry }, function (res) {
       if (!res || !res.ok) return;
+      /* ★ A8 — 서버가 「그 칸은 건물 밑이다」며 몸을 꺼내 줬다. 자리의 주인은 클라라
+         여기서 받아 앉히지 않으면 다음 보고가 옛 좌표를 다시 올려 도로 갇힌다. */
+      if (res.relocated && Number.isFinite(res.relocated.x) && Number.isFinite(res.relocated.y)
+        && (res.relocated.x !== Math.round(me.x) || res.relocated.y !== Math.round(me.y))) {
+        me.x = res.relocated.x; me.y = res.relocated.y;
+        dest = null; path = null;
+        lastX = res.relocated.x; lastY = res.relocated.y;
+        if (GM.swing) GM.swing.invalidate();
+        reveal(true);
+      }
       if (res.ringEntered && GM.fx) {
         announceLand(cinema().dangerTitle || '사나운 것들의 땅', res.ringText, 'danger', true);
         GM.fx.dangerEdge(1.6);
@@ -367,11 +388,18 @@
       }
       // ★ §17-17 — 처음 밟은 땅. 문구는 서버(자료)가 쥔다 — 화면이 제 낱말을 만들지 않는다.
       if (res.biomes && res.biomes.length) announceBiomes(res.biomes);
-      /* ★ §19-F2(F07-4) — 굴 앞. 서버가 한 번만 보내므로 여기서는 쿨다운을 걸지 않는다(요란해도 된다). */
+      /* ★ §19-F2(F07-4) — 굴 앞. 서버가 한 번만 보내므로 여기서는 쿨다운을 걸지 않는다(요란해도 된다).
+         ★ 연출 — 경고 문구에 앞서 컷신이 한 번 선다: 평화롭던 하늘이 어두워지고, 날개가 온다
+           (storycine.DRAGON). 컷신이 끝난 뒤에야 땅의 이름(경고)이 선다. */
       if (res.dragonWarn) {
-        announceLand(res.dragonWarn.title, res.dragonWarn.text, 'danger', false);
-        if (GM.fx) { GM.fx.dangerEdge(2.4); GM.fx.shakeScreen(6, 0.5); }
-        if (GM.sfx) GM.sfx.play('deny');
+        var dw = res.dragonWarn;
+        var dragonLand = function () {
+          announceLand(dw.title, dw.text, 'danger', false);
+          if (GM.fx) { GM.fx.dangerEdge(2.4); GM.fx.shakeScreen(6, 0.5); }
+          if (GM.sfx) GM.sfx.play('deny');
+        };
+        if (GM.storycine) GM.storycine.play(GM.storycine.DRAGON, { auto: true, onEnd: dragonLand });
+        else dragonLand();
       }
     });
   }

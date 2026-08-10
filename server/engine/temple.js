@@ -10,6 +10,8 @@ import { townOf, terrainNameAt } from './world.js';
 import { statRng } from './traits.js';
 import { spawnGuardian, creatureById } from './ecology.js';
 import { dropPool, grantArtifact, artifactFoundEvent } from './artifacts.js';
+/* ★ 3단계A — 신전 단서가 가리키던 문 앞에 실제로 섰다는 표시(장부는 도감이 쥔다). */
+import { markClueTarget } from './codex.js';
 
 export const templeCfg = (data) => data.ruins.temple ?? null;
 
@@ -84,6 +86,23 @@ function onCooldown(st, world, data) {
   return st.failedTick != null && world.tick - st.failedTick < days;
 }
 
+/**
+ * ★ 4단계(2026-08-10) — 단마다 **그 신전의 전설 한 조각**을 카드에 싣는다.
+ * 「왜」 — 신전 카드에는 여태 kind.text + spec.text 뿐이라 열 신전이 안에서는 모두 같은 방이었다
+ * (「문에 문양 셋이 새겨져 있다」). 바이옴 전설(ruins.json temple.lore.*)은 이미 자료에 있었지만
+ * 읽는 자가 유적 카드뿐이었다(king.js ruinLore) — 정작 그 전설이 가리키던 신전 **안에서는**
+ * 한 줄도 안 나왔다. 단이 곧 이야기의 단이다: 전실(prologue) → 회랑(trace) → 안치소(revelation).
+ * 화면은 이미 lore{title,lines} 를 그릴 줄 안다(council.js openDecision) — 새 규약이 없다.
+ */
+const LORE_PHASE = { riddle: 'prologue', trial: 'trace', vault: 'revelation' };
+
+function templeLore(cfg, kind, stage) {
+  const phase = LORE_PHASE[stage] ?? 'prologue';
+  const lines = cfg.lore?.[kind.id]?.[phase];
+  if (!lines?.length) return null;
+  return { id: `temple:${kind.id}:${phase}`, title: `${kind.name}의 기록`, lines };
+}
+
 function buildCard(world, nation, node, data, kind, st) {
   const cfg = templeCfg(data);
   const stage = st.stage === 'trial' && guardianDown(nation, st) ? 'vault' : st.stage;
@@ -95,7 +114,8 @@ function buildCard(world, nation, node, data, kind, st) {
     options: spec.options.map((o) => o.key),
     // 한국어는 서버가 쥔다 — 화면이 열쇠말을 제 손으로 옮기면 두 곳에 살게 되어 갈린다.
     optionLabels: spec.options.map((o) => ({ key: o.key, label: o.label })),
-    temple: { nodeId: node.id, stage, kindId: kind.id },
+    lore: templeLore(cfg, kind, stage),
+    temple: { nodeId: node.id, stage, kindId: kind.id, kindName: kind.name },
   };
 }
 
@@ -145,7 +165,11 @@ function stageTrial(world, nation, data, { node, st, kind, choice }) {
   const c = spawnGuardian(world, nation, data, kind.guardian, { x: node.x, y: node.y }, kind.id);
   if (!c) return done({ stage: 'trial', passed: false, text: cfg.trial.leaveText });
   st.guardianId = c.id;
-  return done({ stage: 'trial', passed: true, text: cfg.trial.spawnText, guardianId: c.id });
+  /* ★ 4단계 — 수호자가 「나오는 순간」이 한 줄이라도 있어야 시련이 시련이 된다.
+     문이 열리는 것은 어느 신전이나 같고(spawnText), 무엇이 걸어 나오는가는 신전마다 다르다
+     (kind.guardianText) — 그래서 두 조각을 자료에서 이어 붙인다. 코드에는 문장이 없다. */
+  const entry = [cfg.trial.spawnText, kind.guardianText].filter(Boolean).join(' ');
+  return done({ stage: 'trial', passed: true, text: entry, guardianId: c.id });
 }
 
 /** 안치소 — 상자 밖 풀에서 한 점. 방에 하나뿐인 것은 등록부가 이미 안다(dropPool). */
@@ -192,6 +216,9 @@ export function enterTemple(world, nation, avatarId, nodeId, data) {
   if (av && Math.hypot(av.x - node.x, av.y - node.y) > reach + 0.6) {
     return { ok: false, code: 'OUT_OF_RANGE', message: '더 가까이 가야 합니다.' };
   }
+  /* ★ 3단계A — 문 앞에 **선 순간** 그 신전을 가리키던 단서가 닫힌다. 안쪽에서 무슨 일이
+     있었는지(수수께끼를 풀었는지·물러섰는지)와는 무관하다 — 단서가 시킨 일은 「찾아가라」였다. */
+  if (templeKindAt(world, nation, node, data)) markClueTarget(nation, node.id, world.tick);
   const card = templeCard(world, nation, node, data);
   const st = templeState(nation, node.id);
   if (st.stage === 'trial' && st.guardianId && creatureById(nation, st.guardianId)) {

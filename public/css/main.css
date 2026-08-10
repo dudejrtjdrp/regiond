@@ -1716,7 +1716,10 @@ body.cutscene .toasts{bottom:74px}
 .dlg-cinematic .dlg-name{top:66%; left:8%; z-index:1; font-size:clamp(12px,1.5vw,16px)}
 .dlg-cinematic .dlg-body{position:absolute; z-index:1; left:9%; right:9%; top:72%; bottom:9%; display:block}
 .dlg-cinematic .dlg-text{min-height:0; height:100%; padding:0 2%; display:block}
-.dlg-cinematic .dlg-line{margin:0; padding-right:2%; font-size:clamp(13px,1.65vw,18px); line-height:1.55}
+/* ★ 2026-08 — 판이 감당하는 것은 세 줄이다. 넘치는 말은 잘리는 것이 아니라 **다음 창으로 넘어간다**
+   (dialogue.js 가 열리는 순간 실제 줄 칸을 재서 나눈다). 여기 max-height 는 그 마지막 빗장이다. */
+.dlg-cinematic .dlg-line{margin:0; padding-right:2%; font-size:clamp(13px,1.65vw,18px); line-height:1.55;
+  max-height:calc(1.55em * 3); overflow:hidden}
 /* Choices live inside the lower-right of the parchment.  At rest they read
    like quiet reply text; only hover/focus gives them a button treatment. */
 .dlg-cinematic .dlg-choices{position:absolute; right:0; bottom:0; display:flex; flex-direction:column;
@@ -1743,4 +1746,430 @@ body.dialogue .me-panel{opacity:.16; pointer-events:none; transition:opacity .18
   .dlg-line{font-size:14px}
   .dlg-cinematic{width:100vw; max-width:100vw}
   .dlg-cinematic .dlg-line{font-size:clamp(12px,3vw,15px)}
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ★ 추가 에셋 스킨 (2026-08-10) — 일러스트 컷신 · UI 이미지 적용
+   원본 사양: docs/연출/스토리_연출_이미지.html · 에셋: public/assets/{cutscene,ui,creature/ash_wyrm}
+   ══════════════════════════════════════════════════════════════════ */
+:root{--serif-kr:'Noto Serif KR','Batang','바탕',serif}
+
+/* ── 0. 메인 홈 — 일러스트 한 장이 곧 타이틀이다(로고·메뉴 문구가 그림에 구워져 있다).
+   판은 **상단 기준**으로 화면을 덮는다(로고가 잘리지 않게 아래쪽을 자른다).
+   메뉴 글자 위에는 투명 핫스팟만 얹고, 호버하면 그 자리가 밝아지며 금줄이 선다. ── */
+.scene-title{padding:0; background:#12203c; overflow:hidden}
+.title-plate{position:absolute; left:50%; top:0; transform:translateX(-50%);
+  width:max(100vw, 177.7vh); aspect-ratio:1672/941;
+  background:url('../assets/cutscene/title/main.png') 0 0/100% 100% no-repeat}
+/* ★ 2차 축소 — 핫스팟이 글자보다 한참 넓어 옆칸까지 밝아지던 자리다.
+   글자 픽셀 실측(일러스트 1672×941 비율): 세로 y .307~.343,
+   가로 새로하기 .387~.449 · 이어하기 .4607~.5243 · 멀티플레이 .534~.617.
+   여기에 네 변 모두 0.6%p 정도의 얇은 여백만 더해 글자 둘레를 딱 감싼다. */
+.title-hot{position:absolute; top:30.1%; height:4.8%; padding:0; margin:0;
+  background:transparent; border:none; cursor:pointer; border-radius:6px}
+#btn-new{left:38.1%; width:7.4%}    /* .387-.006 ~ .449+.006 */
+#btn-load{left:45.5%; width:7.0%}   /* .4607-.006 ~ .5243+.006 */
+#btn-join{left:52.8%; width:8.9%}   /* .534-.006 ~ .617+.006 */
+/* 호버는 은은하게 — 밝기 1.18, 옅은 금빛 번짐과 밑줄 2px */
+.title-hot:hover,.title-hot:focus-visible{
+  backdrop-filter:brightness(1.18) saturate(1.04);
+  box-shadow:0 0 12px rgba(255,240,190,.35), inset 0 -2px 0 -1px rgba(255,235,180,.8);
+  outline:none}
+.title-hot:active{backdrop-filter:brightness(.92)}
+.scene-title .title-wrap[hidden]{display:none}
+.scene-title .scene-status{position:absolute; left:0; right:0; bottom:9vh; margin:0}
+.scene-title .scene-foot{position:absolute; left:0; right:0; bottom:4vh; margin:0;
+  color:#e6ebff; text-shadow:1px 1px 0 rgba(0,0,0,.65)}
+
+/* ── 0-b. 시네마 슬로우 (fx.cinemaSlow — 용의 최후 §19-F2) ──
+   화면 시계를 늦추는 것은 js 몫이고, 여기서는 「늦어졌다」를 눈에 보이게만 한다:
+   위아래 검은 띠가 내려오고 세상의 색이 한 겹 빠진다. 띠는 클릭을 먹지 않는다. */
+#cinema-bars{position:fixed; inset:0; z-index:880; pointer-events:none; opacity:0;
+  transition:opacity .5s ease}
+#cinema-bars::before,#cinema-bars::after{content:''; position:absolute; left:0; right:0;
+  height:11vh; background:#04050a; transform:scaleY(0); transition:transform .5s ease}
+#cinema-bars::before{top:0; transform-origin:top}
+#cinema-bars::after{bottom:0; transform-origin:bottom}
+body.cinema #cinema-bars{opacity:1}
+body.cinema #cinema-bars::before,body.cinema #cinema-bars::after{transform:scaleY(1)}
+body.cinema .world-canvas,body.cinema .fx-layer{
+  filter:saturate(.5) contrast(1.14) brightness(.9); transition:filter .5s ease}
+@media (prefers-reduced-motion:reduce){
+  #cinema-bars::before,#cinema-bars::after{transition:none}
+  body.cinema .world-canvas,body.cinema .fx-layer{filter:none}
+}
+
+/* ── 1. 일러스트 컷신 (storycine.js — 도입·용의 등장) ── */
+.cine{position:fixed; inset:0; z-index:950; background:#000; overflow:hidden; cursor:pointer}
+.cine-stage{position:absolute; inset:0}
+.cine-img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+  opacity:0; transition:opacity .9s ease}
+.cine-img.show{opacity:1}
+.cine-img.slow{transition-duration:2s}
+.cine.shake .cine-stage{animation:cineShake .55s ease-in-out 2}
+@keyframes cineShake{0%,100%{transform:none}20%{transform:translate(-9px,5px)}40%{transform:translate(8px,-6px)}
+  60%{transform:translate(-6px,3px)}80%{transform:translate(4px,-2px)}}
+.cine-textbox{position:absolute; left:0; right:0; bottom:0; z-index:2; padding:30px 9vw 30px;
+  background:linear-gradient(180deg,rgba(6,5,10,0) 0,rgba(6,5,10,.8) 46%,rgba(6,5,10,.94) 100%)}
+.cine.notext .cine-textbox{display:none}
+/* ★ 자막 가리개 — 엔딩 일러스트에 구워진 자막(그림 세로 88% 언저리)을 덮는다.
+   object-fit:cover 라 화면 비율에 따라 그 줄이 아래로 밀릴 뿐 위로는 오지 않으므로,
+   바닥에서 26vh 를 불투명하게 채우면 어떤 비율에서도 가려진다. 글은 그 띠 한가운데에 앉는다. */
+.cine.masked .cine-textbox{min-height:26vh; padding:0 9vw; display:flex;
+  flex-direction:column; justify-content:center;
+  background:linear-gradient(180deg,
+    rgba(4,4,8,0) 0%, rgba(4,4,8,.72) 16%, rgba(4,4,8,.96) 34%, #040408 52%, #040408 100%)}
+.cine.masked .cine-line{min-height:0; text-align:center}
+.cine.masked .cine-name{text-align:center}
+.cine-name{color:var(--gold); font-size:16px; margin-bottom:7px; text-shadow:1px 1px 0 rgba(0,0,0,.8);
+  font-family:var(--serif-kr); letter-spacing:.2em}
+.cine-line{margin:0; color:#f4e4bc; font-size:clamp(15px,2vw,20px); line-height:1.7; min-height:2.4em;
+  white-space:pre-wrap; word-break:keep-all; text-shadow:1px 1px 0 rgba(0,0,0,.8);
+  font-family:var(--serif-kr); letter-spacing:.08em}
+.cine-next{position:absolute; right:6vw; bottom:18px; color:var(--gold); opacity:0; font-size:15px}
+.cine.typed .cine-next{animation:dlgNext .8s steps(2) infinite}
+.cine-skip{position:absolute; right:18px; top:16px; z-index:3; padding:6px 12px; font-size:13px;
+  background:rgba(10,8,16,.6); color:#d8cfae; border:2px solid rgba(216,207,174,.5); cursor:pointer}
+.cine-skip:hover{background:rgba(10,8,16,.85)}
+
+/* 가운데 글(도착 장) · 이름 묻기 */
+.cine.center .cine-textbox{top:0; bottom:0; padding:0 8vw; display:flex; flex-direction:column;
+  justify-content:center; align-items:center;
+  background:linear-gradient(180deg,rgba(8,8,14,0) 26%,rgba(8,8,14,.42) 52%,rgba(8,8,14,0) 84%)}
+.cine.center .cine-line{text-align:center; min-height:0; font-size:clamp(15px,1.9vw,21px); line-height:2.15}
+.cine.center .cine-next{right:50%; transform:translateX(50%)}
+.cine.ask .cine-textbox{justify-content:flex-start; padding-top:26vh}
+.cine.ask .cine-line{font-size:clamp(19px,2.7vw,31px); letter-spacing:.42em; text-indent:.42em; line-height:1.6}
+.cine.ask .cine-next{display:none}
+.cine-ask{position:absolute; left:50%; top:52%; transform:translateX(-50%); z-index:3;
+  width:min(500px,82vw); display:flex; flex-direction:column; gap:16px; align-items:center; cursor:auto}
+/* ★ 입력은 「그림 위에」 산다 — 전역 input 규칙(테두리·흰 배경·포커스 배경)을 전부 이긴다 */
+.cine .cine-ask-in[type=text]{width:100%; height:clamp(64px,9vw,96px); padding:0 9%;
+  background:url('../assets/ui/message.png') 0 0/100% 100% no-repeat;
+  border:none; outline:none; box-shadow:none; text-align:center;
+  font-family:var(--serif-kr); font-size:clamp(15px,2vw,20px); letter-spacing:.14em; color:#3d2f1a}
+.cine .cine-ask-in[type=text]:focus{background:url('../assets/ui/message.png') 0 0/100% 100% no-repeat;
+  border:none; box-shadow:none}
+.cine .cine-ask-in::placeholder{color:#8a7a5e; letter-spacing:.3em}
+.cine-ask-go{padding:9px 26px; cursor:pointer; font-family:var(--serif-kr);
+  font-size:clamp(13px,1.6vw,16px); letter-spacing:.24em; text-indent:.24em;
+  color:#f4e4bc; background:rgba(14,12,20,.55); border:2px solid rgba(216,180,110,.75); border-radius:4px}
+.cine-ask-go:hover{background:rgba(30,24,40,.75); box-shadow:0 0 14px rgba(246,207,122,.4)}
+
+/* ── 1-b. 매듭 뒤의 두 화면 (endcredits.js — 제작자 · 계속 플레이) ──
+   배경은 홈 일러스트 그대로다(.title-plate 와 같은 자·같은 그림). 그림에 구워진
+   메뉴 줄(새로하기·이어하기·멀티플레이)만 .ec-hide 로 덮고, 로고는 그대로 둔다. */
+.ec{position:fixed; inset:0; z-index:960; background:#080b16; overflow:hidden;
+  opacity:0; transition:opacity .6s ease}
+.ec.show{opacity:1}
+.ec-plate{position:absolute; left:50%; top:0; transform:translateX(-50%);
+  width:max(100vw, 177.7vh); aspect-ratio:1672/941;
+  background:url('../assets/cutscene/title/main.png') 0 0/100% 100% no-repeat}
+/* 구워진 메뉴 줄 자리 — .title-hot 과 같은 눈금(top 29.4% · height 6.2%)에 여유를 얹었다 */
+.ec-hide{position:absolute; left:24%; right:24%; top:27.4%; height:9.6%;
+  backdrop-filter:blur(11px) brightness(.62) saturate(.8);
+  -webkit-backdrop-filter:blur(11px) brightness(.62) saturate(.8);
+  border-radius:40px / 50%;
+  -webkit-mask-image:radial-gradient(ellipse at center, #000 55%, transparent 100%);
+  mask-image:radial-gradient(ellipse at center, #000 55%, transparent 100%)}
+/* 아래 절반은 글이 앉을 자리 — 그림에서 부드럽게 어두워진다 */
+.ec::after{content:''; position:absolute; left:0; right:0; bottom:0; height:66%;
+  background:linear-gradient(180deg, rgba(8,11,22,0) 0%, rgba(8,11,22,.55) 32%,
+    rgba(8,11,22,.86) 62%, rgba(8,11,22,.96) 100%); pointer-events:none}
+.ec-body{position:absolute; left:0; right:0; bottom:0; top:44%; z-index:2;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:14px; padding:0 8vw; text-align:center; font-family:var(--serif-kr);
+  opacity:0; transform:translateY(10px); transition:opacity .8s ease, transform .8s ease}
+.ec-body.in{opacity:1; transform:none}
+.ec-cap{margin:0; color:var(--gold); font-size:clamp(15px,1.9vw,21px); letter-spacing:.34em;
+  text-indent:.34em; text-shadow:1px 1px 0 rgba(0,0,0,.7)}
+.ec-names{margin:0; color:#f7ecd2; font-size:clamp(19px,2.6vw,31px); letter-spacing:.22em;
+  text-indent:.22em; white-space:pre-wrap; text-shadow:1px 2px 4px rgba(0,0,0,.75)}
+.ec-foot{margin:10px 0 0; color:#d9cdb2; font-size:clamp(13px,1.6vw,18px); line-height:1.8}
+.ec-q{margin:0 0 6px; color:#f7ecd2; font-size:clamp(17px,2.3vw,27px); letter-spacing:.12em;
+  text-shadow:1px 2px 4px rgba(0,0,0,.75)}
+.ec-row{display:flex; gap:clamp(14px,4vw,58px); flex-wrap:wrap; justify-content:center}
+.ec-btn{padding:10px 26px; cursor:pointer; font-family:var(--serif-kr);
+  font-size:clamp(15px,1.9vw,21px); letter-spacing:.14em; color:#f4e4bc;
+  background:rgba(10,10,18,.42); border:1px solid rgba(246,207,122,.42); border-radius:4px;
+  transition:background .18s ease, box-shadow .18s ease, color .18s ease}
+.ec-btn:hover,.ec-btn:focus-visible{color:#fff6dc; background:rgba(30,24,40,.72);
+  box-shadow:0 0 16px rgba(246,207,122,.45); outline:none}
+.ec-hint{margin:14px 0 0; color:#9d937f; font-size:clamp(11px,1.25vw,14px)}
+@media (max-width:640px){
+  .ec-body{top:38%}
+  .ec-hide{left:12%; right:12%}
+}
+@media (prefers-reduced-motion:reduce){
+  .ec,.ec-body{transition:none}
+}
+
+/* ── 2. 달력 배지 — 시간대 일러스트(해·달 원호가 판에 구워져 있다) ── */
+.cal-badge.cal-skin{width:256px; height:54px; padding:0; border:none; gap:0; position:relative;
+  background-color:transparent; background-size:100% 100%; background-repeat:no-repeat;
+  box-shadow:0 4px 0 rgba(0,0,0,.3)}
+.cal-badge.cal-skin > img{position:absolute; left:10.5%; top:50%; transform:translate(-50%,-50%);
+  width:26px; height:26px; margin:0}
+/* 양피지 칸(가로 24~58%) 정중앙 — 아래 진행바 자리만큼 살짝 위로 */
+.cal-badge.cal-skin .cal-col{position:absolute; left:25%; width:32%; top:12%; bottom:28%;
+  display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center}
+.cal-badge.cal-skin .cal-day-n{font-size:15.5px; line-height:1.15; color:#4a3416}
+.cal-badge.cal-skin .cal-season{font-size:10px; line-height:1.1; color:#7a5a2e}
+.cal-badge.cal-skin .day-prog{position:absolute; left:27%; bottom:24%; width:28%; height:3px;
+  margin:0; background:rgba(90,62,30,.3)}
+.cal-badge.cal-skin .day-prog i{background:#a5762f}
+
+/* ── 3. 나의 상태 — 체력바 일러스트(초상 원 · 막대 홈 둘 · 달 판=잠자기) ── */
+.me-panel.me-skin{width:432px; height:125px; padding:0; display:block; border:none; box-shadow:none;
+  background:url('../assets/ui/hp_frame.png') 0 0/100% 100% no-repeat}
+.me-panel.me-skin .me-face{position:absolute; left:5.1%; top:20%; width:15.6%; height:55%;
+  border:none; border-radius:50%; background:transparent}
+.me-panel.me-skin .me-face img,.me-panel.me-skin .me-face canvas{border-radius:50%}
+.me-panel.me-skin .me-lv{right:-16%; bottom:-14%; background:transparent; color:#f4e4bc;
+  text-shadow:1px 1px 0 rgba(0,0,0,.8); font-size:15px}
+.me-panel.me-skin .me-bars{display:contents}
+.me-panel.me-skin .me-name{position:absolute; left:31%; right:26%; top:9.5%; font-size:12.5px; color:#5a4020}
+.me-panel.me-skin .me-bar{background:transparent; border:none}
+.me-panel.me-skin .me-bar.hp{position:absolute; left:31.2%; right:26.2%; top:39.5%; height:13.5%}
+.me-panel.me-skin .me-bar.xp{position:absolute; left:31.2%; right:26.2%; top:60.5%; height:13.5%}
+.me-panel.me-skin .me-bar > i{border-radius:2px}
+.me-panel.me-skin .me-bar > span{font-size:11.5px; line-height:normal;
+  display:flex; align-items:center; justify-content:center}
+.me-panel.me-skin .me-sleep{position:absolute; left:79.6%; top:29%; width:12%; height:44%;
+  background:transparent; border:none; box-shadow:none; padding:0}
+.me-panel.me-skin .me-sleep img{display:none}
+.me-panel.me-skin .me-sleep span{position:absolute; top:103%; left:50%; transform:translateX(-50%);
+  font-size:10px; color:#f4e4bc; text-shadow:1px 1px 0 rgba(0,0,0,.85); white-space:nowrap}
+.me-panel.me-skin .me-sleep:hover{filter:none; box-shadow:inset 0 0 0 2px rgba(246,207,122,.55)}
+.me-panel.me-skin .me-sleep.on{background:transparent; box-shadow:inset 0 0 10px 3px rgba(246,207,122,.55)}
+.me-panel.me-skin.down{filter:saturate(.35) brightness(.82); border:none}
+
+/* ── 4. 대화창 — 메시지판(나레이션 종이) · NPC 초상 링 ──
+   ★ 2026-08 재작업 — 글이 액자를 넘어가던 자리다. 예전에는 인물판용 좌표(top:72%)를 그대로 물려받아
+   말이 판 아래 테두리와 좌우 장식 모서리 위로 흘러넘쳤다. 이제 **판 안쪽 글자리**를 따로 못박는다:
+     · 좌우 12% / 14% — 양 끝 장식 모서리(원본 964px 기준 x 30~95 · 845~935)를 피한다
+     · 위아래 27% / 24% — 위아래 테두리와 가운데 장식을 피한다
+     · 초상(링)과 글은 flex 로 나란히 선다 — 겹칠 수 있는 구조 자체를 없앤다
+   그 안에서 글은 최대 세 줄이고, 더 긴 말은 dialogue.js 가 다음 창으로 넘긴다. */
+.dlg-cinematic.dlg-noscene{
+  aspect-ratio:964/190;
+  background:url('../assets/ui/message.png') 0 0/100% 100% no-repeat;
+  border:none; box-shadow:none; padding:0}
+.dlg-cinematic.dlg-noscene .dlg-name{position:absolute; top:6%; left:12.5%; z-index:2; padding:0;
+  background:transparent; border:none; box-shadow:none;
+  color:#6a4a20; font-size:clamp(10px,1.25vw,14px)}
+.dlg-cinematic.dlg-noscene .dlg-name::after{display:none}
+.dlg-cinematic.dlg-noscene .dlg-body{position:absolute; z-index:1;
+  left:12%; right:14%; top:27%; bottom:24%;
+  display:flex; align-items:center; gap:min(16px,1.6vw)}
+.dlg-cinematic.dlg-noscene .dlg-portrait{display:block; flex:0 0 auto;
+  width:clamp(38px,5.2vw,60px); height:auto; aspect-ratio:342/317;   /* 링 원본 비율 그대로 */
+  overflow:visible; position:relative;
+  border:none; box-shadow:none; background:url('../assets/ui/npc_ring.png') center/100% 100% no-repeat}
+.dlg-cinematic.dlg-noscene .dlg-portrait img{position:absolute; left:23%; top:20%;
+  width:54%; height:54%; border-radius:50%}
+.dlg-cinematic.dlg-noscene .dlg-text{flex:1 1 auto; min-width:0; height:auto; padding:0; display:block}
+.dlg-cinematic.dlg-noscene .dlg-line{padding-right:0; font-size:clamp(12px,1.5vw,17px); line-height:1.5;
+  max-height:calc(1.5em * 3); overflow:hidden}
+/* 다음 표시(▼)는 글자리 밖 — 아래 테두리 한가운데에 앉아 마지막 줄을 건드리지 않는다 */
+.dlg-cinematic.dlg-noscene .dlg-next{left:50%; right:auto; bottom:6%; transform:translateX(-50%);
+  color:var(--gold); text-shadow:0 1px 2px rgba(0,0,0,.7)}
+/* 선택지가 서면 판을 한 뼘 키워 글과 답이 서로를 밀지 않게 한다(선택지는 글 아래 칸이다) */
+.dlg-cinematic.dlg-noscene.has-choices{aspect-ratio:964/300}
+.dlg-cinematic.dlg-noscene.has-choices .dlg-body{top:22%; bottom:18%}
+.dlg-cinematic.dlg-noscene.has-choices .dlg-text{height:100%; display:flex; flex-direction:column}
+.dlg-cinematic.dlg-noscene .dlg-choices{position:static; margin-top:auto; padding-top:6px;
+  max-width:100%; flex-direction:column; align-items:flex-end; gap:2px}
+
+/* ── 5. 발견 기록 · 유물 보관함 · 퀘스트 아이콘 ── */
+.artifact-journal-btn .aj-ic{height:20px; vertical-align:-5px; margin-right:6px}
+.goal-card .gc-cap::before{content:''; display:inline-block; width:15px; height:15px; margin-right:5px;
+  vertical-align:-2px; background:url('../assets/ui/codex/icon_quest.png') center/contain no-repeat}
+
+/* ── 6. 모달 — 다용도 타일(양피지 액자)을 테두리 그림으로 두른다(모서리는 살고 가운데는 늘어난다) ── */
+.modal{border:22px solid transparent;
+  border-image:url('../assets/ui/tile_square.png') 150 fill / 22px / 0 stretch}
+.modal-back[data-mkey="codex"] .modal-body{
+  background:url('../assets/ui/codex/panel.png') center/cover; color:#f0e6d2}
+
+/* ── 7. 메뉴 판(멀티플레이·이어하기) — 일러스트 액자 위에 글과 칸을 앉힌다 ── */
+.scene-menu{padding:0; overflow:hidden; flex-direction:column; gap:12px;
+  background:url('../assets/cutscene/title/main.png') top/cover no-repeat #12203c}
+.menu-panel{position:relative; width:min(440px,92vw); margin-top:4vh;
+  font-family:var(--serif-kr); container-type:inline-size}
+.menu-panel.mode-join{aspect-ratio:1058/1091;
+  background:url('../assets/ui/menu/panel_multi.png') 0 0/100% 100% no-repeat}
+.menu-panel.mode-resume{aspect-ratio:1059/1021;
+  background:url('../assets/ui/menu/panel_load.png') 0 0/100% 100% no-repeat}
+.menu-title{position:absolute; left:0; right:0; margin:0; text-align:center;
+  color:#3d2f1a; font-weight:700; font-size:clamp(20px,5.6cqw,27px); letter-spacing:.42em; text-indent:.42em}
+.menu-sub{position:absolute; left:0; right:0; margin:0; text-align:center;
+  color:#6a5638; font-size:clamp(11px,3cqw,14px); letter-spacing:.12em}
+/* ★ 입력은 「액자 홈 위에」 산다 — 전역 input 테두리·배경·포커스 배경을 전부 지운다 */
+.menu-panel .menu-in[type=text]{position:absolute; width:auto; background:transparent; border:none;
+  outline:none; box-shadow:none; padding:0;
+  font-family:var(--serif-kr); color:#3d2f1a; font-size:clamp(13px,3.4cqw,16px); letter-spacing:.06em}
+.menu-panel .menu-in[type=text]:focus{background:transparent; border:none; box-shadow:none}
+.menu-panel .menu-in::placeholder{color:#8a765a}
+.menu-primary,.menu-secondary,.menu-back{position:absolute; background:transparent; border:none;
+  cursor:pointer; font-family:var(--serif-kr); letter-spacing:.3em; text-indent:.3em; border-radius:10px}
+.menu-primary{color:#f4ead2; font-weight:700; font-size:clamp(16px,4.4cqw,21px);
+  text-shadow:0 1px 2px rgba(0,0,0,.55)}
+.menu-secondary{color:#4a3a22; font-weight:700; font-size:clamp(14px,3.8cqw,18px)}
+.menu-back{color:#5a4830; font-size:clamp(12px,3.2cqw,15px);
+  background:#f1e9d6; padding:0 14px; left:50%; transform:translateX(-50%); width:auto}
+.menu-primary:hover{filter:brightness(1.18)}
+.menu-secondary:hover,.menu-back:hover{filter:brightness(1.06); text-shadow:0 0 8px rgba(200,160,90,.5)}
+
+/* mode-join(1058×1091) — 실측 홈 자리 */
+.mode-join .menu-title{top:22.5%}
+.mode-join .menu-sub{top:35.5%}
+.mode-join .menu-in-name{left:22%; right:18%; top:41%; height:8.5%}
+/* 초대 코드 칸이 액자 홈보다 한 뼘 아래로 내려가 있었다 — 홈 위로 끌어올리고 칸을 키운다 */
+.mode-join .menu-in-code{left:22%; right:18%; top:51.3%; height:9%}
+.mode-join .menu-primary{left:18%; width:64%; top:63.5%; height:12%}
+.mode-join .menu-secondary{left:20%; width:60%; top:79.5%; height:8.5%}
+.mode-join .menu-back{top:88.6%; height:5%}
+
+/* mode-resume(1059×1021) — 이름 칸·둘째 단추 없음 */
+.mode-resume .menu-in-name,.mode-resume .menu-secondary{display:none}
+.mode-resume .menu-title{top:24%}
+.mode-resume .menu-sub{top:39%}
+.mode-resume .menu-in-code{left:17%; right:17%; top:49.5%; height:10.5%; text-align:center}
+.mode-resume .menu-primary{left:18%; width:64%; top:66.5%; height:13.5%}
+.mode-resume .menu-back{top:85.8%; height:5.5%}
+
+/* ── 8. 작은 경고 모달 — 메시지판 에셋으로 뜬다(「초대 코드를 적어 주세요」 따위) ── */
+.gm-alert-back{position:fixed; inset:0; z-index:900; background:rgba(12,8,4,.5);
+  display:flex; align-items:center; justify-content:center; animation:fadeIn .14s}
+/* 판을 한 뼘 줄이고 글은 무조건 한 줄 — 「초대 코드를 적어 주세요」가 두 줄로 접히며
+   아래 [확인]과 겹치던 자리다. nowrap 인 만큼 글자도 함께 줄여 판 안에 들어오게 한다. */
+.gm-alert{position:relative; width:min(430px,84vw); aspect-ratio:964/190; cursor:auto;
+  background:url('../assets/ui/message.png') 0 0/100% 100% no-repeat;
+  display:flex; align-items:center; justify-content:center; padding:0 9%}
+.gm-alert p{margin:0; font-family:var(--serif-kr); font-size:clamp(12px,1.5vw,14px);
+  color:#3d2f1a; letter-spacing:.04em; text-align:center; white-space:nowrap;
+  transform:translateY(-6%)}
+.gm-alert .gm-alert-ok{position:absolute; left:50%; bottom:4%; transform:translateX(-50%);
+  background:transparent; border:none; cursor:pointer; font-family:var(--serif-kr);
+  font-size:12.5px; letter-spacing:.3em; text-indent:.3em; color:#7a5a2e; padding:2px 10px}
+.gm-alert .gm-alert-ok:hover{color:#4a3416; text-shadow:0 0 6px rgba(200,160,90,.6)}
+
+/* ── 9. 건국 화면 — 난이도 3택은 가로 한 줄 ── */
+.scene-found .diff-grid{grid-template-columns:repeat(3,1fr)}
+
+/* ══════════════════════════════════════════════════════════════════
+   ★ 새로하기(건국) 리스킨 (2026-08-10) — 홈·메뉴 판과 같은 옷을 입는다.
+   배경은 타이틀 일러스트(다른 메뉴와 동일), 판은 양피지 타일 액자(tile_square 734×760)를
+   모달(.modal)과 같은 기법으로 두른 세로 판 하나. 이름 칸은 슬롯 그림(menu/slot.png 773×120),
+   큰 단추는 파란 판(menu/btn_blue.png 720×175), 글은 세리프(--serif-kr).
+   「그대의 모습」은 화면에서 뺐다(주민 NPC 통일) — index.html·lobby.js 참고.
+   ══════════════════════════════════════════════════════════════════ */
+.scene-found{flex-direction:column; align-items:center; justify-content:flex-start;
+  padding-top:5vh; font-family:var(--serif-kr);
+  background:url('../assets/cutscene/title/main.png') top/cover no-repeat #12203c}
+/* 판 하나에 다 담는다 — 테두리 24px 는 tile_square 의 모서리 장식(150px 슬라이스) 두께다 */
+.scene-found .found-wrap{width:min(520px,94vw); margin:0 auto;
+  padding:22px clamp(16px,4.5vw,34px) 16px;
+  border:24px solid transparent;
+  border-image:url('../assets/ui/tile_square.png') 150 fill / 24px / 0 stretch;
+  filter:drop-shadow(0 14px 26px rgba(0,0,0,.5))}
+.found-title{margin:0 0 6px; text-align:center; color:#3d2f1a; font-weight:700;
+  font-size:clamp(20px,5vw,26px); letter-spacing:.42em; text-indent:.42em}
+.found-sub{margin:0 0 16px; text-align:center; color:#6a5638;
+  font-size:clamp(11px,2.8vw,13px); letter-spacing:.12em}
+/* 금줄 가름선 — 메뉴 판의 결을 CSS 로 잇는다 */
+.found-sub::after{content:""; display:block; height:1px; margin:13px auto 0; width:78%;
+  background:linear-gradient(90deg,transparent,#b99b62 18%,#b99b62 82%,transparent)}
+
+/* 이름 칸 — 에셋 슬롯(773×120) 위에 글자만 얹는다.
+   전역 input[type=text] 와 :focus 의 테두리·흰 배경을 이겨야 하므로 id 까지 붙여 무게를 올린다.
+   ★ 흰 판이 슬롯 뒤로 비치던 까닭 — 칸 그림만 깔고 「칸 자체가 판을 그리는 일」을 안 막았다.
+     ① 브라우저 기본 칸 그림(appearance) ② 크롬 자동완성이 UA !important 로 덮어 그리는 흰 판
+     두 가지가 남아 있었다. 아래에서 둘 다 끈다(자동완성은 전이 지연으로 영영 안 뜨게 한다). */
+#scene-found input#found-name[type=text]{display:block; width:min(420px,100%); margin:0 auto;
+  aspect-ratio:773/120; height:auto; padding:0 10%;
+  -webkit-appearance:none; appearance:none;
+  background:url('../assets/ui/menu/slot.png') 0 0/100% 100% no-repeat;
+  background-color:transparent; background-clip:border-box;
+  border:none; outline:none; box-shadow:none; text-align:center;
+  font-family:var(--serif-kr); font-size:clamp(15px,3.6vw,19px); letter-spacing:.14em; color:#3d2f1a}
+#scene-found input#found-name[type=text]:hover,
+#scene-found input#found-name[type=text]:active,
+#scene-found input#found-name[type=text]:focus,
+#scene-found input#found-name[type=text]:focus-visible{
+  -webkit-appearance:none; appearance:none;
+  background:url('../assets/ui/menu/slot.png') 0 0/100% 100% no-repeat;
+  background-color:transparent;
+  border:none; outline:none; box-shadow:none}
+#scene-found input#found-name[type=text]:focus{filter:drop-shadow(0 0 10px rgba(246,207,122,.45))}
+/* 크롬·엣지 자동완성 — UA 가 !important 로 흰(연푸른) 판을 칠한다. 색은 못 이기니 전이를 늘려 못 뜨게 막고,
+   글자색만 -webkit-text-fill-color 로 넘긴다. */
+#scene-found input#found-name[type=text]:-webkit-autofill,
+#scene-found input#found-name[type=text]:-webkit-autofill:hover,
+#scene-found input#found-name[type=text]:-webkit-autofill:active,
+#scene-found input#found-name[type=text]:-webkit-autofill:focus{
+  -webkit-text-fill-color:#3d2f1a; caret-color:#3d2f1a;
+  -webkit-box-shadow:none; box-shadow:none; border:none;
+  transition:background-color 600000s 0s, background-image 600000s 0s}
+#scene-found input#found-name[type=text]::placeholder{color:#8a7a5e; letter-spacing:.3em}
+.scene-found .kingdom-preview{color:#5a4020; text-shadow:none; letter-spacing:.06em;
+  margin-top:8px; text-align:center; font-size:13px}
+
+/* 길 고르기 — 밝은 양피지 톤 카드 석 장(3열은 위 §9 규칙) */
+.found-sec{margin:18px 0 10px; text-align:center; color:#3d2f1a; font-weight:700;
+  font-size:clamp(14px,3.6vw,17px); letter-spacing:.3em; text-indent:.3em}
+.found-sec::before,.found-sec::after{content:"—"; color:#b99b62; letter-spacing:0; text-indent:0; margin:0 10px}
+.scene-found .diff-grid{gap:9px}
+.scene-found .diff-card{border:1px solid #a9884f; border-radius:8px; padding:11px 8px;
+  background:rgba(245,236,214,.9); color:#5a4020; text-align:center;
+  box-shadow:0 2px 5px rgba(90,62,30,.22);
+  transition:transform .1s, box-shadow .1s, background .1s}
+.scene-found .diff-card:hover{transform:translateY(-2px);
+  background:rgba(252,246,229,.95); box-shadow:0 4px 9px rgba(90,62,30,.28)}
+.scene-found .diff-card img{margin:0 auto 6px; display:block}
+.scene-found .diff-card .rc-name{color:#3d2f1a; font-size:15px; letter-spacing:.12em}
+.scene-found .diff-card .rc-line{color:#6a5638; font-size:12px; min-height:2.4em}
+/* 고른 길 — 금테만 두른다(양피지 톤은 그대로) */
+.scene-found .diff-card.on{border-color:#c8a869; background:rgba(255,247,224,.96);
+  box-shadow:0 0 0 2px rgba(200,168,105,.85), 0 3px 8px rgba(90,62,30,.3)}
+.scene-found .diff-card.on .rc-name{color:#3d2f1a}
+.scene-found .diff-card.on .rc-line{color:#6a5638}
+
+/* 마차에 오른다 — 파란 판 에셋(720×175) 그대로. 판 비율을 지켜야 글이 홈 가운데 앉는다. */
+.scene-found .found-go{margin:18px 0 6px}
+.scene-found #found-start.found-primary{display:block; width:78%; margin:0 auto;
+  aspect-ratio:720/175; padding:0; cursor:pointer; border:none; border-radius:0;
+  background:url('../assets/ui/menu/btn_blue.png') 0 0/100% 100% no-repeat;
+  box-shadow:none;
+  font-family:var(--serif-kr); font-weight:700; font-size:clamp(15px,4vw,20px);
+  letter-spacing:.3em; text-indent:.3em; color:#f4ead2;
+  text-shadow:0 1px 2px rgba(0,0,0,.55); transition:filter .12s, transform .08s}
+.scene-found #found-start.found-primary:hover:not(:disabled){filter:brightness(1.15)}
+.scene-found #found-start.found-primary:active:not(:disabled){transform:translateY(2px)}
+.scene-found #found-start.found-primary:disabled{cursor:not-allowed; opacity:1;
+  filter:grayscale(.6) opacity(.75)}
+.scene-found #found-start.found-primary:focus-visible{outline:3px solid var(--gold); outline-offset:2px}
+.scene-found .found-summary{color:#5a4020; text-shadow:none; letter-spacing:.04em;
+  text-align:center; font-size:13px}
+
+/* 보조 옵션 — 판 위에서는 액자 없이 금줄 한 줄로 조용히 접힌다 */
+.scene-found .fold{background:transparent; border:none; box-shadow:none; padding:10px 4px 0;
+  border-top:1px solid rgba(185,155,98,.55); margin-top:14px}
+.scene-found .fold > summary{color:#5a4020; font-size:13.5px; letter-spacing:.1em}
+.scene-found .fold .hint{color:#5a4020; opacity:.82}
+.scene-found .switch{color:#5a4020}
+
+/* 뒤로 — 판 바깥 아래 가운데. 멀티플레이 판의 .menu-back 과 같은 결(투명·세리프·자간) */
+.found-back{display:block; margin:14px auto 0; padding:4px 18px; cursor:pointer;
+  background:transparent; border:none; color:#e8dcc0; font-family:var(--serif-kr);
+  font-size:clamp(12px,3.2vw,15px); letter-spacing:.3em; text-indent:.3em;
+  text-shadow:0 1px 3px rgba(0,0,0,.7)}
+.found-back:hover{text-shadow:0 0 8px rgba(200,160,90,.7)}
+.scene-found .scene-status{color:var(--gold)}
+
+@media (max-width:560px){
+  .scene-found{padding-top:2vh}
+  .scene-found .found-wrap{border-width:20px;
+    border-image:url('../assets/ui/tile_square.png') 150 fill / 20px / 0 stretch}
 }

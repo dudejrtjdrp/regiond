@@ -53,6 +53,8 @@ import { deposit } from './storage.js';
 import { findStructure, isRuined, footprint } from './structures.js';
 import { dist } from './world.js';
 import { revealAvatar } from './fog.js';
+// ★ A8 갇힘 — 커진 풋프린트가 먹은 칸에서 사람을 꺼내는 단일 정본(결정적)
+import { evictBlocked, nearestWalkable } from './path.js';
 import { combatSwing } from './battle.js';
 // ★ GDD3 §13-C-8 — 웨이브 밖의 검. 들에 사는 것들을 벤다.
 import { huntSwing, tameCreature } from './ecology.js';
@@ -106,8 +108,9 @@ function structureBlocks(nation, data, x, y) {
  * ★ §12-2 — 본부는 정착지 티어를 그대로 입는다(모닥불→야영 본부→촌락 회관→…).
  *   손으로 개축하지 않는다(autoTier). 승격이 함께 키우고, 내구도도 새 티어 기준으로 되살아난다.
  */
-function growHq(nation, data) {
+function growHq(world, nation, data) {
   const want = settlementTier(nation) + 1;
+  const grew = [];
   for (const s of nation.structures || []) {
     const def = data.buildings[s.key];
     if (!def?.autoTier) continue;
@@ -117,7 +120,12 @@ function growHq(nation, data) {
     s.tier = t;
     s.maxHp = def.tiers[t - 1]?.hp ?? s.maxHp;
     s.hp = Math.round(s.maxHp * Math.max(ratio, 0.6) * 100) / 100;
+    grew.push(s);
   }
+  /* ★ A8 갇힘 — 본부는 자라면서 옆칸을 먹는다(2×2→4×4). 플레이어 기본 자리가 hq.y+2 라
+     티어업 한 번에 그 칸이 건물 밑으로 들어가 아무 방향으로도 못 나가게 됐다.
+     커진 뒤에 그 안에 남은 사람들을 밖으로 꺼낸다(결정적 — 난수 없음). */
+  for (const s of grew) evictBlocked(world, nation, data, { structure: s });
 }
 
 export { toolDiscount };
@@ -505,7 +513,7 @@ function runCommand(world, nationId, cmd, data, rng) {
       if (!nation.isPlayer) return err('NO_NATION', '이 나라는 승격하지 않습니다.');
       const res = promoteSettlement(world, nation, data);
       if (!res.ok) return res;
-      growHq(nation, data);
+      growHq(world, nation, data);
       syncLegacyBuildings(nation, data);
       chronicle(world, {
         kind: 'tier_up', title: res.up.name,
@@ -832,23 +840,45 @@ function runCommand(world, nationId, cmd, data, rng) {
       /* ★ §19-F4(F09-2) — 기차에 탄 동안에는 자리 보고를 받지 않는다. 쓰러짐(위)과 같은 빗장이다:
          몸을 옮기는 쪽이 서버라, 클라가 옛 좌표를 다시 보고하면 기차에서 몸만 떨어져 나간다. */
       if (riding(nation, who)) return err('RIDING', '기차에 타고 있는 동안에는 걸을 수 없습니다.');
-      if (structureBlocks(nation, data, x, y)) {
-        return err('STRUCTURE_BLOCKED', '건물이 있는 자리에는 들어갈 수 없습니다.');
-      }
       const avatars = (nation.avatars ||= {});
       const prev = avatars[who] ?? null;
+      let px = x;
+      let py = y;
+      let relocated = null;
+      if (structureBlocks(nation, data, px, py)) {
+        /* ★ A8 갇힘 구제 — 지금 **서 있는 칸 자체가** 건물에 먹혔다면(본부 성장·완공·옛 세이브)
+           거절은 사람을 그 안에 영영 가둔다. 이럴 때만 밖으로 꺼내 주고 새 자리를 ack 에 실어 보낸다.
+           평소(멀쩡히 서 있다가 건물 안으로 들어가려는 보고)는 예전대로 거절한다 — 벽 통과를 막는 빗장.
+           그래서 **제자리 곁**(체비셰프 1칸)만 구제한다: 갇힌 사람은 한 발짝도 못 움직이므로
+           보고하는 칸도 서 있던 칸이다. 멀리 있는 건물을 찍는 보고는 갇힘이 아니라 통과 시도다. */
+        const near1 = prev != null
+          && Math.max(Math.abs(prev.x - px), Math.abs(prev.y - py)) <= 1
+          && structureBlocks(nation, data, prev.x, prev.y);
+        /* 서버가 이미 몸을 꺼내 둔 자리(evictBlocked)가 있으면 그 자리를 그대로 알려 준다 —
+           밀어낸 칸과 다시 셈한 칸이 갈리면 화면이 두 번 튄다. **꺼내 온 칸**을 다시 보고할 때만
+           받는다(evicted 에 적힌 옛 칸의 곁 한 칸) — 그래야 「멀리 있는 건물 찍기」와 갈린다. */
+        const from = prev?.evicted ?? null;
+        const evicted = from != null
+          && Math.max(Math.abs(from.x - px), Math.abs(from.y - py)) <= 1
+          && !structureBlocks(nation, data, prev.x, prev.y);
+        const spot = evicted ? { x: prev.x, y: prev.y }
+          : (near1 ? nearestWalkable(world, nation, data, px, py, 8) : null);
+        if (!spot) return err('STRUCTURE_BLOCKED', '건물이 있는 자리에는 들어갈 수 없습니다.');
+        px = spot.x; py = spot.y;
+        relocated = { x: px, y: py };
+      }
       const look = normalizeAppearance(cmd.appearance, data, prev?.appearance ?? memberAppearance(nation, who, data));
       avatars[who] = {
         id: who, name: cmd.playerName ?? prev?.name ?? '개척자',
-        x, y, tick: world.tick, appearance: look.appearance,
+        x: px, y: py, tick: world.tick, appearance: look.appearance,
       };
       /* 첫 자리 보고는 오프닝 마차에서 내렸다는 서버 쪽 신호다. */
       if (nation.companions && !nation.companions.awake) nation.companions.awake = true;
       // ★ 안개 즉시 스탬프 — 걸어 들어간 자리는 그 자리에서 밝아진다.
       //   (예전에는 recomputeFog 가 일 틱에만 돌아, 새 지역의 노드가 최대 10분 뒤에야 내려갔다)
       //   같은 칸을 다시 보고하면 아무 일도 하지 않는다 = 이동 스로틀.
-      const moved = !prev || prev.x !== x || prev.y !== y;
-      const revealed = moved ? revealAvatar(nation, data, world.tick, x, y, who) : [];
+      const moved = !prev || prev.x !== px || prev.y !== py;
+      const revealed = moved ? revealAvatar(nation, data, world.tick, px, py, who) : [];
       // ★ 7장 정찰 — 「안개 속 낯선 발자국」은 그 자리까지 걸어가야 열린다(시간이 아니라 발걸음).
       if (moved && nation.isPlayer) checkTrace(world, nation, data);
       /* ★ GDD3 §13-B-4·5 — 걸어 들어간 자리가 여는 것 둘.
@@ -862,13 +892,16 @@ function runCommand(world, nationId, cmd, data, rng) {
       /* ★ §19-F2(F07-4) — 굴 앞에 섰다. 「무엇이 다가온다」가 아니라 「여기 무엇이 산다」는 경고라
          한 번만 울린다(본 사실을 나라 장부에 적어 둔다). 자리는 서버가 쥔다 — 화면이 제 셈으로
          용의 자리를 알아내면 안 된다(정보 비대칭: 걸어가 봐야 안다). */
-      const dragonWarn = moved && nation.isPlayer ? dragonWarning(world, nation, data, x, y) : null;
-      const ring = nation.isPlayer ? ringAt(world, nation, x, y, data) : 0;
+      const dragonWarn = moved && nation.isPlayer ? dragonWarning(world, nation, data, px, py) : null;
+      const ring = nation.isPlayer ? ringAt(world, nation, px, py, data) : 0;
       const lastRing = prev?.ring ?? 0;
       if (avatars[who]) avatars[who].ring = ring;
       const warnAt = data.world.rings?.warnRing ?? 2;
       return ok({
         avatar: avatars[who], moved, revealed,
+        /* ★ A8 — 갇힌 몸을 꺼냈다. 자리의 주인은 클라(§12-11)라 새 좌표를 되돌려 줘야
+           화면이 따라온다 — 안 그러면 다음 보고가 옛 좌표로 되덮어 도로 건물 밑이다. */
+        relocated,
         ring,
         ringEntered: ring >= warnAt && lastRing < warnAt,
         ringText: ring >= warnAt ? (data.world.rings?.warnText ?? null) : null,
@@ -881,10 +914,48 @@ function runCommand(world, nationId, cmd, data, rng) {
       });
     }
 
-    case 'setAppearance':
-      /* 플레이 중 외형·이름 변경은 제공하지 않는다. 역할을 맡으면 그 역할의 고정 스프라이트와
-         초상을 사용하며, 클라이언트가 남아 있더라도 서버에서 변경을 받아들이지 않는다. */
-      return err('APPEARANCE_LOCKED', '플레이 중 이름과 모습은 바꿀 수 없습니다.');
+    /* ★ A16 — 「모습 고치기」의 서버 쪽 문. PROTOCOL §0-Z 명령표가 여는 문이라(장 제한 없음)
+       잠가 두면 규약과 어긋난다 — 톱바 ☺ 도, 건국 화면의 생성기도 여기로 들어온다.
+       역할을 맡은 사람의 **초상**은 view 가 role 로 갈아 끼우므로 여기서 막을 일이 아니다. */
+    case 'setAppearance': {
+      const input = cmd.appearance ?? cmd.payload?.appearance ?? null;
+      const v = validateAppearance(input, data);
+      if (!v.ok) return v;
+      const who = cmd.avatarId ?? cmd.playerName ?? 'lord';
+      const name = cmd.playerName ?? null;
+      const base = memberAppearance(nation, who, data);
+      const { appearance } = normalizeAppearance(input, data, base);
+      const avatars = (nation.avatars ||= {});
+      const prev = avatars[who] ?? null;
+      const town = townOf(world, nation.id);
+      avatars[who] = {
+        id: who, name: name ?? prev?.name ?? '개척자',
+        x: prev?.x ?? town?.x ?? 0, y: prev?.y ?? town?.y ?? 0,
+        tick: world.tick, appearance,
+      };
+      upsertMember(nation, { avatarId: who, name: name ?? undefined, appearance }, data);
+      return ok({ avatarId: who, appearance, avatar: avatars[who], members: normalizeMembers(nation, data) });
+    }
+
+    /* ★ 연출 W2 — 「새로운 시작을 알릴 그대의 이름은 무엇인가?」 도착 컷신 끝에서 이름을 짓는다.
+       건국(join) 때 임시로 앉힌 이름을 이 문 하나로 고쳐 앉힌다: 아바타·명부·솜씨 장부, 그리고
+       아직 감정의 날(선포) 전 가칭인 나라 이름(「N의 정착지」)까지 함께 따라온다.
+       「왜」 명령인가 — 이름은 세계의 정본이라 화면이 제 장부만 고치면 동료 화면과 어긋난다. */
+    case 'christen': {
+      const raw = cmd.name ?? cmd.payload?.name ?? '';
+      const name = String(raw).trim().slice(0, 16);
+      if (!name) return err('BAD_NAME', '이름을 적어 주세요.');
+      const who = cmd.avatarId ?? cmd.playerName ?? 'lord';
+      const avatars = (nation.avatars ||= {});
+      const prevName = avatars[who]?.name ?? cmd.playerName ?? null;
+      if (avatars[who]) avatars[who].name = name;
+      const p = nation.players?.[who];
+      if (p) p.name = name;
+      upsertMember(nation, { avatarId: who, name }, data);
+      /* 나라 이름은 건국자의 것을 따른다 — 다른 이름이던 적이 없을 때(가칭 그대로일 때)만 갈아 끼운다 */
+      if (prevName && nation.name === `${prevName}의 정착지`) nation.name = `${name}의 정착지`;
+      return ok({ avatarId: who, name, nationName: nation.name, members: normalizeMembers(nation, data) });
+    }
 
     case 'chat': {
       const who = cmd.avatarId ?? cmd.playerName ?? 'lord';
@@ -1046,7 +1117,35 @@ function runCommand(world, nationId, cmd, data, rng) {
     case 'decide': {
       const idx = nation.decisionQueue.findIndex((d) => d.decisionId === cmd.decisionId);
       if (idx < 0) return err('NO_DECISION', '없는 결정입니다.');
-      const [decision] = nation.decisionQueue.splice(idx, 1);
+      const decision = nation.decisionQueue[idx];
+      /* ★ 2단계A — 유적 카드만 **새 규약**이다: 갈래를 하나 고른다고 카드가 큐에서 내려가지
+         않는다(같은 방의 다른 갈래를 눌러 볼 수 있어야 한다). 어전 결정·상단의 제안·신전은
+         옛 규약 그대로 — 고르는 즉시 큐에서 뺀다. 두 규약을 한 문에 두는 까닭: 「무엇을
+         고르는가」는 같은 동작이고, 문을 둘로 가르면 화면도 두 벌이 된다. */
+      const isRuin = decision.kind === data.ruins.decisionKind && Boolean(decision.ruin);
+      if (isRuin) {
+        const r = resolveRuinChoice(world, nation, decision, cmd.choice, data, rng);
+        // 이미 살펴본 갈래를 다시 눌렀다 — 카드는 큐에 그대로 남는다
+        if (!r.ok) return r;
+        (decision.used ||= []).push(r.result.choice);
+        decision.choice = cmd.choice;
+        decision.result = r.result;
+        decision.resolvedTick = world.tick;
+        // 떠나기로 했거나 살펴볼 것이 남지 않았을 때에만 카드를 내린다
+        if (r.closes) nation.decisionQueue.splice(idx, 1);
+        // ★ §20-R1.5 — 유적 카드가 유물을 내면 상자와 같은 발견 사실을 함께 띄운다
+        const foundRuin = r.result.artifact
+          ? [artifactFoundEvent(world, nation, r.result.artifact.key, 'ruin', data)] : [];
+        /* ★ §22-2 층3 — 단서가 연 안개를 함께 올린다. 좌표는 소켓 계층이 ack 에서 지운다
+           (server/index.js, investigateTrail 과 같은 자리·같은 까닭 — 마커 금지). */
+        return ok({
+          decision, ruin: r.result, revealed: r.revealed ?? [],
+          // 화면이 「창을 닫아도 되는가」를 제 손으로 셈하지 않는다 — 끝을 아는 것은 서버다
+          done: r.closes, used: [...decision.used], remaining: r.remaining ?? [],
+          events: [{ kind: 'ruin_resolved', nationId: nation.id, data: r.result }, ...foundRuin],
+        });
+      }
+      nation.decisionQueue.splice(idx, 1);
       decision.choice = cmd.choice;
       decision.resolvedTick = world.tick;
       if (decision.kind === 'trade_offer' && cmd.choice === 'accept' && decision.offer) {
@@ -1064,18 +1163,7 @@ function runCommand(world, nationId, cmd, data, rng) {
         decision.result = t.result;
         return ok({ decision, temple: t.result, events: t.events ?? [] });
       }
-      if (decision.kind === data.ruins.decisionKind && decision.ruin) {
-        const r = resolveRuinChoice(world, nation, decision, cmd.choice, data, rng);
-        if (!r.ok) return r;
-        decision.result = r.result;
-        // ★ §20-R1.5 — 유적 카드가 유물을 내면 상자와 같은 발견 사실을 함께 띄운다
-        const found = r.result.artifact
-          ? [artifactFoundEvent(world, nation, r.result.artifact.key, 'ruin', data)] : [];
-        /* ★ §22-2 층3 — 단서가 연 안개를 함께 올린다. 좌표는 소켓 계층이 ack 에서 지운다
-           (server/index.js, investigateTrail 과 같은 자리·같은 까닭 — 마커 금지). */
-        return ok({ decision, ruin: r.result, revealed: r.revealed ?? [],
-          events: [{ kind: 'ruin_resolved', nationId: nation.id, data: r.result }, ...found] });
-      }
+      // ★ 2단계A — 유적 갈래는 위(isRuin)에서 이미 끝냈다. 여기로는 오지 않는다.
       return ok({ decision });
     }
     case 'ordersSet': {
@@ -1344,7 +1432,8 @@ function runCommand(world, nationId, cmd, data, rng) {
       nation.autoExport = Boolean(cmd.enabled);
       return ok({ autoExport: nation.autoExport });
     }
-    /* ★ §20-R4(유물기획 §20-6) — 저주 봉인·해봉. 「값을 치르는 힘」을 되돌릴 수 있게 하는 유일한 문이다.
+    /* ★ §20-R4(유물기획 §20-6) → 4단계 — 봉인·해봉. 「지금 이 힘을 끈다」를 여는 유일한 문이고,
+       이제 저주만이 아니라 **모든 유물**이 지난다(착용/해제의 1차 대체). 값이 붙는 것은 저주뿐이다.
        화면이 보낸 「저주다」·「보유했다」는 믿지 않는다 — sealArtifact 가 정의표와 보유 목록을 다시 잰다. */
     case 'sealArtifact': {
       const key = String(cmd.key ?? cmd.payload?.key ?? '');

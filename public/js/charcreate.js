@@ -141,7 +141,7 @@
     body.appendChild(host);
     var w = mount(host, S.S.you.appearance || S.defaultAppearance(), null);
     var foot = U.el('div');
-    foot.appendChild(U.btn('물린다', 'btn-ghost', function () { U.closeTopModal(); }));
+    foot.appendChild(U.btn('닫는다', 'btn-ghost', function () { U.closeTopModal(); }));
     var ok = U.btn('이 모습으로', 'btn-primary', function () {
       var a = w.get();
       S.set({ you: { role: S.S.you.role, appearance: a, avatarId: S.S.avatarId } });

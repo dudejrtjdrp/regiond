@@ -581,6 +581,12 @@ class GameRuntime {
       case 'camp_scouted': io.to(this.gameId).emit('campScouted', e.data); break;
       case 'offer_received': io.to(this.gameId).emit('offer', e.data); break;
       case 'ruin_event': io.to(this.gameId).emit('ruinEvent', e.data); break;
+      /* ★ 4단계 — 「먼 잿빛 산의 소문」. 새 소켓 이벤트를 만들지 않고 ruinEvent 의
+         카드 없는 쪽지(notice) 관로를 그대로 탄다(app.js 가 이미 그릴 줄 안다). */
+      case 'dragon_rumor':
+        io.to(this.gameId).emit('ruinEvent', { notice: {
+          icon: 'flame', title: e.data?.title || '먼 산의 소문', sub: e.data?.text || '' } });
+        break;
       // ★ GDD3 §11-2 — 콘텐츠 사슬. 장이 넘어갈 때만 오고, 화면은 팡파레 + '새로 열린 것' 카드 1장을 띄운다.
       case 'step_done': io.to(this.gameId).emit('questStep', e.data); break;
       case 'chapter_done': io.to(this.gameId).emit('chapterDone', e.data); break;
@@ -737,7 +743,8 @@ app.post('/api/debug/battle', (req, res) => {
   const nation = g.activeBattleNation();
   if (!nation) return res.status(404).json({ error: { code: 'NO_BATTLE', message: '진행 중인 전투가 없습니다.' } });
   let guard = 0;
-  const max = Math.ceil(data.waves.battle.maxSeconds / g.subtickSeconds) + 8;
+  // ★ A11 — 이 판의 시계로 잰다(행군 몫이 얹혀 있다). 옛 값으로 자르면 루프가 먼저 멈춘다.
+  const max = Math.ceil((nation.battle.maxSeconds ?? data.waves.battle.maxSeconds) / g.subtickSeconds) + 8;
   while (!nation.battle.over && guard++ < max) stepBattle(g.world, nation, data, g.subtickSeconds);
   // ★ §21-A2 — 단숨에 끝까지 돌린 판이라 델타로는 못 잇는다: 방 전체에 풀 한 장을 던진다
   io.to(g.gameId).emit('battleTick', { ...battleFull(nation, data, g.battleStreamOf()), events: [] });
@@ -797,6 +804,8 @@ const CLIENT_COMMANDS = [
   'apAction', 'harvestNode', 'setBattlePlan',
   // 멀티
   'setAppearance', 'chat',
+  // ★ 연출 W2 — 도착 컷신 끝의 이름 짓기
+  'christen',
   // ★ §17-7 — 다같이 잠자기(하루 넘기기)
   'sleepVote',
   // ★ §17-9 — 건물 손일(제련소 손제련 · 우물 두레박 · 기도 등)
@@ -814,6 +823,8 @@ const CLIENT_COMMANDS = [
 /** ★ 신원(누구의 아바타인가)은 서버 세션이 정한다 — 클라가 보낸 avatarId·playerName 은 신뢰하지 않는다. */
 const IDENTITY_COMMANDS = new Set([
   'lordMove', 'setAppearance', 'chat', 'pickRole', 'delegate', 'actionSwing', 'combatSwing',
+  // ★ 연출 W2 — 도착 컷신의 이름 짓기. 누구의 이름인지는 세션이 정한다.
+  'christen',
   // ★ GDD3 §13-D-3 — 장비는 **사람마다** 다르다. 누구의 칼인지는 세션이 정한다(클라 말을 안 믿는다).
   'craftEquipment', 'enhanceEquipment', 'enchantEquipment',
   // ★ GDD3 §14-5 — 스탯도 사람마다 다르다. 누구의 점수인지는 세션이 정한다.
@@ -1256,6 +1267,11 @@ io.on('connection', (socket) => {
          같이 접속한 사람의 화면에서 그가 승강장에 붙박여 있지 않다. */
       if (type === 'boardTrain' || type === 'leaveTrain') emitAvatars(s.gameId, rt.world.nations[s.nationId]);
       if (type === 'setAppearance') emitAvatars(s.gameId, rt.world.nations[s.nationId]);
+      /* ★ 연출 W2 — 이름 짓기(christen): 세션 명부도 새 이름을 따라간다(다음 명령의 identity 가 이 이름이다) */
+      if (type === 'christen' && out.name) {
+        s.playerName = out.name;
+        emitAvatars(s.gameId, rt.world.nations[s.nationId]);
+      }
       /* ★ §17-11 — 동료의 새 이름·모양새도 setAppearance 처럼 그 자리에서 방 전체에 흐른다
          (다음 상태 방송을 기다리면 이름표가 잠깐 옛 사람으로 남는다). */
       if (type === 'customizeCompanion') emitAvatars(s.gameId, rt.world.nations[s.nationId]);

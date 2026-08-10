@@ -11,6 +11,37 @@
   var interp = {};
   var bclock = 0;          // 전투 연출 시계(ms) — step(dt) 이 굴린다
 
+  /* ══════════ ★ 3단계B — 적의 목소리 ══════════
+     「왜」 대화창이 아니라 토스트인가 — 대화창(GM.dialogue)은 싸움이 붙는 순간 스스로 접히는 것이
+     이 파일의 규약이다(위 :19 · :35). 그 규약을 어기지 않으면서 한 줄을 들려주려면, 화면을 가리지
+     않고 스스로 사라지는 자리여야 한다. 판정에는 한 톨도 닿지 않는다 — 문장 고르기까지 결정론이라
+     같은 웨이브를 다시 보아도, 여럿이 함께 보아도 같은 말을 듣는다(enemy-lines.js).
+     혼성 웨이브(본대+호위대)에서는 **본대 종류**만 말한다: 두 무리가 겹쳐 떠들면 누가 오는지가 흐려진다. */
+  var saidBreach = false;      // 한 판에 한 번 — 울타리가 뚫릴 때마다 같은 말을 되풀이하지 않는다
+
+  function sayEnemy(typeKey, waveNo, where, ms) {
+    if (!GM.enemyLines || !typeKey) return null;
+    var line = GM.enemyLines.pick(typeKey, waveNo, where);
+    if (!line) return null;
+    U.toast(line, 'danger', ms || 4200);
+    return line;
+  }
+
+  /** 지금 살아 있는 판의 (종류·번호) — 사건 처리가 대사를 고를 때 쓴다 */
+  function liveWave() {
+    var b = S.battleLive();
+    return b ? { type: b.type, number: b.number || 1 } : null;
+  }
+
+  /** 울타리가 뚫리거나 건물이 무너지는 순간 — 한 판에 한 번만 운다 */
+  function sayBreachOnce() {
+    if (saidBreach) return null;
+    var w = liveWave();
+    if (!w) return null;
+    saidBreach = true;
+    return sayEnemy(w.type, w.number, 'breach');
+  }
+
   /* ══════════ 경고 ══════════ */
   function onIncoming(p) {
     if (!p) return;
@@ -26,12 +57,17 @@
     if (vg) vg.classList.add('on');
     GM.hud.flash({ kind: 'danger', icon: meta.icon, title: (p.name || meta.name) + '이(가) 옵니다',
                    sub: '방어를 살펴보세요', open: openThreat }, 24000);
+    /* ★ 3단계B — 배너 바로 뒤에 무리의 첫 마디가 붙는다. 배너의 sub 는 이미 「어디서 몇이」를
+       쥐고 있으므로(정보), 목소리는 따로 선다(연출). */
+    saidBreach = false;
+    sayEnemy(p.type, p.number || 1, 'approach');
   }
 
   /* ══════════ 전투 ══════════ */
   function onStart(p) {
     shots = [];
     interp = {};
+    saidBreach = false;
     if (GM.dialogue) GM.dialogue.close();      /* ★ §17-19(D-5) — 싸움이 붙으면 말은 끊긴다 */
     var core = p && p.core;
     if (core) GM.camera.moveTo(core.x, core.y);
@@ -142,12 +178,16 @@
           GM.fx.shakeScreen(5, 0.3);
           GM.fx.floatText(b.x, b.y - 1.2, b.name + ' 무너짐', '#ff9d99', 13);
           GM.sfx.play('crumble');
+          /* ★ 3단계B — 「부수는 중」의 목소리. 울타리가 아니라 건물부터 무너지는 판도 있다
+             (드래곤은 담장을 넘어 곧장 내려앉는다) — 그 길에도 같은 한 줄이 붙어야 한다. */
+          sayBreachOnce();
         }
       }
     } else if (e.kind === 'breach') {
       GM.fx.flash('#7d1c1c', 0.3, 0.5);
       GM.sfx.play('bad');
       U.toast('울타리가 뚫렸습니다 — 안쪽을 지키세요.', 'bad', 4200);
+      sayBreachOnce();
     } else if (e.kind === 'playerHit') {
       /* ★ §17-19 — 흔들림·붉은 섬광·깎인 수는 hud.hurt 한 곳이 낸다(체력 감시와 겹쳐 두 번 흔들리지 않게) */
       GM.sfx.play('hurt');
@@ -420,6 +460,14 @@
     head.textContent = r.won ? (r.name || meta.name) + '을(를) 모두 몰아냈다' : (r.name || meta.name) + '이(가) 챙겨 갔다';
     body.appendChild(head);
 
+    /* ★ 3단계B — 무리의 마지막 한 마디. 이겼으면 쓸려 나간 자의 말(fallen),
+       못 막았으면 챙긴 것을 들고 돌아서는 자의 말(retreat)이다. 숫자표 바로 위에 한 줄로 선다 —
+       결과창은 이미 싸움이 끝난 자리라 걸음을 멈추지 않는다. */
+    if (GM.enemyLines) {
+      var last = GM.enemyLines.pick(r.type, r.number || 1, r.won ? 'fallen' : 'retreat');
+      if (last) body.appendChild(U.el('p', 'enemy-line', last));
+    }
+
     var g = U.el('div', 'stat-grid');
     stat(g, '쓰러뜨린 수', U.fmt(r.enemiesKilled, 0) + ' / ' + U.fmt(r.enemiesTotal, 0));
     stat(g, '버틴 시간', U.fmt(r.duration, 1) + '초');
@@ -645,7 +693,7 @@
     if (host && U.modalOpen('threat')) paintThreat(host);
   }
 
-  function reset() { shots = []; interp = {}; clearBattleBar(); }
+  function reset() { shots = []; interp = {}; saidBreach = false; clearBattleBar(); }
 
   GM.combat = {
     onIncoming: onIncoming, onStart: onStart, onTick: onTick, onResult: onResult,

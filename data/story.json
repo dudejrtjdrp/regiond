@@ -2,20 +2,35 @@
   "_note": "★ §세계관 W2 — 스토리 연출 정본. 대사·순서는 docs/세계관기획.md §7 이 정본이다. 「시간은 아무것도 열지 않는다」: 모든 beat 의 방아쇠(on)는 행동 이벤트다. once 는 세계 단위(storySeen) 1회 보장, excludes 는 분기 상호 배타(하나가 나가면 나머지도 본 것으로 친다). saintVoice 가 참인 beat 는 성녀 자리를 사람이 쥐고 있을 때 화자를 saintVoiceSpeaker 로 바꾼다(세계관기획 §5 세라 화자 규칙).",
   "saintVoiceSpeaker": "성녀의 직감",
   "lordFallback": "군주",
+  "_portraitsNote": "★ A6 — 화자↔초상판 매핑의 정본. 대사와 얼굴이 한 파일에 있어야 이름을 고칠 때 얼굴도 함께 따라온다. 값은 public/assets/dialogue/portraits-transparent/<값>.png 다. 여기 없는 이름은 화면이 이름값 해시로 바깥 사람 셋 중 하나를 고른다(같은 이름은 늘 같은 얼굴). 빈 화자(나레이션)에는 아무 얼굴도 세우지 않는다.",
+  "portraits": {
+    "아르텐": "young_lord",
+    "일행": "blue_knight",
+    "세라": "blue_mage",
+    "성녀의 직감": "white_priestess",
+    "군주": "young_lord",
+    "에르니아 왕국": "green_prince"
+  },
   "beats": [
     {
       "id": "intro",
       "on": "game_started",
       "skippable": true,
       "chronicle": "에르니아를 떠나, 서쪽 미지의 땅에 닿았다 — 새로운 시작.",
+      "_bgNote": "★ 연출 이미지(docs/연출/스토리_연출_이미지.html 정본). bg 가 붙은 beat 는 화면이 대화창 대신 일러스트 컷신(storycine.js)으로 튼다.",
+      "_flowNote": "연출 HTML 원안의 장 구분을 그대로 따른다 — #0 왕도(글 없음), #1 왕실, #2 왕실_플레이어, #3 왕실(넉 줄이 같은 그림 아래 흐른다), #4 마차·배, #5 도착(가운데 글) + 이름 묻기. 같은 bg 가 이어지면 화면(storycine)은 그림을 다시 갈지 않는다.",
       "scenes": [
-        { "speaker": "아르텐", "text": "그대들은 왕국의 영웅이다. 왕국에서 부와 명예, 그 모든 것을 누릴 수 있다. 그럼에도 불구하고… 떠나겠다는 것인가?" },
-        { "speaker": "일행", "text": "송구하옵니다, 폐하. 하오나 저희는 결정했습니다. 모든 것을 내려놓고, 처음부터 다시 시작해보고 싶습니다." },
-        { "speaker": "아르텐", "text": "그대들의 뜻은 알겠다. 그렇다면, 갈 곳은 있는 것인가?" },
-        { "speaker": "일행", "text": "서쪽, 미지의 땅을 발견했습니다. 저희는 그곳에서… 새로운 시작을 하려 합니다." },
-        { "speaker": "아르텐", "text": "언젠가 그대의 나라가 우리와 마주 앉을 날을 기대하겠다." },
-        { "speaker": "", "text": "마차를 타고, 배를 타고, 또다시 마차를 타고 — 마침내, 미지의 땅에 도착하였다." },
-        { "speaker": "", "text": "이상하리만치 고요한 땅. 이곳에서 우리는 처음부터 다시, 새로운 시작을 할 것이다." }
+        { "speaker": "", "bg": "assets/cutscene/intro/capital.png", "text": "" },
+        { "speaker": "아르텐", "bg": "assets/cutscene/intro/throne_king.png", "text": "그대들은 왕국의 영웅이다. 왕국에서 부와 명예, 그 모든 것을 누릴 수 있다. 그럼에도 불구하고… 떠나겠다는 것인가?" },
+        { "speaker": "일행", "bg": "assets/cutscene/intro/throne_player.png", "text": "송구하옵니다, 폐하. 하오나 그럼에도 불구하고 저희는 결정했습니다. 모든 것을 내려놓고, 처음부터 다시 시작해보고 싶습니다." },
+        { "speaker": "아르텐", "bg": "assets/cutscene/intro/throne_king.png", "text": "그대들의 뜻은 알겠다. 그렇다면, 그대들 갈 곳은 있는 것인가?" },
+        { "speaker": "일행", "bg": "assets/cutscene/intro/throne_king.png", "text": "서쪽, 미지의 땅을 발견했습니다. 저희는 그곳에서… 새로운 시작을 하려고 합니다." },
+        { "speaker": "", "bg": "assets/cutscene/intro/throne_king.png", "text": "왕은 한동안 말이 없었다. 그러다 씁쓸하게 웃으며 입을 열었다." },
+        { "speaker": "아르텐", "bg": "assets/cutscene/intro/throne_king.png", "text": "언젠가 그대의 나라가 우리와 마주 앉을 날을 기대하겠다." },
+        { "speaker": "", "bg": "assets/cutscene/intro/wagon.png", "text": "그렇게 그대는 동료들과 함께 왕국을 떠났다. 마차를 타고," },
+        { "speaker": "", "bg": "assets/cutscene/intro/ship.png", "text": "배를 타고, 또 다시 마차를 타고," },
+        { "speaker": "", "bg": "assets/cutscene/intro/arrival.png", "layout": "center", "text": "마침내 미지의 땅에 도착하였다. 그대의 새로운 시작을 알리기 위해.\n그대에게 묻겠다.\n새로운 시작을 알릴 그대의 이름은 무엇인가?" },
+        { "speaker": "", "bg": "assets/cutscene/intro/arrival.png", "layout": "center", "ask": "name", "text": "그대의 이름은 무엇인가?" }
       ]
     },
     {
@@ -117,25 +132,16 @@
       "on": "ending_started",
       "skippable": true,
       "chronicle": "첫 매듭 — 에르니아의 다탁에서, 두 나라가 대등하게 마주 앉았다.",
+      "_bgNote": "★ 엔딩 일러스트(public/assets/ending/tea_01~07). 그림에 한국어 자막이 **구워져** 있어 mask:true 로 그 띠를 덮고, 서버가 {name}·{lord} 를 치환한 진짜 대사를 그 위에 찍는다(storycine .cine.masked). 마지막 장은 tea_07 을 그대로 이어 쓴다 — 그림은 그대로 두고 글만 흘러가는 자리다(storycine 이 같은 bg 는 건드리지 않는다). 크레딧과 「계속 플레이 하시겠습니까」는 여기 없다: 그림 대신 홈 화면 위에 세운다(endcredits.js).",
       "scenes": [
-        { "speaker": "", "text": "오랜만에 마주 앉은 자리, 차가 놓였고, 왕은 그간 그대들이 걸어온 길을 들었다." },
-        { "speaker": "아르텐", "text": "그대들의 이야기는 언제 들어도 흥미롭군. 그래, 앞으로의 계획은 어떻게 되는가?" },
-        { "speaker": "{lord}", "text": "우리의 나라를 계속 키워갈 생각입니다. 미지의 땅에서의 시작은… 생각보다 훨씬 큰 걸음이 되었습니다." },
-        { "speaker": "", "text": "왕은 찻잔을 내려놓더니, 살짝 웃었다." },
-        { "speaker": "아르텐", "text": "그래, 그대… 아니, {name}의 군주여. 앞으로도 저희와 함께 걸어주시겠습니까?" },
-        { "speaker": "", "text": "왕이 손을 내밀었고, 그대는 미소와 함께 그 손을 잡았다." },
-        { "speaker": "{lord}", "text": "…영광입니다, 국왕이여." },
-        { "speaker": "", "text": "언젠가 마주 앉을 날을 기대한다던 그 말이, 마침내 이루어지는 순간이었다." }
-      ]
-    },
-    {
-      "id": "ending_credits",
-      "on": "ending_started",
-      "skippable": true,
-      "scenes": [
-        { "speaker": "", "text": "─ 갈래말래 ─" },
-        { "speaker": "", "text": "함께 만든 사람들 — 성효 · 김대윤 · 강동현, 그리고 AI(Claude)와 함께." },
-        { "speaker": "", "text": "이 이야기는 끝이 아니라 매듭입니다. {name}의 길은 계속됩니다." }
+        { "bg": "assets/ending/tea_01.png", "mask": true, "speaker": "", "text": "오랜만에 마주 앉은 자리, 차가 놓였고, 왕은 그간 그대들이 걸어온 길을 들었다." },
+        { "bg": "assets/ending/tea_02.png", "mask": true, "speaker": "아르텐", "text": "그대들의 이야기는 언제 들어도 흥미롭군. 그래, 앞으로의 계획은 어떻게 되는가?" },
+        { "bg": "assets/ending/tea_03.png", "mask": true, "speaker": "{lord}", "text": "우리의 나라를 계속 키워갈 생각입니다. 미지의 땅에서의 시작은… 생각보다 훨씬 큰 걸음이 되었습니다." },
+        { "bg": "assets/ending/tea_04.png", "mask": true, "speaker": "", "text": "왕은 찻잔을 내려놓더니, 살짝 웃었다." },
+        { "bg": "assets/ending/tea_05.png", "mask": true, "speaker": "아르텐", "text": "그래, 그대… 아니, {name}의 군주여. 앞으로도 저희와 함께 걸어주시겠습니까?" },
+        { "bg": "assets/ending/tea_06.png", "mask": true, "speaker": "", "text": "왕이 손을 내밀었고, 그대는 미소와 함께 그 손을 잡았다." },
+        { "bg": "assets/ending/tea_07.png", "mask": true, "speaker": "{lord}", "text": "…영광입니다, 국왕이여." },
+        { "bg": "assets/ending/tea_07.png", "mask": true, "speaker": "", "text": "언젠가 마주 앉을 날을 기대한다던 그 말이, 마침내 이루어지는 순간이었다." }
       ]
     },
     {

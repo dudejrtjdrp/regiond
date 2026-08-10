@@ -41,7 +41,7 @@
   var OUTPUTS = [
     { key: 'steel', name: '강재 만들기' },
     { key: 'fuel', name: '연료 만들기' },
-    { key: 'weapon', name: '무기 벼리기' }
+    { key: 'weapon', name: '무기 제작' }
   ];
 
   var draft = [];
@@ -189,7 +189,7 @@
     save.id = 'law-save';
     U.tipSet(save, '적어 둔 조항 전부를 새 국법으로 세웁니다',
       '반포하면 다음 날부터 섭정이 이 순서대로 움직입니다. 옛 국법은 지워집니다.');
-    foot.appendChild(U.btn('덮는다', 'btn-ghost', function () { U.closeTopModal(); }));
+    foot.appendChild(U.btn('닫는다', 'btn-ghost', function () { U.closeTopModal(); }));
     foot.appendChild(save);
 
     U.openModal({ title: '국법 — 그대가 없을 때의 지침', body: body, footer: foot,

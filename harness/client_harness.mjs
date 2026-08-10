@@ -227,6 +227,11 @@ test('클라이언트 하니스 — 목표 카드가 가리키는 대로만 1장
 
     // ── 3. 오프닝 ────────────────────────────────────────────
     await t.test('마차 도착 오프닝 — 뜨고, 건너뛸 수 있다', async () => {
+      /* ★ 연출 — 도입 일러스트 컷신(storycine)이 오프닝보다 먼저 선다.
+         하니스는 [건너뛰기]를 누른 사람처럼 접는다 — 접혀도 이야기 사슬은 끊기지 않는다. */
+      await until(() => (GM.storycine && GM.storycine.busy()) || GM.opening.busy(),
+        { ms: 8000, what: '도입 연출/오프닝 시작' });
+      if (GM.storycine && GM.storycine.busy()) GM.storycine.finish();
       await until(() => GM.opening.busy(), { ms: 8000, what: '오프닝 시작' });
       doc.querySelector('#opening-skip').click();
       await until(() => !GM.opening.busy(), { what: '오프닝 종료' });

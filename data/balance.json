@@ -441,9 +441,11 @@
       "_ring3Note": "★ §20-R4(유물기획 §20-9) — 링3 궤 전용 고유 굴림. 기본 굴림이 **빈손일 때만** 한 번 더 던진다: 앞 굴림의 난수를 한 톨도 건드리지 않아야 옛 지도의 옛 궤가 예전과 같은 것을 낸다. 여기서 나오는 것은 acquireVia 에 cache3 를 적은 신규 고유뿐이다 — 상자·유적에는 영영 나오지 않는다."
     },
     "sealCostGold": 180,
+    "sealCostGoldPlain": 0,
     "plantRadiusTiles": 24,
     "templeRetryDays": 1,
     "battleLoot": { "minWave": 3, "minEnemies": 18, "minPower": 90, "base": 0.04, "perWave": 0.02, "flawlessBonus": 0.06, "cap": 0.22 },
+    "_sealNote": "★ 4단계(2026-08-10) — 봉인이 **모든 유물**로 넓어졌다(착용/해제의 1차 대체). sealCostGoldPlain 은 저주가 아닌 유물의 봉인·해봉 값이다: 0 인 까닭은 여느 유물은 끄면 손해라 값을 물릴 까닭이 없기 때문이다(저주는 끄는 것이 이득이라 값이 없으면 저주가 아니게 된다 — sealCostGold 는 그대로 둔다).",
     "_r4Note": "★ §20-R4 — sealCostGold 는 저주 봉인·해봉 각각에 드는 값이다(§20-6 「버릴 수 있다」의 값). plantRadiusTiles 는 설치형을 본영에서 얼마나 멀리까지 심을 수 있는가(§20-3 세계수의 씨앗). templeRetryDays 는 고대 신전 시련에 실패한 뒤 재도전까지의 날(§20-9 · R4b 에서 쓰인다)."
   },
   "emotionDay": {
@@ -678,7 +680,7 @@
           "weaponTierBelow": 3,
           "waveWithinDays": 6
         },
-        "text": "무기를 벼리려면 원유가 있어야 합니다. 엘라시아 연합국에 사람을 보내시지요.",
+        "text": "무기를 만들려면 원유가 있어야 합니다. 엘라시아 연합국에 사람을 보내시지요.",
         "label": "엘라시아 연합국과 교역",
         "event": "trade",
         "_note": "★ §세계관 W1 — 유전이 청명(ai1)에서 엘라시아(ai2)로 넘어갔다. 조언은 「지금 원유를 쥔 나라」를 가리켜야 하므로 nationId 도 ai2 로 옮긴다(advisor.oilTradePayload 가 그 나라의 재고를 실제로 확인한다 — ai1 을 가리킨 채 두면 이 조언은 영영 뜨지 않는다).",
@@ -712,7 +714,10 @@
   },
   "ending": {
     "_note": "★ §세계관 W3 매듭형 엔딩(세계관기획 §8). 조건 3중이 다 차면 다음 일 틱에 에르니아 초대장이 「알림」으로 온다 — 저절로 열리지 않는다. dragon 은 둘 중 무엇이든 인정한다: 웨이브 로테이션의 용을 막아냈거나(wave.history type=dragon won), 세상에 한 마리뿐인 용을 잡았거나(world.dragon.slainTick — §19-F2). tradeGoldMin 은 에르니아와 주고받은 금화 누계(재회 게이지의 W3 근사 — W4 에서 관계 게이지로 승격 예정). reunion 은 엔딩 뒤 영구 보상: 에르니아 제안이 잦아지고(offerChanceMult) 팔 때 값을 더 쳐준다(sellPremium).",
-    "tierMin": 5,
+    "tierMin": 6,
+    "_tierNote": "★ 2026-08 개편 — 엔딩의 문은 둘이다: 「용을 눕혔는가」와 「정착지를 끝까지 키웠는가」. tierMin 은 tiers.json 의 마지막 이름 있는 단계(6 왕도)다. 용을 잡는 순간 목표 카드가 마지막 퀘스트로 바뀌고(progression.chapterView), 왕도에 이르면 초대장이 온다.",
+    "requireReunion": false,
+    "_requireReunionNote": "★ 재회 게이지(relations.ai3 ≥ reunionScoreMin)는 이제 **문이 아니라 눈금**이다 — 카드에는 보이되 막지 않는다. 다시 3중으로 조이려면 true 로 세운다(판정 코드는 그대로 살아 있다).",
     "tradePartnerId": "ai3",
     "tradeGoldMin": 250,
     "reunionScoreMin": 60,

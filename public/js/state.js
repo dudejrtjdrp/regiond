@@ -1173,7 +1173,18 @@
     return list.indexOf(key) >= 0;
   }
   /** UI 패널 하나가 켜졌는가 — 켜지기 전에는 화면에 아예 없다(비활성이 아니라 부재) */
-  function uiOn(key) { return (unlocked().ui || []).indexOf(key) >= 0; }
+  /* ★ 2026-08 — 앞 장으로 옮겨 온 문의 옛 이름표.
+     panel.relic(유물 보관함)은 원래 panel.council(어전·9장)에 얹혀 있었다. 이제 1장에서 열리지만,
+     **이미 진행 중이던 나라**의 해금 목록에는 그 이름이 없다 — 그렇다고 9장까지 온 사람이 보관함을
+     잃어서는 안 된다. 그래서 「뒤에 열리는 문이 켜져 있으면 앞 문도 켜진 것으로 친다」. */
+  var UI_ALIAS = { 'panel.relic': ['panel.council'] };
+  function uiOn(key) {
+    var list = unlocked().ui || [];
+    if (list.indexOf(key) >= 0) return true;
+    var alt = UI_ALIAS[key] || [];
+    for (var i = 0; i < alt.length; i++) if (list.indexOf(alt[i]) >= 0) return true;
+    return false;
+  }
   /** 기능 하나가 열렸는가 */
   function featOn(key) { return (unlocked().features || []).indexOf(key) >= 0; }
   function buildingOn(key) { return (unlocked().buildings || []).indexOf(key) >= 0; }
@@ -1488,9 +1499,12 @@
     return role;
   }
   function hasRole(key) { return myRole() === key; }
-  /* 역할은 권한용 값이다. 아직 자리를 맡지 않은 플레이어까지 주민 도트가 되지는 않도록,
-     시각 표현에서만 용사(건축가) 기본 외형을 쓴다. 실제 역할·권한은 myRole()만을 쓴다. */
-  function myVisualRole() { return myRole() || 'build'; }
+  /* ★ 2026-08 — 자리를 맡기 전에는 **아무 얼굴도 빌리지 않는다**.
+     예전에는 여기서 'build'(건축가)를 기본값으로 돌려주어, 감정의 날에 역할을 고르기도 전에
+     화면 속 나는 용사 도트였고 「나」 칸 초상에도 건축가 얼굴이 걸려 있었다 — 아직 정해지지 않은 것을
+     정해진 것처럼 보이게 하는 표시였다. 이제 역할이 없으면 없는 대로 둔다:
+     지도 위의 나는 주민과 같은 기본 NPC 도트로 걷고(world.js drawLord), 「나」 칸 초상은 비어 있다. */
+  function myVisualRole() { return myRole(); }
   function roleHolder(key) {
     var n = nation();
     if (!n || !n.roles || !n.roles[key]) return null;
@@ -1545,7 +1559,7 @@
   }
   /* ★ §17-19(D-5) — 대화창 다이얼(data/world.json render.dialogue · 탐험기획 §18-6).
      말이 찍히는 속도까지 자료가 쥔다 — 「너무 느리다」는 말이 나오면 코드가 아니라 이 표를 만진다. */
-  var DIALOGUE_FALLBACK = { typeMs: 18, portraitSize: 88, maxChoices: 4 };
+  var DIALOGUE_FALLBACK = { typeMs: 18, portraitSize: 88, maxChoices: 4, maxLines: 3 };
   function dialogueCfg() {
     var w = worldCfg();
     return (w && w.render && w.render.dialogue) || DIALOGUE_FALLBACK;

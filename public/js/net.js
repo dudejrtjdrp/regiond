@@ -55,6 +55,8 @@
     'adviceAct', 'setAutoAssist', 'apAction', 'harvestNode', 'setBattlePlan',
     /* 사회 */
     'setAppearance', 'chat',
+    /* ★ 연출 W2 — 도착 컷신 끝의 이름 짓기 */
+    'christen',
     /* ★ §17-7 — 다같이 잠자기(하루 넘기기) */
     'sleepVote',
     /* ★ §17-9 — 건물 손일(직접 상호작용) */

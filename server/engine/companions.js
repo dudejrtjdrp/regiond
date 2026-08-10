@@ -37,7 +37,7 @@ import { startResearch, RESEARCH_KEYS } from './research.js';
 import { commandUnlocked, featureUnlocked, buildingUnlocked, currentChapter, measure } from './progression.js';
 import { round2 } from './economy.js';
 // ★ Sprint 2 — 곧장이 막히면 길을 내서 돌아간다(주민·아바타와 같은 A*). 물가 정지 종결.
-import { findPath } from './path.js';
+import { findPath, structureBlocks, nearestWalkable } from './path.js';
 
 export const companionCfg = (data) => data.companions ?? {};
 const laborCfg = (data) => companionCfg(data).labor ?? {};
@@ -324,6 +324,10 @@ const NODE_KINDS_FALLBACK = {
 const nodeKindsOf = (data) => brainCfg(data).nodeKinds ?? NODE_KINDS_FALLBACK;
 
 export function walkable(world, data, x, y, nation = null) {
+  /* ★ 버그 수정(2026-08) — 봇이 건물 위를 걸어다녔다. path.js(사람 통행의 정본)는
+     structureBlocks 를 첫 줄에 두는데, 이 함수만 지형만 보고 건물·공사장을 잊었다.
+     nation 인자는 원래부터 받고 있었으나 본문에서 쓰지 않던 유물이었다 — 이제 쓴다. */
+  if (nation && structureBlocks(nation, data, x, y)) return false;
   const list = data.world.terrain.walkable || ['grass', 'forest', 'rock', 'fertile'];
   const idx = terrainIndex(data);
   const t = terrainAt(world.map, Math.round(x), Math.round(y));
@@ -371,12 +375,31 @@ function roleAnchor(nation, data, roleKey) {
   return null;
 }
 
+/**
+ * ★ 2단계B — 광물의 승격. 「강재를 얻을 루트가 없다」의 마지막 매듭이다.
+ * extraKinds(철광석·석탄·석유)는 **늘 꼬리**라, 나무·돌·곡물 중 하나라도 모자라면 — 그리고 그건
+ * 거의 언제나 참이다 — 동료는 영영 광맥 쪽으로 걸어가지 않는다. 그래서 곳간이 정말 마른 때,
+ * 곧 강재가 바닥나고 그 재료인 철광석마저 문턱 아래일 때만 광물을 기본 재고보다 **앞에** 세운다.
+ * 문턱은 data(companions.json brain.orePromotion)가 쥔다 — 조건이 없으면 옛 차례 그대로다.
+ */
+function promotedOre(nation, data) {
+  const p = brainCfg(data).orePromotion;
+  if (!p?.kind) return null;
+  const res = nation.resources || {};
+  for (const [r, below] of Object.entries(p.whenStockBelow || {})) {
+    if ((res[r] || 0) >= below) return null;
+  }
+  return p.kind;
+}
+
 function needKinds(nation, data, roleKey) {
   const out = [];
   const B = brainCfg(data);
   if (grainDays(nation, data) < (B.grainDaysUrgent ?? 6)) out.push('grain');
   for (const k of roleCfgOf(data, roleKey).prefer || []) out.push(k);
   const res = nation.resources || {};
+  const ore = promotedOre(nation, data);
+  if (ore) out.push(ore);
   const stocks = ['wood', 'stone', 'grain'].sort((a, b) => (res[a] || 0) - (res[b] || 0));
   out.push(...stocks);
   /* ★ Sprint 2 — 꼬리 수요. 기본 재고를 다 본 뒤에는 광물도 캔다(노두가 드러난 뒤의 이야기 —
@@ -689,6 +712,12 @@ function reachOf(data, nation, tgt) {
 const avPaths = new WeakMap();
 
 function stepAvatar(world, nation, data, av, tx, ty, step) {
+  /* ★ 안전장치(2026-08) — 서 있는 칸 자체가 건물에 먹혔다(옛 세이브·본부 성장·건설 완료).
+     모든 방향이 막혀 영원히 굳기 전에, 곁의 밟을 수 있는 칸으로 꺼내 준다. */
+  if (nation && structureBlocks(nation, data, av.x, av.y)) {
+    const spot = nearestWalkable(world, nation, data, av.x, av.y, 8);
+    if (spot) { av.x = round2(spot.x); av.y = round2(spot.y); }
+  }
   const dx = tx - av.x;
   const dy = ty - av.y;
   const d = Math.hypot(dx, dy);

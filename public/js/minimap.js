@@ -46,7 +46,9 @@
       try { cv.setPointerCapture(e.pointerId); } catch (err) {}
       jump(e);
     });
-    cv.addEventListener('pointermove', function (e) { if (dragging) jump(e); });
+    /* ★ 버그 수정(2026-08) — 드래그 중 pointermove 마다 tap 이 초당 수십 회 겹쳐
+       지직거리는 잡음이 났다. 소리는 처음 누를 때 한 번만, 끌 때는 무음. */
+    cv.addEventListener('pointermove', function (e) { if (dragging) jump(e, true); });
     cv.addEventListener('pointerup', function () { dragging = false; });
     cv.addEventListener('pointerleave', function () { dragging = false; });
     S.on('world', function () {
@@ -92,14 +94,14 @@
     return HEX;
   }
 
-  function jump(e) {
+  function jump(e, silent) {
     var m = S.S.map;
     if (!m) return;
     var r = cv.getBoundingClientRect();
     var x = ((e.clientX - r.left) / Math.max(1, r.width)) * m.size;
     var y = ((e.clientY - r.top) / Math.max(1, r.height)) * m.size;
     GM.camera.moveTo(x, y);
-    if (GM.sfx) GM.sfx.play('tap');
+    if (!silent && GM.sfx) GM.sfx.play('tap');
   }
 
   /**

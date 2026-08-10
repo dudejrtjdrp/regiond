@@ -16,7 +16,7 @@ import {
   inTerritory, isWaterAt,
 } from './world.js';
 // ★ §19-F2(F07-4) — 세계에 한 마리뿐인 용. 짐승과 같은 목록에 앉되 정원·띠에는 매이지 않는다.
-import { ensureDragon, slayDragon } from './dragon.js';
+import { ensureDragon, slayDragon, dragonRumor } from './dragon.js';
 import { isRuined, turretList } from './structures.js';
 // ★ Sprint 3 — 울타리 칸 색인(fences.js 머리말 참고). 걸음마다 400조각을 재던 셈을 코앞 몇 조각으로 줄인다.
 import { fencesNear } from './fences.js';
@@ -38,6 +38,8 @@ import { rolePerk } from './npc.js';
 import { artifactCritRoll, artifactDodgeRoll } from './combat.js';
 import { consumeRevive, speciesDamageMultiplier } from './artifacts.js';
 import { respawnSpot } from './path.js';
+// ★ A12 — 수호자를 눕힌 일도 방의 역사다(신전 안쪽이 열린 날)
+import { record } from './chronicle.js';
 
 export const creatureCfg = (data) => data.creatures;
 export const creatureDefs = (data) => data.creatures.defs;
@@ -149,10 +151,14 @@ function pickSpawn(world, nation, data, def, ring, rng) {
   const town = townOf(world, nation.id);
   if (!town) return null;
   const size = world.map?.size ?? data.world.size;
-  const { r0, r1 } = ringRadii(nation, data);
-  const inner = ring === 0 ? territoryRadius(nation, data) + 2 : (ring === 1 ? r0 : r1);
-  const outer = ring === 0 ? r0 : (ring === 1 ? r1 : r1 + (spawnCfg(data).ring2Span ?? 40));
-  const minAvatar = spawnCfg(data).minSpawnDistance ?? 14;
+  /* ★ 2단계B — 띠의 안팎은 **ringBand 하나만** 안다. 옛 코드는 여기서 같은 셈을 따로 적어 두었고,
+     그래서 한쪽만 고치면 「태어나자마자 밖으로 끌려가는」 짐승이 생겼다(keepTargetInBand 가 다른 띠를 봤다). */
+  const { inner, outer } = ringBand(nation, data, ring, def);
+  /* ★ 2단계B — 온순한 것은 사람 곁에도 온다. 링0 의 안쪽이 마을 한복판까지 열렸는데 「코앞 금지」가
+     열넷이면 마을 둘레가 통째로 금지 구역이라 결국 옛 자리에서만 태어난다 — 그래서 종류별로 잰다. */
+  const minAvatar = (def?.kind === 'animal'
+    ? spawnCfg(data).minSpawnDistanceAnimal
+    : null) ?? spawnCfg(data).minSpawnDistance ?? 14;
   const water = terrainIndex(data).water;
   for (let i = 0; i < 40; i += 1) {
     const a = rng.float(0, Math.PI * 2);
@@ -174,10 +180,10 @@ function pickSpawn(world, nation, data, def, ring, rng) {
 }
 
 /** ★ §17-17 — 이 자리가 그 띠의 안쪽·바깥쪽 사이인가 (반올림 뒤의 자리로 잰다) */
-function inBandAt(world, nation, data, ring, spot) {
+function inBandAt(world, nation, data, ring, spot, def = null) {
   const town = townOf(world, nation.id);
   if (!town) return true;
-  const band = ringBand(nation, data, ring);
+  const band = ringBand(nation, data, ring, def);
   const d = dist(town.x, town.y, spot.x, spot.y);
   return d >= band.inner - 0.001 && d <= band.outer + 0.001;
 }
@@ -191,7 +197,7 @@ function spawnOne(world, nation, data, key, ring, rng, at = null) {
      우두머리가 띠 안쪽 끝에 서 있으면 그 동무가 근교(링0)로 넘어왔다 — 「사나운 것은 태어난 자리부터
      링1 밖」이라는 §13-B-5 의 약속이 깨진다. 자리를 옮기지 않고 그 동무 하나만 포기한다
      (난수를 더 쓰지 않으므로 같은 씨앗의 무리 크기 말고는 아무것도 흔들리지 않는다). */
-  if (at && !inBandAt(world, nation, data, ring, spot)) return null;
+  if (at && !inBandAt(world, nation, data, ring, spot, def)) return null;
   const w = ensureWild(nation);
   const c = {
     id: `w${w.nextId++}`,
@@ -343,10 +349,16 @@ export function ranchOpenFor(world, nation, data, sp, x, y) {
 }
 
 /** 짐승이 이 칸에 설 수 있는가 — 물이면 무조건 거짓(★ §17-4, 피드백: "동물이 물에 들어감"),
-    영토 밖이면 참, 안이면 목장이 열어 준 자리만 */
+    영토 밖이면 참, 안이면 온순종과 목장이 열어 준 자리만 */
 export function creatureMayStand(world, nation, data, c, x, y) {
   if (isWaterAt(world.map, x, y, data)) return false;
   if (!inTerritory(world, nation, Math.round(x), Math.round(y), data)) return true;
+  /* ★ 2단계B — §14-4 의 「영토는 성역」을 **온순종에 한해** 되돌린다.
+     「왜 되돌리나」 — 그 규칙이 막으려던 것은 사나운 것이지 닭과 토끼가 아니었는데, 규칙이 짐승 전부를
+     밀어내는 바람에 영토가 자랄수록 마을 둘레가 텅 빈 들이 됐다(티어4면 반경 116칸이 무생물 지대다).
+     포식자는 한 글자도 안 바뀐다 — 링 설계(§13-B-5)가 서는 자리가 거기다.
+     울타리는 그대로 벽이다: 담을 두른 안뜰에는 여전히 걸어 들어오지 못한다(crossesFence). */
+  if (creatureDefs(data)[c?.sp]?.kind === 'animal') return true;
   return ranchOpenFor(world, nation, data, c.sp, x, y);
 }
 
@@ -576,9 +588,16 @@ function moveToward(world, nation, data, c, tx, ty, step) {
  * 정착지 문앞으로 끌어당겼다. 이제 떠돌이 목적지의 본부 거리로부터의 반경을 제 띠 안으로 죈다 —
  * 영토가 자라면 띠도 함께 밀려나므로, 정착지가 클수록 안전한 땅도 넓어진다는 규칙이 유지된다.
  */
-export function ringBand(nation, data, ring) {
+export function ringBand(nation, data, ring, def = null) {
   const { r0, r1 } = ringRadii(nation, data);
-  const inner0 = territoryRadius(nation, data) + 2;
+  /* ★ 2단계B — 「온순한 것은 우리 땅에도 산다」. GDD3 §14-4 는 짐승 전부를 영토 밖으로 밀어냈지만,
+     그 규칙이 지키려던 것은 **사나운 것으로부터의 안전**이지 「마을에 닭 한 마리 없는 들판」이 아니었다.
+     그래서 온순종(kind === 'animal')에게만 안쪽 벽을 마을 가까이(townInnerRadius)까지 내린다 —
+     포식자는 옛 규칙 그대로 영토 + 2 밖이다. def 를 안 주면 옛 값이라, 이 문을 모르는 부름은
+     한 칸도 달라지지 않는다(bandTerrains 의 지형 표본이 그렇다). */
+  const inner0 = def?.kind === 'animal'
+    ? (spawnCfg(data).townInnerRadius ?? territoryRadius(nation, data) + 2)
+    : territoryRadius(nation, data) + 2;
   if (ring <= 0) return { inner: inner0, outer: r0 };
   if (ring === 1) return { inner: r0, outer: r1 };
   return { inner: r1, outer: r1 + (spawnCfg(data).ring2Span ?? 40) };
@@ -590,10 +609,14 @@ function keepTargetInBand(world, nation, data, c, tx, ty) {
      세계에 하나뿐인 놈은 제 굴이 곧 제 자리다 — 죄면 잿땅에서 끌려 나온다. */
   if (c.boss) return { x: tx, y: ty };
   if (!creatureMayStand(world, nation, data, c, tx, ty)) return { x: tx, y: ty };  // 이미 다른 규칙이 민다
-  if (inTerritory(world, nation, Math.round(tx), Math.round(ty), data)) return { x: tx, y: ty }; // 목장 자리
+  const def = creatureDefs(data)[c.sp] ?? null;
+  /* ★ 2단계B — 목장 자리(그리고 이제는 온순종의 마을 나들이)는 띠로 죄지 않는다. 온순종의 링0 띠는
+     아래 ringBand 가 이미 마을까지 열어 두었으므로, 여기서 한 번 더 빠져나가는 것은 목장·점령지처럼
+     「띠 밖인데 허락된 자리」를 지키기 위한 옛 예외 그대로다. */
+  if (inTerritory(world, nation, Math.round(tx), Math.round(ty), data)) return { x: tx, y: ty };
   const town = townOf(world, nation.id);
   if (!town) return { x: tx, y: ty };
-  const band = ringBand(nation, data, c.ring ?? 0);
+  const band = ringBand(nation, data, c.ring ?? 0, def);
   const dx = tx - town.x;
   const dy = ty - town.y;
   const d = Math.hypot(dx, dy);
@@ -795,7 +818,10 @@ export function stepEcology(world, nation, data, dt = 1, opts = {}) {
 // 규칙
 //   · 웨이브 중에는 쉰다 — 그 시각의 터렛은 stepBattle 이 이미 굴린다(사격을 두 번 세지 않는다).
 //   · 목장이 열어 준 자리에 든 온순한 짐승은 **가축**이다. 쏘지 않는다(§15-A-3).
-//     그 밖의 짐승·포식자는 온순하든 사납든 모두 쏜다(사용자: "동물들과 적을 모두 공격").
+//   · ★ 2단계B — 그 밖의 온순종도 이제 쏘지 않는다(spareAnimals). 「모두 쏜다」는 옛 규칙은
+//     짐승이 영토 밖에만 있던 시절의 것이었다. 온순종이 마을까지 들어오게 된 지금 그 규칙을
+//     그대로 두면 터렛이 하루 종일 닭을 잡는 도살장이 되고, 「동물은 영토 안에도 산다」가 글자로만 남는다.
+//     성이 난 놈(provoked — 사람이 먼저 건드린 것)은 여전히 쏜다: 덤비는 것에게는 방어가 필요하다.
 //   · 처치 드롭은 그 자리에서 국고로 간다. 저장 상한은 `deposit` 이 그대로 지킨다(§15-A-2).
 // ────────────────────────────────────────────────────────────────
 export const guardCfg = (data) => data.creatures?.turretGuard ?? {
@@ -803,14 +829,17 @@ export const guardCfg = (data) => data.creatures?.turretGuard ?? {
   counterMultiplier: 1.5, maxShotsPerStep: 4, skipDuringBattle: true,
 };
 
-/** 이 터렛이 겨눌 만한 가장 가까운 것 (목장 가축은 건너뛴다) */
+/** 이 터렛이 겨눌 만한 가장 가까운 것 (가축과 온순한 짐승은 건너뛴다) */
 function pickGuardTarget(world, nation, data, t, defs) {
   let best = null;
   let bd = t.range;
+  const spare = guardCfg(data).spareAnimals !== false;
   for (const c of nation.wild?.creatures || []) {
     const def = defs[c.sp];
     if (!def) continue;
     if (def.kind === 'animal' && ranchOpenFor(world, nation, data, c.sp, c.x, c.y)) continue;
+    // ★ 2단계B — 성나지 않은 온순종은 겨누지 않는다(위 머리말 참고)
+    if (spare && def.kind === 'animal' && !((c.provoked || 0) > 0)) continue;
     const d = dist(c.x, c.y, t.x, t.y);
     if (d <= bd) { bd = d; best = c; }
   }
@@ -1000,6 +1029,7 @@ export function huntSwing(world, nation, cmd, data, now = Date.now()) {
   let killed = false;
   let boss = null;
   const gained = {};
+  const events = [];
   if (target.hp <= 0) {
     killed = true;
     /* ★ §13-D-3 — 무기의 '사냥 효율'. 좋은 칼은 더 빨리 벨 뿐 아니라 더 곱게 발라낸다. */
@@ -1016,6 +1046,9 @@ export function huntSwing(world, nation, cmd, data, now = Date.now()) {
     recordKill(nation, target.sp, world.tick);
     // ★ §19-F2(F07-4) — 자재 전리품은 위 drops 로 이미 들어갔다. 그 위에 얹는 몫만 여기서 준다.
     if (target.boss) boss = slayDragon(world, nation, data, player.name ?? null, player.id ?? null);
+    /* ★ A12 — 신전 수호자가 쓰러진 순간을 그 자리에서 알린다(아래 templeOpenedEvent 머리말 참고) */
+    const opened = templeOpenedEvent(world, nation, target, data);
+    if (opened) events.push(opened);
     removeCreature(nation, target, data, world.tick);
     xp = grantXp(player, 'combat', cfgC.xpPerHuntKill ?? cfgC.xpPerKill, data);
   }
@@ -1032,12 +1065,38 @@ export function huntSwing(world, nation, cmd, data, now = Date.now()) {
     killed,
     gained,
     boss,
+    // ★ A12 — 이 자리에서 난 사건(신전 열림)은 events 관로로 나간다. ack 는 ackPayload 가 걷어 낸다.
+    ...(events.length ? { events } : {}),
     x: target.x, y: target.y,
     cooldownMs: cd.cooldownMs,
     skill: 'combat',
     level: skillLevel(player, 'combat'),
     leveled: xp.leveled,
     xp: round2(player.skills.combat.xp),
+  };
+}
+
+/**
+ * ★ A12 — 「수호자를 눕혔는데 아무 말이 없다」.
+ * 신전의 단(stage) 판정은 예전대로 enterTemple 이 쥔다(guardianDown 은 문을 두드릴 때 본다).
+ * 그런데 그것만으로는 **안치소가 열린 사실을 알 길이 없다** — 다시 가 볼 까닭을 아무도 알려 주지 않는다.
+ * 「왜」 새 소켓 채널을 파지 않나 — 유적 알림(ruin_event)이 이미 「자취에서 무슨 일이 났다」를 나르는
+ * 관로다. 카드가 없는 순수 알림 한 장을 같은 관로로 흘리면 화면·저장·규약이 한 벌씩 더 생기지 않는다.
+ * 여기서 temple 장부는 손대지 않는다(단 평가의 주인은 하나여야 한다).
+ * @returns {object|null} ruin_event 한 장 — 이 죽음이 어느 신전의 수호자도 아니면 null
+ */
+function templeOpenedEvent(world, nation, c, data) {
+  if (!c.guardian) return null;                    // 들의 것 대부분은 여기서 끝난다(장부를 훑지 않는다)
+  const hit = Object.entries(nation.temples || {}).find(([, st]) => st?.guardianId === c.id);
+  if (!hit) return null;
+  const [nodeId] = hit;
+  const title = '수호자가 쓰러졌다 — 신전 안쪽이 열렸다';
+  const sub = '다시 문을 두드리자';
+  record(world, { kind: 'discovery', title, text: `${title}. ${sub}.`, data: { nodeId } }, data);
+  return {
+    kind: 'ruin_event',
+    nationId: nation.id,
+    data: { notice: { icon: 'scroll', title, sub, nodeId, x: c.x, y: c.y } },
   };
 }
 
@@ -1068,6 +1127,11 @@ export function stepEcologyDay(world, nation, data) {
   /* ★ §19-F2(F07-4) — 용은 하루에 한 번 「아직 있는가」만 묻고 지나간다. 이미 앉았거나 잡혔거나
      잿땅이 없으면(옛 세이브) 아무 일도 하지 않는다 — 옛 세상에 용이 갑자기 생기지 않는다. */
   ensureDragon(world, nation, data);
+  /* ★ 4단계 — 굴을 심어 두기만 하면 아무도 모른다(90칸 밖이라 우연히 지나갈 일이 없다).
+     첫 감정의 날이 지나면 「먼 잿빛 산의 소문」 한 줄이 나라에 한 번 온다 — 자리는 주지 않는다.
+     굴이 안 심긴 지도(잿땅 없음·옛 세이브)면 null 이라 아무 일도 없다. */
+  const rumor = dragonRumor(world, nation, data);
+  if (rumor) events.push(rumor);
   events.push(...(ensureCreatures(world, nation, data).length
     ? [{ kind: 'wild_spawned', nationId: nation.id, data: { alive: w.creatures.length } }] : []));
   const dt = simCfg(data).dayStepSeconds ?? 30;

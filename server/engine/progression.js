@@ -15,6 +15,9 @@ import { tierUnlockedList, settlementTier } from './tiers.js';
 import { haveResource, haveStructures, havePopulation } from './requirements.js';
 // ★ §21-C1 — 장이 열릴 때 흔적의 링도 한 겹 자란다(onChapterOpen 이 유일한 문).
 import { growTrailsFor } from './trails.js';
+/* ★ §세계관 W3 — 마지막 퀘스트. 용을 눕힌 뒤에는 목표 카드가 장의 칸이 아니라 **매듭**을 가리킨다.
+   ending.js 는 progression.js 를 부르지 않으므로(단방향) 순환 참조가 없다. */
+import { endingState, endingCfg } from './ending.js';
 
 export const chaptersCfg = (data) => data.chapters;
 export const chapterList = (data) => data.chapters.chapters;
@@ -546,6 +549,53 @@ export function hasFlag(nation, flag) {
  * 목표 카드가 그릴 것 전부 + **마커가 가리킬 대상 후보**.
  * 「뭘 해야 할지 모르는 순간 제로」의 서버 몫이다 — 클라는 여기 실린 targets 로 화살표를 세운다.
  */
+/**
+ * ★ 마지막 퀘스트 — 용을 눕힌 순간부터 매듭을 맺을 때까지, 목표 카드는 **이것 하나**를 가리킨다.
+ *
+ * 「왜」 장 사슬 밖에 두나 — 끝없는 장(10장)은 매듭을 짓고 첫 칸으로 돌아오는 **순환**이라
+ * 「마지막 칸」이라는 것이 없다. 그 순환을 끊지 않고 위에 한 겹 얹는다: 용이 눕기 전에는 이 함수가
+ * null 을 돌려주므로 카드는 여느 때와 똑같이 장의 칸을 그린다(옛 세이브도 그대로다).
+ *
+ * 두 걸음뿐이다 — ① 정착지를 끝(tierMin)까지 키운다 ② 초대장을 연다.
+ * @returns {object|null} chapterView.goal 이 그대로 쓰는 모양
+ */
+function endingGoal(world, nation, data) {
+  if (!world || !data?.balance?.ending) return null;   // 디버그 경로(world 없이 부르는 자리)는 비켜 간다
+  const s = endingState(world, nation, data);
+  if (!s.dragonOk || s.done) return null;          // 용을 눕히기 전 · 매듭을 맺은 뒤에는 여느 목표로
+  const cfg = endingCfg(data);
+
+  if (s.invited) {
+    return {
+      key: 'ending_accept',
+      title: '에르니아의 초대장을 여세요',
+      short: '초대장',
+      sub: '화면 왼쪽 위 ✉ 초대장을 눌러 [에르니아로 간다]를 고르면 마지막 이야기가 열립니다.',
+      verb: '✉ — 초대장 열기',
+      condition: { type: 'ending' },
+      have: 1, need: 1, done: false,
+      hint: '무리가 오는 날에는 성을 비울 수 없습니다 — 그날은 먼저 막아 내세요.',
+      hintOnFail: null,
+      targets: [],
+    };
+  }
+
+  const tier = settlementTier(nation);
+  const lastName = (data.tiers.levels.find((l) => l.tier === cfg.tierMin) || {}).name || '왕도';
+  return {
+    key: 'ending_grow',
+    title: `정착지를 ${lastName}까지 키우세요`,
+    short: lastName,
+    sub: `용을 눕혔습니다. 이제 남은 것은 나라의 격뿐입니다 — ${lastName}에 이르면 에르니아에서 초대장이 옵니다.`,
+    verb: '집·창고 — 사람이 깃들 자리를 늘린다',
+    condition: { type: 'tier', tier: cfg.tierMin },
+    have: Math.min(tier, cfg.tierMin), need: cfg.tierMin, done: false,
+    hint: '단계는 사람 수가 올립니다. 잠자리와 먹을 것이 늘면 사람이 또 걸어 들어옵니다.',
+    hintOnFail: null,
+    targets: targetsFor(world, nation, { type: 'town' }, data),
+  };
+}
+
 export function chapterView(world, nation, data) {
   if (!nation?.isPlayer) return null;
   const p = ensureProgress(nation);
@@ -555,6 +605,18 @@ export function chapterView(world, nation, data) {
   const steps = ch.steps || [];
   const st = steps[p.step] ?? null;
   const m = st ? measure(world, nation, st.condition, data) : null;
+  /* ★ 마지막 퀘스트가 있으면 그것이 카드를 쥔다 — 장 자체는 그대로 굴러간다(칸도 계속 채워진다). */
+  const fin = endingGoal(world, nation, data);
+  if (fin) {
+    return {
+      id: ch.id, key: ch.key, name: '마지막 매듭', subtitle: '용은 눕었다 — 남은 것은 매듭 하나',
+      total, endless: Boolean(ch.endless), cycle: p.cycle ?? 0,
+      stepIndex: p.step, stepCount: steps.length,
+      remaining: [], goal: fin, finale: true,
+      flags: { ...p.flags },
+      trace: p.trace ? { x: p.trace.x, y: p.trace.y, found: Boolean(p.flags.traceFound) } : null,
+    };
+  }
   return {
     id: ch.id,
     key: ch.key,

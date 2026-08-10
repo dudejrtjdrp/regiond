@@ -1,12 +1,12 @@
 /* lobby.js — 타이틀 → 건국 두 장면.
-   건국은 왕국 이름 + 난이도 3택 + 캐릭터 생성 + 보조 옵션이다. ★ 역할 카드는 없다(관제 선포로 옮겼다). */
+   건국은 왕국 이름 + 난이도 3택 + 보조 옵션이다. ★ 역할 카드는 없다(관제 선포로 옮겼다).
+   ★ 외형 선택(그대의 모습)도 없다 — 주민 NPC 로 모습 통일. join.appearance 는 기본값으로 채워 보낸다. */
 (function (global) {
   'use strict';
   var GM = global.GM = global.GM || {};
   var S = GM.state, U = GM.ui;
 
-  var pick = { difficulty: null, autoAssist: true, appearance: null };
-  var chars = null;
+  var pick = { difficulty: null, autoAssist: true };
   var flagT = 0, rafId = null;
 
   function init() {
@@ -14,12 +14,15 @@
     startCrest();
 
     U.qs('#btn-new').onclick = function () { go('found'); };
-    U.qs('#btn-load').onclick = function () { go('load'); };
-    U.qs('#btn-join').onclick = function () { go('load'); };
+    /* ★ 메뉴 판 두 낯 — [이어하기]는 코드 하나로 되돌아가는 판, [멀티플레이]는 동료와 함께 드는 판 */
+    U.qs('#btn-load').onclick = function () { go('load', 'resume'); };
+    U.qs('#btn-join').onclick = function () { go('load', 'join'); };
     U.qs('#found-back').onclick = function () { go('title'); };
     U.qs('#load-back').onclick = function () { go('title'); };
     U.qs('#found-start').onclick = startNew;
     U.qs('#load-go').onclick = resume;
+    var mkRoom = U.qs('#load-create');
+    if (mkRoom) mkRoom.onclick = function () { go('found'); };   /* 방 만들기 = 새 여정을 연다 */
 
     var nameIn = U.qs('#found-name');
     var saved = null;
@@ -41,21 +44,22 @@
       assist.addEventListener('change', function () { pick.autoAssist = assist.checked; });
     }
 
-    pick.appearance = loadAppearance();
     renderDifficulty();
-    var charHost = U.qs('#found-char');
-    if (charHost) charHost.hidden = true;
     refresh();
 
     window.addEventListener('resize', drawSky);
-    S.on('joined', function () { GM.app.enterGame(); });
+    S.on('joined', function () {
+      /* ★ [이어하기]의 밑천 — 이번 판의 초대 코드를 적어 둔다 */
+      try { if (S.S.gameId) localStorage.setItem('gm.gameId', S.S.gameId); } catch (e) {}
+      GM.app.enterGame();
+    });
     /* 서버 설정이 늦게 오면 난이도 카드를 다시 그린다 */
     S.on('change', function () {
       if (S.S.config && !U.qs('#found-diff').getAttribute('data-ready')) renderDifficulty();
     });
   }
 
-  function go(name) {
+  function go(name, mode) {
     S.set({ screen: name });
     U.qs('#scene-title').hidden = name !== 'title';
     U.qs('#scene-found').hidden = name !== 'found';
@@ -64,8 +68,52 @@
       var n = U.qs('#found-name');
       setTimeout(function () { try { n.focus(); n.select(); } catch (e) {} }, 30);
     }
-    if (name === 'load') setTimeout(function () { try { U.qs('#load-gameid').focus(); } catch (e) {} }, 30);
+    if (name === 'load') {
+      setMenuMode(mode || 'join');
+      setTimeout(function () { try { U.qs('#load-gameid').focus(); } catch (e) {} }, 30);
+    }
     if (name === 'title') startCrest(); else stopCrest();
+  }
+
+  /* ★ 메뉴 판의 두 낯 — 판 그림·제목·부제·보이는 칸이 함께 갈린다(main.css .mode-*) */
+  function setMenuMode(mode) {
+    var panel = U.qs('#menu-panel');
+    if (!panel) return;
+    var join = mode === 'join';
+    panel.classList.toggle('mode-join', join);
+    panel.classList.toggle('mode-resume', !join);
+    var title = U.qs('#menu-title'), sub = U.qs('#menu-sub'), goBtn = U.qs('#load-go');
+    if (title) title.textContent = join ? '멀티플레이' : '이어하기';
+    if (sub) sub.textContent = join ? '동료와 함께 여정을 시작하세요' : '저장된 여정을 불러옵니다';
+    if (goBtn) goBtn.textContent = join ? '파티 참가' : '여정 불러오기';
+    /* 이어하기에는 지난 판의 초대 코드를 미리 앉힌다 — 코드 하나면 되돌아간다 */
+    if (!join) {
+      var gidIn = U.qs('#load-gameid');
+      if (gidIn && !gidIn.value) {
+        try { gidIn.value = localStorage.getItem('gm.gameId') || ''; } catch (e) {}
+      }
+    }
+  }
+
+  /* ★ 작은 경고 모달 — 메시지판 에셋 위에 한 줄(오른쪽 status 텍스트 대신 화면 가운데 선다) */
+  function menuAlert(msg) {
+    var old = U.qs('.gm-alert-back');
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    var back = U.el('div', 'gm-alert-back');
+    var box = U.el('div', 'gm-alert');
+    box.appendChild(U.el('p', null, msg));
+    var okBtn = U.el('button', 'gm-alert-ok', '확인');
+    okBtn.type = 'button';
+    var close = function () { if (back.parentNode) back.parentNode.removeChild(back); document.removeEventListener('keydown', onEsc, true); };
+    var onEsc = function (e) { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); close(); } };
+    okBtn.onclick = close;
+    back.onclick = function (e) { if (e.target === back) close(); };
+    document.addEventListener('keydown', onEsc, true);
+    box.appendChild(okBtn);
+    back.appendChild(box);
+    document.body.appendChild(back);
+    if (GM.sfx) GM.sfx.play('deny');
+    setTimeout(function () { try { okBtn.focus(); } catch (e) {} }, 30);
   }
 
   /* ── 난이도 3택 ─────────────────────────────────────── */
@@ -95,17 +143,8 @@
     });
   }
 
-  /* ── 캐릭터 생성 ────────────────────────────────────── */
-  function mountChar() {
-    var host = U.qs('#found-char');
-    if (!host) return;
-    if (chars) chars.destroy();
-    chars = GM.charcreate.mount(host, pick.appearance, function (a) {
-      pick.appearance = a;
-      saveAppearance(a);
-    });
-  }
-
+  /* ── 모습 — 주민 NPC 로 통일이라 화면에서 고르지 않는다.
+     서버 계약(join.appearance)은 그대로라 기본값으로 채워 보낸다. ── */
   function loadAppearance() {
     try {
       var raw = localStorage.getItem('gm.appearance');
@@ -159,7 +198,7 @@
   function resume() {
     var name = U.qs('#load-name').value.trim() || '이름 없는 개척자';
     var gid = U.qs('#load-gameid').value.trim();
-    if (!gid) { status('#load-status', '초대 코드를 적어 주세요.'); return; }
+    if (!gid) { menuAlert('초대 코드를 적어 주세요.'); return; }
     try { localStorage.setItem('gm.playerName', name); } catch (e) {}
     var app = S.defaultAppearance();
     S.set({ joinAppearance: app, you: { role: null, appearance: app } });

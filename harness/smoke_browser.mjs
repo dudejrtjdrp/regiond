@@ -258,6 +258,10 @@ try {
   must(await ev('GM.state.residents().length === 0'), '주민 0에서 시작한다');
 
   // ── 4. 마차 오프닝 ──
+  /* ★ 연출 — 도입 일러스트 컷신이 먼저 선다. [건너뛰기]를 누른 사람처럼 접고 오프닝을 기다린다. */
+  const cineShown = await until('(GM.storycine && GM.storycine.busy()) || GM.opening.busy()',
+    { ms: 8000, what: '도입 연출/오프닝' }).catch(() => false);
+  if (cineShown) await ev('GM.storycine && GM.storycine.busy() ? (GM.storycine.finish(), true) : true');
   const openingShown = await until('GM.opening.busy()', { ms: 8000, what: '마차 오프닝' }).catch(() => false);
   must(openingShown, '마차 도착 오프닝이 재생된다');
   if (openingShown) {

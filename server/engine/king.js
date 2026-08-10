@@ -7,6 +7,9 @@ import { grantArtifact, dropPool, grantVia } from './artifacts.js';
 import { dropClue } from './clues.js';
 import { round2 } from './economy.js';
 import { nodeById, townOf, territoryRadius, dist, terrainNameAt } from './world.js';
+/* ★ 2단계A — 유적 카드의 **두 번째 이후** 갈래는 개인 난수로 굴린다(아래 resolveRuinChoice 참고).
+   월드 난수를 더 쓰면 옛 세이브·시드의 그 뒤 모든 굴림이 밀린다. */
+import { statRng } from './traits.js';
 
 import {
   resolveTarget, isHarvestReady, markHarvestCycle, fieldStage, fieldStageView,
@@ -176,14 +179,20 @@ export function openRuinCard(world, nation, data, rng, node = null, room = {}) {
     room: room.room ?? null,
     rooms: room.rooms ?? null,
     options: def.options.map((o) => ({ key: o.key, label: o.label })),
-    ruin: { cardId: def.id, gradeBoost: room.gradeBoost ?? 0, nodeId: node?.id ?? null }, lore,
+    /* ★ 2단계A — room 을 함께 적는다. 두 번째 이후 갈래의 개인 난수 열쇠가 「이 방」이라
+       (statRng `<씨앗>:ruin:<노드id>:<방>:<갈래>`) 방 번호가 없으면 한 자취의 모든 방이
+       같은 수열을 쓴다. 옛 세이브에는 이 칸이 없어 0 으로 읽히지만, 옛 카드는 어차피
+       첫 갈래(=월드 난수)만 쓰고 닫혔으므로 달라지는 것이 없다. */
+    ruin: { cardId: def.id, gradeBoost: room.gradeBoost ?? 0, nodeId: node?.id ?? null, room: room.room ?? 0 }, lore,
   };
   (nation.decisionQueue ||= []).push({
     decisionId,
     kind: data.ruins.decisionKind,
     title: data.ruins.title,
     text: card.text,
-    options: def.options.map((o) => o.key),
+    /* ★ 버그 수정 — 키만 담으면 알림 스택 경로에서 dig/pray 원문이 그대로 노출된다.
+       카드(178줄)와 같은 {key,label} 형태로 맞춘다. council.js normChoices 가 둘 다 받는다. */
+    options: def.options.map((o) => ({ key: o.key, label: o.label })),
     createdTick: world.tick,
     ruin: card.ruin, lore,
   });
@@ -234,11 +243,35 @@ function roomPool(data, room = {}) {
   return pool.length ? pool : all;
 }
 
-/** decide {decisionId, choice} 로 들어온 유적 카드 선택 처리 */
+/**
+ * decide {decisionId, choice} 로 들어온 유적 카드 선택 처리
+ *
+ * ★ 2단계A — 카드는 한 번 고르면 닫히던 것이 **여러 갈래를 눌러 보는 방**이 됐다.
+ * 「왜」 — 「파헤친다·기도한다·이름을 부른다」 셋을 나란히 보여 주고는 하나를 고르는 순간
+ * 창을 닫아 버리니, 유저는 자기가 무엇을 포기했는지도 모른 채 방을 떠났다. 방 하나를
+ * 4~6번 두드려 겨우 연 자리가 클릭 한 번으로 끝나는 것도 값에 맞지 않았다.
+ * 이제 이 함수는 **한 갈래분의 결과만** 낸다 — 카드를 큐에서 내릴지는 부르는 쪽(commands.js)이
+ * `closes`·`remaining` 을 보고 정한다.
+ *
+ * ⚠ 결정론 — 이 함수의 굴림은 여태 **월드 난수**였다. 갈래를 여러 번 고를 수 있게 되면
+ * 그만큼 월드 난수를 더 축내어 같은 씨앗의 그 뒤 모든 사건(웨이브·이름·제안)이 밀린다.
+ * 그래서 **첫 갈래만** 옛 그대로 월드 난수를 쓰고(옛 세이브·시드가 그대로 산다),
+ * 두 번째부터는 `statRng('<씨앗>:ruin:<노드id>:<방>:<갈래>')` 개인 난수로 굴린다
+ * (궤·방 카드가 이미 쓰던 답 — 덤으로 「같은 방의 같은 갈래는 언제 눌러도 같은 결과」다).
+ */
 export function resolveRuinChoice(world, nation, decision, choice, data, rng) {
-  const card = data.ruins.cards.find((c) => c.id === decision.ruin?.cardId);
+  const card = data.ruins.cards.find((c) => c.id === decision.ruin?.cardId)
+    ?? Object.values(data.ruins.biomeCards || {}).find((c) => c.id === decision.ruin?.cardId);
   if (!card) return { ok: false, error: { code: 'NO_RUIN_CARD', message: '없는 유적 카드입니다.' } };
   const opt = card.options.find((o) => o.key === choice) ?? card.options[card.options.length - 1];
+  const used = decision.used || [];
+  // 같은 갈래를 두 번 고를 수는 없다 — 「눌러 볼 수 있다」이지 「무한히 굴린다」가 아니다
+  if (used.includes(opt.key)) {
+    return { ok: false, error: { code: 'RUIN_OPTION_USED', message: '이미 살펴본 갈래입니다.' } };
+  }
+  const roll = used.length === 0 ? rng : statRng(
+    `${world.seed}:ruin:${decision.ruin?.nodeId ?? decision.decisionId}:${decision.ruin?.room ?? 0}:${opt.key}`,
+  );
   const applied = [];
   const lines = [opt.text];
   let artifact = null;
@@ -247,7 +280,7 @@ export function resolveRuinChoice(world, nation, decision, choice, data, rng) {
   for (const out of opt.outcomes || []) {
     switch (out.op) {
       case 'artifactRoll': {
-        if (rng.chance(out.chance)) {
+        if (roll.chance(out.chance)) {
           /* ★ §17-17 버그 수정 — 큰 유적의 gradeBoost 가 여태 굴림에 실리지 않았다.
              actions.js 가 뒤진 유적의 등급 보정을 nation.ruinGradeBoost 에 쌓아 두기만 했고
              카드를 여는 이 자리가 그것을 읽지 않았다: 「죽은 자의 성채」를 스무 번 두드려도
@@ -261,8 +294,8 @@ export function resolveRuinChoice(world, nation, decision, choice, data, rng) {
              제 풀에는 등급 보정을 얹지 않는다 — 그 풀은 등급이 아니라 **경로**로 좁힌 명단이라
              거기에 보정을 또 밀면 「금기 한 번에 전설」이 된다. */
           artifact = out.via
-            ? grantVia(world, nation, data, rng, { via: out.via }, world.tick)
-            : grantRandomArtifact(nation, data, rng, world.tick, decision.ruin?.gradeBoost || 0, { world, via: 'ruin' });
+            ? grantVia(world, nation, data, roll, { via: out.via }, world.tick)
+            : grantRandomArtifact(nation, data, roll, world.tick, decision.ruin?.gradeBoost || 0, { world, via: 'ruin' });
           lines.push(artifact ? `${out.successText} (${artifact.name})` : out.successText);
           applied.push(artifact ? `artifact:${artifact.key}` : 'artifact:none');
         } else {
@@ -284,15 +317,29 @@ export function resolveRuinChoice(world, nation, decision, choice, data, rng) {
       default: applyRuinEffect(nation, out, data, applied); if (out.text) lines.push(out.text); break;
     }
   }
+  /* ★ 2단계A — 「이 카드가 끝났는가」의 두 조건.
+     ① 자료가 종료 갈래라고 적었다(closes:true — 「떠난다」). 열쇠말 'leave' 를 코드가 알면
+        카드마다 다른 이름을 붙일 수 없고, 자료를 고칠 때마다 코드가 따라가야 한다.
+     ② 남은 탐사 갈래가 없다 — 종료 갈래는 셈에서 뺀다(그것만 남았다고 카드를 닫으면
+        「떠난다」를 누를 기회가 사라진다). */
+  const nextUsed = [...used, opt.key];
+  const remaining = card.options
+    .filter((o) => !o.closes && !nextUsed.includes(o.key))
+    .map((o) => ({ key: o.key, label: o.label }));
+  const closes = Boolean(opt.closes) || remaining.length === 0;
   return {
     ok: true,
     revealed: clue?.revealed ?? [],
+    closes,
+    remaining,
     result: {
       cardId: card.id, name: card.name, choice: opt.key, label: opt.label,
       text: lines.filter(Boolean).join(' '), applied,
       artifact: artifact ? { key: artifact.key, name: artifact.name, grade: artifact.grade } : null,
       // 방위와 땅 이름만 실어 보낸다 — 좌표는 여기에도 없다
       clue: clue ? { dir: clue.dir, land: clue.land } : null,
+      // 화면이 「아직 눌러 볼 것이 남았다」를 그 자리에서 안다
+      closes, remaining,
     },
   };
 }

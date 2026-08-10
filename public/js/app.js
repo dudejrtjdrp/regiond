@@ -129,13 +129,20 @@
            맡으므로 여기서는 이야기만 읽는다(같은 것을 두 번 띄우지 않는다). */
         if (e.kind === 'ruin_resolved') {
           var rr = e.data || {};
+          /* ★ 2단계A — 이 사건은 이제 **갈래마다** 온다(카드가 한 번에 닫히지 않는다).
+             빈손 알림창과 쪽지는 카드가 실제로 닫힐 때만 띄운다: 갈래를 누를 때마다
+             「더 남은 것이 없습니다」가 펼쳐진 두루마리 위로 겹치면, 아직 살펴볼 것이
+             남았는데도 끝난 줄로 읽힌다. 중간 결과는 카드 안의 결과 줄이 이미 말해 준다.
+             옛 기록을 되읽을 때는 closes 칸이 없으므로 예전처럼 띄운다. */
+          var ruinDone = rr.closes !== false;
           /* 유적 완료 이벤트는 항상 먼저 온다. 보상 이벤트가 네트워크 묶음에서
-             누락돼도 여기의 보상 정보를 즉시 발견 대화창으로 넘긴다. */
+             누락돼도 여기의 보상 정보를 즉시 발견 대화창으로 넘긴다.
+             유물은 어느 갈래에서 나오든 그 자리에서 보여 준다 — 기다릴 까닭이 없다. */
           if (rr.artifact && GM.artifacts && GM.artifacts.discovery) {
             var ra = rr.artifact;
             GM.artifacts.discovery({ key: ra.key, artifact: ra.name || ra.key, grade: ra.grade,
               effect: ra.desc || '', source: 'ruin', role: '깊은 유적의 마지막 방' });
-          } else {
+          } else if (ruinDone) {
             var emptyLines = [
               '돌무더기 아래까지 모두 살폈지만, 이곳에는 더 남은 것이 없습니다.',
               '바랜 벽화와 부서진 제단만 남았습니다. 다음 깊은 유적을 찾아야 합니다.',
@@ -152,7 +159,7 @@
             U.openModal({ title: rr.name || '유적 조사 결과', body: emptyBody, footer: emptyFoot,
               width: '520px', key: 'ruin-result', icon: GM.icons.img('scroll', 22) });
           }
-          if (rr.text) {
+          if (rr.text && (ruinDone || rr.artifact)) {
             GM.hud.flash({ kind: rr.artifact ? 'good' : 'decision', icon: 'scroll',
                            title: rr.name || '옛 자취', sub: rr.text,
                            open: function () { GM.chronicle.open(); } });
@@ -336,8 +343,26 @@
 
     /* ★ 유적도 창을 띄우지 않는다 — 알림에 쌓이고, 여는 것은 언제나 플레이어다 */
     S.on('ruinEvent', function (p) {
-      if (!inGame || !p || !p.card) return;
-      GM.hud.flash({ kind: 'decision', icon: 'scroll', title: p.card.title || '땅속에서 무언가 나왔습니다',
+      if (!inGame || !p) return;
+      /* ★ A12 — 같은 관로로 **카드 없는 순수 알림**도 온다(신전 수호자를 눕힌 순간).
+         열 것이 없으니 open 도 없다 — 알림 스택은 open 이 없는 줄을 이미 그릴 줄 안다. */
+      if (!p.card) {
+        if (!p.notice) return;
+        GM.hud.flash({ kind: 'decision', icon: p.notice.icon || 'scroll',
+                       title: p.notice.title || '자취에서 무슨 일이 있었습니다',
+                       sub: p.notice.sub || '' });
+        GM.hud.renderNotices();
+        return;
+      }
+      /* ★ 2단계A(A5) — 방을 열면 이 관로로도 카드가 온다(스윙 ack 와 겹친다).
+         ① 창은 여기서 열지 않는다 — 여는 것은 언제나 플레이어다. 이미 같은 카드의 두루마리가
+            펼쳐져 있으면 눌러 둔 갈래가 날아가지 않게 스택만 다시 그린다.
+         ② 쪽지의 열쇠를 결정 큐와 **같은 것**('dec:…')으로 둔다. 큐도 같은 카드로 줄을 세우므로
+            열쇠가 다르면 한 카드에 두 줄이 선다(hud.js notices 가 앞선 것만 남긴다). */
+      var did = p.card.decisionId || p.card.id;
+      if (U.modalOpen && U.modalOpen('decision:' + did)) { GM.hud.renderNotices(); return; }
+      GM.hud.flash({ id: 'dec:' + did,
+                     kind: 'decision', icon: 'scroll', title: p.card.title || '땅속에서 무언가 나왔습니다',
                      sub: '눌러서 살펴봅니다',
                      open: function () { GM.council.openDecision(p.card); } });
       GM.hud.renderNotices();

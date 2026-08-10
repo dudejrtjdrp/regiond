@@ -16,6 +16,9 @@ import { terrainNameAt } from './world.js';
 import { stampVisionDisc } from './fog.js';
 import { record as chronicle } from './chronicle.js';
 import { templeNodes } from './temple.js';
+/* ★ 3단계A — 단서를 **적어 둔다**. 장부는 도감이 쥔다(codex.js 의 recordClue 머리말 참조):
+   닿음 표시를 박는 자리가 temple.js 라 기록을 여기 두면 clues ↔ temple 고리가 생긴다. */
+import { recordClue } from './codex.js';
 
 export const clueCfg = (data) => data.ruins?.clue ?? null;
 
@@ -45,6 +48,13 @@ export function dropClue(world, nation, data, node) {
     kind: 'discovery', title: cfg.chronicleTitle ?? '옮겨 적은 선', text,
     data: { from: node.id },
   }, data);
+  /* ★ 3단계A — 카드가 닫혀도 이 한 줄은 도감에 남는다. 난수는 한 톨도 안 쓴다(규율 ②) —
+     적는 일일 뿐이다. 가리킨 자취의 id 는 「닿았는가」 판별용으로만 들어가고 뷰에서 잘린다. */
+  recordClue(nation, {
+    fromNodeId: node.id, fromName: node.ruinName ?? null,
+    line: text, dir, land, temple: Boolean(temple),
+    targetNodeId: target.id, tick: world.tick ?? 0,
+  });
   return { text, dir, land, revealed, temple: Boolean(temple), templeId: temple?.kind?.id ?? null };
 }
 

@@ -556,10 +556,21 @@
     /* ★ §19-F2(F07-4) — 세상에 한 마리뿐이던 것이 눕는 순간. 한 판에 한 번뿐이라 요란해도 된다.
        문구는 서버(자료)가 쥔다 — 화면이 제 낱말을 지어내지 않는다(§17-17 과 같은 규칙). */
     if (p.boss) {
-      U.epic({ title: p.boss.title, sub: p.boss.text, kind: 'land' });
+      /* ★ 슬로우모션 — 마지막 일격이 들어간 그 자리에서 화면 시계가 여섯 배로 늦어진다.
+         순서가 곧 연출이다: ①한 박자 멎고 ②늦어지며 ③검은 띠가 내려오고 ④그 느린 화면 위로
+         파편과 빛이 번진다. 요란한 문구(epic)는 늦어진 뒤에 얹는다 — 그림이 먼저다. */
+      GM.fx.hitStop(180);
+      if (GM.fx.cinemaSlow) GM.fx.cinemaSlow(0.16, 2600, 3600);
+      GM.fx.shakeScreen(11, 1.2);
+      GM.fx.flash('#ffe9c0', 0.55, 0.5);
       GM.fx.ring(pos.x, pos.y, '#e05a2c', 0.1, 4.5, 1.4);
+      GM.fx.ring(pos.x, pos.y, '#ffcf6a', 0.1, 7.5, 2.6);
       GM.fx.sparkle(pos.x, pos.y, 42, '#ffcf6a');
-      GM.fx.shakeScreen(9, 0.9);
+      GM.fx.debris(pos.x, pos.y, '#7a4a2c', 26, 1.6);
+      GM.fx.vignette('#e05a2c', 2.6);
+      setTimeout(function () {
+        U.epic({ title: p.boss.title, sub: p.boss.text, kind: 'land' });
+      }, 1100);
     }
     if (p.buildPoints) GM.fx.floatText(pos.x, pos.y - 1.0, '공사 +' + U.fmt(p.buildPoints, 1), '#f6cf7a', 12);
   }

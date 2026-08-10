@@ -11,20 +11,50 @@
   var chain = null;      // 지금 트는 beat 의 남은 장면들 (null 이면 쉬는 중)
   var introHeld = null;  // 오프닝(마차)보다 먼저 틀어야 하는 도입 beat
   var introGate = null;  // app.js 가 건 「도입 먼저」 문
+  /* ★ 매듭 뒤 — 엔딩 사슬(ending → ending_cookie)이 **다 끝난 뒤**에 제작자·계속 화면이 온다.
+     한 beat 가 끝날 때마다 켜면 다탁 장면 뒤에 크레딧이 끼어든다: 사슬이 완전히 비었을 때만 연다. */
+  var finaleDue = false;
 
   function onBeat(p) {
     if (!p || !p.scenes || !p.scenes.length) return;
-    if (p.id === 'intro' && introGate) { introHeld = p; introGate(); return; }
+    /* ★ 도입은 「문」(introGate)이 서기 전에 도착할 수 있다 — 서버는 join 하자마자 보낸다.
+       그때 오프닝이 이미 「마차 안」(prepare/pending)이면 그것도 붙든다: 문이 서면 그때 튼다.
+       안 붙들면 도입(알현실)이 마차 뒤에 나와 이야기의 시간이 뒤집힌다(세계관기획 §7-1). */
+    if (p.id === 'intro' && (introGate || (GM.opening && GM.opening.busy()))) {
+      introHeld = p;
+      if (introGate) introGate();
+      return;
+    }
+    if (String(p.id || '').indexOf('ending') === 0) finaleDue = true;
     queue.push(p);
     drain();
   }
 
   function drain() {
-    if (chain || !queue.length) return;
+    if (chain || !queue.length) { finale(); return; }
+    /* ★ 마차 오프닝과 겹치지 않는다 — 오프닝도 #cutscene-root 를 쓰므로(둘이 같은 그릇),
+       늦게 도착한 beat(특히 컷신 beat)는 오프닝이 끝난 뒤에 튼다. */
+    if (GM.opening && GM.opening.busy()) { setTimeout(drain, 400); return; }
     play(queue.shift(), drain);
   }
 
+  /** 엔딩 사슬이 다 끝났다 — 제작자 화면과 「계속 플레이 하시겠습니까」로 넘긴다(§세계관 W3). */
+  function finale() {
+    if (!finaleDue || chain || queue.length) return;
+    finaleDue = false;
+    if (!GM.endcredits) return;
+    setTimeout(function () { GM.endcredits.play(); }, 500);
+  }
+
   function play(beat, done) {
+    /* ★ 연출 이미지 — bg 가 실린 beat 는 대화창이 아니라 전면 일러스트 컷신으로 튼다.
+       (도입 beat 가 이 길을 탄다 — data/story.json 의 bg 는 서버가 그대로 실어 보낸다) */
+    var hasBg = (beat.scenes || []).some(function (s) { return s && s.bg; });
+    if (hasBg && GM.storycine) {
+      chain = [];                                  // busy() 가 「트는 중」을 알게 빈 판을 세운다
+      GM.storycine.play(beat.scenes, { onEnd: function () { chain = null; done(); } });
+      return;
+    }
     chain = beat.scenes.slice();
     step(beat, done);
   }
@@ -41,10 +71,11 @@
     });
   }
 
-  /* 세라는 지도 위에 실제로 걸어다니는 첫 주민이다 — 그 도트가 곧 초상이 된다(dialogue §원칙①) */
+  /* 세라는 지도 위에 실제로 걸어다니는 첫 주민이다 — 그 도트가 곧 초상이 된다(dialogue §원칙①).
+     ★ A6 — 빈 화자는 나레이션이다: 두루마리도 사람 표지도 세우지 않는다(글만 남는다).
+     사람이 말하는 줄에는 인물판이 서므로(story.json portraits) 이 도트 초상은 CSS 가 감춘다. */
   function portraitOf(speaker) {
-    if (speaker === '세라') return 'icon:person';
-    if (!speaker) return 'icon:scroll';
+    if (!speaker) return '';
     return 'icon:person';
   }
 
@@ -125,5 +156,9 @@
 
   document.addEventListener('keydown', onKey, true);
   GM.story = { onBeat: onBeat, beforeOpening: beforeOpening, onInvite: onInvite,
-    busy: function () { return !!chain || !!queue.length; } };
+    busy: function () {
+      return !!chain || !!queue.length
+        || !!(GM.storycine && GM.storycine.busy())
+        || !!(GM.endcredits && GM.endcredits.busy());
+    } };
 })(window);

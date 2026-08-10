@@ -81,6 +81,9 @@
   function mountSkip() {
     var root = U.qs('#cutscene-root');
     if (!root) return;
+    /* ★ 같은 그릇(#cutscene-root)을 쓰는 일러스트 컷신이 아직 돌고 있으면 곱게 접어 준다 —
+       그냥 비우면 컷신이 끝을 못 물어 이야기 사슬(story.js)이 영영 기다린다. */
+    if (GM.storycine && GM.storycine.busy()) GM.storycine.finish();
     U.clear(root);
     var wrap = U.el('div', 'open-skip');
     skipBtn = U.btn('건너뛰기 ▸', 'btn-sm', finish);

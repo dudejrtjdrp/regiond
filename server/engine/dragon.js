@@ -91,7 +91,44 @@ export function dragonWarning(world, nation, data, x, y) {
   if (dist(st.x, st.y, x, y) > cfg.warnRadius) return null;
   if (nation.dragonWarnedTick != null) return null;
   nation.dragonWarnedTick = world.tick;
+  /* ★ 4단계 — 굴 앞에 선 날도 이 나라의 역사다. 여태 이 경고는 컷신 한 번으로 흘러가고
+     아무 데도 남지 않아, 창을 닫고 나면 「무슨 골짜기였더라」가 됐다. 연대기에 한 줄 남긴다 —
+     자리(x,y)는 싣지 않는다: 연대기는 지도가 아니고, 굴은 걸어가 본 사람만 아는 것이어야 한다
+     (단서 규율 ① 마커·좌표 금지를 그대로 물려받는다). */
+  record(world, { kind: 'discovery', title: cfg.warnTitle, text: cfg.warnText }, data);
   return { title: cfg.warnTitle, text: cfg.warnText, x: st.x, y: st.y };
+}
+
+/**
+ * ★ 4단계(2026-08-10) — 「먼 잿빛 산의 소문」. 나라에 한 번, 연대기와 쪽지로 나간다.
+ *
+ * 「왜」 이 한 줄이 필요한가 — 용은 이미 다 만들어져 세상에 앉아 있는데(굴·경고·전리품·대장간),
+ * 아무도 그런 것이 있는 줄을 모른다. 굴에서 22칸 안에 들어야 처음 알게 되는데, 그 골짜기는
+ * 도읍에서 90칸 밖이라 「우연히 지나가다」가 사실상 일어나지 않는다. 유일한 문이 굴 앞이면
+ * 그 문은 없는 것과 같다. 그래서 **먼저 소문이 온다** — 여는 것은 한 줄의 말뿐이다:
+ * 자리도 마커도 주지 않는다(단서 규율 ①). 잿빛 산이라는 **땅 이름** 하나만 남기고,
+ * 찾아가는 일은 여전히 제 발로 하는 일이다.
+ *
+ * 난수를 쓰지 않는 까닭 — 소문이 굴림이면 어떤 판에서는 영영 안 온다(같은 씨앗이 다른 게임이
+ * 되는 것도 문제다). 조건은 **때**다: 굴이 실제로 심겼고, 첫 감정의 날이 지났을 때 딱 한 번.
+ * 감정의 날 뒤인 까닭은 그날이 이 게임에서 「세상이 넓어지는 날」이라, 그 전에 던지면
+ * 아직 마을도 못 세운 사람에게 90칸 밖 이야기를 하는 꼴이 된다.
+ *
+ * 잿땅이 없어 굴이 안 심긴 지도(옛 세이브 포함)에서는 st.placed 가 서지 않으므로 소문도 없다 —
+ * 있지도 않은 것의 소문을 내면 그것은 거짓말이다.
+ * @returns {{kind,nationId,data}|null} 일 틱이 그대로 events 에 실어 보낸다
+ */
+export function dragonRumor(world, nation, data) {
+  const cfg = bossCfg(data);
+  const st = world?.dragon;
+  if (!cfg?.rumorText || !nation?.isPlayer) return null;
+  if (!st?.placed || st.slainTick != null || st.rumorTick != null) return null;
+  if (!world.emotionDayDone) return null;
+  if (world.tick <= (world.emotionDayTick ?? 0)) return null;
+  st.rumorTick = world.tick;
+  record(world, { kind: 'discovery', title: cfg.rumorTitle, text: cfg.rumorText }, data);
+  return { kind: 'dragon_rumor', nationId: nation.id,
+           data: { title: cfg.rumorTitle, text: cfg.rumorText } };
 }
 
 /**

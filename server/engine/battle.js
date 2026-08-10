@@ -39,7 +39,9 @@ import { artifactCritRoll, artifactDodgeRoll } from './combat.js';
 // ★ Sprint 2 — 전투의 발: 수비는 깃발로, 영토 밖 일꾼은 마을로. 끝나면 제 일터로.
 import { battleStations, standDown } from './assign.js';
 // ★ §19-C — 스폰 자리 검사(물에서 태어나 갇히는 사고를 막는다)
-import { nearestWalkable, findPath, respawnSpot } from './path.js';
+import { nearestWalkable, respawnSpot } from './path.js';
+// ★ A11 — 점령지(§17-14)도 우리 땅이다. 그 안에서 적이 솟아나지 않게 한다.
+import { claimAt } from './claims.js';
 
 const err = (code, message) => ({ ok: false, error: { code, message } });
 
@@ -54,26 +56,163 @@ const STRUCTURE_HIT_EVENT_EVERY = 1.0;
  * 「왜」 — §17-4 이후 적은 물을 못 건넌다. 물에서 태어나면 미끄러질 곳이 없어 그 자리에
  * 영원히 갇히고, 웨이브는 끝나지 않는다(B05-2). 호수 건너편 뭍도 마찬가지다.
  * 나라를 null 로 넘기는 것은 일부러다 — 다리·매립은 사람의 길이지 적의 길이 아니다.
+ * ★ A11 — 「도읍까지 길이 있는가」를 묻는 자는 이제 A* 가 아니라 거리장(coreFlow)이다: 답은 같고
+ *   값은 한 판에 한 번뿐이다(옛 검사는 적 하나마다 길을 새로 풀어 티어6 에서 5.4초가 걸렸다).
  */
-function landingSpot(world, data, core, x, y) {
+function landingSpot(world, data, flow, x, y) {
   const near = nearestWalkable(world, null, data, x, y, 8);
   if (!near) return null;
-  const path = findPath(world, null, data, near.x, near.y, core.x, core.y, { pad: 24, maxNodes: 2500 });
-  const end = path?.[path.length - 1];
-  if (!end || dist(end.x, end.y, core.x, core.y) > 1.5) return null;
-  return near;
+  if (!flow) return near;
+  return flow.dist[near.y * flow.size + near.x] >= 0 ? near : null;
 }
 
-/** 물이면 각을 조금씩 틀고 조금씩 안쪽으로 물리며 설 자리를 찾는다 (결정론 — 난수를 쓰지 않는다) */
-function spawnSpot(world, data, town, angle, radius, flying) {
+/* ★ A11 — 거리장 곳간. 열쇠는 「씨앗 · 지도 크기 · 도읍 자리」뿐이다.
+   「왜 그것으로 충분한가」 — 이 장은 **지형만** 본다(적은 다리·매립을 못 쓰고 건물은 여기서 안 막는다).
+   지형은 씨앗이 정한 뒤 한 칸도 바뀌지 않으므로, 같은 씨앗·같은 도읍이면 답도 같다.
+   일 틱의 structuredClone 이 세계를 새로 빚어도 이 곳간은 살아남는다(그래서 WeakMap 이 아니다).
+   세이브에는 한 바이트도 실리지 않는다 — 서버 런타임이 쥔 파생 캐시다(spatial.js 규율 ①). */
+const FLOW_CACHE = new Map();
+const FLOW_CACHE_MAX = 4;
+
+/**
+ * ★ A11 — 도읍으로 흐르는 **거리장**. 한 판에 한 번 짓고 적 전부가 돌려 쓴다. 하는 일 둘:
+ *   ① 스폰 자리가 도읍과 이어져 있는가(dist ≥ 0) — 옛 A* 연결성 검사를 대신한다.
+ *      옛 검사는 적 하나마다 길을 새로 풀어서, 스폰이 120·200칸으로 물러난 지금 한 판을 세우는 데
+ *      수 초가 걸렸다(실측 5.4초). 「길이 있는가」는 연결 성분 문제라 한 번 번지면 그 자리에서 답한다.
+ *   ② 물에 막혔을 때 **어느 쪽으로 돌아가는가** — 이게 없으면 A11 은 게임을 망가뜨린다:
+ *      적은 길찾기가 없고 도읍을 향해 곧장 걷기만 한다(§17-4 의 축 미끄러짐이 전부다). 스폰이
+ *      22칸일 때는 그 사이에 호수가 낄 일이 드물었지만, 60·120칸을 걸어와야 하는 지금은 웨이브의
+ *      3분의 2가 호숫가에 붙박여 그대로 물러갔다(실측: 33마리 중 21마리가 태어난 자리에서 2칸 움직임).
+ * 통행 규칙은 **적의 것**을 쓴다(isWaterAt) — moveToward 와 한 글자도 같아야 장이 가리킨 칸을
+ * 실제로 밟을 수 있다. 대각선은 양옆이 뚫려야 지난다(path.findPath 와 같은 모서리 규칙).
+ */
+function coreFlow(world, data, core) {
+  const size = world.map?.size ?? data.world.size;
+  const cx = Math.round(core.x);
+  const cy = Math.round(core.y);
+  const key = `${world.seed >>> 0}:${size}:${cx},${cy}`;
+  const hit = FLOW_CACHE.get(key);
+  if (hit) return hit;
+  /* 통행 판정은 한 칸에 한 번만 묻는다 — 대각선 모서리 검사가 같은 칸을 서너 번 되묻는 자리라,
+     그대로 두면 판 하나에 지형 조회가 칠십만 번 일어난다(실측 0.7초). */
+  const ok = new Uint8Array(size * size);
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) ok[y * size + x] = isWaterAt(world.map, x, y, data) ? 0 : 1;
+  }
+  const dist32 = new Int32Array(size * size).fill(-1);
+  const walk = (x, y) => x >= 0 && y >= 0 && x < size && y < size && ok[y * size + x] === 1;
+  const from = walk(cx, cy) ? { x: cx, y: cy } : nearestWalkable(world, null, data, cx, cy, 8);
+  const field = { size, dist: dist32, lockSeconds: battleCfg(data).flowSeconds ?? 6 };
+  if (!from) return field;
+  const q = new Int32Array(size * size);
+  let head = 0;
+  let tail = 0;
+  dist32[from.y * size + from.x] = 0;
+  q[tail++] = from.y * size + from.x;
+  while (head < tail) {
+    const c = q[head++];
+    const y = (c / size) | 0;
+    const x = c - y * size;
+    const nd = dist32[c] + 1;
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (!dx && !dy) continue;
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+        const nk = ny * size + nx;
+        if (dist32[nk] >= 0) continue;
+        if (!walk(nx, ny)) continue;
+        if (dx && dy && (!walk(x + dx, y) || !walk(x, y + dy))) continue;
+        dist32[nk] = nd;
+        q[tail++] = nk;
+      }
+    }
+  }
+  FLOW_CACHE.set(key, field);
+  if (FLOW_CACHE.size > FLOW_CACHE_MAX) FLOW_CACHE.delete(FLOW_CACHE.keys().next().value);
+  return field;
+}
+
+/** ★ A11 — 지금 선 칸에서 도읍 쪽으로 **한 칸 내리막**인 이웃(없으면 null · 난수 없음) */
+function downhill(flow, x, y) {
+  if (!flow) return null;
+  const { size, dist: d } = flow;
+  const cx = Math.round(x);
+  const cy = Math.round(y);
+  if (cx < 0 || cy < 0 || cx >= size || cy >= size) return null;
+  let best = null;
+  let bd = d[cy * size + cx];
+  if (bd < 0) bd = Infinity;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (!dx && !dy) continue;
+      const nx = cx + dx;
+      const ny = cy + dy;
+      if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+      const v = d[ny * size + nx];
+      if (v < 0 || v >= bd) continue;
+      bd = v;
+      best = { x: nx, y: ny };
+    }
+  }
+  return best;
+}
+
+/** 물이면 각을 조금씩 틀고 조금씩 바깥으로 물리며 설 자리를 찾는다 (결정론 — 난수를 쓰지 않는다) */
+function spawnSpot(world, data, flow, town, angle, radius, flying, minR = 0) {
   const at = (a, r) => ({ x: round2(town.x + Math.cos(a) * r), y: round2(town.y + Math.sin(a) * r) });
   if (flying) return at(angle, radius);
   for (let i = 0; i < 8; i += 1) {
-    const p = at(angle + ((i % 2) ? -1 : 1) * Math.ceil(i / 2) * 0.22, radius - Math.floor(i / 4) * 4);
-    const spot = landingSpot(world, data, town, p.x, p.y);
-    if (spot) return spot;
+    /* ★ A11 — 되물리는 방향을 안쪽에서 **바깥쪽**으로 뒤집었다. 옛 규칙은 스폰 반경이 곧 영토 반경일
+       때 만들어져서 안으로 물려도 될 자리가 있었지만, 이제 안쪽은 우리 땅이다 — 물을 피하려다
+       영토 안에 적을 세우면 고친 것을 그 자리에서 되돌리는 셈이 된다. */
+    const p = at(angle + ((i % 2) ? -1 : 1) * Math.ceil(i / 2) * 0.22, radius + Math.floor(i / 4) * 4);
+    const spot = landingSpot(world, data, flow, p.x, p.y);
+    /* ★ A11 — 뭍으로 스냅하며 최대 여덟 칸을 끌려올 수 있다(nearestWalkable). 그 여덟 칸이
+       영토 경계를 넘어서면 애써 밀어낸 적이 다시 우리 땅 안에 선다 — 그런 자리는 버린다. */
+    if (spot && (!minR || dist(spot.x, spot.y, town.x, town.y) >= minR)) return spot;
   }
   return at(angle, radius);      // 끝내 못 찾으면 옛 규칙 그대로 — 전투가 서지 못하게 하지는 않는다
+}
+
+/**
+ * ★ A11 — 적이 태어나는 반경.
+ * 「왜」 고정 22 가 틀렸나: 그 값은 **티어0 의 영토 반경**이다. 정착지가 자라면 영토는 56·82·116 으로
+ * 밀려나는데 스폰 자리는 그대로라, 티어2 만 돼도 적이 영토 30칸 **안쪽**에서 솟아났다 —
+ * 침공이 아니라 소환이다. 이제 영토 밖 spawnMarginTiles 만큼 물러난 자리가 기준이고,
+ * 옛 값(spawnRadiusTiles)은 「그보다 좁아지지는 않는다」는 최소값으로만 남는다.
+ */
+export function spawnRadiusOf(nation, data) {
+  const cfg = battleCfg(data);
+  return Math.max(cfg.spawnRadiusTiles, territoryRadius(nation, data) + (cfg.spawnMarginTiles ?? 0));
+}
+
+/**
+ * ★ A11 — 점령지 안을 피한다. 각도는 그대로 두고 **반경만** 네 칸씩 밖으로 물린다(최대 다섯 번).
+ * 난수를 한 톨도 더 쓰지 않는다 — spawnEnemy 의 뽑는 차례(a → r → hp → dps → speed)가 곧
+ * 같은 씨앗의 밸런스라서, 여기에 굴림을 하나만 끼워도 앞뒤 웨이브가 통째로 밀린다(§13-C).
+ */
+function spawnSpotOutside(world, data, nation, flow, town, angle, radius, flying) {
+  const minR = territoryRadius(nation, data);
+  let at = spawnSpot(world, data, flow, town, angle, radius, flying, minR);
+  for (let i = 0; i < 5 && claimAt(nation, at.x, at.y); i += 1) {
+    at = spawnSpot(world, data, flow, town, angle, radius + (i + 1) * 4, flying, minR);
+  }
+  return at;
+}
+
+/**
+ * ★ A11 — 이 전투의 시계. 스폰이 멀어진 만큼 **걸어오는 시간**을 시계에 얹는다.
+ * 「왜」 다이얼을 하나 더 두나: maxSeconds 는 「싸울 시간」의 예산이다(웨이브 밸런스의 기준값 —
+ * 여기를 흔들면 basePower·settlementScale 이 잡아 둔 생존율이 함께 흔들린다). 스폰이 22→62→122 로
+ * 밀려나면 늘어난 것은 싸움이 아니라 **행군**이라, 늘어난 거리만큼만 따로 값을 치른다.
+ * maxSecondsCap 은 그 덧셈이 끝없이 자라지 않게 하는 뚜껑이다(엔드리스 티어의 영토는 계속 자란다).
+ */
+function battleClockSeconds(spawnRadius, data) {
+  const cfg = battleCfg(data);
+  const extra = Math.max(0, spawnRadius - cfg.spawnRadiusTiles) * (cfg.maxSecondsTravelPerTile ?? 0);
+  return round2(Math.min(cfg.maxSecondsCap ?? Infinity, cfg.maxSeconds + extra));
 }
 
 /** 전술 상성·성녀 예언의 계승 — 옛 전술 가산(±8%p)을 실시뮬의 '피해 배수'로 옮긴 것 */
@@ -107,11 +246,13 @@ function artifactEnemyMultiplier(spec, hooks) {
 }
 
 /** 적 하나를 세운다 — 무리(본대·호위대)의 규격을 그대로 몸에 새긴다 */
-function spawnEnemy(world, data, town, rng, mult, g, baseAngle, id) {
+function spawnEnemy(world, data, nation, flow, town, rng, mult, g, baseAngle, baseRadius, id) {
   const a = baseAngle + rng.float(-0.45, 0.45);
-  const r = battleCfg(data).spawnRadiusTiles + rng.float(-2, 4);
+  /* ★ A11 — 기준 반경은 startBattle 이 미리 잰 「영토 밖」이다(spawnRadiusOf).
+     흔들림(-2~+4)은 옛것 그대로 — 난수를 뽑는 차례도 횟수도 한 톨도 바뀌지 않는다. */
+  const r = baseRadius + rng.float(-2, 4);
   /* ★ §19-C — 뽑은 자리가 물이면 곁의 뭍으로. 난수는 위에서 이미 다 뽑았다(결정론 유지) */
-  const at = spawnSpot(world, data, town, a, r, g.flying);
+  const at = spawnSpotOutside(world, data, nation, flow, town, a, r, g.flying);
   return {
     id, type: g.type, x: at.x, y: at.y,
     hp: round2(g.unitHp * rng.float(0.9, 1.1)),
@@ -152,9 +293,13 @@ export function startBattle(world, nation, data, opts = {}) {
      난수를 뽑는 차례도 마릿수도 옛것과 한 톨도 다르지 않다(앞 다섯 웨이브의 결정론 보존). */
   const enemies = [];
   const groups = spec.groups ?? [{ ...spec, units: spec.units }];
+  // ★ A11 — 영토 밖 한 줄. 한 판 안에서는 모두 같은 기준 반경을 쓴다(무리가 갈라지지 않는다).
+  const spawnRadius = spawnRadiusOf(nation, data);
+  // ★ A11 — 「도읍까지 길이 있는가」는 한 번만 푼다(coreFlow). 적 수만큼 A* 를 돌리지 않는다.
+  const flow = coreFlow(world, data, town);
   for (const g of groups) {
     for (let i = 0; i < g.units; i += 1) {
-      enemies.push(spawnEnemy(world, data, town, rng, mult, g, baseAngle, `e${enemies.length}`));
+      enemies.push(spawnEnemy(world, data, nation, flow, town, rng, mult, g, baseAngle, spawnRadius, `e${enemies.length}`));
     }
   }
 
@@ -171,6 +316,12 @@ export function startBattle(world, nation, data, opts = {}) {
     t: 0,
     core: { x: town.x, y: town.y },
     coreRadius: cfg.coreRadiusTiles,
+    /* ★ A11 — 이 판이 쓴 스폰 반경과, 그만큼 늘어난 시계. 전투 객체에 새겨 두는 까닭은
+       스냅샷을 물고 이어 도는 서버·리플레이가 **같은 시계**를 봐야 하기 때문이다
+       (영토는 전투 도중에도 자랄 수 있다 — 그때 시계가 바뀌면 판정이 흔들린다).
+       옛 스냅샷에는 이 칸이 없으므로 읽는 쪽은 cfg.maxSeconds 로 물러선다. */
+    spawnRadius: round2(spawnRadius),
+    maxSeconds: battleClockSeconds(spawnRadius, data),
     enemies,
     militia,
     total: enemies.length,
@@ -288,6 +439,11 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
   b.t = round3(b.t + dt);
 
   const livingEnemies = alive(b.enemies);
+  /* ★ A11 — 이 판이 쓸 거리장. 곳간에 있으면 그 자리에서 나오고(지형은 씨앗이 정한 뒤 안 바뀐다),
+     세이브를 물고 이어 도는 판에서만 한 번 새로 짓는다. */
+  const flow = world ? coreFlow(world, data, b.core) : null;
+  // ★ A11 — 이 안쪽부터는 옛 규칙 그대로다(기본값은 옛 스폰 반경 — 거기까지가 「도읍의 싸움」이었다)
+  const marchTiles = cfg.flowMarchTiles ?? cfg.spawnRadiusTiles;
   /* ★ §20-R4(유물기획 §20-3) — 용의 심장의 「전투원 피해 +25%」. 이름 그대로 **나라 전체 전투원**이라
      터렛·민병·시뮬 봇·사람의 칼에 똑같이 얹는다(적이 넣는 피해에는 얹지 않는다).
      유물이 없으면 1 이라 옛 셈과 한 톨도 다르지 않다 — 그래서 늘 **맨 뒤에** 곱한다. */
@@ -336,6 +492,9 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
   // ── 3. 플레이어(가상 포함) — 검을 든 사람들의 지속 피해 ─────
   //   실제 플레이어의 타격은 combatSwing 이 즉시 반영한다. 여기 있는 건 시뮬 봇의 근사치다.
   for (const vp of b.virtualPlayers || []) {
+    /* ★ A11 — 여기 쓰이는 spawnRadiusTiles 는 「스폰 자리」가 아니라 **본영을 지키는 사람의 걸음이
+       닿는 거리**다(옛 판에서 그 둘이 우연히 같은 값이었을 뿐이다). 스폰이 영토 밖으로 물러났다고
+       시뮬 봇이 지평선 너머를 저격하지는 않는다 — 그래서 이 자는 옛 값 그대로 둔다. */
     const found = nearest(livingEnemies, b.core.x, b.core.y, cfg.spawnRadiusTiles);
     if (!found) break;
     const dmg = (vp.dps || 0) * b.multipliers.defender * dt * artifactDamage;
@@ -435,6 +594,13 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
       continue;
     }
 
+    /* 4-a-2. ★ A11 — **먼 행군은 거리장이 이끈다**. 도읍 코앞(marchTiles = 옛 스폰 반경)까지는
+       한 칸씩 내리막을 밟아 호수를 돌아 나오고, 그 안쪽부터는 옛 규칙이 한 글자도 안 바뀐 채
+       그대로 이어받는다(울타리·길목·약탈은 전부 그 안에서 벌어지는 일이다).
+       「왜 안쪽까지 장으로 몰지 않나」 — 안쪽은 울타리를 두드리고 길목을 저울질하는 자리라,
+       거기까지 장이 끌면 §19-F1(F05-3)·§19-F2(F07-3)가 세운 규칙이 통째로 무력해진다. */
+    if (flow && !e.flying && dCore > marchTiles && flowStep(e, paceOf(e) * dt, world, data, flow)) continue;
+
     // 4-b. 울타리에 막히면 두드린다 (나는 것은 넘어간다)
     if (!e.flying && fences.length) {
       const f = blockingFence(nation, e, b.core);
@@ -458,14 +624,14 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
           }
           continue;
         }
-        moveToward(e, m.x, m.y, dt, world, data);
+        moveToward(e, m.x, m.y, dt, world, data, flow);
         continue;
       }
     }
 
     /* 4-b-2. ★ §19-F1(F05-3) — 석벽을 넘었으면 길목의 건물이 기다린다.
        부수는 값(체력 비례)이 돌아가는 값보다 싸면 부수고, 비싸면 비껴 간다. */
-    if (dCore > b.coreRadius + 1.5 && pushThrough(world, nation, e, b, data, cfg, dt)) continue;
+    if (dCore > b.coreRadius + 1.5 && pushThrough(world, nation, e, b, data, cfg, dt, flow)) continue;
 
     // 4-c. 중심까지 왔으면 건물을 부수고 계속 약탈한다 (쫓아내지 못하면 곳간이 마른다)
     if (dCore <= b.coreRadius + 1.5) {
@@ -479,7 +645,7 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
       continue;
     }
 
-    moveToward(e, b.core.x, b.core.y, dt, world, data);
+    moveToward(e, b.core.x, b.core.y, dt, world, data, flow);
   }
 
   // ── 5. 종료 판정 ─────────────────────────────────────────────
@@ -489,7 +655,7 @@ export function stepBattle(world, nation, data, dt = battleCfg(data).subtickSeco
   if (stillAlive === 0) {
     b.over = true;
     b.won = true;
-  } else if (b.t >= cfg.maxSeconds) {
+  } else if (b.t >= (b.maxSeconds ?? cfg.maxSeconds)) {   // ★ A11 — 행군 몫을 얹은 시계(옛 판은 그대로)
     for (const e of alive(b.enemies)) { e.alive = false; b.escaped += 1; }
     b.over = true;
     b.won = false;
@@ -565,27 +731,27 @@ function detourPoint(e, s, data, br) {
  *   자폭형은 부수는 값이 곧 제 목숨이라 「몇 초 걸리나」를 잴 수 없고(한 방뿐이다),
  *   원거리형은 길목 앞에 서 있어도 이미 때리고 있는 중이라 돌아갈 까닭이 없다.
  */
-function pushThrough(world, nation, e, b, data, cfg, dt) {
+function pushThrough(world, nation, e, b, data, cfg, dt, flow) {
   const br = breachCfg(cfg);
   if (!br || e.flying) return false;
-  if (e.detourTo) return walkDetour(e, b, dt, world, data);
+  if (e.detourTo) return walkDetour(e, b, dt, world, data, flow);
   const s = findBlocker(nation, e, b, data, br);
   if (!s) return false;
-  if (e.detonate) return detonateBlocker(e, s, b, data, cfg, br, dt, world);
-  if (inShotRange(e, s, data)) return smashBlocker(e, s, b, data, cfg, br, dt, world);
+  if (e.detonate) return detonateBlocker(e, s, b, data, cfg, br, dt, world, flow);
+  if (inShotRange(e, s, data)) return smashBlocker(e, s, b, data, cfg, br, dt, world, flow);
   if (breakCostTiles(e, s, br) > br.detourTiles || (e.breachT || 0) >= br.maxSecondsPerStructure) {
-    return startDetour(e, s, b, data, br, dt, world);
+    return startDetour(e, s, b, data, br, dt, world, flow);
   }
-  return smashBlocker(e, s, b, data, cfg, br, dt, world);
+  return smashBlocker(e, s, b, data, cfg, br, dt, world, flow);
 }
 
 /** 돌아가기로 했다 — 옆자리를 찍고 그 걸음을 시작한다(길목 기억도 그 자리에서 비운다) */
-function startDetour(e, s, b, data, br, dt, world) {
+function startDetour(e, s, b, data, br, dt, world, flow) {
   e.detourTo = detourPoint(e, s, data, br);
   e.detourUntil = round2(b.t + br.detourTiles / Math.max(0.1, e.speed));
   e.blockId = null;
   e.breachT = 0;
-  return walkDetour(e, b, dt, world, data);
+  return walkDetour(e, b, dt, world, data, flow);
 }
 
 /** ★ §19-F2(F07-3) — 원거리형이 제 사거리 안에 길목을 두었는가. 없는 놈은 늘 false(옛 갈래). */
@@ -600,10 +766,10 @@ function inShotRange(e, s, data) {
  * 닿는 순간 제 몸과 함께 터지고 사라진다. 한 방이라 damageScale 을 dt 없이 통째로 받는다
  * (부수는 데 몇 초 걸리는 놈이 낼 값을 그 자리에서 한꺼번에 내는 셈이다).
  */
-function detonateBlocker(e, s, b, data, cfg, br, dt, world) {
+function detonateBlocker(e, s, b, data, cfg, br, dt, world, flow) {
   const c = centerOf(s.key, s.x, s.y, data);
   const reach = structureRadius(s.key, data) + cfg.meleeRangeTiles + 0.4;
-  if (dist(e.x, e.y, c.x, c.y) > reach) { moveToward(e, c.x, c.y, dt, world, data); return true; }
+  if (dist(e.x, e.y, c.x, c.y) > reach) { moveToward(e, c.x, c.y, dt, world, data, flow); return true; }
   hitStructure(b, s, e.dps * e.detonate * e.structureDamageBonus * br.damageScale, cfg, data);
   push(b, { t: round2(b.t), kind: 'detonate', targetId: e.id, x: round2(e.x), y: round2(e.y) }, data);
   if (isBreached(s, br.openHpRatio)) {
@@ -614,13 +780,13 @@ function detonateBlocker(e, s, b, data, cfg, br, dt, world) {
 }
 
 /** 비껴 가는 중 — 찍은 옆자리에 닿거나 시간이 다하면 다시 도읍을 본다 */
-function walkDetour(e, b, dt, world, data) {
+function walkDetour(e, b, dt, world, data, flow) {
   const to = e.detourTo;
   if (!to || b.t >= (e.detourUntil ?? 0) || dist(e.x, e.y, to.x, to.y) <= 0.9) {
     e.detourTo = null;
     return false;
   }
-  moveToward(e, to.x, to.y, dt, world, data);
+  moveToward(e, to.x, to.y, dt, world, data, flow);
   return true;
 }
 
@@ -629,10 +795,10 @@ function walkDetour(e, b, dt, world, data) {
  * ★ §19-F2(F07-3) — 「사거리」는 이제 놈마다 다르다: 투석꾼은 붙지 않고 선 자리에서 쏜다
  *   (부수기 대신 사격 — 값을 내는 문은 같고, 그 문 앞에 서는 거리만 다르다).
  */
-function smashBlocker(e, s, b, data, cfg, br, dt, world) {
+function smashBlocker(e, s, b, data, cfg, br, dt, world, flow) {
   const c = centerOf(s.key, s.x, s.y, data);
   const reach = structureRadius(s.key, data) + (e.rangeTiles ?? cfg.meleeRangeTiles) + 0.4;
-  if (dist(e.x, e.y, c.x, c.y) > reach) { moveToward(e, c.x, c.y, dt, world, data); return true; }
+  if (dist(e.x, e.y, c.x, c.y) > reach) { moveToward(e, c.x, c.y, dt, world, data, flow); return true; }
   e.breachT = round2((e.breachT || 0) + dt);
   hitStructure(b, s, e.dps * e.structureDamageBonus * br.damageScale * dt, cfg, data);
   if (!isBreached(s, br.openHpRatio)) return true;
@@ -645,7 +811,39 @@ function smashBlocker(e, s, b, data, cfg, br, dt, world) {
 /** ★ §19-F1(F08-3) — 서리에 잡힌 걸음. 얼지 않았으면 제 속도 그대로다. */
 const paceOf = (e) => e.speed * (e.chill > 0 ? (e.chillFactor ?? 1) : 1);
 
-function moveToward(e, tx, ty, dt, world, data) {
+/**
+ * ★ A11 — 거리장을 따라 한 걸음. 「한 칸」을 다 밟을 때까지 붙들고, 다 밟으면 그 자리에서
+ * 다음 내리막 칸을 집는다(그래서 호수를 **끝까지** 돌아 나간다).
+ * @returns {boolean} 걸었는가
+ */
+function flowStep(e, step, world, data, flow) {
+  if (!flow) return false;
+  if (e.flowTo && dist(e.x, e.y, e.flowTo.x, e.flowTo.y) <= 0.35) e.flowTo = null;
+  if (!e.flowTo) {
+    const down = downhill(flow, e.x, e.y);
+    if (!down) return false;
+    e.flowTo = { x: down.x, y: down.y };
+  }
+  const dd = dist(e.x, e.y, e.flowTo.x, e.flowTo.y);
+  if (dd <= 0.001) { e.flowTo = null; return false; }
+  const kk = Math.min(1, step / dd);
+  const fx = round2(e.x + (e.flowTo.x - e.x) * kk);
+  const fy = round2(e.y + (e.flowTo.y - e.y) * kk);
+  if (isWaterAt(world.map, fx, fy, data)) { e.flowTo = null; return false; }
+  e.x = fx;
+  e.y = fy;
+  return true;
+}
+
+function moveToward(e, tx, ty, dt, world, data, flow = null) {
+  /* ★ A11 — 「돌아가는 중」은 몇 초 동안 이어진다. 「왜 한 칸으로는 모자라나」 — 막힐 때만 한 칸
+     비키고 다음 서브틱에 다시 곧장을 재면, 비킨 걸음을 곧장이 그대로 되돌린다(실측: 호숫가에서
+     172초 내내 (181,133)↔(182,134) 를 오갔다). 호수 하나를 돌려면 열댓 칸이 필요하므로,
+     한 번 막히면 그동안은 **곧장을 묻지 않고** 거리장만 따른다(flowSeconds, data 다이얼). */
+  if (!e.flying && world && (e.flowLeft > 0)) {
+    e.flowLeft = round3(Math.max(0, e.flowLeft - dt));
+    if (flowStep(e, paceOf(e) * dt, world, data, flow)) return;
+  }
   const d = dist(e.x, e.y, tx, ty);
   if (d <= 0.001) return;
   const k = Math.min(1, (paceOf(e) * dt) / d);
@@ -662,6 +860,15 @@ function moveToward(e, tx, ty, dt, world, data) {
   for (const c of cand) {
     if ((c.x !== e.x || c.y !== e.y) && !isWaterAt(world.map, c.x, c.y, data)) { e.x = c.x; e.y = c.y; return; }
   }
+  /* ★ A11 — 축 미끄러짐도 막혔다. 여기가 옛 규칙의 끝이었다: 적은 그 자리에 붙박여 시간이 다할
+     때까지 서 있었다. 스폰이 22칸일 때는 도읍 코앞이라 호수가 낄 일이 드물었지만, 영토 밖에서
+     60·120칸을 걸어와야 하는 지금은 웨이브의 3분의 2가 호숫가에 굳었다(실측 33 중 21).
+     그래서 마지막 한 수를 둔다 — **도읍으로 흐르는 거리장에서 한 칸 내리막**을 밟는다.
+     길찾기가 아니라 한 칸 내리막이라 값이 O(8)이고, 난수를 쓰지 않으니 결정론도 그대로다. */
+  if (!flow) return;
+  e.flowLeft = flow.lockSeconds;             // 이제부터 몇 초는 장만 따른다(위 머리말)
+  e.flowTo = null;
+  flowStep(e, step, world, data, flow);
 }
 
 /**
@@ -892,7 +1099,8 @@ export function runBattle(world, nation, data, opts = {}) {
   if (!nation.battle) startBattle(world, nation, data, opts);
   const dt = opts.dt ?? cfg.subtickSeconds;
   let guard = 0;
-  const maxSteps = Math.ceil(cfg.maxSeconds / dt) + 8;
+  // ★ A11 — 이 판의 시계로 잰다. 옛 값으로 자르면 행군이 긴 판이 끝나기 전에 루프가 먼저 멈춘다.
+  const maxSteps = Math.ceil((nation.battle.maxSeconds ?? cfg.maxSeconds) / dt) + 8;
   while (!nation.battle.over && guard++ < maxSteps) stepBattle(world, nation, data, dt);
   return finishBattle(world, nation, data);
 }
@@ -910,7 +1118,7 @@ export function battleSnapshot(nation, data) {
     type: b.type,
     name: b.name,
     t: round2(b.t),
-    maxSeconds: battleCfg(data).maxSeconds,
+    maxSeconds: b.maxSeconds ?? battleCfg(data).maxSeconds,   // ★ A11 — 화면의 남은 시간도 같은 시계로
     core: b.core,
     over: b.over,
     won: b.won,

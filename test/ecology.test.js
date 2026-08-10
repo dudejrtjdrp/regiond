@@ -74,10 +74,29 @@ test('★ §13-C 스폰 — 아바타 코앞에서 솟아나지 않는다', () =
   const { world, nation } = scene(47);
   ensureCreatures(world, nation, data);
   const min = data.creatures.spawn.minSpawnDistance;
+  /* ★ 2단계B — 「코앞 금지」는 이제 종류별이다. 온순종은 영토 안(마을 둘레)까지 들어와 사는데
+     그 자에 옛 14 를 그대로 대면 마을 둘레가 통째로 금지 구역이라 안쪽 벽을 연 보람이 없다. */
+  const minAnimal = data.creatures.spawn.minSpawnDistanceAnimal ?? min;
   const av = nation.avatars.lord;
   for (const c of nation.wild.creatures) {
-    assert.ok(dist(c.x, c.y, av.x, av.y) >= min - 0.001, '눈앞에서 태어나지 않는다');
+    const want = DEFS[c.sp].kind === 'animal' ? minAnimal : min;
+    assert.ok(dist(c.x, c.y, av.x, av.y) >= want - 0.001, '눈앞에서 태어나지 않는다');
   }
+});
+
+test('★ 2단계B 온순종 — 영토 안에도 산다(포식자는 그대로 밖)', () => {
+  const { world, nation, town } = scene(41);
+  nation.tier = 3;
+  ensureCreatures(world, nation, data);
+  const R = territoryRadius(nation, data);
+  const inside = nation.wild.creatures.filter((c) => dist(c.x, c.y, town.x, town.y) <= R);
+  assert.ok(inside.length > 0, '마을 둘레가 더는 무생물 지대가 아니다');
+  assert.equal(inside.every((c) => DEFS[c.sp].kind === 'animal'), true, '영토 안에 있는 것은 모두 온순종이다');
+  // 태어난 자리에서 곧바로 끌려 나가지 않는다 — pickSpawn 과 ringBand 가 같은 띠를 본다
+  for (let i = 0; i < 30; i += 1) stepEcology(world, nation, data, 1);
+  const still = nation.wild.creatures.filter((c) => dist(c.x, c.y, town.x, town.y) <= R);
+  assert.ok(still.length > 0, '서른 걸음 뒤에도 마을 둘레에 남아 있다');
+  assert.equal(still.every((c) => DEFS[c.sp].kind === 'animal'), true, '포식자는 여전히 영토 밖이다');
 });
 
 // ────────────────────────────────────────────────────────────────

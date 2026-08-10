@@ -84,6 +84,8 @@
    *   지금 짓고 있는 것은 cycle 번째가 아니라 cycle+1 번째다 — 다 지어야 한 매듭으로 센다.
    */
   function capText(ch) {
+    /* ★ 마지막 퀘스트(§세계관 W3) — 장 번호도 매듭 수도 붙지 않는다. 남은 것은 하나뿐이다. */
+    if (ch.finale) return ch.name;
     var cap = (ch.id < ch.total ? ch.id + '장 · ' : '') + ch.name;
     if (!ch.endless || ch.cycle == null) return cap;
     return cap + ' · ' + (ch.cycle + 1) + '번째 매듭';

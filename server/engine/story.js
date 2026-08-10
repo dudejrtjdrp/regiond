@@ -48,6 +48,16 @@ function renderScenes(beat, nation, data, ctx) {
   return beat.scenes.map((s) => ({
     speaker: renderSpeaker(s.speaker, swap, data, lord),
     text: String(s.text).replaceAll('{name}', nation.name).replaceAll('{lord}', lord),
+    // ★ 연출 이미지 — bg 가 붙은 beat 는 화면이 대화창 대신 일러스트 컷신(storycine.js)으로 튼다.
+    //   layout(글 자리)·ask(이름 묻기) 도 같은 길이다 — 자료(story.json)가 쥐고 서버는 그대로
+    //   실어 보낸다. 화면이 제 그림·제 물음을 지어내지 않는다.
+    bg: s.bg ?? null,
+    layout: s.layout ?? null,
+    ask: s.ask ?? null,
+    /* ★ 엔딩 일러스트 — mask 는 「그림에 구워진 자막을 덮고 진짜 대사를 그 자리에 찍어라」,
+       hold 는 자동 넘김 간격이다. 둘 다 자료(story.json)가 쥔다 — 화면이 지어내지 않는다. */
+    mask: s.mask ?? null,
+    hold: s.hold ?? null,
   }));
 }
 

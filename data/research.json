@@ -1,6 +1,7 @@
 {
   "_note": "★ GDD3 §13-D-5 — 기술 트리. 본부 [연구] 탭에서 하나씩 붙든다. 여는 문은 셋: ① 정착지 티어 ② 선행 연구 ③ 값(골드+자원). 값은 착수할 때 한 번에 치르고, 그날부터 days 게임일이 지나야 끝난다 — 한 번에 하나만 붙든다. 잠긴 연구도 **목록에서 사라지지 않는다**: 조건 가시화 원칙(§12-3)대로 빨강으로 무엇이 얼마나 모자란지 적어 둔다. 티어 문턱은 tiers.json 의 인구 조건과 맞물린다(4=읍 25명 · 5=도시 45명 · 6=왕도 70명).",
-  "order": ["coal_mining", "steam_engine", "railway", "refining", "bridgeworks", "landfill", "agronomy", "masonry", "city_planning", "internal_combustion", "tidy_stores", "whetstone"],
+  "order": ["ore_prospecting", "coal_mining", "steam_engine", "railway", "oil_survey", "refining", "bridgeworks", "landfill", "agronomy", "masonry", "city_planning", "internal_combustion", "tidy_stores", "whetstone"],
+  "_oreOrderNote": "★ 2단계B — 광맥 탐사를 **맨 앞**에 둔 까닭: order 는 자동 플레이의 우선순위인데, 옛 첫 문(석탄 채굴)은 값으로 철광석 60을 요구한다. 그 철을 캘 자리를 여는 것이 광맥 탐사라, 앞에 두지 않으면 자동 플레이가 영원히 못 치르는 값 앞에 서 있게 된다. 유막 시추는 정유 바로 앞이다(같은 사슬의 한 칸 앞당김).",
   "_orderNote": "★ Sprint 4 — 외길 2줄이던 트리에 갈래를 넣었다: 농정술·석공술은 선행 없는 **병렬 선택지**(산업이냐 살림이냐), 도시 계획은 「기술이 땅을 넓힌다」(territoryBonus — 6티어 이후 영토 성장이 완만해진 몫을 기술이 잇는다), 내연기관은 7티어+ 엔드리스의 첫 목표다. order 는 자동 플레이의 우선순위이기도 하다(playtest15c 계약) — 새 갈래는 산업 사슬 뒤에 둔다.",
   "_earlyNote": "★ §21-C2 — 연구가 4장(개척촌)부터 열린다. 그전까지 연구표의 첫 문(석탄 채굴)은 티어 4 였고, 그래서 주민을 기다리는 4~5장의 손이 완전히 비어 있었다. 곳간 정리·숫돌은 **금화 없이 손에 있는 것만으로** 붙드는 티어 1~2 가지다 — 값이 아니라 하루를 치르고, 소소한 채집 %로 그 기다림을 메운다. 산업 사슬 앞에 끼워 넣지 않고 order 맨 뒤에 둔 까닭: order 는 자동 플레이의 우선순위이므로, 앞에 넣으면 후반 자동 플레이가 다 끝난 잔가지를 먼저 붙들려 든다.",
   "defs": {
@@ -29,6 +30,34 @@
       "cost": { "stone": 40, "wood": 20 },
       "effects": { "gatherBonus": { "wood": 0.08, "stone": 0.08 } },
       "unlocks": {}
+    },
+    "ore_prospecting": {
+      "_note": "★ 2단계B(2026-08-10) 「강재를 얻을 루트가 없다」의 구조적 원인 처방. 세계의 철광맥 110개는 nearTags:['ironvein'] 로 **AI 도읍 반경 30칸에만** 앉는다 — 지도가 아니라 남의 도읍에 매달린 자원이라, 주민·동료의 작업 반경(영토+26)이 거기 닿는 것은 티어 4 이후다. 그런데 석탄 채굴은 값으로 철광석 60을 요구한다: 철이 없어 석탄을 못 캐고, 석탄이 없어 강재를 못 만든다. 노드 표(count·nearTags)를 손대면 **같은 씨앗의 전체 노드가 다시 추첨돼** 웨이브 밸런스가 통째로 무너지므로(문서 기록), 석탄이 쓰는 createdBy:'research' 패턴을 그대로 빌려 온다: 세계 난수를 한 톨도 축내지 않고(연구 전용 씨앗) 내 정착지 둘레 링1 안쪽에 광맥을 여섯 무리 심는다. band 는 그 띠 안에서도 앞쪽 70%만 쓰라는 뜻이다 — 링1 바깥 끝(영토+32)은 작업 반경(영토+26) 밖이라 심어도 손이 닿지 않는다.",
+      "name": "광맥 탐사",
+      "line": "돌빛이 다른 자리를 짚어 내는 눈이 생겼다.",
+      "desc": "철광맥이 정착지 바깥 띠(링1) 안쪽에 드러난다. 강재로 가는 첫 문이다.",
+      "requiresTier": 2,
+      "requires": [],
+      "field": "land",
+      "days": 2,
+      "gold": 120,
+      "cost": { "wood": 60, "stone": 80 },
+      "spawn": { "node": "iron", "clusters": 6, "size": [2, 4], "ring": [1], "band": [0, 0.7] },
+      "unlocks": { "resources": ["ironOre"], "nodes": ["iron"] }
+    },
+    "oil_survey": {
+      "_note": "★ 2단계B(2026-08-10) — 유막 52개도 같은 매듭이다(nearTags:['oilfield'] · 태그국 도읍 반경 26). 옛 트리에서 석유가 드러나는 문은 「정유」(티어6 · 강재150 + 석탄200) 하나뿐이라, 석유를 쓰는 곳(내연기관)에 닿기 전에 값을 치를 길이 없었다. 광맥 탐사와 같은 손으로 링1 안쪽에 네 무리를 심는다 — 정유는 그대로 남아 제 몫(생산 +20%와 더 넓은 띠의 추가 유막)을 한다.",
+      "name": "유막 시추",
+      "line": "물웅덩이에 무지개가 도는 자리를 파 보았다.",
+      "desc": "유막이 정착지 바깥 띠(링1) 안쪽에 드러난다. 석유를 캘 수 있다.",
+      "requiresTier": 5,
+      "requires": ["steam_engine"],
+      "field": "machine",
+      "days": 3,
+      "gold": 700,
+      "cost": { "steel": 80, "coal": 100 },
+      "spawn": { "node": "oil", "clusters": 4, "size": [2, 4], "ring": [1], "band": [0, 0.7] },
+      "unlocks": { "resources": ["oil"], "nodes": ["oil"] }
     },
     "coal_mining": {
       "name": "석탄 채굴",

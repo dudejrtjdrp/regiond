@@ -65,25 +65,73 @@
     if (pv) c.appendChild(U.el('span', 'ag-preview', pv));
 
     var box = U.el('div', 'ag-choices');
+    /* ★ 2단계A — 유적 카드는 갈래를 하나 눌러도 창이 닫히지 않는다.
+       「왜」 — 방 하나를 4~6번 두드려 연 자리가 클릭 한 번으로 끝나고, 무엇을 포기했는지도
+       모른 채 떠나게 되어 있었다. 이제 누른 단추만 잠기고, 결과가 카드 안에 한 줄씩 쌓인다.
+       창을 닫는 때를 화면이 제 손으로 셈하지 않는 까닭: 「남은 갈래가 있는가」는 자료(closes)와
+       이미 고른 것을 함께 봐야 아는 사실이라, 두 곳에서 세면 언젠가 어긋난다 — 서버가 done 으로
+       일러 준다. 유적이 아닌 결정(어전·상단·신전)은 옛 그대로 한 번에 닫힌다. */
+    var isRuin = !!d.ruin;
+    var results = null;
+    function resultLine(text) {
+      if (!text) return;
+      if (!results) { results = U.el('div', 'ag-results'); c.appendChild(results); }
+      results.appendChild(U.el('p', 'ag-result', text));
+    }
+    function lockAll() {
+      c.style.opacity = '.45';
+      U.qsa('button', c).forEach(function (x) { x.disabled = true; });
+    }
     dd.choices.forEach(function (ch, i) {
       var b = U.btn(ch.label, i === 0 ? 'btn-primary' : '', function () {
-        GM.net.send('decide', { decisionId: dd.id, choice: ch.key });
+        if (b.disabled) return;
+        b.disabled = true;
         GM.sfx.play('page');
-        c.style.opacity = '.45';
-        U.qsa('button', c).forEach(function (x) { x.disabled = true; });
-        if (onDone) onDone(dd.id);
+        if (!isRuin) {
+          GM.net.send('decide', { decisionId: dd.id, choice: ch.key });
+          lockAll();
+          if (onDone) onDone(dd.id);
+          return;
+        }
+        GM.net.send('decide', { decisionId: dd.id, choice: ch.key }, function (res) {
+          if (!res || res.ok === false) {
+            /* 이미 살펴본 갈래거나 카드가 이미 닫혔다 — 단추는 잠근 채 까닭만 알린다 */
+            U.toast((res && res.error && res.error.message) || '지금은 고를 수 없습니다.', 'warn');
+            return;
+          }
+          resultLine((res.ruin && res.ruin.text) || '');
+          if (res.done) {
+            lockAll();
+            // 큐에서 내려간 카드의 쪽지를 그 자리에서 거둔다(없는 결정을 여는 줄을 남기지 않는다)
+            if (GM.hud && GM.hud.dropFlash) GM.hud.dropFlash('dec:' + dd.id);
+            if (onDone) onDone(dd.id);
+          }
+        });
       });
       b.setAttribute('data-choice', ch.key);
+      /* 창을 닫았다 다시 열어도 이미 살펴본 갈래는 잠겨 있다 — 장부(used)는 서버가 쥔다 */
+      if (isRuin && (d.used || []).indexOf(ch.key) >= 0) b.disabled = true;
       box.appendChild(b);
     });
     c.appendChild(box);
+    if (isRuin) c.appendChild(U.el('span', 'ag-preview', '갈래를 하나씩 살펴볼 수 있습니다. 「떠난다」를 누르면 이 방을 닫습니다.'));
     return c;
   }
 
   /* 알림에서 안건 하나만 펼치기 */
   function openDecision(d) {
     var dd = normDecision(d);
-    var body = U.el('div');
+    /* ★ 2단계A — 같은 카드로 창이 두 번 뜨지 않게. 유적 카드는 이제 두 문으로 온다:
+       ① 스윙 ack(즉시·1차 진입점) ② ruinEvent 푸시(알림 스택 실시간 갱신). 둘 다 카드를 쥐고
+       있어 가드가 없으면 방을 열 때마다 같은 두루마리가 두 장 겹쳐 떴다. 이미 열려 있으면
+       그 창을 그대로 돌려준다 — 닫고 다시 그리면 눌러 둔 갈래와 결과 줄이 날아간다. */
+    var already = U.modalOpen('decision:' + dd.id);
+    if (already) return already;
+    /* ★ 4단계 — 신전은 두루마리 한 장이 아니라 **들어간 방**이어야 한다. 새 씬을 짓지 않는다는
+       설계 정본은 그대로 두고(결정 큐 규약 그대로), 이 창의 몸통에 단 이름을 달아 준다 —
+       그러면 갈래 단추(.ag-choices)까지 그 단의 옷을 입는다(문양은 크게, 안치소는 금빛으로).
+       화면이 단을 셈하지 않는다: 서버가 실어 보낸 temple.stage 를 그대로 이름에 옮길 뿐이다. */
+    var body = U.el('div', d.temple ? 'temple-scene temple-scene-' + (d.temple.stage || 'riddle') : null);
     if (d.temple) body.appendChild(templeInterior(d));
     if (d.lore && d.lore.lines && d.lore.lines.length) {
       var lore = U.el('section', 'ruin-lore');
@@ -100,29 +148,76 @@
     sp.appendChild(sb);
     body.appendChild(sp);
     var m = null;
-    body.appendChild(decisionCard(d, function () { setTimeout(function () { U.closeModal(m); }, 500); }));
+    /* 유적은 마지막 결과 한 줄을 읽을 참을 준다 — 500ms 면 글이 뜨자마자 창이 사라진다 */
+    var closeAfter = d.ruin ? 1600 : 500;
+    body.appendChild(decisionCard(d, function () { setTimeout(function () { U.closeModal(m); }, closeAfter); }));
     var foot = U.el('div');
     foot.appendChild(U.btn('나중에 본다', 'btn-ghost', function () { U.closeModal(m); }));
     m = U.openModal({ title: dd.title, body: body, footer: foot, width: '600px',
                       key: 'decision:' + dd.id, icon: GM.icons.img('scroll', 22) });
   }
 
+  /* ★ 4단계 — 「고대 신전 내부」를 3단 도식에서 **어두운 석조 방**으로 올린다.
+     「왜」 그림 파일을 안 쓰나 — 이 방은 게임에서 세 번(신전 종류마다) 열리는 자리다. 도트를
+     한 벌 그려 붙이면 그 뒤로 신전을 열 종류로 늘릴 때마다 그림 빚이 함께 늘고, 로딩할 것도
+     한 벌 는다. 여기서 필요한 것은 「밖과 다른 공기」 하나뿐이라 그것은 CSS 로 낼 수 있다:
+     돌결(반복 그라디언트) · 횃불 그림자(가장자리 음영) · 지금 선 단의 금빛 맥동.
+     이 함수는 뼈대만 세운다 — 색·박자·크기의 정본은 main.css 의 .temple-* 블록이다. */
+  var TEMPLE_STEPS = [
+    { key: 'riddle', icon: '◇', name: '문양의 전실' },
+    { key: 'trial', icon: '⚔', name: '수호자의 회랑' },
+    { key: 'vault', icon: '✦', name: '안치소' }
+  ];
+  var TEMPLE_COPY = {
+    riddle: '문양 셋 가운데 하나만 눌립니다. 고르면 돌문이 열리고, 틀리면 며칠 뒤에 다시 설 수 있습니다.',
+    trial: '문 안쪽의 수호자를 쓰러뜨려야 안치소의 봉인이 풀립니다.',
+    vault: '받침돌 위의 것은 이 신전에서만 나옵니다. 거두면 이 신전은 닫힙니다.'
+  };
+
   function templeInterior(d) {
     var stage = d.temple.stage || 'riddle';
-    var steps = [{ key:'riddle', icon:'◇', name:'문양의 전실' }, { key:'trial', icon:'⚔', name:'수호자의 회랑' }, { key:'vault', icon:'✦', name:'안치소' }];
     var box = U.el('section', 'temple-interior temple-' + stage);
-    box.appendChild(U.el('div', 'temple-interior-cap', '고대 신전 내부'));
+    /* 돌벽·횃불 그림자는 순전한 장식이다 — 클릭을 먹지 않게 .decor 를 단다(harness 규약). */
+    box.appendChild(U.el('div', 'temple-wall decor'));
+    var cap = U.el('div', 'temple-interior-cap');
+    cap.appendChild(U.el('span', 'temple-cap-main', '고대 신전 내부'));
+    if (d.temple.kindName) cap.appendChild(U.el('span', 'temple-cap-kind', d.temple.kindName));
+    box.appendChild(cap);
     var route = U.el('div', 'temple-route');
-    var current = steps.findIndex(function (s) { return s.key === stage; });
-    steps.forEach(function (s, i) {
+    var current = TEMPLE_STEPS.findIndex(function (s) { return s.key === stage; });
+    TEMPLE_STEPS.forEach(function (s, i) {
       var el = U.el('div', 'temple-step' + (i === current ? ' active' : '') + (i < current ? ' passed' : ''));
       el.appendChild(U.el('span', 'temple-step-icon', s.icon));
       el.appendChild(U.el('span', 'temple-step-name', s.name));
       route.appendChild(el);
     });
     box.appendChild(route);
-    box.appendChild(U.el('p', 'temple-interior-copy', stage === 'riddle' ? '봉인된 문양을 읽어 안쪽으로 들어가십시오.' : (stage === 'trial' ? '수호병을 쓰러뜨리면 안치소의 봉인이 풀립니다.' : '마지막 안치소에서 이 신전의 유물을 가져가십시오.')));
+    box.appendChild(templeStageArt(stage));
+    box.appendChild(U.el('p', 'temple-interior-copy', TEMPLE_COPY[stage] || TEMPLE_COPY.riddle));
     return box;
+  }
+
+  /* 단마다 다른 한 컷. 전부 장식이라 .decor 를 달고, 뜻은 아래 문장(temple-interior-copy)이 진다. */
+  function templeStageArt(stage) {
+    var art = U.el('div', 'temple-art temple-art-' + stage + ' decor');
+    if (stage === 'riddle') {
+      /* 문양의 전실 — 돌문 한 짝과 그 위에 새겨진 문양 셋(고르는 것은 아래 갈래 단추다) */
+      var door = U.el('div', 'temple-door');
+      ['◇', '≈', '△'].forEach(function (g) { door.appendChild(U.el('span', 'temple-sigil', g)); });
+      art.appendChild(door);
+      return art;
+    }
+    if (stage === 'trial') {
+      /* 수호자의 회랑 — 열린 문틈의 빛과 그 앞에 선 그림자 */
+      art.appendChild(U.el('div', 'temple-gate'));
+      art.appendChild(U.el('div', 'temple-guardian'));
+      return art;
+    }
+    /* 안치소 — 천장 틈으로 내려온 빛줄기 · 받침돌 · 그 위의 유물 실루엣 */
+    art.appendChild(U.el('div', 'temple-shaft'));
+    art.appendChild(U.el('div', 'temple-relic'));
+    art.appendChild(U.el('div', 'temple-plinth'));
+    return art;
   }
 
   /* ══════════ 어전 회의 ══════════ */

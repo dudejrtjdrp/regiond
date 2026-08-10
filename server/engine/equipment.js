@@ -166,15 +166,15 @@ function checkAndPay(nation, cost, gold, data) {
 export function craftEquipment(nation, player, cmd, data, hooks = {}) {
   const slot = String(cmd.slot ?? cmd.payload?.slot ?? '');
   if (!SLOTS(data).includes(slot)) return err('BAD_SLOT', '그런 자리가 없습니다.');
-  if (!smithyOn(nation, data)) return err('NO_SMITHY', '대장간이 서야 벼릴 수 있습니다.');
+  if (!smithyOn(nation, data)) return err('NO_SMITHY', '대장간이 서야 만들 수 있습니다.');
   const key = String(cmd.key ?? cmd.payload?.key ?? '');
   const spec = tierByKey(slot, key, data);
   if (!spec) return err('BAD_TIER', '그런 물건이 없습니다.');
   if (spec.officer && !officerOn(nation, data)) {
-    return err('NO_OFFICER', '공장장이 자리에 있어야 이만한 물건을 벼립니다.');
+    return err('NO_OFFICER', '공장장이 자리에 있어야 이만한 물건을 만듭니다.');
   }
   /* ★ §19-F2(F07-2) — 자재로 살 수 없는 문. 용을 잡은 나라만 그 비늘과 이빨을 벼릴 수 있다. */
-  if (!trophyOk(nation, spec)) return err('NO_TROPHY', '용을 잡아야 벼릴 수 있는 물건입니다.');
+  if (!trophyOk(nation, spec)) return err('NO_TROPHY', '용을 잡아야 만들 수 있는 물건입니다.');
   const gear = ensureGear(player, data);
   const cur = gear[slot];
   if (cur && cur.key === key) return err('SAME_TIER', '이미 그것을 들고 있습니다.');
@@ -207,14 +207,14 @@ export function enhanceCost(plusTo, data) {
 export function enhanceEquipment(nation, player, cmd, data) {
   const slot = String(cmd.slot ?? cmd.payload?.slot ?? '');
   if (!SLOTS(data).includes(slot)) return err('BAD_SLOT', '그런 자리가 없습니다.');
-  if (!smithyOn(nation, data)) return err('NO_SMITHY', '대장간이 서야 벼릴 수 있습니다.');
+  if (!smithyOn(nation, data)) return err('NO_SMITHY', '대장간이 서야 강화할 수 있습니다.');
   const enh = equipCfg(data).enhance;
   if (enh.requiresOfficer && !officerOn(nation, data)) {
-    return err('NO_OFFICER', '공장장이 자리에 있어야 물건을 더 벼립니다.');
+    return err('NO_OFFICER', '공장장이 자리에 있어야 물건을 더 강화합니다.');
   }
   const gear = ensureGear(player, data);
   const g = gear[slot];
-  if (!g) return err('NO_GEAR', '벼릴 물건이 없습니다.');
+  if (!g) return err('NO_GEAR', '강화할 물건이 없습니다.');
   const to = (Number(g.plus) || 0) + 1;
   if (to > enh.max) return err('MAX_PLUS', `강화는 +${enh.max}까지입니다.`);
   const price = enhanceCost(to, data);

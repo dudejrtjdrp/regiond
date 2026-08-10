@@ -13,6 +13,7 @@
     panel = U.qs('#social-panel');
     if (!panel) return;
     render();
+    if (foldPref()) fold(true);          /* ★ 4단계B — 「접은 채로 시작」을 고른 사람만 */
     S.on('chat', function (m) { pushBubble(m); paintLog(); });
     S.on('chatHistory', paintLog);
     S.on('state', paintRoster);
@@ -94,6 +95,23 @@
     if (logEl) logEl.hidden = !open;
     var f = U.qs('#social-fold');
     if (f) f.textContent = open ? '▾' : '▸';
+  }
+
+  /* ★ 4단계B — 명부는 화면 오른쪽을 늘 세로로 먹는다. 혼자 하는 사람에게는 짐이므로
+     「접은 채로 시작」을 고를 수 있게 한다(설정 안의 한 줄). 기본값은 지금까지와 같은 「펴짐」이라
+     아무것도 안 고른 사람의 화면은 한 픽셀도 달라지지 않는다. */
+  var FOLD_KEY = 'gm.socialFolded';
+  function foldPref() {
+    try { return localStorage.getItem(FOLD_KEY) === '1'; } catch (e) { return false; }
+  }
+  /** v=true 면 접는다. 이미 그 꼴이면 아무것도 하지 않는다. */
+  function fold(v) {
+    if (open === !v) return;
+    toggle();
+  }
+  function setFoldPref(v) {
+    try { localStorage.setItem(FOLD_KEY, v ? '1' : '0'); } catch (e) {}
+    fold(!!v);
   }
 
   function copyCode() {
@@ -209,6 +227,8 @@
 
   GM.social = {
     init: init, render: render, focusInput: focusInput, toggle: toggle,
+    /* ★ 4단계B — 설정의 「명부를 접은 채로 시작」이 읽고 쓰는 문 */
+    fold: fold, foldPref: foldPref, setFoldPref: setFoldPref,
     bubbleFor: bubbleFor, copyCode: copyCode, paintRoster: paintRoster, paintLog: paintLog
   };
 })(window);

@@ -74,6 +74,14 @@
      재는 값은 performance.now() 한 쌍뿐이라 재는 일 자체가 예산을 먹지 않는다. */
   var nodesTimes = [], minimapTimes = [], pathTimes = [], pathCallTimes = [];
   var nodesMs = 0, minimapMs = 0, pathMs = 0, pathCalls = 0;
+  /* ★ 6단계 — 자를 세 개 더 댄다. 「무엇을 고쳤나」를 말이 아니라 숫자로 다투기 위해서다.
+       structures — 건물 한 판 전체(스프라이트·그림자·이름표·개간지까지)
+       dressing   — 장식 셋(biomeProps · landmarks · terrainAtmosphere)의 **합**
+       apron      — 그중 건물 둘레 개간지만 따로. structures 안에 **포함된** 값이다
+                    (겹쳐 세는 것을 알고 본다 — 개간지 하나가 건물 판을 얼마나 먹는지 보려는 자다).
+     재는 값은 performance.now() 한 쌍씩이라 재는 일 자체가 예산을 먹지 않는다. */
+  var structuresTimes = [], dressingTimes = [], apronTimes = [];
+  var structuresMs = 0, dressingMs = 0, apronMs = 0;
   function nowMs() { return (global.performance && performance.now) ? performance.now() : Date.now(); }
 
   /* ★ Sprint 3 — 프레임 예산 다이얼(data/world.json render.perf). 자료가 없는 자리
@@ -375,93 +383,13 @@
     return true;
   }
 
-  function landmarkAnchor(m, codes, x, y, code) {
-    if (dressingNoise(x, y, 47) < 0.996) return false;
-    /* A local maximum turns a random probability field into separated scene
-       stamps: one memorable grove, rock outcrop or giant mushroom clearing,
-       rather than a row of equally important props. */
-    var self = dressingNoise(x, y, 47);
-    for (var oy = -3; oy <= 3; oy++) {
-      for (var ox = -3; ox <= 3; ox++) {
-        if (!ox && !oy) continue;
-        var nx = x + ox, ny = y + oy;
-        if (nx < 0 || ny < 0 || nx >= m.size || ny >= m.size) continue;
-        if ((codes[m.terrain[ny * m.size + nx]] || 'grass') !== code) continue;
-        if (dressingNoise(nx, ny, 47) > self) return false;
-      }
-    }
-    return true;
-  }
-
-  function drawBiomeDressing() {
-    var m = S.S.map;
-    if (!m || !GM.atlas.dressing) return;
-    var codes = m.codes, vis = GM.camera.visible(), t = GM.camera.cam.tile;
-    var x0 = Math.max(0, vis.x0 - 1), x1 = Math.min(m.size - 1, vis.x1 + 1);
-    var y0 = Math.max(0, vis.y0 - 2), y1 = Math.min(m.size - 1, vis.y1 + 1);
-    var density = { grass: 0.13, forest: 0.13, rock: 0.16, water: 0.14, fertile: 0.12,
-      snow: 0.10, jungle: 0.15, desert: 0.11, marsh: 0.17, ash: 0.12, mush: 0.16, salt: 0.10, dusk: 0.14 };
-    var featureChance = { forest: 0.018, jungle: 0.014, snow: 0.016, desert: 0.012, marsh: 0.012,
-      ash: 0.012, mush: 0.014, dusk: 0.013, rock: 0.012, grass: 0.010, fertile: 0.009 };
-    var dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
-    ctx.save();
-    for (var y = y0; y <= y1; y++) {
-      for (var x = x0; x <= x1; x++) {
-        var code = codes[m.terrain[y * m.size + x]] || 'grass';
-        var edge = !sameTerrainAround(m, codes, x, y, code);
-        if (dressingNoise(x, y, 4) < (edge ? Math.min(0.32, (density[code] || 0.1) + 0.12) : (density[code] || 0.1))) {
-          var p = GM.camera.worldToScreen(x - 0.5, y - 0.5);
-          var decal = GM.atlas.dressing(code, Math.floor(dressingNoise(x, y, 9) * 4));
-          try { ctx.drawImage(decal, Math.round(p.x), Math.round(p.y), Math.ceil(t), Math.ceil(t)); } catch (e) {}
-        }
-        /* Land owns its waterline and rock owns its raised rim.  This gives
-           shorelines and high ground a readable border without changing the
-           authoritative terrain or walkability data. */
-        for (var di = 0; di < dirs.length; di++) {
-          var nx = x + dirs[di][0], ny = y + dirs[di][1];
-          if (nx < 0 || ny < 0 || nx >= m.size || ny >= m.size) continue;
-          var next = codes[m.terrain[ny * m.size + nx]] || 'grass';
-          var edgeKind = code !== 'water' && next === 'water' ? 'shore' : (code === 'rock' && next !== 'rock' ? 'rock' : null);
-          if (!edgeKind || !GM.atlas.edgeDressing) continue;
-          var ep = GM.camera.worldToScreen(x - 0.5, y - 0.5);
-          var rim = GM.atlas.edgeDressing(edgeKind, di, Math.floor(dressingNoise(x, y, 31 + di) * 3));
-          try { ctx.drawImage(rim, Math.round(ep.x), Math.round(ep.y), Math.ceil(t), Math.ceil(t)); } catch (e1) {}
-        }
-        /* One rare large feature per biome is enough to establish scale.
-           It stays away from transition cells, preserving a clear traversable rim. */
-        if (!edge && featureChance[code] && dressingNoise(x, y, 18) < featureChance[code]) {
-          var tree = GM.atlas.biomeFeature && GM.atlas.biomeFeature(code, Math.floor(dressingNoise(x, y, 22) * 3));
-          if (tree) {
-            var q = GM.camera.worldToScreen(x, y + 0.1);
-            var tall = code !== 'rock' && code !== 'grass' && code !== 'fertile';
-            var sw = t * (tall ? 2.35 + dressingNoise(x, y, 24) * 0.5 : 1.65 + dressingNoise(x, y, 24) * 0.35);
-            var sh = t * (tall ? 3.5 + dressingNoise(x, y, 25) * 0.6 : 1.6 + dressingNoise(x, y, 25) * 0.25);
-            ctx.save();
-            ctx.globalAlpha = 0.24;
-            ctx.fillStyle = '#172316';
-            ctx.beginPath(); ctx.ellipse(q.x, q.y + t * 0.26, sw * 0.38, t * 0.16, 0, 0, Math.PI * 2); ctx.fill();
-            ctx.restore();
-            try { ctx.drawImage(tree, Math.round(q.x - sw / 2), Math.round(q.y - sh + t * 0.28), Math.ceil(sw), Math.ceil(sh)); } catch (e2) {}
-          }
-        }
-        if (!edge && featureChance[code] && landmarkAnchor(m, codes, x, y, code)) {
-          var landmark = GM.atlas.biomeFeature && GM.atlas.biomeFeature(code, Math.floor(dressingNoise(x, y, 53) * 3));
-          if (landmark) {
-            var lp = GM.camera.worldToScreen(x, y + 0.2);
-            var lw = t * (3.4 + dressingNoise(x, y, 55) * 0.7);
-            var lh = t * (4.7 + dressingNoise(x, y, 56) * 0.8);
-            ctx.save();
-            ctx.globalAlpha = 0.28;
-            ctx.fillStyle = '#142014';
-            ctx.beginPath(); ctx.ellipse(lp.x, lp.y + t * 0.25, lw * 0.46, t * 0.24, 0, 0, Math.PI * 2); ctx.fill();
-            ctx.restore();
-            try { ctx.drawImage(landmark, Math.round(lp.x - lw / 2), Math.round(lp.y - lh + t * 0.38), Math.ceil(lw), Math.ceil(lh)); } catch (e3) {}
-          }
-        }
-      }
-    }
-    ctx.restore();
-  }
+  /* ★ 6단계 — drawBiomeDressing 을 걷어 냈다(2026-08).
+     「왜」 — 부르는 자리가 **한 곳도 없는** 죽은 셈이었다. 프레임 그림(draw)은
+     drawBiomeProps → drawLandmarks → drawTerrainAtmosphere 만 부른다. 아무도 안 부르는
+     함수를 지우는 일이라 **그림은 한 점도 달라지지 않는다**.
+     (옛 셈이 궁금하면 git 이력에 그대로 남아 있다 — 화면 한 칸마다 데칼·네 방향 테두리·
+      큰 지형지물·랜드마크를 다 훑던 판이다.)
+     그 셈만 쓰던 landmarkAnchor(7×7 국소 최대값 찾기)도 함께 걷어 냈다 — 역시 부르는 자리가 없다. */
 
   /* Existing authored tree and plant PNGs establish each biome's silhouette.
      Props stay sparse and deterministic, so they enrich a region without
@@ -492,13 +420,14 @@
         var image = GM.atlas.biomeProp(rule.key);
         if (!image) continue;
         var w = t * rule.w, h = t * rule.h;
-        var p = GM.camera.worldToScreen(x, y + 0.15);
+        /* ★ 6단계 — 자리는 두 수면 되고, 그 값은 worldToScreen 과 같은 식이다(그림 동일) */
+        var px = GM.camera.worldToScreenX(x), py = GM.camera.worldToScreenY(y + 0.15);
         ctx.save();
         ctx.globalAlpha = rule.h > 2 ? 0.28 : 0.18;
         ctx.fillStyle = '#142014';
-        ctx.beginPath(); ctx.ellipse(p.x, p.y + t * 0.25, w * 0.38, t * 0.15, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(px, py + t * 0.25, w * 0.38, t * 0.15, 0, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
-        try { ctx.drawImage(image, Math.round(p.x - w / 2), Math.round(p.y - h + t * 0.35), Math.ceil(w), Math.ceil(h)); } catch (e) {}
+        try { ctx.drawImage(GM.atlas.scaled(image, w, h), Math.round(px - w / 2), Math.round(py - h + t * 0.35), Math.ceil(w), Math.ceil(h)); } catch (e) {}
       }
     }
     ctx.restore();
@@ -523,18 +452,26 @@
       for (var x = x0; x <= x1; x++) {
         var code = codes[m.terrain[y * m.size + x]] || 'grass';
         var key = LANDMARK_RULES[code];
-        if (!key || !sameTerrainAround(m, codes, x, y, code)) continue;
-        if (town && Math.hypot(x - town.x, y - town.y) < ((town.radius || 3) + 4)) continue;
+        if (!key) continue;
+        /* ★ 6단계 — 검사 차례를 바꾼다. 셋 다 **순수한 셈**이라(같은 칸이면 늘 같은 답)
+           어느 것을 먼저 보든 남는 칸은 글자 그대로 같다 — 그림은 한 점도 달라지지 않는다.
+           다만 값이 다르다: 주사위(0.00075)는 **천 칸에 한 칸**만 남기는데, 옛 차례는
+           그 앞에 이웃 넷을 훑는 sameTerrainAround 와 Math.hypot 을 먼저 치렀다.
+           천 번 중 999번이 헛일이던 셈이다. 가장 잘 떨어뜨리는 것을 맨 앞에 둔다. */
         if (dressingNoise(x, y, 93) >= 0.00075) continue;
+        if (!sameTerrainAround(m, codes, x, y, code)) continue;
+        if (town && Math.hypot(x - town.x, y - town.y) < ((town.radius || 3) + 4)) continue;
         var image = GM.atlas.landmark(key);
         if (!image) continue;
-        var p = GM.camera.worldToScreen(x, y + 0.25), w = t * 3.15, h = t * 4.4;
+        /* ★ 6단계 — 같은 식의 값 두 개(그림 동일) */
+        var px = GM.camera.worldToScreenX(x), py = GM.camera.worldToScreenY(y + 0.25);
+        var w = t * 3.15, h = t * 4.4;
         ctx.save();
         ctx.globalAlpha = 0.26;
         ctx.fillStyle = '#11150f';
-        ctx.beginPath(); ctx.ellipse(p.x, p.y + t * 0.25, w * 0.36, t * 0.16, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(px, py + t * 0.25, w * 0.36, t * 0.16, 0, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
-        try { ctx.drawImage(image, Math.round(p.x - w / 2), Math.round(p.y - h + t * 0.32), Math.ceil(w), Math.ceil(h)); } catch (e) {}
+        try { ctx.drawImage(GM.atlas.scaled(image, w, h), Math.round(px - w / 2), Math.round(py - h + t * 0.32), Math.ceil(w), Math.ceil(h)); } catch (e) {}
       }
     }
   }
@@ -549,33 +486,43 @@
     var x0 = Math.max(0, vis.x0 - 1), x1 = Math.min(m.size - 1, vis.x1 + 1);
     var y0 = Math.max(0, vis.y0 - 2), y1 = Math.min(m.size - 1, vis.y1 + 1);
     var wave = animT / 700;
+    /* ★ 6단계 — 화면 좌표는 **정말 그릴 때만** 센다.
+       「왜」 — 옛 셈은 칸마다 맨 앞에서 worldToScreen 을 불렀다. 그런데 실제로 무엇이라도
+       그려지는 칸은 물결 19%·풀 4.5%·안개 0.8% 뿐이다. 즉 이 자리에 드는 4천여 칸 가운데
+       열에 아홉은 쓰지도 않을 {x,y} 를 하나씩 낳고 곧바로 버렸다 — 프레임마다 3천 개가 넘는
+       쓰레기가 GC 를 불러 세운다. 값은 worldToScreenX/Y 와 **글자 그대로 같은 식**이고
+       가지 안에서 쓰는 자리도 그대로다 — 그림은 한 점도 달라지지 않는다.
+       (세 가지는 서로 겹치지 않는다: 물결은 water, 풀은 noise<0.045, 안개는 noise>0.992 다.) */
+    var px = 0, py = 0;
     ctx.save();
     for (var y = y0; y <= y1; y++) {
       for (var x = x0; x <= x1; x++) {
         var code = codes[m.terrain[y * m.size + x]] || 'grass';
         var noise = dressingNoise(x, y, 117);
-        var p = GM.camera.worldToScreen(x - 0.5, y - 0.5);
         if (code === 'water' && noise < 0.19) {
+          px = GM.camera.worldToScreenX(x - 0.5); py = GM.camera.worldToScreenY(y - 0.5);
           var shimmer = 0.45 + Math.sin(wave + x * 1.71 + y * 0.83) * 0.25;
           ctx.globalAlpha = Math.max(0.07, shimmer * 0.26);
           ctx.fillStyle = '#d7f2ee';
-          var sx = p.x + t * (0.18 + ((noise * 31) % 0.45));
-          var sy = p.y + t * (0.24 + ((noise * 47) % 0.5));
+          var sx = px + t * (0.18 + ((noise * 31) % 0.45));
+          var sy = py + t * (0.24 + ((noise * 47) % 0.5));
           ctx.fillRect(Math.round(sx), Math.round(sy), Math.max(1, Math.round(t * 0.18)), Math.max(1, Math.round(t * 0.035)));
         } else if ((code === 'grass' || code === 'fertile' || code === 'marsh') && noise < 0.045) {
+          px = GM.camera.worldToScreenX(x - 0.5); py = GM.camera.worldToScreenY(y - 0.5);
           var sway = Math.sin(wave * 1.35 + x * 1.19 + y * 0.61) * t * 0.055;
           ctx.globalAlpha = 0.16;
           ctx.fillStyle = code === 'marsh' ? '#a5bc65' : '#d2df87';
-          var gx = p.x + t * (0.38 + ((noise * 71) % 0.26));
-          var gy = p.y + t * 0.58;
+          var gx = px + t * (0.38 + ((noise * 71) % 0.26));
+          var gy = py + t * 0.58;
           ctx.fillRect(Math.round(gx + sway), Math.round(gy - t * 0.14), Math.max(1, Math.round(t * 0.035)), Math.max(1, Math.round(t * 0.15)));
         }
         if ((code === 'forest' || code === 'marsh') && noise > 0.992) {
+          px = GM.camera.worldToScreenX(x - 0.5); py = GM.camera.worldToScreenY(y - 0.5);
           var drift = Math.sin(wave * 0.24 + x * 0.37 + y * 0.29) * t * 0.18;
           ctx.globalAlpha = 0.055;
           ctx.fillStyle = code === 'marsh' ? '#c4d6c1' : '#d5e2c7';
           ctx.beginPath();
-          ctx.ellipse(p.x + t * 0.5 + drift, p.y + t * 0.42, t * 1.15, t * 0.28, 0, 0, Math.PI * 2);
+          ctx.ellipse(px + t * 0.5 + drift, py + t * 0.42, t * 1.15, t * 0.28, 0, 0, Math.PI * 2);
           ctx.fill();
         }
       }
@@ -718,16 +665,22 @@
     if (r <= 2) return;
 
     /* ① 내부 밝기 + ② 경계 그라데이션 — 선이 아니라 '땅의 결'로 안팎을 가른다 */
+    /* ★ 6단계 — 이 띠도 곳간에 넣는다(군락·등불과 같은 손). 영토 반경은 티어업 연출이 도는
+       1.8초 말고는 **꼼짝도 하지 않고**, 줌이 멎어 있으면 tile 도 16/24/32 중 하나로 딱 멎는다.
+       그래도 옛 셈은 프레임마다 색 띠를 새로 구웠다. 띠는 자리를 품으므로 원점(0,0)에 굽고
+       translate 로 옮겨 칠한다 — 옮겨 그린 그림은 제자리에 구운 것과 **같다**.
+       열쇠에 반지름을 자르지 않고 그대로 넣으므로 값이 조금이라도 다르면 새로 굽는다. */
     ctx.save();
     var inner = Math.max(0, r - Math.max(6, tile * 0.9));
-    var g = ctx.createRadialGradient(c.x, c.y, inner, c.x, c.y, r);
-    g.addColorStop(0, 'rgba(246,231,180,.045)');
-    g.addColorStop(0.72, 'rgba(246,231,180,.03)');
-    g.addColorStop(1, 'rgba(58,40,20,.20)');
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = g;
-    ctx.fill();
+    var g = radialAt0('terr:' + inner + ':' + r, inner, r,
+      [[0, 'rgba(246,231,180,.045)'], [0.72, 'rgba(246,231,180,.03)'], [1, 'rgba(58,40,20,.20)']]);
+    if (g) {
+      ctx.translate(c.x, c.y);
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fillStyle = g;
+      ctx.fill();
+    }
     ctx.restore();
 
     /* ③④ 말뚝과 밧줄 — 말뚝 간격은 화면에서 일정하게 보이도록 반경에 따라 늘린다 */
@@ -803,19 +756,23 @@
       var cr = cl.radius * tile;
       if (cr <= 2) continue;
       ctx.save();
+      /* ★ 6단계 — 점령지 고리도 같은 손. 깃발이 여럿이면 프레임마다 그 수만큼 띠를 구웠다.
+         translate 는 자리만 옮길 뿐 크기를 건드리지 않으므로 점선 간격·선 굵기도 그대로다. */
       var gi = Math.max(0, cr - Math.max(6, tile * 0.9));
-      var gg = ctx.createRadialGradient(cc.x, cc.y, gi, cc.x, cc.y, cr);
-      gg.addColorStop(0, 'rgba(246,231,180,.04)');
-      gg.addColorStop(1, 'rgba(58,40,20,.16)');
-      ctx.beginPath();
-      ctx.arc(cc.x, cc.y, cr, 0, Math.PI * 2);
-      ctx.fillStyle = gg;
-      ctx.fill();
+      var gg = radialAt0('claim:' + gi + ':' + cr, gi, cr,
+        [[0, 'rgba(246,231,180,.04)'], [1, 'rgba(58,40,20,.16)']]);
+      ctx.translate(cc.x, cc.y);
+      if (gg) {
+        ctx.beginPath();
+        ctx.arc(0, 0, cr, 0, Math.PI * 2);
+        ctx.fillStyle = gg;
+        ctx.fill();
+      }
       ctx.strokeStyle = 'rgba(198,166,110,.7)';
       ctx.lineWidth = Math.max(1, tile * 0.06);
       ctx.setLineDash([Math.max(3, tile * 0.35), Math.max(3, tile * 0.3)]);
       ctx.beginPath();
-      ctx.arc(cc.x, cc.y, cr, 0, Math.PI * 2);
+      ctx.arc(0, 0, cr, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
@@ -1035,6 +992,61 @@
     return nearBuf;
   }
 
+  /* ══════════ ★ 3단계A — 「마지막 30미터」 (탐험 힌트 §B10 현장 근접 피드백) ══════════
+     단서는 「북쪽 눈밭」까지만 말하고 안개를 한 원 열어 준다(마커 금지). 그런데 그 원 안에 실제로
+     들어섰을 때 화면이 아무 말도 안 하면, 눈앞의 돌무더기가 **찾던 그것인지** 지나가는 풍경인지
+     알 길이 없어 사람은 그냥 지나친다. 여기서 하는 일은 좌표를 알려 주는 게 아니라
+     「눈에 들어왔다」를 한 번 짚어 주는 것뿐이다 — 한 자리에 한 번, 그 뒤로는 조용하다.
+
+     값: 매 프레임 노드 전체를 훑지 않는다. 500ms 간격 · 아바타 둘레 여섯 칸의 바구니만 연다
+     (nodesNear). 그리는 일이 아니므로 frameStats 의 구간 시계 어디에도 얹히지 않는다. */
+  var NEAR_EVERY_MS = 500;
+  var NEAR_TILES = 6;
+  var nearNextMs = 0;
+  var nearSaid = {};                                  // 세션 기억 — 같은 자리는 한 번만 말한다
+
+  function nearFindStep(t) {
+    if (t < nearNextMs) return;
+    nearNextMs = t + NEAR_EVERY_MS;
+    if (!GM.fx || !GM.fx.floatText) return;
+    var cam = GM.camera && GM.camera.cam;
+    var me = GM.avatar && GM.avatar.pos();
+    if (!cam || !me || !S.map) return;
+    var list = nodesNear(me.x, me.y, NEAR_TILES);
+    var tile = cam.tile;
+    for (var i = 0; i < list.length; i++) {
+      var n = list[i];
+      if (nearSaid[n.id]) continue;
+      var word = nearWordFor(n);
+      if (!word) continue;
+      if (S.fogAt(Math.round(n.x), Math.round(n.y)) < 1) continue;   // 안개가 걷힌 자리만
+      if (!GM.camera.onScreen(n.x, n.y, tile)) continue;             // 화면 안에 든 자리만
+      nearSaid[n.id] = 1;
+      GM.fx.floatText(n.x, n.y - 0.8, word.text, word.color, 12);
+      if (GM.fx.ring) GM.fx.ring(n.x, n.y, word.color, 0.3, 1.6, 0.95, 2);
+    }
+  }
+
+  /** 무어라 말할 자리인가 — 아직 손대지 않은 옛 자취와, 아직 끝내지 않은 신전뿐이다. */
+  function nearWordFor(n) {
+    if (n.temple) {
+      return templeSettled(n.id) ? null
+        : { text: '거대한 문이 어둠 속에 서 있다', color: '#f6cf7a' };
+    }
+    if (n.type !== 'ruin' || n.spent || (n.roomsOpened || 0) > 0) return null;
+    return { text: '낡은 돌무더기가 보인다 — 뒤져 볼 만하다', color: '#d0b8f0' };
+  }
+
+  /** 이 신전은 이미 끝냈는가 — 서버가 보낸 원정 표(artifactHunt)가 정본이다. */
+  function templeSettled(id) {
+    var n = S.nation && S.nation();
+    var list = (n && n.artifactHunt && n.artifactHunt.temples) || [];
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].nodeId === id) return Boolean(list[i].completed);
+    }
+    return false;
+  }
+
   function drawFences() {
     var list = S.fences();
     if (!list.length) return;
@@ -1054,7 +1066,7 @@
       var px = GM.camera.worldToScreenX(mx - 0.5), py = GM.camera.worldToScreenY(my - 0.62);
       ctx.save();
       if (f.broken) ctx.globalAlpha = 0.6;
-      try { ctx.drawImage(sp, Math.round(px), Math.round(py), Math.ceil(tile), Math.ceil(tile)); } catch (e) {}
+      try { ctx.drawImage(GM.atlas.scaled(sp, tile, tile), Math.round(px), Math.round(py), Math.ceil(tile), Math.ceil(tile)); } catch (e) {}
       ctx.restore();
       if (S.S.selection && S.S.selection.fenceId === f.id) ringAt(mx, my, '#e8a33d', 0.9);
     }
@@ -1129,7 +1141,7 @@
          하기 때문이다(궤와 갈리는 지점). 눈으로는 「여긴 끝났다」가 한 번에 읽혀야 한다. */
       var faded = ratio < fadeAt || n.spent;
       if (faded) { ctx.save(); ctx.globalAlpha = n.spent ? 0.4 : (0.42 + 0.58 * (ratio / Math.max(0.01, fadeAt))); }
-      try { ctx.drawImage(sp, Math.round(p.x), Math.round(p.y), Math.ceil(t * fp.w), Math.ceil(t * fp.h)); } catch (e) {}
+      try { ctx.drawImage(GM.atlas.scaled(sp, t * fp.w, t * fp.h), Math.round(p.x), Math.round(p.y), Math.ceil(t * fp.w), Math.ceil(t * fp.h)); } catch (e) {}
       if (n.temple) drawTempleEntrance(n, p, t, fp);
       if (faded) ctx.restore();
       if (n.harvestReady) {
@@ -1507,16 +1519,38 @@
       /* 닭·토끼는 작은 동물로 남기고, 나머지 가축·야생동물·포식자는 두 배 크기로
          발 위치를 같은 타일 바닥에 고정한다. */
       var creatureScale = (c.sp === 'chicken' || c.sp === 'rabbit') ? 1 : 2;
-      var drawSize = t * creatureScale;
-      var drawX = p.x - (drawSize - t) / 2;
-      var drawY = p.y - (drawSize - t);
+      var drawW = t * creatureScale, drawH = t * creatureScale;
+      var flip = a.dir < 0;
+      /* ★ §19-F2(F07-4) — 용은 전용 9프레임 스트립(비행 4방향·화염 좌우·대기)으로 그린다.
+         방향은 stepWild 가 이미 스무딩해 둔 a.face(각도)에서 읽는다 — 시트에 방향이 다 있으므로
+         캔버스 반전은 쓰지 않는다. 시트가 아직 안 읽혔으면 여느 짐승 길(4×6 sheet.png)로 그대로 간다. */
+      if (c.sp === 'ash_wyrm' && GM.atlas.boss) {
+        var atkB = c.state === 'attack' || c.state === 'chase';
+        var cosF = Math.cos(a.face || 0), sinF = Math.sin(a.face || 0);
+        var west = cosF < -0.001;
+        var vert = Math.abs(sinF) > Math.abs(cosF);
+        var animB = atkB ? ('fire_' + (west ? 'west' : 'east'))
+          : (a.moving ? (vert ? (sinF > 0 ? 'fly_south' : 'fly_north')
+                              : (west ? 'fly_west' : 'fly_east'))
+                      : 'stay');
+        var bimg = GM.atlas.boss(animB, Math.floor(animT / 110) % 9, { hurt: a.hurt > 0 });
+        if (bimg) {
+          img = bimg;
+          flip = false;
+          var BOSS_TILES = 4.6;                       // 몸길이 — 다이어울프의 두 배가 넘는 위압
+          if (bimg.width >= bimg.height) { drawW = t * BOSS_TILES; drawH = drawW * bimg.height / bimg.width; }
+          else { drawH = t * BOSS_TILES; drawW = drawH * bimg.width / bimg.height; }
+        }
+      }
+      var drawX = p.x - (drawW - t) / 2;
+      var drawY = p.y - (drawH - t);
       ctx.save();
-      if (a.dir < 0) {
-        ctx.translate(Math.round(drawX) + drawSize, Math.round(drawY));
+      if (flip) {
+        ctx.translate(Math.round(drawX) + drawW, Math.round(drawY));
         ctx.scale(-1, 1);
-        try { ctx.drawImage(img, 0, 0, Math.ceil(drawSize), Math.ceil(drawSize)); } catch (e) {}
+        try { ctx.drawImage(img, 0, 0, Math.ceil(drawW), Math.ceil(drawH)); } catch (e) {}
       } else {
-        try { ctx.drawImage(img, Math.round(drawX), Math.round(drawY), Math.ceil(drawSize), Math.ceil(drawSize)); } catch (e2) {}
+        try { ctx.drawImage(img, Math.round(drawX), Math.round(drawY), Math.ceil(drawW), Math.ceil(drawH)); } catch (e2) {}
       }
       ctx.restore();
       /* 성이 난 놈은 발밑이 붉다 — 쫓기고 있다는 것을 한눈에 */
@@ -1526,16 +1560,16 @@
         ctx.strokeStyle = '#bc4749';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.ellipse(drawX + drawSize / 2, drawY + drawSize * 0.92, drawSize * 0.34, drawSize * 0.16, 0, 0, Math.PI * 2);
+        ctx.ellipse(drawX + drawW / 2, drawY + drawH * 0.92, drawW * 0.34, drawH * 0.16, 0, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
       }
       if (c.hp < c.maxHp && t >= 18) {
-        var w = drawSize * 0.7;
+        var w = drawW * 0.7;
         ctx.fillStyle = 'rgba(20,14,8,.65)';
-        ctx.fillRect(drawX + (drawSize - w) / 2, drawY - 5, w, 3);
+        ctx.fillRect(drawX + (drawW - w) / 2, drawY - 5, w, 3);
         ctx.fillStyle = c.kind === 'predator' ? '#bc4749' : '#8dbb6d';
-        ctx.fillRect(drawX + (drawSize - w) / 2, drawY - 5, w * Math.max(0, c.hp / c.maxHp), 3);
+        ctx.fillRect(drawX + (drawW - w) / 2, drawY - 5, w * Math.max(0, c.hp / c.maxHp), 3);
       }
     }
     /* 살아 있는 수호병 위에 사망 잔상을 따로 그려, 처치 프레임이 서버 갱신에
@@ -1613,7 +1647,7 @@
 
   /* 수작업 PNG의 최신 자리 계약. 이미 실행 중인 서버가 예전 fw/fh를 보내도
      새 칸 수로 화면·고스트·클릭 영역을 일관되게 보여 준다. */
-  var HANDMADE_FOOTPRINTS = { campfire: [2, 2], tent: [3, 3], hut: [4, 4], house: [6, 5], manor: [6, 7], well: [3, 3], woodpile: [2, 2], granary: [4, 4], sawmill: [4, 4], quarry_camp: [4, 4], hunter_hut: [4, 4], storage: [4, 4], bloomery: [3, 3], trading_post: [4, 4], market: [4, 5], watchpost: [3, 4], arrow_tower: [3, 4], barracks: [6, 5], ballista: [3, 3], cannon: [4, 4], frost_tower: [4, 4], flame_tower: [4, 4], fence: [2, 2], gate: [3, 3], appraisal_post: [4, 4], consulate: [6, 6], claim_flag: [2, 2], lamp: [2, 2], banner: [2, 2], garden: [4, 4], fountain: [6, 6], library: [4, 4], workshop: [4, 4], academy: [5, 5], station: [5, 5], smelter: [3, 4], smithy: [4, 4], mill: [4, 4], ranch: [4, 4], mine_shaft: [3, 3] };
+  var HANDMADE_FOOTPRINTS = { campfire: [2, 2], tent: [3, 3], hut: [4, 4], house: [6, 5], manor: [6, 7], well: [3, 3], woodpile: [2, 2], granary: [4, 4], sawmill: [3, 4], quarry_camp: [4, 4], hunter_hut: [4, 4], storage: [4, 4], bloomery: [3, 3], trading_post: [4, 4], market: [4, 5], watchpost: [3, 4], arrow_tower: [3, 4], barracks: [6, 5], ballista: [3, 3], cannon: [4, 4], frost_tower: [4, 4], flame_tower: [4, 4], fence: [2, 2], gate: [3, 3], appraisal_post: [4, 4], consulate: [6, 6], claim_flag: [2, 2], lamp: [2, 2], banner: [2, 2], garden: [4, 4], fountain: [6, 6], library: [4, 4], workshop: [4, 4], academy: [5, 5], station: [5, 5], smelter: [4, 4], smithy: [4, 4], mill: [4, 4], ranch: [4, 4], mine_shaft: [3, 3] };
   var HQ_STAGE_FOOTPRINTS = [[2, 2], [4, 4], [5, 5], [7, 7], [9, 9], [11, 9]];
   function renderFootprint(key, fallback) {
     var f = HANDMADE_FOOTPRINTS[key];
@@ -1653,6 +1687,7 @@
 
   /* 건물 footprint 주변의 시각 전환층. 충돌·배치 규칙은 바꾸지 않는다. */
   function drawBuildingApron(b, c, f, t) {
+    var a0 = nowMs();                                   /* ★ 6단계 계측 — 아래 finally 없이 끝에서 더한다 */
     var key = b.key || b.building || '';
     var dirt = /farm|field|lumber|camp/.test(key);
     var fill = dirt ? 'rgba(126,89,47,.18)' : 'rgba(112,106,94,.12)';
@@ -1690,7 +1725,12 @@
       ctx.fillRect(Math.round(p.x + w * 0.42), Math.round(p.y + h - step), Math.max(2, Math.round(w * 0.16)), Math.round(t * 0.42));
     }
     ctx.restore();
+    apronMs += nowMs() - a0;
   }
+
+  /* ★ 6단계 — 앵커(b.x,b.y)로 미리 걸러 낼 때 쓰는 넉넉한 여유(칸 단위).
+     1.5×13 + 1.5 = 21 — 자세한 셈은 drawStructures 안의 주석에 있다. */
+  var ROUGH_CULL = 21;
 
   function drawStructures() {
     var cam = GM.camera.cam, t = cam.tile;
@@ -1707,23 +1747,27 @@
         });
       }
       drawAiTowns(m, t);
-      /* ★ §12-6 — 무역이 열리기 전에는 상단이 없다 (서버도 빈 목록을 준다. 화면도 한 번 더 막는다) */
-      (S.featOn('trade') ? (m.caravans || []) : []).forEach(function (cvn, i) {
-        var ph = ((animT / 9000) + i * 0.31) % 1;
-        var f = ph > 0.5 ? (1 - ph) * 2 : ph * 2;
-        var x = cvn.from.x + (cvn.to.x - cvn.from.x) * f;
-        var y = cvn.from.y + (cvn.to.y - cvn.from.y) * f;
-        if (S.fogAt(Math.round(x), Math.round(y)) < 2) return;
-        if (!GM.camera.onScreen(x, y, t)) return;
-        var p2 = GM.camera.worldToScreen(x - 0.5, y - 0.4);
-        try { ctx.drawImage(GM.atlas.caravan(), Math.round(p2.x), Math.round(p2.y), Math.ceil(t), Math.ceil(t * 0.75)); } catch (e) {}
-      });
+      /* ★ 무역 마차 연출 제거(2026-08) — 하드코딩 주기(animT/9000) 탓에 115타일을 4.5초에
+         주파하는 '자동차' 오브젝트가 되었다. 옛 세이브의 map.caravans 잔존분까지 막기 위해
+         data/world.json towns.caravan.enabled=false 와 함께 화면 쪽도 그리지 않는다. */
     }
 
     /* 뒤에 있는 것부터 그린다 — y 순 정렬 (목록이 바뀔 때만 다시 정렬) */
     var list = sortedStructures();
     list.forEach(function (b) {
       if (b.x == null) return;
+      /* ★ 6단계 — 성긴 그물을 먼저 친다.
+         「왜」 — 아래 정확한 판정은 풋프린트와 중심을 **다 셈한 뒤에야** 걸린다. 그 셈은
+         본부의 경우 buildingDef·nation·tierNo 를 다 묻고, 어느 건물이든 {w,h}·{x,y} 두 개를
+         새로 낳는다. 지도가 384² 라 다른 정착지·AI 마을까지 목록에 수백 채가 들어 있는데,
+         그 대부분은 화면에서 수십 칸 밖이다 — 버릴 것을 위해 매 프레임 수백 번을 셌다.
+         그물코(ROUGH_CULL)는 **놓치지 않도록** 넉넉히 잡는다: 중심은 앵커(b.x,b.y)에서
+         최대 (D-1)/2 만큼 밀리고 정확한 여유는 최대 t*(D+2) 이므로, 둘을 더한
+         t*(1.5D+1.5) 보다 크게 잡으면 정확한 판정이 살리는 것을 여기서 죽일 수 없다.
+         자료의 가장 큰 풋프린트는 본부 6단계의 11칸이고, 예약 자리(reserveFootprint 13)를
+         한계로 잡아 t*21 로 둔다. 즉 이 그물은 **정확한 판정의 참 상위집합**이라
+         그림은 한 점도 달라지지 않는다. */
+      if (!GM.camera.onScreen(b.x, b.y, t * ROUGH_CULL)) return;
       /* ★ §12-1 — 풋프린트 기준 렌더. 1×1 이면 옛 값과 정확히 같다(1.7칸). */
       var f = structureRenderFootprint(b);
       var c = structureRenderCenter(b, f);
@@ -1780,7 +1824,7 @@
           var frame = Math.floor(animT / 135) % 4;
           ctx.drawImage(campfireSheet, frame * frameW, 0, frameW, campfireSheet.naturalHeight,
             Math.round(p.x), Math.round(p.y), Math.ceil(w), Math.ceil(h));
-        } else ctx.drawImage(sprite, Math.round(p.x), Math.round(p.y), Math.ceil(w), Math.ceil(h));
+        } else ctx.drawImage(GM.atlas.scaled(sprite, w, h), Math.round(p.x), Math.round(p.y), Math.ceil(w), Math.ceil(h));
       } catch (e2) {}
       ctx.restore();
       /* 개축 중 — 황금 반짝 */
@@ -1900,7 +1944,7 @@
     var span = big ? 2.6 : 1.7;
     var p = GM.camera.worldToScreen(b.x - span / 2 + 0.5, b.y - span + 0.9);
     var sprite = big ? GM.atlas.hall(2) : GM.atlas.building(b.key, 2);
-    try { ctx.drawImage(sprite, Math.round(p.x), Math.round(p.y), Math.ceil(t * span), Math.ceil(t * span)); } catch (e) {}
+    try { ctx.drawImage(GM.atlas.scaled(sprite, t * span, t * span), Math.round(p.x), Math.round(p.y), Math.ceil(t * span), Math.ceil(t * span)); } catch (e) {}
   }
 
   /* ══════════ 적 캠프 ══════════ */
@@ -2445,7 +2489,9 @@
          내 머리 위만 2인칭이 떠서, 팀원 화면의 내 이름과도 어긋났다(2인칭은 문장에서만 쓴다). */
       /* state 수신 전후에도 세션이 보낸 역할을 우선한다. 재접속 첫 프레임에 주민 NPC로
          잠깐 되돌아가는 것을 막고, 역할 장부가 도착하면 S.myRole()이 같은 값을 확정한다. */
-      var ownRole = (S.myVisualRole ? S.myVisualRole() : S.myRole()) || (S.S.you && S.S.you.role) || 'build';
+      /* ★ 2026-08 — 역할이 없으면 없는 채로 넘긴다(drawLord 가 기본 NPC 도트를 세운다).
+         'build' 를 기본값으로 두던 자리였다 — 감정의 날 전인데도 용사가 걸어 다녔다. */
+      var ownRole = (S.myVisualRole ? S.myVisualRole() : S.myRole()) || (S.S.you && S.S.you.role) || null;
       drawLord(me.x, me.y, S.S.you.appearance, me.dir, me.frame, S.myName(), '#f6cf7a', mine,
         ownRole, sw.phase, sw.tool, S.downed());
     }
@@ -2878,14 +2924,21 @@
     ctx.globalCompositeOperation = 'lighter';
     var t = GM.camera.cam.tile;
     var lights = 0;
-    S.structures().forEach(function (b) {
-      if (lights >= 18) return;                        // 등불 상한 — 60fps 예산
-      if (b.x == null) return;
+    /* ★ 6단계 — forEach 를 for 로 바꾸고, 상한에 닿으면 **끊는다**.
+       「왜」 — 옛 셈은 등불 열여덟 개를 채운 뒤에도 목록 끝까지 걸어가며 매 채마다
+       빈 함수 한 번을 불렀다. 건물이 수백 채인 늦은 판에서는 그 헛걸음만으로 밤마다
+       프레임이 축났다. 끊는 자리는 옛 셈이 **아무것도 그리지 않던** 자리라
+       켜지는 등불의 수도, 차례도, 자리도 그대로다 — 그림은 한 점도 달라지지 않는다. */
+    var blist = S.structures();
+    for (var bi = 0; bi < blist.length; bi++) {
+      var b = blist[bi];
+      if (lights >= 18) break;                         // 등불 상한 — 60fps 예산
+      if (b.x == null) continue;
       var c = S.centerOfThing(b);
-      if (!GM.camera.onScreen(c.x, c.y, t * 5)) return;
+      if (!GM.camera.onScreen(c.x, c.y, t * 5)) continue;
       var kind = b.hq ? 'hq' : (b.key === 'lamp' ? 'lamp'
         : (b.key === 'campfire' ? 'fire' : (LIT_HOUSES[b.key] ? 'window' : null)));
-      if (!kind) return;
+      if (!kind) continue;
       lights++;
       var flick = kind === 'window' ? 1 : (0.92 + 0.08 * Math.sin(animT / (kind === 'lamp' ? 520 : 190) + c.x));
       var r0 = t * (kind === 'hq' ? 5.4 + S.tierNo() * 0.4 : (kind === 'fire' ? 4.6 : (kind === 'lamp' ? 3.4 : 2.4))) * flick;
@@ -2897,7 +2950,7 @@
       var g = radialAt0('lit:' + kind + ':' + r, 0, r,
         [[0, kind === 'window' ? 'rgba(255,214,150,.26)' : 'rgba(255,190,110,.42)'],
          [1, 'rgba(255,190,110,0)']]);
-      if (!g) return;
+      if (!g) continue;
       ctx.save();
       ctx.translate(GM.camera.worldToScreenX(c.x), GM.camera.worldToScreenY(c.y));
       ctx.globalAlpha = strength;
@@ -2906,7 +2959,7 @@
       ctx.arc(0, 0, r, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
-    });
+    }
     ctx.restore();
   }
 
@@ -3187,9 +3240,12 @@
 
     var tile = GM.camera.cam.tile;
     drawTerrain();
+    /* ★ 6단계 — 장식 셋을 한 자로 묶어 잰다(셋이 같은 칸 훑기를 세 번 하는 구조다) */
+    var d0 = nowMs();
     drawBiomeProps();
     drawLandmarks();
     drawTerrainAtmosphere();
+    dressingMs += nowMs() - d0;
     drawClusters();
     drawTerritory();
     if (GM.fx) GM.fx.drawStumps(ctx, tile);
@@ -3199,7 +3255,9 @@
     drawNodes();
     drawTrails();                        /* ★ §18-D2 — 흔적은 자원 자리 위, 울타리 아래 */
     drawFences();
+    var s0 = nowMs();
     drawStructures();
+    structuresMs += nowMs() - s0;
     drawCamps();
     drawMoveMarker();
     drawTrains();                        /* ★ §19-F4(F09-2) — 기차는 사람보다 아래에 선다 */
@@ -3225,7 +3283,13 @@
     var raw = lastT ? (t - lastT) : 16;
     var dt = lastT ? Math.min(0.05, raw / 1000) : 0.016;
     lastT = t;
-    animT = t;
+    /* ★ §19-F2 시네마 슬로우 — 용이 눕는 순간만 화면 시계가 느려진다(fx.cinemaSlow).
+       평소에는 1 이라 한 톨도 달라지지 않는다. animT 를 벽시계(t)가 아니라 **누적**으로 바꾼 까닭:
+       스프라이트 위상(sin(animT/260))·구조물 튐(doneBounce)이 전부 이 시계를 보므로, 이 하나만
+       늦추면 화면 위의 모든 움직임이 함께 늦어진다. 서버 tick 은 그대로다 — 늦는 것은 보는 눈뿐이다. */
+    var ts = (GM.fx && GM.fx.timeScale) ? GM.fx.timeScale() : 1;
+    if (ts !== 1) { raw *= ts; dt *= ts; }
+    animT += raw;
     frameTimes.push(raw);
     if (frameTimes.length > 240) frameTimes.shift();
     /* ★ 한 프레임을 만드는 데 실제로 든 시간. 프레임 간격(raw)은 60fps 로 맞물리면 늘 16.7ms 라
@@ -3234,6 +3298,7 @@
     /* ★ Sprint 3 — 이 프레임의 몫을 새로 담는다(길 예산 · 구간별 시간계) */
     resetPathBudget();
     nodesMs = 0; minimapMs = 0; pathMs = 0; pathCalls = 0;
+    structuresMs = 0; dressingMs = 0; apronMs = 0;      /* ★ 6단계 — 새로 댄 자 셋도 이 프레임 몫으로 */
 
     var frozen = GM.fx && GM.fx.frozen();
     GM.camera.update(dt);
@@ -3252,6 +3317,7 @@
         if (territoryAnim.t > 1.8) territoryAnim = null;
       }
       stakePhase += dt;
+      nearFindStep(t);            /* ★ 3단계A — 「마지막 30미터」. 500ms 간격 검사(연출 중에는 쉰다) */
     }
     if (GM.input) GM.input.step(dt);
     if (GM.fx) GM.fx.step(dt);
@@ -3275,6 +3341,9 @@
     pushRing(minimapTimes, minimapMs);
     pushRing(pathTimes, pathMs);
     pushRing(pathCallTimes, pathCalls);
+    pushRing(structuresTimes, structuresMs);            /* ★ 6단계 */
+    pushRing(dressingTimes, dressingMs);
+    pushRing(apronTimes, apronMs);
   }
 
   function pushRing(list, v) {
@@ -3302,11 +3371,19 @@
     return { avg: f.avg, p95: f.p95, n: f.n, workAvg: w.avg, workP95: w.p95,
              nodesMs: stat(nodesTimes).avg, minimapMs: stat(minimapTimes).avg,
              pathMs: stat(pathTimes).avg, pathCalls: stat(pathCallTimes).avg,
-             pathP95: stat(pathTimes).p95 };
+             pathP95: stat(pathTimes).p95,
+             /* ★ 6단계 — 새 네 칸. 옛 칸은 한 자리도 건드리지 않았다(읽는 쪽이 안 깨진다).
+                apronMs 는 structuresMs 안에 포함된 값이고, scaledSize 는 시간이 아니라
+                축소본 곳간에 든 장수다(상한 512 에 붙어 있으면 그 판이 곳간 부족이다). */
+             structuresMs: stat(structuresTimes).avg,
+             dressingMs: stat(dressingTimes).avg,
+             apronMs: stat(apronTimes).avg,
+             scaledSize: (GM.atlas && GM.atlas.scaledSize) ? GM.atlas.scaledSize() : 0 };
   }
   function resetStats() {
     frameTimes = []; workTimes = [];
     nodesTimes = []; minimapTimes = []; pathTimes = []; pathCallTimes = [];
+    structuresTimes = []; dressingTimes = []; apronTimes = [];   /* ★ 6단계 */
   }
 
   function setHover(x, y) { hoverTile.x = x; hoverTile.y = y; }
@@ -3321,6 +3398,7 @@
     labelW = {}; labelWN = 0;
     dropGradients();
     wild = {};
+    nearSaid = {}; nearNextMs = 0;      /* ★ 3단계A — 판이 바뀌면 「본 적 있다」도 함께 버린다 */
   }
 
   /** 사냥 대상 고르기 — 아바타에서 사거리 안, 가장 가까운 놈 (§13-C-8)

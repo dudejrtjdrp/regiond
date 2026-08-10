@@ -28,8 +28,10 @@
         ],
         "ui": [
           "hud.resources3",
-          "hud.questCard"
+          "hud.questCard",
+          "panel.relic"
         ],
+        "_uiNote": "★ panel.relic — 유물 보관함은 1장부터 열린다. 「왜」 어전(panel.council)에서 떼어 냈나: 유적은 첫 장부터 유물을 내어 주는데, 보관함이 9장까지 잠겨 있으면 손에 든 것을 볼 수도 쓸 수도 없었다(서버는 이미 useArtifact 를 앞 장부터 받는다 — progression.commandUnlocked). 어전 회의(panel.council)와 그 밖의 문은 차례대로 열리는 그대로다.",
         "commands": [
           "actionSwing",
           "lordMove",

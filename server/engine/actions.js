@@ -10,7 +10,7 @@ import { rollRing3Unique, grantArtifact } from './artifacts.js';
 // ★ §17-17 — 궤 보상은 노드 id 로 지은 개인 난수다(월드 난수를 축내면 같은 씨앗이 다른 게임이 된다).
 import { statRng } from './traits.js';
 // ★ GDD3 §13-C-3 — 도감. 유적을 뒤진 기록도 서버가 권위로 쥔다.
-import { recordRuin } from './codex.js';
+import { recordRuin, markClueTarget } from './codex.js';
 import {
   ensurePlayer, canSwing, markSwing, grantXp, yieldMultiplier, toolFor,
   swingCooldownMs, skillsCfg, swingCfg, skillLevel,
@@ -217,6 +217,14 @@ function swingNode(world, nation, player, nodeId, cmd, data, now) {
     xp: round2(player.skills[spec.skill].xp),
     ruin,
     cache,
+    /* ★ 2단계A(A5) — 방이 열린 사실을 **이벤트로도** 흘린다. 카드는 이미 ack 로 갔지만,
+       ack 는 두드린 사람 하나만 받는다: 알림 스택(다른 창을 보고 있었거나 같은 나라의 동료)은
+       다음 일 틱(최대 10분)까지 아무것도 모른 채였다. 신전(enterTemple)이 쓰는 것과 같은
+       형식·같은 관로다 — 새 채널을 파면 화면·저장·규약이 한 벌씩 더 생긴다.
+       같은 카드로 창이 두 번 뜨는 일은 화면이 막는다(council.js openDecision 의 열쇠 가드). */
+    ...(ruin?.card ? {
+      events: [{ kind: 'ruin_event', nationId: nation.id, data: { card: ruin.card } }],
+    } : {}),
     /* ★ §19-A — 세상에서 **지워진** 자리. 잔량(amount)·그루터기(depleted)와 달리 지움은 화면의
        노드 사전에서 빼야 하는 일이고, 실시간 스윙은 일 틱 worldDiff 를 기다리지 않는다.
        (없으면 빈 목록이 아니라 아예 실리지 않는다 — 옛 화면과의 계약이 그대로다) */
@@ -243,6 +251,9 @@ function openRuinRoom(world, nation, node, data) {
   if (room >= rooms) node.spent = true;
   const card = ruinRoomCard(world, nation, node, data, room, rooms);
   recordRuin(nation, node, world.tick, { room, rooms, cardId: card?.cardId ?? null });
+  /* ★ 3단계A — 여기가 어떤 단서가 가리키던 자리였다면, 그 단서는 이 순간 닫힌다.
+     「닿았다」는 **방을 열었을 때**지 안개가 걷혔을 때가 아니다 — 멀리서 본 것은 도착이 아니다. */
+  markClueTarget(nation, node.id, world.tick);
   return {
     room, rooms, spent: Boolean(node.spent),
     size: node.size ?? 1, name: node.ruinName ?? null, card,

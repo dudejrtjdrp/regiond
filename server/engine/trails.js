@@ -387,6 +387,7 @@ function finish(a, reward) {
   const paid = applyReward(a, reward);
   const step = a.t.kind === 'chain' ? trailDef(a.data, a.t) : null;
   const opened = step ? advanceChain(a, step) : [];
+  noteChain(a, reward);            // ★ 3단계A — 밟아 온 길을 도감에 적는다(난수 불침범: 적기만 한다)
   /* ★ §20-R4(§20-3 개척자의 나침반) — 감지 반경이 넓어진 만큼 **열리는 원**도 함께 넓어진다.
      「왜」 둘을 같은 값으로 묶나 — 나침반의 값은 「멀리서 알아채고 멀리까지 밝힌다」 한 가지다.
      한쪽만 넓히면 「보이는데 못 닿는」·「닿는데 안 보이는」 어긋남이 생긴다. 없으면 0 이다. */
@@ -403,6 +404,37 @@ function finish(a, reward) {
    등급 없이 수치만 올리면 그것은 「1단계 상향」이 아니라 임의의 배수라 정본이 흐려진다.
    결말 보상에 tier 를 매기는 날(R4b) collectHooks 의 chainRewardTierDelta 를 여기서 읽으면 된다 —
    훅은 이미 수집되고 있다(artifacts.applyR4Descriptor). */
+
+/**
+ * ★ 3단계A — 「밟아 온 길」(B10 숨은 길 기록). 사슬 하나를 조사할 때마다 그 사슬의 진행을 적는다.
+ *
+ * 「왜」 필요한가 — 흔적은 **조사하면 사라진다**(consume). 세 걸음을 다 걸어 결말까지 본 사슬도
+ * 이튿날 지도에는 아무 자국이 없어서, 어떤 이야기를 끝냈고 어떤 이야기가 중간에 멈춰 있는지
+ * 물어볼 데가 없었다. 규율 ①(마커 금지)은 여기서도 지킨다 — 적는 것은 **이름과 몇 걸음**이고
+ * 남은 흔적이 어디 있는지는 여전히 안개만이 안다.
+ *
+ * 결말 이름은 자료가 이미 쓴 연대기 제목을 그대로 쓴다(문구를 코드가 짓지 않는다 — 규율 ③).
+ */
+function noteChain(a, reward) {
+  if (a.t.kind !== 'chain') return null;
+  const chain = chainOf(a.data, a.t);
+  if (!chain) return null;
+  const steps = (chain.steps || []).length;
+  const log = (a.nation.trailLog ||= {});
+  const rec = (log[chain.id] ||= { name: chain.name ?? chain.id, step: 0, steps, done: false });
+  rec.name = chain.name ?? rec.name;
+  rec.steps = steps;
+  /* 뒤로 가지 않는다 — 하루 한 번짜리 걸음을 다시 밟아도 진행이 줄어들면 안 된다. */
+  rec.step = Math.max(rec.step ?? 0, Math.min(steps, (a.t.step ?? 0) + 1));
+  rec.lastTick = a.world.tick ?? 0;
+  if (rec.step >= steps) {
+    rec.done = true;
+    if (a.t.ending) rec.endingKey = a.t.ending;
+    const title = reward?.chronicle?.title ?? null;
+    if (title) rec.endingName = title;
+  }
+  return rec;
+}
 
 /** 다음 단계의 흔적을 드러내고 그 둘레의 안개를 연다. ★ 좌표는 돌려주지 않는다 — 마커 금지(§18-3). */
 function advanceChain(a, step) {

@@ -18,6 +18,9 @@ import { createRng } from '../server/engine/rng.js';
 import { townOf } from '../server/engine/world.js';
 import { ensurePlayer } from '../server/engine/skills.js';
 import { codexView } from '../server/engine/codex.js';
+import { applyCommand } from '../server/engine/commands.js';
+import { buildNationView } from '../server/engine/view.js';
+import { openChapterForDebug } from '../server/engine/progression.js';
 
 const data = loadGameData();
 
@@ -211,4 +214,137 @@ test('★ §22 카드 풀 — 깊이 명단이 실재하는 카드만 적었다'
     assert.ok(ids.has(id), `없는 카드를 적었다: ${id}`);
   }
   assert.ok(cfg.shallow.length && cfg.deep.length, '두 명단이 다 차 있다');
+});
+
+// ════════════════════════════════════════════════════════════════
+// ★ 2단계A — 유적 카드는 **여러 갈래를 눌러 보는 방**이다
+//
+// 여기서 붙드는 문장은 여섯이다.
+//   ⑧ 갈래 하나를 골라도 카드가 닫히지 않는다 — 결과는 그 자리에서 적용된다.
+//   ⑨ 종료 갈래(자료의 closes:true, 「떠난다」)를 누르면 그때 큐에서 내려간다.
+//   ⑩ 탐사 갈래를 다 소진해도 내려간다 — 빈 카드가 큐에 남지 않는다.
+//   ⑪ 같은 갈래를 두 번 고를 수는 없다.
+//   ⑫ 두 번째 갈래부터는 **월드 난수를 축내지 않는다**(옛 세이브·시드가 그대로 산다).
+//   ⑬ 유적이 아닌 결정은 옛 규약 그대로 — 고르는 즉시 큐에서 내려간다.
+// ════════════════════════════════════════════════════════════════
+
+/** 방 하나를 열어 카드를 세우고, 뽑기에 기대지 않도록 카드를 못 박는다 */
+function ruinCard(s, cardId = 'altar') {
+  const node = putRuin(s, { rooms: 1, roomSwings: 1 });
+  swing(s, node.id, 1);
+  const d = s.nation.decisionQueue[s.nation.decisionQueue.length - 1];
+  d.ruin.cardId = cardId;
+  return d;
+}
+
+const decide = (s, id, choice, rng) =>
+  applyCommand(s.world, 'player', { type: 'decide', decisionId: id, choice }, data, rng ?? createRng(7));
+
+test('★ 2단계A ⑧ 갈래 하나를 골라도 카드가 닫히지 않는다 (결과는 적용된다)', () => {
+  const s = scene();
+  const d = ruinCard(s);
+  const before = s.nation.morale;
+  const r = decide(s, d.decisionId, 'pray');
+  assert.equal(r.ok, true, r.error?.message);
+  assert.equal(r.done, false, '아직 살펴볼 갈래가 남았다');
+  assert.ok(s.nation.morale > before, '고른 갈래의 결과는 그 자리에서 적용된다');
+  assert.equal(s.nation.decisionQueue.length, 1, '카드는 큐에 남는다');
+  assert.deepEqual(s.nation.decisionQueue[0].used, ['pray'], '고른 갈래를 장부에 적는다');
+  assert.ok(r.remaining.some((o) => o.key === 'dig'), '남은 갈래를 화면에 일러 준다');
+});
+
+test('★ 2단계A ⑨ 떠나기로 하면 그때 큐에서 내려간다', () => {
+  const s = scene();
+  const d = ruinCard(s);
+  assert.equal(decide(s, d.decisionId, 'pray').done, false);
+  const out = decide(s, d.decisionId, 'leave');
+  assert.equal(out.ok, true, out.error?.message);
+  assert.equal(out.done, true);
+  assert.equal(s.nation.decisionQueue.length, 0, '떠난 방은 큐에서 내려간다');
+  // 내려간 뒤에는 옛 규약과 똑같이 「없는 결정」이다
+  const again = decide(s, d.decisionId, 'dig');
+  assert.equal(again.ok, false);
+  assert.equal(again.error.code, 'NO_DECISION');
+});
+
+test('★ 2단계A ⑩ 탐사 갈래를 다 소진하면 떠나지 않아도 내려간다', () => {
+  const s = scene();
+  const d = ruinCard(s);            // altar — dig · pray · call_name · leave(closes)
+  assert.equal(decide(s, d.decisionId, 'dig').done, false);
+  assert.equal(decide(s, d.decisionId, 'pray').done, false);
+  const last = decide(s, d.decisionId, 'call_name');
+  assert.equal(last.done, true, '남은 탐사 갈래가 없으면 그것으로 끝이다');
+  assert.deepEqual(last.remaining, [], '「떠난다」는 남은 갈래로 세지 않는다');
+  assert.equal(s.nation.decisionQueue.length, 0);
+});
+
+test('★ 2단계A ⑪ 같은 갈래를 두 번 고를 수는 없다 — 카드는 큐에 그대로 남는다', () => {
+  const s = scene();
+  const d = ruinCard(s);
+  assert.equal(decide(s, d.decisionId, 'dig').ok, true);
+  const dup = decide(s, d.decisionId, 'dig');
+  assert.equal(dup.ok, false);
+  assert.equal(dup.error.code, 'RUIN_OPTION_USED');
+  assert.equal(s.nation.decisionQueue.length, 1, '거절이 카드를 삼키지 않는다');
+  assert.deepEqual(s.nation.decisionQueue[0].used, ['dig'], '장부에 두 번 적히지 않는다');
+});
+
+test('★ 2단계A ⑫ 두 번째 갈래부터는 월드 난수를 한 톨도 안 쓴다', () => {
+  const run = (choices) => {
+    const s = scene();
+    const d = ruinCard(s);
+    const rng = createRng(4242);
+    for (const c of choices) assert.equal(decide(s, d.decisionId, c, rng).ok, true);
+    return rng.int(0, 1e9);
+  };
+  // 첫 갈래(dig)만 세계의 수열을 쓴다 — 뒤에 무엇을 더 눌러도 다음 굴림 자리가 같아야 한다
+  assert.equal(run(['dig']), run(['dig', 'pray', 'call_name']),
+    '두 번째 이후 갈래가 월드 난수를 축내면 같은 씨앗이 다른 게임이 된다');
+});
+
+test('★ 2단계A ⑬ 유적이 아닌 결정은 옛 규약 그대로 한 번에 내려간다', () => {
+  const s = scene();
+  s.nation.decisionQueue.push({
+    decisionId: 'plain1', kind: 'council', title: '어전 안건',
+    options: [{ key: 'yes', label: '그리한다' }],
+  });
+  const r = decide(s, 'plain1', 'yes');
+  assert.equal(r.ok, true);
+  assert.equal(r.done, undefined, '유적 규약의 done 은 붙지 않는다');
+  assert.equal(s.nation.decisionQueue.length, 0, '고르는 즉시 큐에서 내려간다');
+  const again = decide(s, 'plain1', 'yes');
+  assert.equal(again.ok, false);
+  assert.equal(again.error.code, 'NO_DECISION');
+});
+
+test('★ 2단계A 자료 — 열두 장 모두 종료 갈래를 제 입으로 적었다', () => {
+  for (const card of data.ruins.cards) {
+    const closers = card.options.filter((o) => o.closes);
+    assert.equal(closers.length, 1, `${card.id}: 종료 갈래가 정확히 하나여야 한다`);
+    assert.equal(card.options[card.options.length - 1].closes, true, `${card.id}: 물러서는 갈래가 마지막이다`);
+  }
+  for (const [biome, card] of Object.entries(data.ruins.biomeCards || {})) {
+    assert.ok(card.options.some((o) => o.closes), `${biome}: 땅의 카드도 나갈 문이 있어야 한다`);
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// ★ 2단계A — 탐험의 안내는 어전(10장)을 기다리지 않는다
+// ════════════════════════════════════════════════════════════════
+
+test('★ 2단계A 탐험 안내는 도감(3장)이 열리면 함께 열린다', () => {
+  const s = scene();
+  const before = buildNationView(s.world, 'player', null, data);
+  assert.equal(before.nation.decisionQueue, undefined, '1장에는 아직 안내할 것이 없다');
+
+  openChapterForDebug(null, s.nation, data, 3);
+  const node = putRuin(s, { rooms: 1, roomSwings: 1 });
+  swing(s, node.id, 1);
+  const v = buildNationView(s.world, 'player', null, data);
+  assert.ok(Array.isArray(v.nation.decisionQueue), '유적 카드가 화면에 닿는다');
+  assert.equal(v.nation.decisionQueue.length, 1);
+  assert.ok(v.nation.artifactHunt, '무엇을 모으는 중인지도 함께 보인다');
+  /* ★ 2026-08 — 유물 목록은 어전을 기다리지 않는다(보관함이 1장부터 열린다).
+     주웠는데 볼 수 없는 상태를 없앤 것이다 — 아직 아무것도 없으면 빈 배열이다. */
+  assert.ok(Array.isArray(v.nation.artifacts), '유물 목록은 앞 장부터 화면에 닿는다');
 });

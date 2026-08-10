@@ -9,7 +9,6 @@
   var lastRes = {};
   var flashes = [];
   var speechOpen = null;
-  var lastStructures = null;
 
   function init() {
     U.qs('#btn-sound').onclick = function () {
@@ -24,11 +23,13 @@
       gear.onclick = function () { GM.settings.open(); };
       U.tipSet(gear, '설정', '화면 밝기와 소리 크기를 고칩니다. Esc 로도 열립니다.');
     }
-    var look = U.qs('#btn-look');
-    if (look) {
-      look.hidden = true;
-      look.onclick = null;
+    /* ★ 4단계B — ☰ 통합 메뉴. 늘 켜져 있을 까닭이 없는 것은 전부 이 문 뒤에 있다(menu.js). */
+    var mn = U.qs('#btn-menu');
+    if (mn) {
+      mn.onclick = function () { GM.menu.open(); };
+      U.tipSet(mn, '메뉴', '설정·도움말·연대기·도감·장비·주민·국법·유물함을 한자리에서 엽니다. Esc 로도 열립니다.\n유물 보관함은 I 로 바로 여닫습니다.');
     }
+    /* ★ 「내 모습」(군주 외형 편집)은 뺐다 — 주민 NPC 로 모습 통일, 커스터마이징 없음. */
     var ch = U.qs('#btn-chronicle');
     ch.onclick = function () { GM.chronicle.open(); };
     U.tipSet(ch, '연대기', '정착지가 지나온 길을 모아 둡니다.');
@@ -277,13 +278,18 @@
       var ph = S.phaseMeta();
       var icon = ['sprout', 'sun', 'leaf', 'moon'][S.phaseIndex()];
       U.clear(badge);
+      /* ★ 시간대 UI 일러스트(assets/ui/time) — 원호에 해·달 자리가 그려진 판을 시각대로 갈아 끼운다.
+         하루(f 0~1)를 4시→24시의 여섯 판으로 나눈다. 낡은 캔버스 원호(skyArc)는 판에 구워져 있어
+         더 그리지 않는다. */
+      var HOURS = ['h04', 'h08', 'h12', 'h16', 'h20', 'h24'];
+      var hi = HOURS[Math.min(5, Math.floor((S.S.dayFraction || 0) * 6))];
+      badge.classList.add('cal-skin');
+      badge.style.backgroundImage = "url('assets/ui/time/" + hi + ".png')";
       badge.appendChild(GM.icons.img(icon, 24));
-      var c2 = U.el('div');
+      var c2 = U.el('div', 'cal-col');
       c2.appendChild(U.el('span', 'cal-day-n', (v.day || 1) + '일째'));
       c2.appendChild(U.el('span', 'cal-season', ph.name));
       badge.appendChild(c2);
-      /* ★ GDD3 §12-10 — 해·달이 원호를 그리며 지나간다. 진행바보다 "지금이 언제인지"가 몸으로 읽힌다. */
-      badge.appendChild(skyArc(S.S.dayFraction || 0));
       var prog = U.el('span', 'day-prog');
       var fill = U.el('i');
       fill.style.width = Math.round((S.S.dayFraction || 0) * 100) + '%';
@@ -383,7 +389,7 @@
     }
     if (S.uiOn('panel.skills')) {
       tb(bar, 'tb-skills', 'tools', '솜씨 (K)', '농사·벌목·채광·건설·전투 다섯 가지',
-        '스윙마다 오르고, 오를수록 손이 빨라지고 거두는 몫이 늘어납니다.',
+        '솜씨(스킬)는 스윙마다 오르고, 오를수록 손이 빨라지고 거두는 몫이 늘어납니다.',
         function () { GM.skills.open(); });
     }
     /* ★ GDD3 §13-C-3 — 도감. 사냥이 열리는 3장(허기)부터 나타난다. */
@@ -400,8 +406,8 @@
     }
     /* ★ GDD3 §13-D-3 — 캐릭터 창. 대장간이 서는 장(9장)부터 나타난다. */
     if (S.uiOn('panel.equipment')) {
-      tb(bar, 'tb-equip', 'anvil', '내 장비 (C)', '무기와 방어구를 벼립니다',
-        '기본 세 단은 그냥 벼릴 수 있고, 공장장이 자리에 있으면 윗단과 강화가 열립니다. ' +
+      tb(bar, 'tb-equip', 'anvil', '내 장비 (C)', '무기와 방어구를 만듭니다',
+        '기본 세 단은 그냥 만들 수 있고, 공장장이 자리에 있으면 윗단과 강화가 열립니다. ' +
         '특성은 성녀가 있을 때 좋은 것이 붙을 확률이 두 배입니다.',
         function () { GM.equip.open(); });
     }
@@ -412,12 +418,49 @@
   }
 
   /* ══════════ 알림 스택 ══════════ */
-  function flash(item, ms) {
-    item.until = Date.now() + (ms || 14000);
+
+  /* ★ 2단계A — 쪽지가 사는 길이는 **갈래마다 다르다**.
+     「왜」 — 여태 무엇이든 14초를 버텼다. 그래서 「목재를 얻었습니다」 같은 안내가 위험 경고와
+     같은 무게로 화면 오른쪽을 채우고, 몇 개가 겹치면 정작 봐야 할 줄이 일곱 칸 밖으로 밀렸다.
+     안내(good·info)는 5초면 읽히고, 판단·위험은 사람이 손을 댈 때까지 남아야 한다. */
+  var FLASH_MS = { good: 5000, info: 5000, decision: 14000, danger: 14000, warn: 14000 };
+  /* ★ 2단계A — 한꺼번에 터지는 쪽지를 줄 세운다. 셋이 이미 떠 있으면 1.2초 간격으로 하나씩
+     올린다 — 여섯 장이 동시에 나타났다 동시에 사라지면 아무도 읽지 못한다. */
+  var flashQueue = [], flashTimer = null;
+
+  function pushFlash(item, ms) {
+    item.until = Date.now() + (ms || FLASH_MS[item.kind] || 8000);
     item.id = item.id || (item.kind + ':' + Date.now() + ':' + Math.random().toString(36).slice(2, 6));
     flashes.unshift(item);
     if (flashes.length > 6) flashes.length = 6;
     renderNotices();
+  }
+
+  /* 결정이 끝나 큐에서 내려간 카드의 쪽지를 그 자리에서 거둔다 — 없는 카드를 여는 줄이
+     화면에 몇 초 더 남으면 「눌렀는데 없는 결정입니다」가 된다(council.js 가 부른다). */
+  function dropFlash(id) {
+    var before = flashes.length;
+    flashes = flashes.filter(function (f) { return f.id !== id; });
+    flashQueue = flashQueue.filter(function (q) { return !q.item || q.item.id !== id; });
+    if (flashes.length !== before) renderNotices();
+  }
+
+  function pumpFlash() {
+    if (flashTimer || !flashQueue.length) return;
+    flashTimer = setTimeout(function () {
+      flashTimer = null;
+      var next = flashQueue.shift();
+      if (next) pushFlash(next.item, next.ms);
+      pumpFlash();
+    }, 1200);
+  }
+
+  function flash(item, ms) {
+    var now = Date.now();
+    var live = 0;
+    for (var i = 0; i < flashes.length; i += 1) if (flashes[i].until > now) live += 1;
+    if (live >= 3) { flashQueue.push({ item: item, ms: ms }); pumpFlash(); return; }
+    pushFlash(item, ms);
   }
 
   function notices() {
@@ -459,17 +502,43 @@
         sub: cp.scouted ? (cp.sizeHint || '규모를 헤아렸습니다') : '주민을 보내 규모를 살피세요',
         open: function () {
           if (cp.x != null) GM.camera.moveTo(cp.x, cp.y);
+          /* ★ UX 수정(2026-08) — 알림을 누르는 순간 확인 없이 주민이 파견되던 것을,
+             카메라 이동 후 확인을 받고 보내는 것으로 바꾼다(명령은 되돌릴 수 없으므로). */
           var ids = GM.residents.nearestIdle(cp.x, cp.y, 2);
-          if (ids.length) {
+          if (!ids.length) return;
+          U.confirmBox('정찰', '한가한 주민 ' + ids.length + '명을 보내 규모를 살필까요?', function () {
             GM.net.send('commandVillagers', { ids: ids, order: { type: 'scout', x: cp.x, y: cp.y } });
             U.toast('정찰을 보냅니다.', 'good');
-          }
+          }, '보낸다');
         } });
     });
 
     flashes.forEach(function (f) { out.push(f); });
     liveWarnings(n, v).forEach(function (w) { out.push(w); });
-    return out;
+    /* ★ 2단계A — 같은 열쇠로 줄이 둘 서지 않는다. 유적 카드는 이제 두 문으로 온다(스윙 ack 의
+       쪽지 · 결정 큐). 쪽지가 큐와 같은 id('dec:…')를 쓰므로 여기서 앞선 것 하나만 남긴다 —
+       앞선 것이 결정 큐의 줄이고, 그쪽이 제대로 된 open 을 쥐고 있다. */
+    var seen = {}, uniq = [];
+    for (var i = 0; i < out.length; i += 1) {
+      if (seen[out[i].id]) continue;
+      seen[out[i].id] = 1;
+      uniq.push(out[i]);
+    }
+    return uniq;
+  }
+
+  /* ★ 2단계A — 일곱 칸을 자르기 **전에** 무게로 세운다.
+     「왜」 — 자를 때까지 순서가 「만들어진 차례」였다. 어전·결정을 먼저 담고 야영지·쪽지·경고를
+     뒤에 담았으므로, 안내 쪽지가 몇 장 겹치면 곳간이 비었다는 경고가 여덟째 칸으로 밀려
+     화면에서 사라졌다. 목숨이 걸린 것이 맨 위다: 위험 > 판단 > 제안 > 경고 > 안내.
+     같은 무게끼리는 원래 차례를 지킨다(자리가 초마다 바뀌면 누르려던 것을 놓친다). */
+  var NOTICE_RANK = { danger: 0, council: 1, decision: 1, offer: 2, warn: 3 };
+
+  function byPriority(list) {
+    return list
+      .map(function (it, i) { return { it: it, i: i, r: NOTICE_RANK[it.kind] !== undefined ? NOTICE_RANK[it.kind] : 4 }; })
+      .sort(function (a, b) { return a.r - b.r || a.i - b.i; })
+      .map(function (x) { return x.it; });
   }
 
   /* ══════════ ★ §21-C1(D) 경고의 「알겠다」는 하루살이가 아니다 ══════════
@@ -571,7 +640,7 @@
   function renderNotices() {
     var box = U.qs('#notices');
     if (!box) return;
-    var list = notices().slice(0, 7);
+    var list = byPriority(notices()).slice(0, 7);
     noticeNow = list;                       // 닫힘이 되짚을 「지금」 목록은 늘 새로 둔다
     var sig = noticeSig(list);
     if (box.getAttribute('data-sig') === sig) return;
@@ -611,7 +680,7 @@
 
   var ROYAL = [
     { key: 'law',  name: '국법',   icon: 'scroll', ui: 'panel.orders', open: function () { GM.orders.open(); } },
-    { key: 'relic', name: '유물함', icon: 'gem',   ui: 'panel.council', open: function () { GM.artifacts.open(); } }
+    { key: 'relic', name: '유물함', icon: 'gem',   ui: 'panel.relic', open: function () { GM.artifacts.open(); } }
   ];
 
   function renderCabinet() {
@@ -865,6 +934,9 @@
     if (!p) { host.hidden = true; U.clear(host); host.removeAttribute('data-sig'); return; }
     var prog = p.progress || { level: 1, ratio: 0, points: 0, xp: 0, need: null };
     host.hidden = false;
+    /* ★ 체력바 UI 일러스트(assets/ui/hp_frame.png) — 초상 원·막대 홈·달(잠자기) 판이 그려진
+       한 장을 배경으로 깔고, 아이들(초상·바·잠자기 단추)을 그 홈 위에 앉힌다(main.css .me-skin). */
+    host.classList.add('me-skin');
     watchHp(p);                              // ★ §17-19 — 체력이 깎인 순간을 여기서 잡는다
                                              //   (★ Sprint 3 — 서명보다 **먼저**: 걸러 낼 수 없는 일이다)
     var meSg = meSig(p, prog);
@@ -876,8 +948,12 @@
     var face = U.el('div', 'me-face');
     var mine = (S.S.avatars || []).filter(function (a) { return a.id === S.S.avatarId; })[0];
     var look = (mine && mine.appearance) || (S.S.you && S.S.you.appearance) || null;
+    /* ★ 2026-08 — 자리를 맡기 전에는 직업 초상을 걸지 않는다. 감정의 날에 역할이 정해지는
+       그 순간에 얼굴이 바뀌어야, 「무엇이 되었는가」가 화면에서도 사건이 된다.
+       그 전까지는 지도 위의 나와 같은 기본 NPC 얼굴이다. */
     var myRole = S.myVisualRole ? S.myVisualRole() : S.myRole();
     if (myRole && GM.icons && GM.icons.portraitImg) face.appendChild(GM.icons.portraitImg(myRole, 40, 'me'));
+    else if (GM.npcSprites && GM.npcSprites.faceImg) face.appendChild(GM.npcSprites.faceImg(S.S.avatarId, 40));
     else if (look && GM.atlas.avatarImg) face.appendChild(GM.atlas.avatarImg(look, 40));
     else face.appendChild(GM.icons.img('person', 34));
     var lv = U.el('span', 'me-lv', String(prog.level));
@@ -902,8 +978,8 @@
       ? U.fmt(prog.xp - prog.from, 0) + ' / ' + U.fmt(prog.need - prog.from, 0)
       : '다 올랐다';
     bars.appendChild(bar('xp', prog.ratio || 0, xpText,
-      '다섯 솜씨(농사·벌목·채광·건설·전투)로 얻은 눈금을 모두 더한 값입니다.\n한 단계 오를 때마다 능력치 점수를 하나 받습니다.',
-      '눈금 · ' + prog.level + '단계'));
+      '다섯 솜씨(농사·벌목·채광·건설·전투)로 얻은 경험치를 모두 더한 값입니다.\n한 단계 오를 때마다 능력치 점수를 하나 받습니다.',
+      '경험치 · ' + prog.level + '단계'));
     host.appendChild(bars);
 
     /* ★ §17-7 — 다같이 잠자기(하루 넘기기). 사람 아바타가 모두 잠들면 하루가 곧장 넘어간다. */
@@ -961,8 +1037,10 @@
      ['울타리', 'F 를 누르고 지도를 끌면 선을 따라 조각이 섭니다. Shift 를 누른 채 끝내면 문이 됩니다.'],
      ['주민', '끌어서 고르고 오른쪽 단추로 일터를 지정합니다. 사람은 빈 잠자리와 식량이 있으면 스스로 찾아옵니다.'],
      ['싸움', '무리가 몰려오면 검을 들고 직접 붙을 수 있습니다. 쓰러져도 죽지 않습니다 — 10초를 세면 모닥불에서 체력 절반으로 일어나고, 3초 동안은 아무도 나를 건드리지 못합니다(사기가 조금 내려갑니다).'],
-     ['나의 상태', '왼쪽 아래 초상 옆이 체력과 눈금입니다. 눈금이 차면 단계가 오르고 능력치 점수를 하나 받습니다 — C 를 눌러 나눠 주세요.'],
-     ['보기 고치기', 'Esc 또는 오른쪽 위 톱니로 설정을 엽니다. 화면 밝기와 소리 크기를 여기서 고칩니다.'],
+     ['나의 상태', '왼쪽 아래 초상 옆이 체력과 경험치입니다. 경험치가 차면 단계가 오르고 능력치 점수를 하나 받습니다 — C 를 눌러 나눠 주세요.'],
+     ['유물 보관함', 'I 를 누르면 열리고, 한 번 더 누르면 닫힙니다. 얻은 유물과 발견 기록이 그 안에 있습니다.'],
+     ['메뉴', 'Esc 또는 오른쪽 위 ☰ 로 메뉴를 엽니다. 설정·연대기·도감·장비·주민·국법·유물함이 모두 그 안에 있습니다.'],
+     ['보기 고치기', '메뉴 안의 설정에서 화면 밝기와 소리 크기를 고칩니다.'],
      ['함께 하기', '오른쪽 명부에서 초대 코드를 건네고, Enter 로 한 줄을 나눕니다.']].forEach(function (r) {
       var li = U.el('li');
       li.appendChild(U.el('b', null, r[0] + ' — '));
@@ -982,7 +1060,12 @@
   function update() {
     var n = S.nation();
     if (!n) return;
-    detectCompletions(n);
+    /* ★ 6단계 — detectCompletions 를 걷어 냈다(2026-08).
+       「왜」 — 하는 일이 「건물 전부를 훑어 {id:tier} 표를 새로 만들어 lastStructures 에 넣기」
+       뿐이었는데, 그 lastStructures 를 **읽는 자리가 한 곳도 없다**(reset 에서 null 로 되돌릴
+       뿐이다). 준공 알림은 이미 다른 길(GM.world.bounceStructure·서버 알림)로 간다.
+       화면 갱신마다 건물 수만큼 객체 하나와 순회 한 번을 버리던 셈이라, 없애도
+       화면에 뜨는 것은 한 글자도 달라지지 않는다. */
     renderResBar();
     renderBadges();
     renderNotices();
@@ -996,14 +1079,10 @@
     snapshotRes();
   }
 
-  function detectCompletions(n) {
-    var cur = {};
-    S.structures().forEach(function (b) { cur[b.id] = b.tier; });
-    lastStructures = cur;
-  }
-
   function reset() {
-    lastRes = {}; flashes = []; lastStructures = null; lastLevel = null;
+    lastRes = {}; flashes = []; lastLevel = null;
+    // ★ 2단계A — 줄 세워 둔 쪽지도 함께 거둔다(판을 나가면 지난 판의 소식은 남지 않는다)
+    flashQueue = []; if (flashTimer) { clearTimeout(flashTimer); flashTimer = null; }
     lastHp = null; lastHurtAt = 0;           // ★ §17-19 — 판이 바뀌면 옛 체력 기억도 버린다
     var me = U.qs('#me-panel'); if (me) { me.hidden = true; U.clear(me); me.removeAttribute('data-sig'); }
     var cab = U.qs('#cabinet'); if (cab) cab.removeAttribute('data-sig');
@@ -1186,7 +1265,7 @@
     renderMe: renderMe,
     /* ★ §17-19 — 내가 맞았을 때의 반응(전투 사건도 이 문으로 들어온다) */
     hurt: hurt,
-    flash: flash, brief: brief, openHelp: openHelp, paintSound: paintSound,
+    flash: flash, dropFlash: dropFlash, brief: brief, openHelp: openHelp, paintSound: paintSound,
     chipPoint: chipPoint, absorb: absorb
   };
 })(window);

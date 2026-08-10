@@ -3,15 +3,51 @@
   'use strict';
   var GM = global.GM = global.GM || {};
   var S = GM.state, U = GM.ui;
-  var JOURNAL_KEY = 'toji.artifact-journal.v1';
+  var JOURNAL_BASE = 'toji.artifact-journal.v1';
+  var ROOMS_KEY = JOURNAL_BASE + '.rooms';       /* 이 기기가 들렀던 방 목록(최근 순) */
+  var KEEP_ROOMS = 8;                            /* 기기에 남겨 두는 방의 수 */
+
+  /* ★ 발견 기록은 **그 방의 기억**이다(2026-08).
+     「왜」 방마다 나누나 — 예전에는 키 하나(JOURNAL_BASE)에 모아 두어, 새 방을 파고 들어가도
+     지난 판에서 읽은 전설이 그대로 차 있었다. 기록은 서버의 소유 장부가 아니라 「내가 읽은 문장」이라
+     기기에 남기는 것이 맞지만, 판이 다르면 읽은 적도 없는 것이 된다. 그래서 방 이름(gameId)으로 칸을 가른다.
+     방을 모르는 자리(로비·구경)에서는 어디에도 적지 않는다 — 다음 방으로 새지 않게. */
+  function roomId() {
+    var g = S && S.S ? S.S.gameId : null;
+    return g ? String(g) : '';
+  }
+  function journalKey() {
+    var g = roomId();
+    return g ? JOURNAL_BASE + ':' + g : '';
+  }
+
+  /** 옛 전역 키를 걷어내고, 오래된 방의 기록은 흘려보낸다(기기 저장칸은 좁다) */
+  function touchRoom(g) {
+    try {
+      global.localStorage.removeItem(JOURNAL_BASE);      /* 방 구분이 없던 시절의 키 */
+      var rooms = [];
+      try { rooms = JSON.parse(global.localStorage.getItem(ROOMS_KEY) || '[]') || []; } catch (e0) { rooms = []; }
+      rooms = rooms.filter(function (r) { return r && r !== g; });
+      rooms.unshift(g);
+      rooms.slice(KEEP_ROOMS).forEach(function (old) {
+        global.localStorage.removeItem(JOURNAL_BASE + ':' + old);
+      });
+      global.localStorage.setItem(ROOMS_KEY, JSON.stringify(rooms.slice(0, KEEP_ROOMS)));
+    } catch (e) {}
+  }
 
   /* 서버의 유물 소유 정보와 분리해, 플레이어가 실제로 읽은 발견 문장만 보관한다. */
   function journal() {
-    try { return JSON.parse(global.localStorage.getItem(JOURNAL_KEY) || '[]'); }
+    var k = journalKey();
+    if (!k) return [];
+    try { return JSON.parse(global.localStorage.getItem(k) || '[]'); }
     catch (e) { return []; }
   }
   function saveJournal(rows) {
-    try { global.localStorage.setItem(JOURNAL_KEY, JSON.stringify(rows.slice(-80))); }
+    var g = roomId();
+    if (!g) return;                                     /* 방을 모르면 적지 않는다 */
+    touchRoom(g);
+    try { global.localStorage.setItem(JOURNAL_BASE + ':' + g, JSON.stringify(rows.slice(-80))); }
     catch (e) {}
   }
   function remember(found) {
@@ -58,13 +94,25 @@
     return im;
   }
 
+  /* ★ 2026-08 — 보관함의 문은 1장부터 열려 있다(data/chapters.json 1장 ui: panel.relic).
+     「왜」 어전(panel.council)에서 떼어 냈나 — 유적은 첫 장부터 유물을 내어 준다. 손에 든 것을
+     9장까지 볼 수도 쓸 수도 없다면, 그건 「아직」이 아니라 「없는 것」이다(서버는 이미 useArtifact 를
+     앞 장부터 받는다 — progression.commandUnlocked). 어전 회의와 나머지 문은 차례 그대로다.
+     (옛 세이브는 state.js UI_ALIAS 가 panel.council 로 같은 문을 열어 준다) */
+  function relicOn() { return S.uiOn('panel.relic'); }
+
   function open() {
-    if (!S.uiOn('panel.council')) { U.toast('유물함은 읍이 되어야 열립니다.', 'warn'); return; }
+    if (!relicOn()) {
+      U.toast('보관함은 아직 열리지 않았습니다. 발견 기록(📖)은 지금도 볼 수 있습니다.', 'warn', 5200);
+      return;
+    }
     var body = U.el('div');
     body.appendChild(U.el('p', null,
-      '어전 회의마다 낮은 확률로 상자가 열립니다. 그 이레에 부지런했던 부처의 계열이 나오기 쉽습니다.'));
+      '유적과 신전이 내어준 것, 어전 회의가 열어 준 상자가 여기 모입니다.'));
     body.appendChild(U.el('p', 'hint',
       '한 번 쓰면 사라지는 것과, 얻는 순간부터 계속 힘을 쓰는 것이 있습니다.'));
+    /* ★ 4단계 — 착용/해제가 없는 게임에서 「지금은 이걸 끄고 싶다」의 자리. */
+    body.appendChild(U.el('p', 'hint', '봉인하면 이 유물의 힘이 잠듭니다. 언제든 되돌릴 수 있습니다.'));
     var g = U.el('div', 'art-grid');
     g.id = 'art-grid';
     body.appendChild(g);
@@ -73,7 +121,7 @@
     body.appendChild(s);
     var foot = U.el('div');
     foot.appendChild(U.btn('발견 기록', 'btn-ghost', function () { openJournal(); }));
-    foot.appendChild(U.btn('덮는다', 'btn-primary', function () { U.closeTopModal(); }));
+    foot.appendChild(U.btn('닫는다', 'btn-primary', function () { U.closeTopModal(); }));
     U.openModal({ title: '유물함', body: body, footer: foot, width: '760px', key: 'relic',
                   icon: GM.icons.img('gem', 22) });
     paint();
@@ -99,7 +147,11 @@
       if (a.lore) c.appendChild(U.el('p', 'a-lore', '「' + a.lore + '」'));
       U.tipSet(c, (d.name || a.key) + ' — ' + gradeName(d.grade),
         (d.desc || '') + (a.obtainedTick !== undefined ? '\n' + a.obtainedTick + '일에 얻었습니다.' : ''));
-      if (isConsumable(d) && !a.consumed) {
+      /* ★ 4단계 — 봉인해 둔 것은 손으로도 쓰지 못한다(서버가 같은 판정을 한다). 잠긴 단추를
+         세워 두지 않고 「무엇 때문에 못 쓰는가」만 적는다(§11-1 「잠긴 것은 부재」). */
+      if (a.sealed) {
+        c.appendChild(U.el('div', 'a-act hint', '봉인해 두었습니다 — 힘이 잠들어 있습니다'));
+      } else if (isConsumable(d) && !a.consumed) {
         var b = U.btn(useLabel(a), 'btn-sm btn-primary a-act', function () { useIt(a, d); });
         b.setAttribute('data-artifact', a.key);
         c.appendChild(b);
@@ -109,7 +161,9 @@
       /* ★ §20-R4c — 심는 것·봉인하는 것은 「쓴다」와 다른 문이다(뷰의 plantable·curse 가 정본).
          화면은 유물의 성질을 제 손으로 알지 않는다 — 규격에서 걷어 냈다(§0-U-8). */
       if (a.plantable) c.appendChild(plantBtn(a, d));
-      if (a.curse) c.appendChild(sealBtn(a, d));
+      /* ★ 4단계 — 봉인은 이제 **모든 유물**의 문이다(착용/해제의 1차 대체). 저주만 값이 붙는다 —
+         값의 정본은 서버가 실어 보낸 두 칸이라 화면이 「저주면 얼마」를 제 손으로 셈하지 않는다. */
+      c.appendChild(sealBtn(a, d));
       grid.appendChild(c);
     });
     paintSets();
@@ -176,16 +230,25 @@
     return null;
   }
 
+  /* 봉인 값 — 저주만 값을 문다(§20-6). 두 다이얼 다 서버가 실어 보낸다. */
+  function sealCost(a) {
+    var n = S.nation() || {};
+    return (a.curse ? n.sealCostGold : n.sealCostGoldPlain) || 0;
+  }
+
   function sealBtn(a, d) {
-    var cost = (S.nation() || {}).sealCostGold || 0;
+    var cost = sealCost(a);
+    var costLine = cost > 0 ? ' 금 ' + cost + '이 듭니다.' : '';
     if (a.sealed) {
-      return U.btn('봉인을 푼다', 'btn-sm a-act', function () {
-        GM.net.send('sealArtifact', { key: a.key, sealed: false });
+      return U.btn('봉인을 푼다', 'btn-sm btn-primary a-act', function () {
+        if (cost <= 0) { GM.net.send('sealArtifact', { key: a.key, sealed: false }); return; }
+        U.confirmBox('봉인을 풀까요?', (d.name || a.key) + '\n\n다시 힘을 씁니다.' + costLine,
+          function () { GM.net.send('sealArtifact', { key: a.key, sealed: false }); }, '봉인을 푼다');
       });
     }
     return U.btn('봉인한다', 'btn-sm btn-ghost a-act', function () {
       U.confirmBox('봉인할까요?', (d.name || a.key) + ' — ' + (d.desc || '')
-        + '\n\n힘도 값도 함께 잠듭니다. 금 ' + cost + '이 듭니다. 나중에 되돌릴 수 있습니다.',
+        + '\n\n봉인하면 이 유물의 힘이 잠듭니다.' + costLine + ' 나중에 되돌릴 수 있습니다.',
         function () { GM.net.send('sealArtifact', { key: a.key, sealed: true }); }, '봉인한다');
     });
   }
@@ -526,6 +589,25 @@
     return stage;
   }
 
+  /* ★ 4단계B — 원정 카드 접기. 「왜 탐험하는가」는 늘 손에 닿아야 하지만, 길을 이미 아는
+     사람에게 넉 줄짜리 판은 좌상단을 먹는 짐이다. 머리(유물 원정 …)를 누르면 접히고,
+     접었다는 사실은 이 기기에 남는다 — 다음에 들어와도 접힌 채로 선다. */
+  var FOLD_KEY = 'gm.artifactCard.folded';
+  function huntFolded() {
+    try { return localStorage.getItem(FOLD_KEY) === '1'; } catch (e) { return false; }
+  }
+  function applyHuntFold(card) {
+    var on = huntFolded();
+    card.classList.toggle('folded', on);
+    var arrow = card.querySelector('.at-fold');
+    if (arrow) arrow.textContent = on ? '▸' : '▾';
+  }
+  function toggleHuntFold() {
+    try { localStorage.setItem(FOLD_KEY, huntFolded() ? '0' : '1'); } catch (e) {}
+    var card = U.qs('#artifact-track-card');
+    if (card) applyHuntFold(card);
+  }
+
   function paintHunt() {
     var card = U.qs('#artifact-track-card');
     var n = S.nation() || {}, hunt = n.artifactHunt;
@@ -536,7 +618,11 @@
     var sig = [hunt.clues, hunt.nextAt, open && open.nodeId, open && open.retryAt, done].join('|');
     if (card.getAttribute('data-sig') === sig) return;
     card.setAttribute('data-sig', sig); card.hidden = false; U.clear(card);
-    card.appendChild(U.el('span', 'at-cap', '유물 원정 · 탐험의 이유'));
+    var cap = U.el('span', 'at-cap', '유물 원정 · 탐험의 이유');
+    cap.appendChild(U.el('i', 'at-fold', '▾'));
+    cap.onclick = function (ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); toggleHuntFold(); };
+    U.tipSet(cap, '유물 원정', '눌러서 이 카드를 접거나 폅니다.');
+    card.appendChild(cap);
     card.appendChild(U.el('span', 'at-why', '유적의 전설 → 깊은 방의 단서 3개 → 신전 수호자 → 신전 전용 유물'));
     if (open) {
       card.appendChild(U.el('strong', 'at-title', open.name + ' 발견'));
@@ -565,13 +651,25 @@
       openJournal();
     });
     card.appendChild(journalBtn);
+    applyHuntFold(card);
   }
 
-  function update() { if (U.modalOpen('relic')) paint(); paintHunt(); }
+  /* ★ 2단계A(§11-1 「잠긴 것은 부재」) — 눌러도 「아직 안 됩니다」만 돌아오는 단추는 화면에 없다.
+     ★ 2026-08 — 이제 그 문은 1장부터 열려 있으므로 단추도 1장부터 선다(relicOn). */
+  function paintInventoryBtn() {
+    var b = U.qs('#artifact-inventory-btn');
+    if (!b) return;
+    b.hidden = !relicOn();
+  }
+
+  function update() { if (U.modalOpen('relic')) paint(); paintHunt(); paintInventoryBtn(); }
 
   document.addEventListener('DOMContentLoaded', function () {
+    /* ★ 4단계B — 좌상단에서 「발견 기록」 단추를 거둔다. 같은 문이 이미 둘 더 있다
+       (통합 메뉴 · 원정 카드 안의 「발견 기록 다시 읽기」). 화면에는 최소만 남긴다.
+       마크업은 그대로 두고 여기서 감춘다 — index.html 은 여러 손이 함께 만지는 자리다. */
     var b = U.qs('#artifact-journal-btn');
-    if (b) b.onclick = openJournal;
+    if (b) { b.hidden = true; b.onclick = openJournal; }
     var inventory = U.qs('#artifact-inventory-btn');
     if (inventory) inventory.onclick = open;
   });

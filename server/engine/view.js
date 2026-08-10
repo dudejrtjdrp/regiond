@@ -260,8 +260,25 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
         ap: buildApView(nation, data),
         survey: nation.survey ?? null,
       } : {}),
-      ...(councilOn ? {
+      /* ★ 2단계A — 탐험의 안내는 어전(10장)을 기다리지 않는다.
+         「왜」 옮겼나 — 유적 카드(decisionQueue)와 유물 추적(artifactHunt)은 **3장부터 실제로
+         일어나는 일**인데 뷰의 문이 councilOn(9장 완료) 안에 있었다. 그래서 방을 다 뒤져도
+         알림 스택에 아무 줄이 서지 않았고, 유물을 주웠는데 「무엇을 모으는 중인가」를 볼 데가
+         없었다 — 「일어난 일을 볼 수 없다」는 잠긴 것과 다른 종류의 사고다(§11-1 은 **없는 것**을
+         감추라 했지, 있는 것을 감추라 하지 않았다).
+         codex(3장, 도감)에 문을 맞춘 까닭 — 도감이 열리는 순간이 「기록을 읽는 눈」이 생기는
+         자리다. 그 전에는 유적 자체를 만날 일이 드물어 빈 안내만 뜬다. */
+      ...(on('codex') ? {
         artifactHunt: artifactHuntView(world, nation, data),
+        decisionQueue: nation.decisionQueue,
+      } : {}),
+      /* ★ 2026-08 — 손에 든 유물은 어전(9장)을 기다리지 않는다. 문을 아예 걷어냈다.
+         「왜」 — 유적은 앞 장부터 유물을 내어 주고 서버도 useArtifact 를 앞 장부터 받는다
+         (progression.commandUnlocked). 그런데 이 목록만 councilOn 안에 있어서, 주운 것을
+         보관함에서 볼 수도 쓸 수도 없었다 — 있는 것을 감춘 셈이다(§11-1 은 **없는 것**을 감추라 했지
+         있는 것을 감추라 하지 않았다). 가진 게 없으면 빈 배열이라 앞 장의 화면에는 아무 일도 없다.
+         어전 회의 자체(councils)와 그 밖의 해금은 차례 그대로다. */
+      ...({
         artifacts: (nation.artifacts || []).map((a) => ({
           key: a.key, name: data.artifactsByKey[a.key]?.name, grade: data.artifactsByKey[a.key]?.grade,
           desc: data.artifactsByKey[a.key]?.desc, lore: data.artifactsByKey[a.key]?.lore ?? '',
@@ -285,13 +302,16 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
         })),
         // ★ §20-R4c — 봉인 값은 화면이 미리 알려 줘야 「금 80이 듭니다」라고 물을 수 있다.
         sealCostGold: data.balance.artifacts.sealCostGold ?? 0,
+        /* ★ 4단계 — 봉인이 모든 유물로 넓어졌다. 저주가 아닌 것의 값은 따로다(보통 0) —
+           화면이 「저주면 180, 아니면 0」을 제 손으로 알면 다이얼을 고칠 때마다 두 곳을 고쳐야 한다. */
+        sealCostGoldPlain: data.balance.artifacts.sealCostGoldPlain ?? 0,
         /* ★ §20-R4(§20-5) — 세트 현황 {setKey:{name,owned,total,tiers}}. 도감·유물함이 「3/4」와
            「어느 문턱이 켜졌나」를 그리려면 조각 수를 화면이 다시 세면 안 된다(세는 규칙이 둘이
            되면 언젠가 어긋난다). 하나도 안 가졌으면 빈 객체라 옛 화면에도 아무 일이 없다. */
         artifactSets: setsWithSteps(hooks.sets, data),
         // ★ §22 — ruinGauge·ruinThreshold 송출은 폐지됐다. 유적 진행은 노드 뷰가 쥔다(rooms·roomsOpened·spent).
-        decisionQueue: nation.decisionQueue,
-      } : {}),
+        //    decisionQueue 는 위 codex 문으로 옮겼다(2단계A) — 판단은 유물함보다 먼저 온다.
+      }),
       ...(on('orders') ? { orders: nation.orders } : {}),
       ...(tradeOn ? {
         autoExport: nation.autoExport,
@@ -343,7 +363,7 @@ export function buildNationView(world, nationId, viewerRole, data, opts = {}) {
       } : {}),
     },
     // ★ GDD3 §13-C-3 — 도감(J). 조우·처치 수는 서버가 권위로 세고, 잠긴 층은 필드 자체가 없다.
-    codex: codexView(nation, data),
+    codex: codexView(nation, data, world),
     // ★ GDD3 §6 — 웨이브·전투. 7장 전에는 세 블록 모두 null 이다(위협 게이지도 없다).
     wave: wavesOn ? waveView(world, nation, viewerRole, data, hooks) : null,
     battle: wavesOn ? battleView(nation, data) : null,

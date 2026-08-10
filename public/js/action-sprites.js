@@ -15,7 +15,7 @@
     female: 'female', male: 'male', archer: 'archer', mage: 'mage',
     saint: 'saint', warrior: 'warrior', tactician: 'tactician', tank: 'tank'
   };
-  var VERSION = 'action-8dir-v8';
+  var VERSION = 'action-8dir-v9';
   var images = {};
   var crops = {};
 

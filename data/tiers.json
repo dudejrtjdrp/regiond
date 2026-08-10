@@ -24,7 +24,8 @@
         ],
         "ui": [
           "hud.resources3",
-          "hud.questCard"
+          "hud.questCard",
+          "panel.relic"
         ]
       },
       "line": "마차가 멈춘 자리에 모닥불을 피웠다."

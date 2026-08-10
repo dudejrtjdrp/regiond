@@ -25,7 +25,9 @@ import {
   ensurePlayer, playerLevel, playerXpTotal, statPoints, allocStat, statEffects,
   swingCooldownMs, swingDamage, maxHpOf, playerProgressView,
 } from '../server/engine/skills.js';
-import { ensureCreatures, stepEcology, creatureDefs, ranchOpenFor } from '../server/engine/ecology.js';
+import {
+  ensureCreatures, stepEcology, creatureDefs, ranchOpenFor, creatureMayStand,
+} from '../server/engine/ecology.js';
 
 const data = loadGameData();
 /* ★ GDD3 §15-C — 이 파일은 **다른 한 계층**을 잰다(주민 산출·소비·공사 자재·전체 루프).
@@ -163,16 +165,17 @@ test('§14-1 노는 사람은 실시간 수치를 띄우지 않는다 (일 틱�
 // ────────────────────────────────────────────────────────────────
 // §14-4 영토 진입 금지 · 목장
 // ────────────────────────────────────────────────────────────────
-test('§14-4 짐승은 영토 안으로 들어오지 못한다', () => {
+test('§14-4 사나운 것은 영토 안으로 들어오지 못한다', () => {
   const w = newWorld(47);
   const n = w.nations.player;
   __openChapter(n, 7);
   ensureCreatures(w, n, data);
   const town = townOf(w, n.id);
   const r = territoryRadius(n, data);
-  // 경계 바로 밖에 한 마리를 놓고 본부를 향해 달려들게 한다
-  const c = n.wild.creatures[0];
-  assert.ok(c, '짐승이 하나는 있어야 한다');
+  /* ★ 2단계B — 이 계약은 이제 **사나운 것**의 계약이다. 온순종(닭·토끼·양…)은 영토 안에도 산다
+     (creatureMayStand). 그래서 표본을 종류로 고른다 — 옛 코드는 목록의 첫 마리를 집었다. */
+  const c = n.wild.creatures.find((x) => creatureDefs(data)[x.sp]?.kind === 'predator');
+  assert.ok(c, '사나운 것이 하나는 있어야 한다');
   c.x = town.x + r + 1; c.y = town.y;
   c.tx = town.x; c.ty = town.y;
   c.state = 'wander';
@@ -184,17 +187,38 @@ test('§14-4 짐승은 영토 안으로 들어오지 못한다', () => {
     `짐승이 영토 안(${c.x},${c.y})에 들어왔다 — 반경 ${r}`);
 });
 
-test('§14-4 이미 안에 있던 것은 밀려난다', () => {
+test('§14-4 이미 안에 있던 사나운 것은 밀려난다', () => {
   const w = newWorld(48);
   const n = w.nations.player;
   __openChapter(n, 7);
   ensureCreatures(w, n, data);
   const town = townOf(w, n.id);
-  const c = n.wild.creatures[0];
+  const c = n.wild.creatures.find((x) => creatureDefs(data)[x.sp]?.kind === 'predator');
+  assert.ok(c, '사나운 것이 하나는 있어야 한다');
   c.x = town.x + 1; c.y = town.y + 1;         // 한복판
   for (let t = 0; t < 80; t += 1) stepEcology(w, n, data, 1);
   assert.equal(inTerritory(w, n, Math.round(c.x), Math.round(c.y), data), false,
     '영토 안에 남아 있으면 안 된다');
+});
+
+test('★ 2단계B §14-4 완화 — 온순한 것은 영토 안에 머문다(밀려나지 않는다)', () => {
+  const w = newWorld(48);
+  const n = w.nations.player;
+  __openChapter(n, 7);
+  ensureCreatures(w, n, data);
+  const town = townOf(w, n.id);
+  const c = n.wild.creatures.find((x) => creatureDefs(data)[x.sp]?.kind === 'animal');
+  const wild = n.wild.creatures.find((x) => creatureDefs(data)[x.sp]?.kind === 'predator');
+  assert.ok(c && wild, '온순한 것과 사나운 것이 하나씩은 있어야 한다');
+  // 성역의 문 자체가 종류로 갈린다 — 온순한 것에게는 열려 있고 사나운 것에게는 닫혀 있다
+  assert.equal(creatureMayStand(w, n, data, c, town.x + 1, town.y + 1), true, '온순한 것은 마을 한복판에 설 수 있다');
+  assert.equal(creatureMayStand(w, n, data, wild, town.x + 1, town.y + 1), false, '사나운 것은 여전히 못 선다');
+  // 한복판에 세워도 밀려나지 않는다(pushOutOfTerritory 는 설 수 없는 것에게만 걸린다)
+  c.x = town.x + 1; c.y = town.y + 1;
+  c.tx = c.x; c.ty = c.y; c.retarget = 999;
+  for (let t = 0; t < 10; t += 1) stepEcology(w, n, data, 1);
+  assert.equal(inTerritory(w, n, Math.round(c.x), Math.round(c.y), data), true,
+    '온순한 것은 마을 안에 남는다 — §14-4 의 성역은 사나운 것에게만 걸린다');
 });
 
 test('§14-4 목장 — 온순한 짐승만, 목장 둘레에만 들어올 수 있다', () => {

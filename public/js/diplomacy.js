@@ -78,7 +78,7 @@
     return GM.dialogue.open({
       speaker: brief.name, portraitKey: 'icon:ship', lines: [greetLine(brief)],
       choices: [{ label: '첩을 펼친다', act: function () { open(brief); } },
-                { label: '오늘은 물러난다' }]
+                { label: '오늘은 그만둔다' }]
     });
   }
 
@@ -99,7 +99,7 @@
     priceTable(body, brief.prices);
 
     var foot = U.el('div');
-    foot.appendChild(U.btn('물러난다', 'btn-ghost', function () { U.closeTopModal(); }));
+    foot.appendChild(U.btn('닫는다', 'btn-ghost', function () { U.closeTopModal(); }));
     var deal = U.btn('교역한다', 'btn-primary', function () {
       U.closeTopModal();
       /* ★ §19-F3(F07-7) — 문 앞에서 곧바로 그 나라의 좌판으로. 좌판이 아직 없으면 옛길(집무실)로 간다. */

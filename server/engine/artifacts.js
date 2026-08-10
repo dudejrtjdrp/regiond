@@ -416,6 +416,9 @@ export function useArtifact(nation, key, tick, data) {
   if (!def) return { ok: false, code: 'UNKNOWN_ARTIFACT', message: '알 수 없는 유물입니다.' };
   const owned = (nation.artifacts || []).find((a) => a.key === key);
   if (!owned) return { ok: false, code: 'NOT_OWNED', message: '보유하지 않은 유물입니다.' };
+  /* ★ 4단계 — 봉인은 「힘이 잠든다」는 약속이다. 집계(collectHooks)에서만 빼고 손으로 쓰는 문은
+     열어 두면 그 약속이 반만 참이 된다 — 봉인해 둔 소모형이 그대로 터진다. 풀면 다시 쓸 수 있다. */
+  if (owned.sealed) return { ok: false, code: 'SEALED', message: '봉인된 유물입니다. 먼저 봉인을 푸십시오.' };
   if (chargesOf(owned, def) <= 0) return { ok: false, code: 'ALREADY_USED', message: '이미 사용한 유물입니다.' };
   const uses = (def.effects || []).filter((e) => e.hook === 'onUse');
   if (!uses.length) return { ok: false, code: 'NOT_CONSUMABLE', message: '사용할 수 있는 유물이 아닙니다.' };
@@ -522,21 +525,32 @@ export function consumeEventProtection(nation, eventTags = []) {
 // ────────────────────────────────────────────────────────────────
 
 /**
- * 저주 봉인 (유물기획 §20-6) — 「값을 치르는 힘」을 **되돌릴 수 있게** 하는 유일한 문.
+ * 유물 봉인 (유물기획 §20-6) — 「지금 이 힘을 끌 수 있다」는 유일한 문.
  * 기록은 남고 효과만 꺼진다: 발견의 저작권(§20-8)은 어떤 경우에도 지우지 않는다.
  * 되돌리기(해봉)도 같은 값을 받고 열어 둔다 — 「낄까 말까」가 한 번뿐이면 실험이 아니라 도박이 된다.
+ *
+ * ★ 4단계(2026-08-10) — 「왜」 저주만이 아니라 **모든 유물**로 넓혔나.
+ * 이 게임에는 착용/해제가 없다. 유물은 얻는 순간부터 영영 켜져 있고, 유저가 「이건 지금 끄고 싶다」고
+ * 생각할 자리(사냥터를 바꾼다·세트를 갈아 낀다·이번 침공만 다르게 싸운다)가 통째로 없었다.
+ * 봉인은 이미 「효과만 끄고 기록은 남긴다」를 하는 자다 — 새 규약을 짓지 않고 그 문을 넓히는 것이
+ * 착용/해제의 1차 대체다. 저주만 값을 무는 것은 그대로 둔다(§20-6 「버릴 수 있다」의 값):
+ * 저주는 **끄는 것이 이득**이라 값이 없으면 저주가 저주가 아니게 된다. 여느 유물은 끄면 손해이므로
+ * 값을 물릴 까닭이 없다 — 값의 정본은 balance.artifacts 의 두 다이얼이다.
  */
+export const sealCostOf = (def, data) => Math.max(0, (def?.curse
+  ? data.balance.artifacts.sealCostGold
+  : data.balance.artifacts.sealCostGoldPlain) ?? 0);
+
 export function sealArtifact(nation, key, data, want = true) {
   const def = data.artifactsByKey[key];
   if (!def) return { ok: false, code: 'UNKNOWN_ARTIFACT', message: '알 수 없는 유물입니다.' };
-  if (!def.curse) return { ok: false, code: 'NOT_CURSED', message: '봉인할 수 있는 것은 저주받은 유물뿐입니다.' };
   const owned = (nation.artifacts || []).find((a) => a.key === key);
   if (!owned) return { ok: false, code: 'NOT_OWNED', message: '보유하지 않은 유물입니다.' };
   const sealed = Boolean(owned.sealed);
   if (sealed === want) {
     return { ok: false, code: 'ALREADY', message: want ? '이미 봉인했습니다.' : '봉인되어 있지 않습니다.' };
   }
-  const cost = Math.max(0, data.balance.artifacts.sealCostGold ?? 0);
+  const cost = sealCostOf(def, data);
   if ((nation.gold || 0) < cost) return { ok: false, code: 'NO_GOLD', message: '골드가 부족합니다.', need: cost };
   nation.gold = Math.round((nation.gold - cost) * 100) / 100;
   nation.stats.goldSpent = Math.round(((nation.stats.goldSpent || 0) + cost) * 100) / 100;

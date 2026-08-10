@@ -245,7 +245,7 @@
     var widget = GM.charcreate.mount(host, look, null);
 
     var foot = U.el('div');
-    foot.appendChild(U.btn('물러난다', 'btn-ghost', function () { U.closeTopModal(); }));
+    foot.appendChild(U.btn('닫는다', 'btn-ghost', function () { U.closeTopModal(); }));
     var save = U.btn('바꾼다', 'btn-primary', function () {
       sendResident(id, (input.value || '').trim(), widget.get());
     });

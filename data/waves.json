@@ -170,7 +170,7 @@
       "detonate": 16,
       "desc": "자폭형. 울타리에 닿으면 제 몸과 함께 터진다 — 한 번뿐이지만 그 한 번이 문을 연다."
     },
-    "_note": "적 종류. hp/powerCost 비(≈5.5)를 종류마다 같게 맞춰 두었다 — 파워가 곧 위협의 크기가 되도록 하기 위함이고, 종류의 개성은 속도·비행·건물 피해 배수·듣는 전술(weakTo)로 낸다."
+    "_note": "적 종류. hp/powerCost 비(≈5.5)를 종류마다 같게 맞춰 두었다 — 파워가 곧 위협의 크기가 되도록 하기 위함이고, 종류의 개성은 속도·비행·건물 피해 배수·듣는 전술(weakTo)로 낸다. ★ 3단계B(적 대사) — 종류마다의 **대사**는 여기 없다: public/js/enemy-lines.js 가 정본이다. 판정에 닿지 않는 순수 연출이고, /api/config 공개본(waves.js publicWaves)은 이 표의 칸을 하나씩 골라 담으므로 여기 적어도 화면까지 가지 않는다 — 서버가 읽지 않을 문장을 밸런스 표에 섞지 않는다는 뜻이기도 하다."
   },
   "warn": {
     "_note": "예고 — D-warnLeadDays 에 맵 가장자리에 선발대 캠프가 보인다(정찰 마커). 성녀가 있으면 도착일과 구성까지 정확히 열린다(예언), 없으면 '무언가 다가온다'는 흐린 경고만 온다. ★ Sprint 5 — 대기의 앞 3일이 카운트다운조차 없는 사각지대였다: firstDelayDays 6·intervalDays 5~7 인데 hintLeadDays 가 3이라, 예고가 잡힌 날부터 사흘은 화면이 아무 말도 하지 않았다. 그래서 hintLeadDays 3→7, campLeadDays 2→7 로 올린다 — 간격의 최대값(7)과 같게 잡아 **기다림의 첫날부터 끝날까지** 카운트다운이 붙고, 야영지는 예고와 함께 서서 기다리는 내내 그 자리에 있다(선제 타격 strike 의 문이 열려 있으려면 서 있어야 한다). 성녀의 가치는 정확한 날짜(saint.warnLeadDays 4)로 유지된다 — 흐릿함(withoutSaint.jitterDays ±2)의 차등은 그대로다. campLeadDays 가 야영지 등장 시점의 유일한 정본이다(world.json camps.leadDays 는 옛 세이브용 대비값).",
@@ -236,9 +236,17 @@
   },
   "battle": {
     "_note": "실시뮬 다이얼. subtickSeconds 는 서브틱 길이(결정론 — 실시간 여부와 무관하게 같은 입력이면 같은 결과), maxSeconds 는 한 웨이브의 최대 길이다. 적은 접근하며 울타리·터렛·민병과 붙고, 마을 한복판에 닿으면 건물을 부수며 초당 lootRatioPerSecond 만큼 곳간을 헤집는다. ★ 이기려면 한 놈도 남기지 않고 쫓아내야 한다 — 시간이 다 되면 남은 적이 챙긴 것을 들고 물러간다(전멸도 게임오버도 없다). ★ §19-F2(F07-3) — rangeTiles 는 붙지 않고 때리는 사거리이고(없으면 meleeRangeTiles), detonate 는 울타리·건물에 닿는 순간 제 몸을 터뜨리는 배수다(그 한 방 뒤 스스로 사라진다).",
+    "_spawnNote": "★ A11(2026-08-10) — 적이 태어나는 자리. 옛 규칙은 spawnRadiusTiles 고정 22 였는데 그 값은 **티어0 의 영토 반경**이라, 티어2(영토 56)만 돼도 적이 영토 30칸 안쪽에서 솟아났다(침공이 아니라 소환). 이제 기준은 territoryRadius(nation) + spawnMarginTiles 이고 spawnRadiusTiles 는 「그보다 좁아지지는 않는다」는 최소값이다. 점령지(§17-14) 안에 걸리면 각도를 유지한 채 반경만 네 칸씩 최대 다섯 번 물린다 — 난수는 한 톨도 더 쓰지 않는다(spawnEnemy 의 a → r → hp → dps → speed 차례가 곧 같은 씨앗의 밸런스다).",
+    "_clockNote": "★ A11 — maxSeconds 는 「싸울 시간」의 예산이다(basePower·settlementScale 이 잡아 둔 생존율의 기준값이라 여기를 흔들면 밸런스가 함께 흔들린다). 스폰이 22→62→122 로 밀려나며 늘어난 것은 싸움이 아니라 **행군**이라, 옛 예산은 그대로 두고 늘어난 거리만큼만 따로 값을 치른다: 실효 시계 = maxSeconds + (스폰반경 − spawnRadiusTiles) × maxSecondsTravelPerTile, 뚜껑은 maxSecondsCap. 1.3 은 가장 느린 놈(중갑병 0.85 × 흔들림 0.92 = 0.78칸/초 ≈ 1.28초/칸)이 걸어올 수 있는 값이다. 뚜껑 300 은 엔드리스 티어에서 영토가 끝없이 자라도 한 판이 5분을 넘지 않게 한다(그 너머는 민병이 마중 나가 잡는다 — 민병 걸음 2.2 는 어떤 적보다 빠르다).",
     "subtickSeconds": 0.25,
     "maxSeconds": 120,
+    "maxSecondsTravelPerTile": 1.3,
+    "maxSecondsCap": 300,
+    "_flowNote": "★ A11 — 적에게는 길찾기가 없다(도읍을 향해 곧장 걷고, 물에 막히면 축을 따라 미끄러질 뿐이다). 스폰이 22칸일 때는 그 사이에 호수가 낄 일이 드물었지만, 영토 밖에서 60·120칸을 걸어와야 하는 지금은 웨이브의 3분의 2가 호숫가에 굳어 그대로 물러갔다(실측: 33마리 중 21마리가 태어난 자리에서 두 칸). 그래서 도읍으로 흐르는 거리장(coreFlow — 지형만 보는 BFS 한 판, 씨앗별로 캐시)을 두고, 막힌 적은 flowSeconds 동안 곧장을 묻지 않고 그 장의 내리막만 따라 걷는다. 6초인 까닭: 한 칸만 비키면 다음 서브틱의 곧장이 그 걸음을 그대로 되돌려 제자리를 떨고(실측), 호수 하나를 돌려면 열댓 칸이 필요하다.",
+    "flowSeconds": 12,
+    "flowMarchTiles": 22,
     "spawnRadiusTiles": 22,
+    "spawnMarginTiles": 6,
     "lootSeconds": 8,
     "structureDamagePerSecond": 3,
     "coreRadiusTiles": 2.5,

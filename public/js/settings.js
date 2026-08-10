@@ -76,6 +76,17 @@
       onChange: function (v) { GM.autoplay.set(v); }
     }));
 
+    /* ★ 4단계B — 화면 오른쪽을 늘 세로로 먹던 명부. 혼자 하는 사람은 접어 두고 시작할 수 있다.
+       기본값은 지금까지와 같은 「끔(펴짐)」이라, 아무것도 안 고른 사람의 화면은 그대로다. */
+    if (GM.social && GM.social.foldPref) {
+      body.appendChild(toggleRow({
+        id: 'set-social-fold', label: '명부를 접은 채로 시작',
+        value: GM.social.foldPref(),
+        hint: '오른쪽의 함께 다스리는 이들 목록과 대화 기록을 접어 둡니다. M 을 누르면 언제든 다시 펴집니다.',
+        onChange: function (v) { GM.social.setFoldPref(v); }
+      }));
+    }
+
     body.appendChild(slider({
       id: 'set-brightness', label: '화면 밝기',
       min: bc.min, max: bc.max, step: bc.step, value: S.getBrightness(),

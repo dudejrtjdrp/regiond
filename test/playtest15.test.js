@@ -116,7 +116,10 @@ test('★ §15-A-2 처치 드롭이 그 자리에서 국고에 들어간다', ()
   putTurret(world, nation, 'arrow_tower', 3, R - 2, 0);
   const [turret] = turretList(nation, data);
   const meat0 = nation.resources.meat || 0;
-  const chicken = placeCreature(nation, 'chicken', turret.x + 1, turret.y);
+  /* ★ 2단계B — 성나지 않은 온순종은 이제 표적이 아니다(turretGuard.spareAnimals).
+     이 검사가 붙드는 것은 「잡으면 드롭이 국고로 간다」이지 「닭을 쏜다」가 아니므로,
+     사람이 먼저 건드린 닭(provoked)으로 같은 길을 지나간다. */
+  const chicken = placeCreature(nation, 'chicken', turret.x + 1, turret.y, { provoked: 60 });
   let kills = [];
   for (let i = 0; i < 6 && !kills.length; i += 1) kills = turretGuard(world, nation, data, 1).kills;
   assert.equal(kills.length, 1, '닭 한 마리는 곧 잡힌다');
@@ -133,7 +136,8 @@ test('★ §15-A-2 드롭도 저장 상한을 지킨다 — 가득 찬 곳간은
   const [turret] = turretList(nation, data);
   nation.resources.meat = storageLimit(nation, data);
   const before = nation.resources.meat;
-  placeCreature(nation, 'chicken', turret.x + 1, turret.y);
+  // ★ 2단계B — 성난 닭으로 잰다(위 검사와 같은 까닭)
+  placeCreature(nation, 'chicken', turret.x + 1, turret.y, { provoked: 60 });
   let kills = [];
   for (let i = 0; i < 6 && !kills.length; i += 1) kills = turretGuard(world, nation, data, 1).kills;
   assert.equal(kills.length, 1);
@@ -145,7 +149,8 @@ test('★ §15-A-2 도감 — 터렛이 잡은 것도 조우·처치로 적힌�
   const { world, nation, R } = town();
   putTurret(world, nation, 'arrow_tower', 3, R - 2, 0);
   const [turret] = turretList(nation, data);
-  placeCreature(nation, 'chicken', turret.x + 1, turret.y);
+  // ★ 2단계B — 성난 닭으로 잰다(위 검사와 같은 까닭)
+  placeCreature(nation, 'chicken', turret.x + 1, turret.y, { provoked: 60 });
   for (let i = 0; i < 6; i += 1) turretGuard(world, nation, data, 1);
   const entry = nation.codex?.species?.chicken;
   assert.ok(entry, '도감에 줄이 생긴다');
@@ -174,7 +179,7 @@ test('★ §15-A-3 목장 반경 안의 온순한 짐승은 쏘지 않는다', (
   assert.equal(sheep.hp, data.creatures.defs.sheep.hp);
 });
 
-test('★ §15-A-3 목장 안이라도 사나운 것은 쏜다 · 목장 밖 온순한 짐승도 쏜다', () => {
+test('★ §15-A-3 목장 안이라도 사나운 것은 쏜다 · ★ 2단계B 목장 밖 온순한 짐승은 성나야 쏜다', () => {
   const { world, nation, t } = town({ tier: 4 });
   completeStructure(world, nation, { building: 'ranch', tier: 1, x: t.x + 3, y: t.y + 3, placed: true }, data);
   putTurret(world, nation, 'arrow_tower', 3, 3, 6);
@@ -185,13 +190,22 @@ test('★ §15-A-3 목장 안이라도 사나운 것은 쏜다 · 목장 밖 온
   assert.equal(r1.shots[0].targetId, wolf.id);
   assert.ok(wolf.hp < data.creatures.defs.wolf.hp);
 
-  // 목장에서 먼 자리의 양 — 「동물들과 적을 모두 공격」
+  /* ★ 2단계B — 목장에서 먼 자리의 양. 옛 계약은 「목장이 없으면 온순한 짐승도 표적이다」였는데,
+     그 규칙은 짐승이 영토 밖에만 살던 시절의 것이다. 온순종이 마을 안까지 들어오게 된 지금
+     그대로 두면 터렛이 하루 종일 양을 잡는다 — 이제는 **성이 나야** 쏜다. */
   const { world: w2, nation: n2, R } = town();
   putTurret(w2, n2, 'arrow_tower', 1, R - 2, 0);
   const [t2] = turretList(n2, data);
   const sheep = placeCreature(n2, 'sheep', t2.x + 1, t2.y);
-  const r2 = turretGuard(w2, n2, data, 1);
-  assert.equal(r2.shots.length, 1, '목장이 없으면 온순한 짐승도 표적이다');
+  let quiet = 0;
+  for (let i = 0; i < 6; i += 1) quiet += turretGuard(w2, n2, data, 1).shots.length;
+  assert.equal(quiet, 0, '성나지 않은 온순한 짐승은 표적이 아니다');
+  assert.equal(sheep.hp, data.creatures.defs.sheep.hp, '한 대도 안 맞는다');
+
+  sheep.provoked = 60;                       // 사람이 먼저 건드렸다 — 덤비는 것에는 방어가 필요하다
+  let angry = 0;
+  for (let i = 0; i < 4 && !angry; i += 1) angry += turretGuard(w2, n2, data, 1).shots.length;
+  assert.ok(angry >= 1, '성이 나면 쏜다');
   assert.ok(sheep.hp < data.creatures.defs.sheep.hp);
 });
 

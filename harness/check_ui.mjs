@@ -64,7 +64,11 @@ const BANNED_V2 = ['개척령', '성곽', '시즌', '결산', '열나흘', '감�
    (동사 「세운다/세웁니다」도 「짓는다/짓습니다」로 옮겼지만, 자물쇠를 거는 것은 화면에 그대로
     나오는 명사 하나뿐이다 — 「깃발을 세운다」 같은 정당한 쓰임까지 막지 않기 위해서다.) */
 const BANNED_NAMING = ['세우기'];
-const BANNED = BANNED_DEV.concat(BANNED_V2, BANNED_NAMING);
+/* ★ 5단계A 용어 직관화 — 「벼린다」는 화면에서 만들기와 강화 두 뜻으로 섞여 쓰였다.
+   제작은 「만든다/제작」, 강화는 「강화한다」로 갈랐으므로 옛 자는 다시 새지 않게 막는다.
+   (검사는 주석을 걷어내고 문자열 리터럴만 보므로, 코드 주석의 「벼리는 물건」 따위는 걸리지 않는다.) */
+const BANNED_CRAFT = ['벼린다', '벼리기', '벼립니다'];
+const BANNED = BANNED_DEV.concat(BANNED_V2, BANNED_NAMING, BANNED_CRAFT);
 
 function stripComments(src) {
   let out = '', i = 0;
@@ -111,7 +115,7 @@ for (const w of BANNED) {
   if (text.includes(w)) problems.push(`index.html 화면 문구에 금지어 "${w}"`);
 }
 notes.push(`금지어 ${BANNED.length}종 검사 (개발자 용어 ${BANNED_DEV.length} · 폐기 용어 ${BANNED_V2.length}`
-  + ` · 명칭 ${BANNED_NAMING.length})`);
+  + ` · 명칭 ${BANNED_NAMING.length} · 제작 용어 ${BANNED_CRAFT.length})`);
 
 /* ── 4-b. ★ GDD3 §14-8 — 자료 파일의 화면 문구도 같은 자를 쓴다 ─────────
    chapters.json 의 코치마크·목표 카드 글은 그대로 화면에 나간다. 여기가 새면 이름이 두 벌이 된다. */
@@ -119,6 +123,9 @@ for (const f of ['chapters.json', 'balance.json']) {
   const raw = readFileSync(join(ROOT, 'data', f), 'utf8');
   for (const w of BANNED_NAMING) {
     if (raw.includes(w)) problems.push(`data/${f} 의 화면 문구에 금지어 "${w}" (§14-8 — 「건설」로 통일)`);
+  }
+  for (const w of BANNED_CRAFT) {
+    if (raw.includes(w)) problems.push(`data/${f} 의 화면 문구에 금지어 "${w}" (5단계A — 「제작/강화」로 통일)`);
   }
 }
 

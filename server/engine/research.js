@@ -300,10 +300,17 @@ export function applyUnlock(world, nation, key, data, rng = null) {
   for (let c = 0; c < clusters; c += 1) {
     const ring = spawn.ring[c % spawn.ring.length];
     const band = bands[ring] ?? bands[1];
+    /* ★ 2단계B — 띠 안에서 다시 몫을 자른다(spawn.band, 없으면 띠 전체 = 옛 값 그대로).
+       「왜」 — 링1 은 영토+10 부터 영토+32 까지인데 주민·동료의 작업 반경은 영토+26 이다. 띠를 통째로
+       쓰면 심은 것의 4분의 1이 손이 닿지 않는 자리에 앉는다. 뽑는 난수의 횟수는 한 번 그대로다. */
+    const frac = spawn.band ?? [0, 1];
+    const span = band[1] - band[0];
+    const lo = band[0] + span * frac[0];
+    const hi = band[0] + span * frac[1];
     let center = null;
     for (let i = 0; i < 120 && !center; i += 1) {
       const a = r.float(0, Math.PI * 2);
-      const rad = r.float(band[0], band[1]);
+      const rad = r.float(lo, hi);
       const x = Math.round(town.x + Math.cos(a) * rad);
       const y = Math.round(town.y + Math.sin(a) * rad);
       if (x < 2 || y < 2 || x >= size - 2 || y >= size - 2) continue;

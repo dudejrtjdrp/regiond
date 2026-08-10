@@ -68,6 +68,63 @@ export function nearestWalkable(world, nation, data, x, y, maxR = 8) {
 }
 
 /**
+ * ★ 갇힘 방지(A8) — 새로 생기거나 커진 풋프린트가 **사람이 서 있던 칸**을 먹었을 때,
+ *   그 자리에 남은 아바타(플레이어·동료)와 주민을 풋프린트 밖 가장 가까운 칸으로 밀어낸다.
+ *   「왜」 여기 있나 — 본부 자동 성장(promoteSettlement→growHq) · 신축 완공 · 이전 재건이
+ *   전부 같은 사고를 낸다: 2×2 였던 본부가 4×4 가 되면 플레이어 기본 자리(hq.y+2)가 그 안에 든다.
+ *   난수를 쓰지 않는다(nearestWalkable 은 결정적) — 같은 씨앗은 같은 게임이어야 한다.
+ *
+ *   「왜」 방금 선 건물의 사각형(structure)만 훑나 — 나라 전체를 훑으면 **원래부터** 건물 밑에
+ *   있던 것들(도읍 중심에 앉힌 아바타 따위)까지 덩달아 옮겨 놓는다. 이 문이 고치는 사고는
+ *   「방금 커진 자리에 사람이 있었다」 하나뿐이므로, 손대는 범위도 그 한 채로 묶는다.
+ * @param {object} [opts] {structure} — 이 건물의 풋프린트 안에 선 것만 밀어낸다(없으면 전부)
+ * @returns {Array<{kind:string,id:string,x:number,y:number}>} 옮겨진 것들
+ */
+export function evictBlocked(world, nation, data, opts = {}) {
+  const moved = [];
+  if (!nation || !world) return moved;
+  const maxR = opts.maxR ?? 8;
+  const s = opts.structure ?? null;
+  let inScope = () => true;
+  if (s && s.x != null) {
+    const { w, h } = footprint(s.key ?? s.building, data, s.tier);
+    inScope = (x, y) => {
+      const cx = Math.round(x);
+      const cy = Math.round(y);
+      return cx >= s.x && cx < s.x + w && cy >= s.y && cy < s.y + h;
+    };
+  }
+  for (const av of Object.values(nation.avatars || {})) {
+    if (!av || av.x == null || av.y == null) continue;
+    if (!inScope(av.x, av.y)) continue;
+    if (!structureBlocks(nation, data, av.x, av.y)) continue;
+    const spot = nearestWalkable(world, nation, data, av.x, av.y, maxR);
+    if (!spot) continue;
+    /* 아바타 자리는 클라 권위(§12-11)다 — 서버가 여기서 몸을 옮겨도 화면은 모른다.
+       **어느 칸에서 꺼냈는지**를 적어 두면, 다음 lordMove 가 그 옛 칸을 다시 보고해 올 때
+       「이건 갇힘이지 벽 통과가 아니다」를 가려내고 새 좌표를 ack 에 실어 되돌려 준다.
+       표는 그 보고 한 번으로 사라진다(avatars[who] 를 새로 쓰므로). */
+    av.evicted = { x: Math.round(av.x), y: Math.round(av.y) };
+    av.x = spot.x;
+    av.y = spot.y;
+    moved.push({ kind: 'avatar', id: av.id, x: spot.x, y: spot.y });
+  }
+  for (const u of nation.villagers || []) {
+    if (!u || u.x == null || u.y == null) continue;
+    if (!inScope(u.x, u.y)) continue;
+    if (!structureBlocks(nation, data, u.x, u.y)) continue;
+    const spot = nearestWalkable(world, nation, data, u.x, u.y, maxR);
+    if (!spot) continue;
+    u.x = spot.x;
+    u.y = spot.y;
+    /* 목적지까지 건물 밑이면 함께 꺼낸다 — 안 그러면 다음 걸음에 도로 걸어 들어간다 */
+    if (u.destX != null && structureBlocks(nation, data, u.destX, u.destY)) { u.destX = spot.x; u.destY = spot.y; }
+    moved.push({ kind: 'villager', id: u.id, x: spot.x, y: spot.y });
+  }
+  return moved;
+}
+
+/**
  * Respawn directly in front of the current settlement HQ. The HQ grows by
  * tier, so its bottom edge—not the town centre—is the stable reference.
  */

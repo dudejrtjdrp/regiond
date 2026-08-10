@@ -338,6 +338,9 @@ export function publicConfig() {
       nameplateColors: [...(d.companions.nameplateColors || [])],
       autoPlay: { suspendSeconds: d.companions.autoPlay?.suspendSeconds ?? 30 },
     },
+    /* ★ A6 — 화자↔초상판 매핑. 대사(beats)는 storyBeat 로만 나가지만 **얼굴표**는 규격이라
+       화면이 미리 쥐고 있어야 한다(대화창은 스토리 밖 — 흔적·유물·외교 — 에서도 같은 표를 쓴다). */
+    story: { portraits: { ...(d.story?.portraits || {}) } },
     world: publicWorld(d),
     time: {
       dayRealSeconds: d.balance.time.dayRealSeconds,

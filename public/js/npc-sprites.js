@@ -48,6 +48,31 @@
     return CROP[skin][dir] || CROP[skin][0];
   }
 
+  /* ★ 2026-08 — 「나」 칸의 얼굴. 역할을 맡기 전(감정의 날 이전)에는 초상 자리에 직업 얼굴을
+     걸어서는 안 된다. 지도 위를 걷는 바로 그 NPC 도트의 **머리만** 잘라 세운다 —
+     초상과 발밑의 도트가 같은 사람이라야 「나는 아직 아무것도 아니다」가 그대로 읽힌다. */
+  function faceImg(id, px) {
+    var size = px || 40;
+    var cv = document.createElement('canvas');
+    cv.width = size; cv.height = size;
+    cv.className = 'npc-face';
+    cv.style.imageRendering = 'pixelated';
+    var ctx = cv.getContext('2d');
+    var crop = cropFor(id, 0);
+    var image = imageFor(skinFor(id) + '/south/01');
+    function paint() {
+      if (!image.complete || !image.naturalWidth) return;
+      var side = crop[2] * 0.72;                      // 어깨는 버리고 머리만 담을 만큼
+      var sx = crop[0] + (crop[2] - side) / 2;
+      var sy = crop[1] - side * 0.04;                 // 정수리가 잘리지 않게 한 뼘 위에서
+      ctx.clearRect(0, 0, size, size);
+      ctx.imageSmoothingEnabled = false;
+      try { ctx.drawImage(image, sx, sy, side, side, 0, 0, size, size); } catch (e) {}
+    }
+    if (image.complete) paint(); else image.addEventListener('load', paint);
+    return cv;
+  }
+
   function preload() {
     ['male', 'female'].forEach(function (skin) {
       DIRECTION.forEach(function (direction) {
@@ -57,5 +82,5 @@
   }
 
   preload();
-  GM.npcSprites = { get: get, cropFor: cropFor, skinFor: skinFor };
+  GM.npcSprites = { get: get, cropFor: cropFor, skinFor: skinFor, faceImg: faceImg };
 })(window);

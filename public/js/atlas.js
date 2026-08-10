@@ -24,6 +24,44 @@
     return im && im.complete && im.naturalWidth && !im.failed ? im : null;
   }
 
+  /* ★ §19-F2(F07-4) — 세계에 한 마리뿐인 용의 전용 시트.
+     여느 짐승의 4×6 시트가 아니라 동작별 9프레임 가로 스트립이다(assets/creature/ash_wyrm/):
+     fly_east·fly_west·fly_north·fly_south(비행) · fire_east·fire_west(화염) · stay(대기).
+     시트가 아직 안 읽혔으면 null 을 돌려주고, 그때는 기존 sheet.png(4×6) 길이 그대로 남는다. */
+  var BOSS_ANIMS = { fly_east: 1, fly_west: 1, fly_north: 1, fly_south: 1,
+                     fire_east: 1, fire_west: 1, stay: 1 };
+  var BOSS_IMAGES = {};
+  function bossSheet(anim) {
+    var im = BOSS_IMAGES[anim];
+    if (!im) {
+      im = new Image();
+      im.onload = function () { try { global.dispatchEvent(new Event('gm:building-asset-ready')); } catch (e) {} };
+      im.onerror = function () { im.failed = true; };
+      im.src = 'assets/creature/ash_wyrm/' + anim + '.png?v=dragon-set-1';
+      BOSS_IMAGES[anim] = im;
+    }
+    return im && im.complete && im.naturalWidth && !im.failed ? im : null;
+  }
+
+  /** 용 한 프레임 — anim 은 BOSS_ANIMS 의 이름, frame 은 0~8. 시트 전이면 null. */
+  function boss(anim, frame, opts) {
+    if (!BOSS_ANIMS[anim]) anim = 'stay';
+    var sheet = bossSheet(anim);
+    if (!sheet) return null;
+    var f = ((frame | 0) % 9 + 9) % 9;
+    var cw = Math.floor(sheet.naturalWidth / 9), ch = sheet.naturalHeight;
+    var hurt = opts && opts.hurt;
+    return cached('boss:' + anim + ':' + f + (hurt ? ':h' : ''), cw, ch, function (P, g) {
+      g.drawImage(sheet, f * cw, 0, cw, ch, 0, 0, cw, ch);
+      if (hurt) {
+        g.globalCompositeOperation = 'source-atop';
+        g.fillStyle = 'rgba(220,80,70,.4)';
+        g.fillRect(0, 0, cw, ch);
+        g.globalCompositeOperation = 'source-over';
+      }
+    });
+  }
+
   /* 신전 수호병은 일반 야생종과 같은 종값을 공유해도 신전별 전용 시트를 쓴다.
      시트는 4열 x 5행(대기·이동·공격·피격·사망)으로 고정한다. */
   function handmadeGuardian(theme) {
@@ -112,6 +150,70 @@
   function buildingAspect(key, tier) {
     var image = handmadeBuilding(key, tier);
     return image ? image.naturalWidth / image.naturalHeight : 0;
+  }
+
+  /* ★ 배포최적화 — 원본 스프라이트 축소본 캐시.
+     「왜」 필요한가 — 수작업 건물 PNG는 1254×1254인데 화면에서는 타일 1.7~2.6칸,
+     즉 41~83px 로만 그려진다. drawImage 에 원본을 그대로 넘기면 브라우저가 매 프레임
+     157만 픽셀을 60px 로 줄인다. 면적 400배 축소를 초당 60번 되풀이하는 셈이라
+     에셋을 붙인 뒤 프레임이 무너진 진짜 원인이 여기였다(지형·타일은 이미 16/32/64
+     오프스크린 캔버스를 거쳐서 멀쩡했다).
+     한 번만 줄여 캔버스에 담아 두고 그 뒤로는 등배에 가깝게 찍는다.
+     줌은 16·24·32 사이를 보간하므로 폭을 8px 격자로 올림해 캐시가 흔들리지 않게 한다. */
+  /* ★ 6단계 — 곳간을 **정말** 최근순으로 쓴다(옛 셈은 들어온 순서였다).
+     「왜」 늦은 판에서 프레임이 절벽처럼 무너졌나 — Map 의 열쇠 차례는 **넣은 순서**라,
+     넘칠 때 버려지는 것이 늘 「가장 먼저 구운 것」이었다. 그런데 가장 먼저 구운 것은
+     본부·집처럼 **화면에 늘 있는** 그림이다. 정착지가 커져 열쇠가 상한을 넘는 순간
+     매 프레임 화면의 붙박이 그림을 버리고 다시 굽는 되돌이(thrash)에 빠졌다 —
+     1254² 를 60px 로 줄이는 일이 프레임마다 수십 번 되풀이된 것이 절벽의 정체다.
+     맞은 열쇠를 지웠다 다시 넣으면 차례의 맨 뒤로 가므로, 넘칠 때 버려지는 것은
+     **가장 오래 안 쓴 것**이 된다. 상한도 320 → 512 로 올린다(캔버스 한 장이 대개 64² 안쪽이라
+     512장을 다 채워도 몇 MB 수준이다). 굽는 셈은 결정적이라 **그림은 한 점도 달라지지 않는다** —
+     버렸다 다시 구워도 같은 픽셀이 나온다. */
+  var SCALED = new Map();
+  var SCALED_MAX = 512;
+  var scaledSeq = 0;
+
+  function scaled(img, w, h) {
+    if (!img) return img;
+    var nw = img.naturalWidth || img.width, nh = img.naturalHeight || img.height;
+    if (!nw || !nh) return img;
+    /* 아직 안 실린 그림은 굽지 않는다 — 빈 캔버스가 캐시에 박힌다 */
+    if (img.complete === false || img.failed) return img;
+    w = Math.max(1, Math.ceil(w)); h = Math.max(1, Math.ceil(h));
+    /* 원본이 표시 크기와 비슷하거나 작으면 줄일 이유가 없다(확대는 그대로 맡긴다) */
+    if (nw <= w * 1.25 && nh <= h * 1.25) return img;
+    var bw = Math.ceil(w / 8) * 8, bh = Math.ceil(h / 8) * 8;
+    if (bw >= nw || bh >= nh) return img;
+    if (!img.__gmScaleId) img.__gmScaleId = ++scaledSeq;
+    var ck = img.__gmScaleId + ':' + bw + 'x' + bh;
+    var hit = SCALED.get(ck);
+    /* 맞았으면 차례의 맨 뒤로 옮긴다 — 이 한 줄이 FIFO 를 LRU 로 만든다 */
+    if (hit) { SCALED.delete(ck); SCALED.set(ck, hit); return hit; }
+    var cv = document.createElement('canvas');
+    cv.width = bw; cv.height = bh;
+    var g = cv.getContext('2d');
+    /* jsdom 하니스처럼 2d 문맥이 없는 곳에서는 원본을 그대로 돌려준다 */
+    if (!g) return img;
+    try {
+      /* 픽셀아트 원본을 큰 배율로 줄일 때는 부드럽게 — 계단이 아니라 뭉개짐이 낫다 */
+      g.imageSmoothingEnabled = true;
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(img, 0, 0, bw, bh);
+    } catch (e) { return img; }
+    if (SCALED.size >= SCALED_MAX) {
+      var oldest = SCALED.keys().next();
+      if (!oldest.done) SCALED.delete(oldest.value);
+    }
+    SCALED.set(ck, cv);
+    return cv;
+  }
+
+  /* 에셋이 새로 실리면 그 그림의 축소본만 버린다(전량 폐기는 줌마다 재구축을 부른다) */
+  function dropScaled(img) {
+    if (!img || !img.__gmScaleId) return;
+    var p = img.__gmScaleId + ':';
+    SCALED.forEach(function (v, k) { if (k.indexOf(p) === 0) SCALED.delete(k); });
   }
 
   function mk(w, h, draw) {
@@ -1893,9 +1995,13 @@
   GM.atlas = {
     terrain: terrain, terrainSample: terrainSample, terrainBlob: terrainBlob, dressing: dressing, edgeDressing: edgeDressing, biomeFeature: biomeFeature, forestProp: forestProp, biomeProp: biomeProp, landmark: landmark, node: node, stump: stump, trail: trail,
     building: building, handmadeBuilding: handmadeBuilding, buildingAnimation: buildingAnimation, buildingAspect: buildingAspect, site: site, fence: fence,
+    scaled: scaled, dropScaled: dropScaled,
+    /* ★ 6단계 계측 — 축소본 곳간에 지금 몇 장이 들어 있나(개발 패널·하니스가 읽는다).
+       상한(512)에 붙어 있으면 그 판은 곳간이 모자란 판이다 — 절벽의 조짐을 숫자로 본다. */
+    scaledSize: function () { return SCALED.size; },
     town: town, hall: hall, wagon: wagon, caravan: caravan, camp: camp, folk: folk,
     avatar: avatar, avatarPortrait: avatarPortrait, avatarImg: avatarImg,
-    enemy: enemy, wild: wild, variantAt: variantAt, hash01: h2, clear: clear,
+    enemy: enemy, wild: wild, boss: boss, variantAt: variantAt, hash01: h2, clear: clear,
     palette: palette, styleOf: styleOf, appKey: appKey, styleOfBuilding: styleOfBuilding
   };
 })(window);

@@ -414,24 +414,37 @@
     return !!(t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName));
   }
 
+  /* 제 창을 연 키 = 그 창을 닫는 키. 여기 적힌 것만 토글이다(열쇠 ↔ 모달 key). */
+  var MODAL_TOGGLE = { c: 'equip', i: 'relic' };
+
   function onKeyDown(e) {
     if (e.key === 'Escape') {
       if (S.S.placing) { S.setPlacing(null); GM.build.close(); return; }
       if (U.anyModalOpen()) { U.closeTopModal(); return; }
-      /* 고른 것이 있으면 먼저 물린다 — 그다음 Esc 가 설정을 연다(§14-2) */
+      /* 고른 것이 있으면 먼저 물린다 — 그다음 Esc 가 메뉴를 연다.
+         ★ 4단계B — 옛날에는 여기서 설정이 바로 열렸다. 이제 설정은 메뉴 안의 한 칸이다
+         (진입점이 다섯 군데로 흩어져 있던 것을 문 하나로 모았다). */
       var sel = S.S.selection || {};
       var hadSelection = !!(sel.residents && sel.residents.length) || !!sel.nodeId
         || !!sel.structureId || !!sel.siteId || !!sel.fenceId;
       U.coachClear();
       S.clearSelection();
       GM.hud.hideContext();
-      if (!hadSelection && GM.app.inGame()) GM.settings.open();
+      if (!hadSelection && GM.app.inGame()) GM.menu.open();
       return;
     }
     if (typing(e)) return;
     if (!GM.app.inGame()) return;
     if (introLocked()) return;
-    if (U.anyModalOpen()) return;
+    if (U.anyModalOpen()) {
+      /* ★ C·I 토글(2026-08) — 제 창을 연 키는 닫기로도 통한다. 다른 모달이 위에 얹혀
+         있으면 건드리지 않는다(최상단이 그 창일 때만).
+         C = 내 몸과 장비(equip) · I = 유물 보관함(relic). */
+      var mk = MODAL_TOGGLE[e.key.toLowerCase()];
+      var em = mk && U.modalOpen ? U.modalOpen(mk) : null;
+      if (em) U.closeModal(em);
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     var k = e.key.toLowerCase();
     /* ★ GDD3 §15-C — 손이 닿았다. 걷거나 휘두르려 한 순간 자동이 잠시 물러난다
@@ -462,6 +475,8 @@
       case 'j': GM.codex.open(); break;
       /* ★ GDD3 §13-D-3 — 캐릭터 창. C 는 이제 '나'다(방어는 V 로 옮겼다). */
       case 'c': GM.equip.open(); break;
+      /* ★ I — 유물 보관함(인벤토리). 같은 키로 닫힌다(위 MODAL_TOGGLE). */
+      case 'i': if (GM.artifacts && GM.artifacts.open) GM.artifacts.open(); break;
       case 'v': GM.combat.openThreat(); break;
       case 'l': GM.chronicle.open(); break;
       case 'h': centerTown(); break;
@@ -549,7 +564,13 @@
     var t = S.templeNear(me.x, me.y, reach);
     if (!t) return false;
     GM.net.send('enterTemple', { nodeId: t.id }, function (r) {
-      if (r && r.ok) { GM.sfx.play('unlock'); return; }
+      if (r && r.ok) {
+        GM.sfx.play('unlock');
+        /* ★ 버그 수정(2026-08) — ack 에 실려 온 결정 카드를 버리고 있었다.
+           ruinEvent 푸시(신전 전용)를 놓치면 카드에 닿을 길이 없었다 — 즉시 연다. */
+        if (r.card && GM.council && GM.council.openDecision) GM.council.openDecision(r.card);
+        return;
+      }
       U.toast((r && r.error && r.error.message) || '지금은 열리지 않습니다.', 'warn');
     });
     return true;
@@ -597,6 +618,18 @@
   }
 
   /* ══════════ 매 프레임 ══════════ */
+  /* ★ 6단계 — 안내판(#coach-root)이 화면을 덮고 있나. 옛 셈은 이 한 줄을 위해
+     **프레임마다 querySelector 를 두 번** 돌렸다(있나 보고, 또 불러 아이들을 셌다).
+     #coach-root 는 index.html 에 박힌 붙박이 칸이고 ui.js 는 그 **속만** 비운다(칸 자체를
+     갈아 끼우지 않는다) — 그러니 칸을 한 번만 찾아 들고 있으면 된다.
+     그래도 판이 통째로 갈리는 자리(하니스의 새 document)를 대비해, 들고 있던 칸이
+     문서에서 떨어져 나갔으면 다시 찾는다. 보는 값(아이 수)은 옛것과 같다. */
+  var coachRoot = null;
+  function coachBusy() {
+    if (!coachRoot || coachRoot.isConnected === false) coachRoot = U.qs('#coach-root');
+    return !!(coachRoot && coachRoot.children.length);
+  }
+
   function step(dt) {
     var speed = 26 * dt / (GM.camera.cam.tile / 24);
     var dx = 0, dy = 0;
@@ -605,8 +638,7 @@
     if (keys.camUp) dy -= 1;
     if (keys.camDown) dy += 1;
     var fresh = Date.now() - lastPointerAt < 1200;
-    var covered = (U.anyModalOpen && U.anyModalOpen()) ||
-                  !!(U.qs('#coach-root') && U.qs('#coach-root').children.length);
+    var covered = (U.anyModalOpen && U.anyModalOpen()) || coachBusy();
     if (pointerIn && fresh && !covered && !drag) {
       /* ★ §16-11 — 가장자리 이동 띠를 26 → 56px 로 넓혔다(피드백: "반경을 조금 넓혀줘").
          띠가 넓은 만큼 안쪽 경사는 완만하다 — 끝에 바짝 대면 그때 최고 속도가 난다. */

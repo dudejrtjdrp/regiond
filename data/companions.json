@@ -35,6 +35,8 @@
     "huntRadius": 24,
     "patrolArriveTiles": 1.5,
     "extraKinds": ["ironOre", "coal", "oil"],
+    "_oreNote": "★ 2단계B(2026-08-10) — 광물 승격. extraKinds 는 「기본 재고를 다 본 뒤의 꼬리 수요」라, 나무·돌·곡물 중 하나라도 모자라면 동료는 영영 광맥에 가지 않는다(그리고 그건 거의 언제나 참이다). 강재가 whenStockBelow.steel 아래이고 그 재료인 철광석마저 whenStockBelow.ironOre 아래인 때 — 곧 강재 사슬이 실제로 끊긴 때 — 에만 kind 를 기본 재고보다 앞에 세운다. 문턱을 낮게 잡은 까닭: 여기가 높으면 동료가 나무·돌을 팽개치고 광맥에 눌러앉아 건설이 멎는다. 이 칸을 지우면 옛 차례(광물은 늘 꼬리)로 돌아간다.",
+    "orePromotion": { "kind": "ironOre", "whenStockBelow": { "steel": 10, "ironOre": 40 } },
     "nodeKinds": {
       "wood": ["forest"],
       "stone": ["rock"],

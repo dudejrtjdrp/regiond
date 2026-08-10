@@ -1270,6 +1270,43 @@ event: { kind: "biome_found", nationId, data: {위와 같음} }
 - 고친 버그: `ruin_resolved` 사건이 `e.text` 가 없어 클라 사건 처리기에서 통째로 걷혔다.
   카드에 답해도 화면에 아무것도 안 떴다.
 
+### 0-X-3. 유적 카드의 `decide` — **한 번 고르면 닫히던 것**을 여러 갈래를 눌러 보는 방으로 (2단계A)
+
+**유적 카드에만** 적용되는 규약이다(`decision.kind === 'ruin' && decision.ruin`).
+어전 결정·상단의 제안·신전(`temple`)은 **옛 규약 그대로** — 고르는 즉시 큐에서 내려간다.
+
+| 낱말 | 어디에 | 뜻 |
+|---|---|---|
+| `option.closes` | `data/ruins.json` | 이 갈래를 고르면 카드가 닫힌다(열두 장 모두 「떠난다」에 붙어 있다) |
+| `decision.used` | 나라(결정 큐) | 이 카드에서 이미 살펴본 갈래들. 옛 세이브에는 없고, 없으면 빈 목록과 같다 |
+| `decide` ack `done` | ack | 카드가 큐에서 내려갔는가. **창을 닫는 때를 화면이 제 손으로 셈하지 않는다** |
+| `decide` ack `used` · `remaining` | ack | 지금까지 고른 것 · 아직 남은 탐사 갈래(`closes` 는 세지 않는다) |
+| `decision.ruin.room` | 나라(결정 큐) | 이 카드가 선 방 번호. 두 번째 이후 갈래의 개인 난수 열쇠다 |
+
+- **큐에서 내려가는 때는 둘뿐이다.** ① `closes:true` 갈래를 골랐다 ② 남은 탐사 갈래가 없다.
+  그 전까지 카드는 큐에 남아 알림 스택에 서 있고, 창을 닫았다 다시 열어도 `used` 가 살아 있다.
+- 같은 갈래를 두 번 고르면 `RUIN_OPTION_USED` 로 튕긴다 — **카드는 큐에 그대로 남는다**
+  (거절이 카드를 삼키면 남은 갈래를 영영 못 본다).
+- **결정론.** 첫 갈래만 옛 그대로 **월드 난수**를 쓴다(옛 세이브·시드의 그 뒤 굴림이 그대로 산다).
+  두 번째부터는 `statRng('<씨앗>:ruin:<노드id>:<방>:<갈래>')` 개인 난수다 — 궤·방 카드가 이미 쓰던 답이고,
+  덤으로 「같은 방의 같은 갈래는 언제 눌러도 같은 결과」가 따라온다.
+- 「떠난다」를 **열쇠말로 코드에 박지 않는다.** 종료 갈래의 이름은 카드마다 다를 수 있으므로
+  자료가 `closes` 로 제 입으로 적는다.
+- 고친 버그: 땅의 카드(`biomeCards`, 설산의 「얼음 밑 돌무지」)는 `cards` 에 없는 id 라
+  `decide` 가 `NO_RUIN_CARD` 로 튕겼다 — 설산 유적은 어느 갈래도 고를 수 없었다.
+
+### 0-X-4. 유적 알림 — 방이 열린 사실은 **ack 와 이벤트 둘 다**로 흐른다 (2단계A)
+
+`actionSwing` 이 방을 열면 ack 의 `ruin.card` 와 **함께** `ruin_event {card}` 를 낸다
+(신전 `enterTemple` 이 쓰던 것과 같은 형식·같은 관로 → `ruinEvent`).
+ack 는 두드린 사람 하나만 받으므로, 알림 스택이 다음 일 틱(최대 10분)까지 아무것도 모르던 자리를 메운다.
+
+- **같은 카드로 창이 두 번 뜨지 않는다** — 화면이 막는다: `council.js openDecision` 이
+  `modalOpen('decision:<id>')` 를 보고 이미 열려 있으면 그 창을 그대로 돌려준다
+  (닫고 다시 그리면 눌러 둔 갈래와 결과 줄이 날아간다).
+- **같은 카드로 알림 줄이 둘 서지 않는다** — 쪽지의 열쇠를 결정 큐와 같은 `dec:<decisionId>` 로 두고,
+  `hud.js notices()` 가 같은 열쇠의 앞선 것만 남긴다.
+
 ---
 
 ## 0-P. v3.3 안 델타 — **손과 잠과 동료** (§17-7 · §17-9 · §17-11)
@@ -1664,6 +1701,9 @@ TrailView { id, key, kind:'chain'|'micro', x, y, name, art, verb, ready }
 `/api/config`
 - `residentStats` (이름·눈금·직업 적합) · `recruit` (값·쿨다운) · `equipment` (티어·재료·특성표) · `research` (선행·값·날수·철로 규격)
 - 규칙만 간다. **내가 무엇을 끼고 있는지, 어디까지 연구했는지는 `state` 로만** 간다.
+- ★ A6 `story` — `{portraits:{"<화자 이름>":"<초상판 파일이름>"}}` 뿐이다(`data/story.json portraits`).
+  대사·순서(`beats`)는 여기 없다 — 그것은 `storyBeat` 이벤트로만 간다(§세계관 W2).
+  표에 없는 화자는 화면이 이름값 해시로 정하고, **빈 화자(나레이션)에는 초상을 세우지 않는다**.
 
 ### 0-V-4. 조건 가시화의 두 겹 (§11-1 과 §12-3 이 부딪히지 않는 자리)
 
@@ -1702,6 +1742,9 @@ TrailView { id, key, kind:'chain'|'micro', x, y, name, art, verb, ready }
 | S→C | `playerDown {avatarId, by, downSeconds, x, y}` | 짐승에게 쓰러졌다. `x,y` 는 모닥불 자리 — 화면은 거기서 일어난다 |
 | S→C | `wildHit {avatarId, damage, hp, by}` | 물렸다(아직 서 있다) |
 | 뷰 | `state.codex` | ★ §13-C-3 도감. 종별 카드 + 유적 탭 + 층 문턱 |
+| 뷰 | `state.codex.clues[]` | ★ 3단계A 탐험 저널. `{fromNodeId,fromName,line,dir,land,temple,tick,targetSeen}` — 새것이 위. **가리킨 자취의 id·좌표는 실리지 않는다**(마커 금지) |
+| 뷰 | `state.codex.trails[]` | ★ 3단계A 밟아 온 길. `{key,name,step,steps,done,endingKey,endingName,lastTick}` |
+| 뷰 | `state.codex.totals.cluesOpen` | 아직 닿지 못한 단서 수(도감 탭의 점) · `cluesTotal` `trailsDone` `trailsWalked` 동반 |
 | 뷰 | `state.nation.rings` | `{r0, r1}` — 위험 띠 경계(본부 기준 반지름) |
 | 뷰 | `world.clusters[]` / `worldDiff.clusters[]` | ★ §13-B-1 자원 군락 `{id,type,x,y,r,n}`. **탐사된 것만** |
 | 뷰 | `world.rings` | 스냅샷에도 같은 경계가 실린다 |
@@ -2284,6 +2327,7 @@ ack / `joined` 이벤트 payload:
 | `harvestNode {nodeId}` | — | 클릭 수확 보너스 |
 | `setBattlePlan {tactic}` | 티어 2 | ★ 서지 3구간 배분은 폐기 |
 | `setAppearance {appearance}` / `chat {text}` | — | |
+| `christen {name}` | — | ★ 연출 W2 — 도착 컷신 끝의 이름 짓기. 신원 명령. 1~16자. 아바타·명부·솜씨 장부의 이름과 **가칭 그대로인** 나라 이름(「N의 정착지」)을 함께 고친다. 성공 시 세션 명부(playerName)도 새 이름을 따라가고 방 전체에 `avatars` 재방송 |
 | `visitNation {nationId}` | — | ★ §17-16 이웃 나라 찾아가기(§0-R-1). 도읍 중심 `towns.visitRadius` 안 · 신원 명령 |
 | `investigateTrail {trailId, choice?}` | — | ★ §18-D2 흔적 조사(§0-O-1 · 링1~3 은 **§0-L**). `trails.json reachTiles` 안 · 신원 명령 · `choice` 없이 1차, 있으면 2차 · ack 에 `joined`(합류 인원) · `healed`(음수면 상처) |
 | `sleepVote {on?}` | — | ★ §17-7 다같이 잠자기(§0-P-2). 사람 아바타 전원이 잠들면 하루가 곧장 넘어간다 · 싸움 중 불가 · 신원 명령 |

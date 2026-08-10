@@ -1,5 +1,5 @@
 {
-  "_note": "유적 탐사 카드 — 정본은 docs/유적개편기획.md §22 (구 docs/GAMEPLAY2.md §C-4 를 대체한다). 유적의 **방 하나**를 다 뒤지면 그 자리에서 카드 1장을 뽑아 결정 큐에 올리고 ruinEvent 를 쏜다. 응답은 기존 decide {decisionId, choice} 로 받는다. 유물 드랍은 기존 등급표(data/balance.json artifacts.gradeWeights)를 그대로 재사용하고, 등급 보정은 나라가 아니라 **그 방**이 쥔다(decision.ruin.gradeBoost). 구 gaugeThreshold 는 폐지됐다.",
+  "_note": "유적 탐사 카드 — 정본은 docs/유적개편기획.md §22 (구 docs/GAMEPLAY2.md §C-4 를 대체한다). 유적의 **방 하나**를 다 뒤지면 그 자리에서 카드 1장을 뽑아 결정 큐에 올리고 ruinEvent 를 쏜다. 응답은 기존 decide {decisionId, choice} 로 받는다. 유물 드랍은 기존 등급표(data/balance.json artifacts.gradeWeights)를 그대로 재사용하고, 등급 보정은 나라가 아니라 **그 방**이 쥔다(decision.ruin.gradeBoost). 구 gaugeThreshold 는 폐지됐다. ★ 2단계A — 유적 카드는 **한 번 고르고 닫히지 않는다**: 같은 방에서 갈래를 하나씩 눌러 볼 수 있고, closes:true 를 단 갈래(떠난다)를 누르거나 남은 갈래가 다 소진되어야 카드가 큐에서 내려간다. 「떠난다」를 열쇠말(leave)로 코드에 박지 않고 자료에 closes 를 다는 까닭 — 종료 갈래의 이름은 카드마다 다를 수 있고(신전은 「물러난다」다), 열쇠말을 코드가 알면 자료를 고칠 때마다 코드를 함께 고쳐야 한다.",
   "decisionKind": "ruin",
   "title": "유적 탐사",
   "clue": {
@@ -137,6 +137,7 @@
         },
         {
           "key": "leave",
+          "closes": true,
           "label": "떠난다",
           "text": "손대지 않기로 했다.",
           "outcomes": []
@@ -181,6 +182,7 @@
         },
         {
           "key": "leave",
+          "closes": true,
           "label": "떠난다",
           "text": "뚜껑만 덮어 두었다.",
           "outcomes": []
@@ -225,6 +227,7 @@
         },
         {
           "key": "leave",
+          "closes": true,
           "label": "떠난다",
           "text": "석상을 그대로 두었다.",
           "outcomes": []
@@ -295,6 +298,7 @@
         },
         {
           "key": "leave",
+          "closes": true,
           "label": "떠난다",
           "text": "흙을 다시 덮었다.",
           "outcomes": []
@@ -344,6 +348,7 @@
         },
         {
           "key": "leave",
+          "closes": true,
           "label": "떠난다",
           "text": "문을 돌아서 갔다.",
           "outcomes": []
@@ -393,6 +398,7 @@
         },
         {
           "key": "leave",
+          "closes": true,
           "label": "떠난다",
           "text": "가마를 덮어 두었다.",
           "outcomes": []
@@ -440,6 +446,7 @@
         },
         {
           "key": "leave",
+          "closes": true,
           "label": "떠난다",
           "text": "문을 닫고 나왔다.",
           "outcomes": []
@@ -483,6 +490,7 @@
         },
         {
           "key": "leave",
+          "closes": true,
           "label": "떠난다",
           "text": "돌무지를 돌아서 갔다.",
           "outcomes": []
@@ -531,6 +539,7 @@
         },
         {
           "key": "leave",
+          "closes": true,
           "label": "떠난다",
           "text": "자물쇠를 그대로 두었다.",
           "outcomes": []
@@ -574,6 +583,7 @@
         },
         {
           "key": "leave",
+          "closes": true,
           "label": "떠난다",
           "text": "발자국을 피해 물러났다.",
           "outcomes": []
@@ -620,6 +630,7 @@
         },
         {
           "key": "leave",
+          "closes": true,
           "label": "떠난다",
           "text": "좌판을 그대로 두었다.",
           "outcomes": []
@@ -670,6 +681,7 @@
         },
         {
           "key": "leave",
+          "closes": true,
           "label": "떠난다",
           "text": "비석을 세워만 두고 갔다.",
           "outcomes": []
@@ -689,6 +701,7 @@
         "biome": "snow",
         "via": "temple:snow",
         "guardian": "direwolf",
+        "guardianText": "성에 낀 문이 안쪽으로 밀려나고, 그 틈에서 흰 숨을 뿜는 것이 걸어 나온다.",
         "text": "눈을 이고 선 돌문이다. 문설주에 성에가 두껍게 앉았고, 안쪽에서 찬 바람이 흘러나온다."
       },
       {
@@ -697,38 +710,47 @@
         "biome": "jungle",
         "via": "temple:jungle",
         "guardian": "jungle_panther",
+        "guardianText": "덩굴이 저 혼자 갈라지며 길을 내주고, 그 끝에서 무늬 없는 눈 한 쌍이 다가온다.",
         "text": "덩굴이 지붕까지 삼킨 신전이다. 잎 사이로 오래된 돌결이 비친다."
       },
       {
         "id": "grove", "name": "뿌리의 신전", "biome": "forest", "via": "temple:forest", "guardian": "bear",
+        "guardianText": "뿌리가 바닥을 들어 올리며 갈라지고, 이끼를 뒤집어쓴 것이 몸을 세운다.",
         "text": "굵은 뿌리가 돌기둥을 감싼 신전이다. 나무가 문을 지키고 있다."
       },
       {
         "id": "stone", "name": "깊은 돌의 신전", "biome": "rock", "via": "temple:rock", "guardian": "bandit_scout",
+        "guardianText": "벽의 금을 따라 돌가루가 쏟아지더니, 그림자 하나가 회랑 끝에서 걸어 나온다.",
         "text": "바위 노두를 깎아 만든 문이다. 벽면의 금이 오래된 글자를 가른다."
       },
       {
         "id": "harvest", "name": "풍요의 신전", "biome": "fertile", "via": "temple:fertile", "guardian": "boar",
+        "guardianText": "쌓인 이삭이 무너지고, 그 아래에 엎드려 있던 것이 코를 들었다.",
         "text": "누렇게 마른 이삭이 돌문 앞에 쌓여 있다. 안쪽에서는 흙 냄새가 난다."
       },
       {
         "id": "dune", "name": "모래바람 신전", "biome": "desert", "via": "temple:desert", "guardian": "sand_lizard",
+        "guardianText": "모래가 소용돌이치며 갈라지고, 그 아래에서 비늘이 마른 소리를 낸다.",
         "text": "모래에 반쯤 묻힌 신전이다. 바람이 문양을 지웠다가 다시 쓴다."
       },
       {
         "id": "marsh", "name": "가라앉은 신전", "biome": "marsh", "via": "temple:marsh", "guardian": "marsh_lurker",
+        "guardianText": "검은 물이 한 번 크게 부풀었다 가라앉고, 물기를 뚝뚝 흘리는 것이 계단을 오른다.",
         "text": "검은 물 위로 돌계단만 남아 있다. 물결 아래에서 무언가가 움직인다."
       },
       {
         "id": "ash", "name": "잿불 신전", "biome": "ash", "via": "temple:ash", "guardian": "ash_hound",
+        "guardianText": "재가 회오리쳐 올랐다 흩어지고, 그 속에서 벌겋게 달아오른 눈이 켜진다.",
         "text": "재가 내려앉은 돌문 틈으로 아직 식지 않은 열기가 샌다."
       },
       {
         "id": "spore", "name": "포자의 신전", "biome": "mush", "via": "temple:mush", "guardian": "spore_walker",
+        "guardianText": "천장의 버섯이 일제히 빛을 잃고, 포자 안개를 헤치며 마른 발소리가 다가온다.",
         "text": "빛나는 버섯이 천장을 대신한 신전이다. 숨을 쉴 때마다 포자가 흔들린다."
       },
       {
         "id": "dusk", "name": "황혼의 신전", "biome": "dusk", "via": "temple:dusk", "guardian": "ash_wyrm",
+        "guardianText": "그림자가 벽에서 떨어져 나와 바닥에 섰다. 어스름이 그것의 몸이었다.",
         "text": "해가 기울지 않아도 어스름한 신전이다. 그림자가 돌문에서 떨어지지 않는다."
       }
     ],
@@ -745,7 +767,7 @@
       "dusk": { "prologue": ["황혼의 기록관은 세상이 끝나는 날을 적다가 마지막 장을 찢어 신전 문에 붙였다."], "trace": ["찢긴 종이의 절반에는 ‘끝은 오지 않는다’고, 나머지 절반에는 ‘그러니 누군가가 끝내야 한다’고 쓰여 있다."], "revelation": ["성표는 되살아나는 표식이 아니라, 마지막 장을 다시 쓸 사람에게 건네는 펜촉이라는 사실이 드러난다."] }
     },
     "riddle": {
-      "text": "문에 문양 셋이 새겨져 있다. 하나만 눌리고 나머지는 굳어 있다.",
+      "text": "전실은 횃불 하나 없이도 어슴푸레하다. 정면의 돌문에 문양 셋이 깊게 새겨져 있고, 손을 대면 하나만 미끄러지듯 눌리고 나머지는 바위처럼 굳어 있다.",
       "options": [
         {
           "key": "terra",
@@ -760,11 +782,11 @@
           "label": "불의 문양"
         }
       ],
-      "successText": "문양이 눌리자 돌문이 안쪽으로 물러섰다.",
-      "failText": "문양이 꿈쩍도 하지 않는다. 오늘은 열리지 않겠다."
+      "successText": "문양이 손끝 아래로 쑥 들어가고, 벽 속에서 오래된 쇠사슬이 풀리는 소리가 났다. 돌문이 안쪽으로 물러서며 회랑의 찬 공기가 얼굴을 스친다.",
+      "failText": "문양이 꿈쩍도 하지 않는다. 대신 문 안쪽에서 무언가가 자세를 고쳐 앉는 소리가 났다. 오늘은 열리지 않겠다."
     },
     "trial": {
-      "text": "안뜰에 지키는 것이 있다. 사람 눈을 피하지 않는다.",
+      "text": "회랑 끝의 안뜰이다. 바닥의 돌판마다 짐승의 발자국이 닳도록 겹쳐 있고, 그 한가운데 지키는 것이 서 있다. 사람 눈을 피하지 않는다.",
       "options": [
         {
           "key": "fight",
@@ -775,11 +797,11 @@
           "label": "물러선다"
         }
       ],
-      "spawnText": "지키는 것이 몸을 일으켰다.",
-      "leaveText": "등을 보이지 않고 천천히 물러났다."
+      "spawnText": "안뜰 끝의 문이 열리고 수호자가 걸어 나온다.",
+      "leaveText": "등을 보이지 않고 한 걸음씩 물러났다. 문은 닫히지 않았다 — 다음에 와도 저것은 여기 있다."
     },
     "vault": {
-      "text": "안뜰 끝에 안치소가 있다. 받침돌 위에 무언가 놓여 있다.",
+      "text": "안치소다. 천장의 갈라진 틈으로 빛줄기 하나가 내려와 받침돌만 비춘다. 그 위에 무언가 놓여 있고, 둘레의 벽감은 모두 비어 있다.",
       "options": [
         {
           "key": "take",
@@ -790,9 +812,9 @@
           "label": "두고 나온다"
         }
       ],
-      "successText": "받침돌 위의 것을 두 손으로 들어 올렸다.",
-      "emptyText": "받침돌은 비어 있었다. 누군가 먼저 다녀갔다.",
-      "leaveText": "손대지 않고 돌아 나왔다."
+      "successText": "받침돌 위의 것을 두 손으로 들어 올렸다. 빛줄기가 꺼지고, 신전이 한 번 크게 숨을 내쉬듯 먼지를 떨궜다.",
+      "emptyText": "받침돌은 비어 있었다. 먼지 위에 손자국 하나가 남아 있다 — 누군가 먼저 다녀갔다.",
+      "leaveText": "손대지 않고 돌아 나왔다. 빛줄기는 그대로 받침돌을 비추고 있었다."
     },
     "_viaNote": "★ §20-R4b — 신전마다 내어주는 것이 다르다(유물기획 §20-4: 설산 최심부·밀림 심장·링3 신전). via 가 갈리므로 dropPool 이 그 신전에 맞는 것만 후보로 삼는다 — 「어느 신전을 찾아갔나」가 무엇을 얻는지 정한다."
   },
@@ -846,6 +868,7 @@
         },
         {
           "key": "leave",
+          "closes": true,
           "label": "떠난다",
           "text": "눈을 도로 덮어 두고 왔다. 이 땅은 덮어 두면 지켜 준다.",
           "outcomes": []
