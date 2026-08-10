@@ -145,6 +145,7 @@ D-1 의 계측이 소켓이 닫힐 때마다 한 줄 찍는다. Railway 의 로�
 | 재배포하니 방이 다 사라졌다 | 같은 원인 |
 | 방이 두 개로 갈라진다 | 복제본이 2 이상이다 → `numReplicas: 1` |
 | 빌드가 `npm ci` 에서 멎는다 | 락파일 어긋남 → `npm install` 후 커밋, 또는 buildCommand 를 `npm install --omit=dev` 로 |
+| 빌드가 `npm ci --omit=dev` 에서 **EBUSY rmdir node_modules/.cache** 로 멎는다 | Nixpacks 가 설치 단계에서 이미 `npm ci` 를 돌린 뒤 buildCommand 가 **두 번째** `npm ci` 를 돌려 `node_modules` 를 지우려다 잠긴 것. buildCommand 를 **`npm prune --omit=dev`** 로 바꾼다(2026-08-10 실제로 겪음) |
 
 ---
 
