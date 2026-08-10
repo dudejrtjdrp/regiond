@@ -19,11 +19,22 @@
   var onEnd = null;
   var skipBtn = null;
 
-  function seenKey() { return 'gm.opening.' + (S.S.gameId || 'new'); }
+  /* ★ 「같은 방 이름으로 새 판을 열면 오프닝이 안 떴다」 —
+     예전 열쇠는 방 이름(gameId) 하나였다. 로비가 지난 방 이름을 그대로 채워 주니
+     새 판이어도 열쇠가 같아 「이미 봤다」로 걸렸다. 판이 바뀌면 지도 씨앗(seed)이
+     바뀐다. 그래서 열쇠에 씨앗을 함께 묶는다 — 새 판이면 반드시 다시 뜬다.
+     씨앗을 아직 못 받았으면 「봤다」로 치지 않는다(틀리게 감추느니 한 번 더 보여 준다). */
+  function worldSeed() {
+    var v = S.S.view;
+    return v && v.seed != null ? String(v.seed) : null;
+  }
+  function seenKey() { return 'gm.opening.' + (S.S.gameId || 'new') + '.' + worldSeed(); }
   function seen() {
+    if (worldSeed() == null) return false;
     try { return localStorage.getItem(seenKey()) === '1'; } catch (e) { return false; }
   }
   function markSeen() {
+    if (worldSeed() == null) return;
     try { localStorage.setItem(seenKey(), '1'); } catch (e) {}
   }
 
