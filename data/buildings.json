@@ -2276,6 +2276,7 @@
     },
     "stackCap": {
       "_default": 3,
+      "residents": 8,
       "output": 1,
       "permanentDefense": 1,
       "toolDiscount": 1,

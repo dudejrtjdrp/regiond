@@ -46,7 +46,9 @@ import {
 import {
   departmentsActive, featureUnlocked, evaluateProgress, checkTrace, chapterIndex, ensureProgress,
 } from './progression.js';
-import { capacity, stepArrivals, residentSettle, loseResidents, grainDays, housewarmArrival } from './residents.js';
+import {
+  capacity, stepArrivals, residentSettle, loseResidents, grainDays, housewarmArrival, clearWorkLedgers,
+} from './residents.js';
 // ★ Sprint 2 — 노는 손 자동 배치·정찰 목적지. 새로 온 사람도 그 자리에서 일을 받는다.
 import { stepAssignments, autoPlaceIdle } from './assign.js';
 import {
@@ -634,6 +636,17 @@ export function produceNation(world, nation, data, hooks) {
     const speed = nation.roles?.build?.holder ? data.roles.defs.build.tenureBonus.buildSpeedMultiplier : 1;
     out.buildPoints = cobbDouglas(A.build, L('build'), K('build'), a, b)
       * departmentMultiplier(world, nation, 'build', 'build', data, hooks, buffs) * speed;
+
+    /* ★ 실시간 채집 정지 버그 수정 — 부처가 도는 티어에서도 노동 장부는 매일 비운다.
+       옛 코드는 장부를 residentSettle(아래 else 가지) 안에서만 비웠다. 그래서 3티어에 오르는
+       순간 장부가 영영 안 비워졌고, 사람마다 하루치를 한 번 채운 뒤로는 stepResidentWork 의
+       want 가 0 이 되어 실시간 채집이 통째로 멎었다 — 걷는 연출만 남고 곳간은 안 올랐다.
+       ★ 이 가지에서 주민 몫은 부처 산출에서 **빼지 않는다**(위 out.* 은 그대로다):
+       부처 공식이 이미 인구를 노동으로 세고 있으니 엄밀히는 겹치는 몫이지만, 「사람이 캐면
+       곳간이 오른다」는 손맛을 3티어 위에서도 그대로 두기로 한 선택이다. 겹침이 부담되면
+       residentSettle 처럼 prepaid 를 빼는 쪽으로 좁히면 된다. */
+    nation.gatherMorale = nation.morale ?? data.balance.morale.default ?? 1;
+    clearWorkLedgers(nation);
   } else {
     /* ── 티어 0~2 — 주민 개별 채집 적립 ──
        ★ GDD3 §14-1 — 이제 하루 몫의 대부분은 실시간 루프가 사이클마다 이미 건네주었다.

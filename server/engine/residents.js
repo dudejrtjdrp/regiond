@@ -542,6 +542,21 @@ export function stepResidentWork(world, nation, data, dt = 1) {
 }
 
 /**
+ * 노동 장부를 비운다 — 하루가 바뀌었으니 다시 하루치를 낼 수 있다.
+ * ★ 이 함수를 가른 까닭 — 옛 코드는 장부를 residentSettle **안에서만** 비웠고,
+ *   residentSettle 은 부처가 안 도는 티어 0~2 에서만 불렸다. 그래서 3티어에 오르는 순간
+ *   장부가 영영 안 비워졌고, 사람마다 하루치(y.perDay)를 한 번 채우고 나면 want 가 0 이 되어
+ *   **실시간 채집이 통째로 멎었다**(걷는 연출만 남고 곳간은 한 톨도 안 올랐다).
+ */
+export function clearWorkLedgers(nation) {
+  for (const u of nation.villagers || []) {
+    if (!u.work) continue;
+    u.work.credited = {};
+    u.work.produced = {};
+  }
+}
+
+/**
  * 일 틱 정산 — 하루 산출에서 **이미 실시간으로 준 몫**을 뺀 나머지.
  * 아무도 안 보고 있어 실시간 루프가 멎어 있었다면 credited 가 비어 있으므로 residentGather 와 같다.
  * @returns {{resources:{}, buildPoints:number, workers:number, gross:{}, prepaid:{}}}
@@ -553,9 +568,9 @@ export function residentSettle(world, nation, data) {
     const c = u.work?.credited;
     if (!c) continue;
     for (const [res, v] of Object.entries(c)) prepaid[res] = round3((prepaid[res] || 0) + v);
-    u.work.credited = {};
-    u.work.produced = {};
   }
+  clearWorkLedgers(nation);
+
   const resources = {};
   for (const [res, v] of Object.entries(gross.resources)) {
     const owed = round2(Math.max(0, v - (prepaid[res] || 0)));
