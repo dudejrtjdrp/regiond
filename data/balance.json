@@ -228,7 +228,7 @@
       },
       "cooldownDays": 1
     },
-    "unitCompressionFrom": 60,
+    "unitCompressionFrom": 80,
     "militiaMoraleFloor": 0.7,
     "names": {
       "given": [

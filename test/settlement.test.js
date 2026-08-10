@@ -15,6 +15,7 @@ import {
 } from '../server/engine/structures.js';
 import {
   capacity, freeBeds, attractiveness, arrivalIntervalDays, stepArrivals, arrivalStatus, militiaList,
+  peoplePerUnit,
 } from '../server/engine/residents.js';
 import { fenceViews, aliveFences, segmentsFromPoints, blockingFence } from '../server/engine/fences.js';
 import { chronicleView } from '../server/engine/chronicle.js';
@@ -76,6 +77,20 @@ test('주민 유입 — 빈 자리가 없으면 오지 않는다', () => {
   for (let i = 0; i < 10; i += 1) stepArrivals(w, n, data, rng);
   assert.equal(n.population, 1, '천막 하나에는 한 사람만');
   assert.equal(arrivalStatus(n, data).reason, '누울 자리가 없습니다.');
+});
+
+test('주민 압축 — 대표 유닛 기준이 80명까지 유지된다', () => {
+  const w = newWorld(9);
+  const n = w.nations.player;
+  n.tier = 2;
+  __openChapter(n, 8);
+  const villagers = Array.from({ length: 80 }, (_, i) => ({ id: `r${i}`, job: 'idle' }));
+  n.villagers = villagers;
+  n.population = villagers.length;
+  assert.equal(peoplePerUnit(n, data), 1, '80명까지는 1유닛 = 1명');
+  n.villagers.push({ id: 'r80', job: 'idle' });
+  n.population += 1;
+  assert.ok(peoplePerUnit(n, data) > 1, '81명부터는 대표 유닛으로 압축된다');
 });
 
 test('주민 유입 — 매력도(식량 잉여·장식·사기)가 도착 주기를 줄인다', () => {

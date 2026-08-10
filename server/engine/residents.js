@@ -606,7 +606,7 @@ export function militiaList(nation, data) {
 // ────────────────────────────────────────────────────────────────
 // 뷰
 // ────────────────────────────────────────────────────────────────
-/** 유닛 압축 — 60명까지는 1유닛=1명, 그 위로는 대표 유닛이 여럿을 대신한다 */
+/** 유닛 압축 — 80명까지는 1유닛=1명, 그 위로는 대표 유닛이 여럿을 대신한다 */
 export function peoplePerUnit(nation, data) {
   const from = residentCfg(data).unitCompressionFrom;
   const n = (nation.villagers || []).length || 1;
